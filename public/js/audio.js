@@ -109,7 +109,7 @@ function spatial(pos){ const G=G_(); const P=G&&G.player; if(!pos||!P) return {g
 function out(vol,pan,bus){ const g=ac.createGain(); g.gain.value=vol; let n=g; if(pan&&ac.createStereoPanner){ const p=ac.createStereoPanner(); p.pan.value=pan; g.connect(p); n=p; } n.connect(bus||sfxG); return g; }
 function playS(name,vol=1,rate,o){ if(!ac) return false; const b=BUF[name]; if(!b) return false; const now=ac.currentTime; if(last[name]&&now-last[name]<0.045) return true; last[name]=now; const src=ac.createBufferSource(); src.buffer=b; src.playbackRate.value=rate||(0.92+Math.random()*0.16); src.connect(out(vol,o&&o.pan,o&&o.bus)); src.start(now+((o&&o.delay)||0)); return true; }
 // sprites: one file per family, fixed slots (fewer requests than 30 tiny files); variant never repeats twice in a row
-const SPR={ hit:{slot:.6,n:4}, swing:{slot:.5,n:3}, block:{slot:.9,n:3}, arrow:{slot:.8,n:4}, step:{slot:.3,n:9}, ui:{slot:1,n:6}, drum:{slot:1.5,n:2} };
+const SPR={ hit:{slot:.6,n:4}, swing:{slot:.5,n:3}, block:{slot:.9,n:3}, arrow:{slot:.8,n:4}, step:{slot:.3,n:9}, ui:{slot:1,n:6}, drum:{slot:1.5,n:2}, fall:{slot:.8,n:2}, bow:{slot:.5,n:1} };
 const lastV={};
 function pickV(fam,list){ let i; const L=lastV[fam]; do{ i=list[(Math.random()*list.length)|0]; }while(list.length>1&&i===L); lastV[fam]=i; return i; }
 function spr(fam,idx,vol=1,o={}){ if(!ac) return false; const b=BUF['s_'+fam], S=SPR[fam]; if(!b) return false;
@@ -132,7 +132,10 @@ for(const k in SMAP){ const f=Sfx[k]; Sfx[k]=function(...a){ if(quiet()&&k!=='pi
     if(k==='hit'){ const list=HITV[kind]||HITV.any; if(Math.random()<.2&&kind==='any'&&playS(Math.random()<.5?'hit':'clash',vol*.9,0,{pan:sp.pan})) { lastV.hit=-1; return; } if(spr('hit',pickV('hit',list),vol,{pan:sp.pan})) return; }
     else { const i=pickV('swing',[0,1,2,3]); if(i===3?playS('swing',vol,0,{pan:sp.pan}):spr('swing',i,vol*.9,{pan:sp.pan})) return; }
     return f&&f.apply(Sfx,a); }
-  if(k==='arrow'){ if(spr('arrow',0,.7,{pan:sp.pan})){ spr('arrow',1,.35,{delay:.05,pan:sp.pan}); return; } }
+  if(k==='arrow'){ const G=G_(), P=G&&G.player, hero=!!(P&&P.act&&P.act.kind==='cast'&&P.act.t<.1);   // hero volley (wave4 cast) -> bow creak, then twang
+    const d0=hero&&spr('bow',0,.45,{rate:.95+Math.random()*.1})?.13:0; if(spr('arrow',0,.7,{pan:sp.pan,delay:d0})){ spr('arrow',1,.35,{delay:d0+.05,pan:sp.pan}); return; } }
+  if(k==='dodge'&&BUF.s_swing){ spr('swing',pickV('dodgew',[0,1]),.38,{rate:.72+Math.random()*.1,pan:sp.pan}); }    // cloth/body whoosh under the old dodge sample
+  if(k==='death'&&BUF.s_fall){ spr('fall',pickV('fall',[0,1]),.6*sp.g,{delay:.6,pan:sp.pan}); }                     // body hits the ground ~0.6 s after the death starts
   if(k==='power'){ const G=G_(); if(G&&G.paused&&!quiet()){ if(Sfx.ui('upgrade')) return; } else bark('maid','skill',null,.35); }
   if(k==='ulti') bark('maid','skill',null,.8);
   if(k==='horn'){ hornExtra(); }
@@ -147,6 +150,8 @@ Sfx.roar=()=>!quiet()&&playS('roar',.8,1); Sfx.cry=()=>!quiet()&&playS('cry',.55
 Sfx.at=(x,z)=>{ POS={x,z}; return Sfx; };
 Sfx.block=(kind='block',pos)=>{ if(!ac||quiet()) return; const sp=spatial(pos||takePos([])); const i=kind==='parry'?2:pickV('block',[0,1]); if(!spr('block',i,(kind==='parry'?.8:.7)*sp.g,{pan:sp.pan})) Sfx.hit(); if(kind==='parry') bark('maid','parry',null,.25); };
 Sfx.parry=pos=>Sfx.block('parry',pos);
+Sfx.fall=(pos,delay=0)=>{ if(!ac||quiet()) return; const sp=spatial(pos||takePos([])); spr('fall',pickV('fall',[0,1]),.6*sp.g,{delay,pan:sp.pan}); };   // body-fall thud (knockdown contact)
+Sfx.bowDraw=()=>{ if(!ac||quiet()) return; spr('bow',0,.45); };   // bow creak at the start of a draw
 Sfx.arrowHit=(kind='body',pos)=>{ if(!ac||quiet()) return; const sp=spatial(pos||takePos([])); spr('arrow',kind==='wood'?3:2,.6*sp.g,{pan:sp.pan}); };
 const STEPI={sand:[0,1,2],grass:[3,4,5],wood:[6,7,8],stone:[6,7,8]};
 Sfx.step=(surface,vol=.3,pos)=>{ if(!ac||quiet()) return; const s=STEPI[surface]?surface:surfaceNow(); const sp=spatial(pos);
@@ -160,7 +165,7 @@ Sfx.stinger=(kind)=>{ if(!ac) return; const now=ac.currentTime; if(now-(cdT['st_
   const f={boss:'st_boss',phase:'st_phase',win:'st_win',lose:'st_lose'}[kind]; if(!f) return;
   if(kind==='phase'||kind==='boss') musicDip(kind==='boss'?2.6:1.6);
   if(!playS(f,kind==='phase'?.8:.85,1)) loadBuf(f,'sfx'); };
-Sfx.win=()=>{ mode='win'; autoBattle=false; playTrack(null,true,.6); Sfx.stinger('win'); bark('maid','win',null,1); setTimeout(()=>{ if(mode==='win') playTrack('win',false); },2400); };
+Sfx.win=()=>{ mode='win'; autoBattle=false; playTrack(null,true,.6); Sfx.stinger('win'); bark('maid','win',null,1); setTimeout(()=>{ if(mode==='win'&&!mapOn()) playTrack('win',false); },2400); };
 Sfx.defeat=()=>{ Sfx.stinger('lose'); };
 Sfx.bark=(who,key,pos)=>bark(who,key,pos,1);
 Sfx.amb=(name)=>{ AMB_OVR=name||null; };            // force a biome bed: 'steppe'|'desert'|'shore'|'river'|'night'|'city'|'storm'|'off'|null (auto)
@@ -244,7 +249,7 @@ function ticker(){ if(!ac||!REAL||ac.state!=='running') return; const now=ac.cur
   // boss phase change (bosses bump e.phase at 50 % / 20 % hp)
   if(bossOn){ if(G.boss!==lastBoss){ lastBoss=G.boss; lastPhase=G.boss.phase||1; bark('enemy','boss',null,.7); } else if((G.boss.phase||1)>lastPhase){ lastPhase=G.boss.phase; Sfx.stinger('phase'); } }
   // mission start: drums + súren once per run (G.mis.started is set by missions.js mstart())
-  if(G&&G.mis&&G.mis.started&&G.mis.run!==startRun&&live){ startRun=G.mis.run; Sfx.stinger('start'); }
+  if(G&&G.mis&&G.mis.started&&G.mis.run!==startRun&&live){ fight.stW=(fight.stW||0)+dt; if(BUF.s_drum||fight.stW>3){ startRun=G.mis.run; fight.stW=0; Sfx.stinger('start'); } }   // wait for the drum sprite (max 3 s)
   // ambience bed
   const c=chap(); let bed=AMB_OVR||(c==null?null:BIOME[c]); const beds=[]; if(bed&&BEDS[bed]) beds.push(...BEDS[bed]); if(G&&G.night&&bed&&bed!=='desert'&&bed!=='storm'&&!AMB_OVR) beds.push(['amb_night',.45]);
   const ambOn=live||(G&&G.mis&&!G.paused&&!q&&!deadOn); const want={};
@@ -287,4 +292,4 @@ export function voiceBusy(){ return !!(vCur&&vCur.playing); }
 export function waitVoice(maxS=25){ if(!voiceBusy()) return Promise.resolve(); const h=vCur; return Promise.race([h.done,new Promise(r=>setTimeout(r,maxS*1000))]); }
 export function stopVoice(){ if(vCur) vCur.stop(); }
 // debug / test hook
-window.__QQA={ Sfx, fight, get mode(){ return mode; }, get track(){ return curName; }, get ac(){ return ac; }, BUF };
+window.__QQA={ Sfx, fight, setMusic, LOOP, get mode(){ return mode; }, get track(){ return curName; }, get ac(){ return ac; }, get red(){ return comp?comp.reduction:0; }, get lp(){ return musLP?Math.round(musLP.frequency.value):0; }, BUF };

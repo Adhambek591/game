@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795208631';
-import { t, lang, L } from './i18n.js?v=1795208631';
-import { Sfx } from './audio.js?v=1795208631';
-import { MLIST } from './missions.js?v=1795208631';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795211861';
+import { t, lang, L } from './i18n.js?v=1795211861';
+import { Sfx } from './audio.js?v=1795211861';
+import { MLIST } from './missions.js?v=1795211861';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -49,6 +49,20 @@ const TX = {
   w4_well: ['Qudıq qasındaǵı qorǵanıs', 'Quduq yonidagi mudofaa', 'Оборона у колодца', 'Defence at the well'],
   w4_well2: ['Dushpan eki tárepten kiyatır — kárwandı qorǵań!', 'Dushman ikki tomondan kelmoqda — karvonni himoya qiling!', 'Враг идёт с двух сторон — защитите караван!', 'The enemy comes from both sides — defend the caravan!'],
   w4_well_w: ['Eki tárepten hújim! {n}/{m}', 'Ikki tomondan hujum! {n}/{m}', 'Атака с двух сторон! {n}/{m}', 'Attack from both sides! {n}/{m}'],
+  w4_stag: ['Esenkiredi!', 'Gangidi!', 'Оглушён!', 'Staggered!'],
+  w4_finish: ['Sońǵı soqqı — ⚔ basıń!', 'So\'nggi zarba — ⚔ ni bosing!', 'Добивание — жмите ⚔!', 'Finisher — press ⚔!'],
+  w4_coin: ['Áyyemgi teńge {n}/{m}', 'Qadimiy tanga {n}/{m}', 'Древняя монета {n}/{m}', 'Ancient coin {n}/{m}'],
+  w4_coins: ['Áyyemgi teńgeler: {n}/{m}', 'Qadimiy tangalar: {n}/{m}', 'Древние монеты: {n}/{m}', 'Ancient coins: {n}/{m}'],
+  w4_chest: ['Keyingi juldız sandıǵına: ★ {n}', 'Keyingi yulduz sandig\'igacha: ★ {n}', 'До следующего звёздного сундука: ★ {n}', 'Next star chest in: ★ {n}'],
+  w_qd: ['Qum sawıtı qılısh soqqısın jutadı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sawıtı jarıladı!', 'Qum zirhi qilich zarbasini yutadi. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching — zirhi yoriladi!', 'Песчаная броня глотает удары. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара — броня треснет!', 'The sand armour swallows your blade. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times — the armour cracks!'],
+  w_ja: ['Jalladtıń shınjırları ápiwayı soqqını qaytaradı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — ol esenkireydi!', 'Jallodning zanjirlari oddiy zarbani qaytaradi. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching — u gangiydi!', 'Цепи отражают удары. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара — он будет оглушён!', 'The chains deflect blows. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times — he is stunned!'],
+  w_ay: ['Aydarha suw ishinde jeńilmeydi. Tumar tolǵanda 🔺 basıń — Shınjır onı jaǵaǵa tartıp shıǵaradı!', 'Aydarho suv ichida yengilmas. Tumor to\'lganda 🔺 ni bosing — Zanjir uni qirg\'oqqa tortib chiqaradi!', 'В воде Айдарха неуязвим. Жмите 🔺, когда амулет заряжен, — Цепь вытащит его на берег!', 'Aydarho is invulnerable in the water. Press 🔺 when the amulet is charged — the Chain drags it ashore!'],
+  w_qu: ['Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sonda hújim etiń!', 'Qunqarning olovli tanasi qilichni o\'tmas qiladi. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching — shunda hujum qiling!', 'Огонь Кункара тупит меч. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара — и бейте!', 'Qunqar\'s fire dulls your blade. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times — then strike!'],
+  w_qg: ['Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń!', 'Qarg\'ashiq olti arshinli dev — oddiy zarba unga chivin chaqqandek. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching!', 'Каргашык — великан в шесть аршин. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара!', 'Qargashiq is a six-arshin giant. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times!'],
+  o_helm: ['Altın dubılǵanı shınjır menen julıp alıń — Surtaysha qasında ⚔ basıń', 'Tilla dubulg\'ani zanjir bilan yulib oling — Surtaysha yonida ⚔ ni bosing', 'Сорвите золотой шлем цепью — жмите ⚔ рядом с Суртайшой', 'Tear off the golden helmet with the chain — press ⚔ near Surtaysha'],
+  o_totem: ['Qanlı totemlerdi buzıń — totem qasında ⚔ basıń', 'Qonli totemlarni buzing — totem yonida ⚔ ni bosing', 'Разбейте кровавые тотемы — жмите ⚔ у тотема', 'Smash the blood totems — press ⚔ next to a totem'],
+  v3h_phal: ['Nayzagerlerdi aldınan buzıp bolmaydı — qaptalınan urıń yamasa ⚔ basıp turıp aylanıp soǵıń', 'Nayzachilarni old tomondan yorib bo\'lmaydi — yonidan uring yoki ⚔ ni bosib turib aylanib uring', 'Копейщиков не пробить в лоб — бейте с фланга или держите ⚔ для удара с разворота', 'Spearmen can\'t be broken from the front — strike their flank or hold ⚔ for the spinning strike'],
+  w4_loading: ['Júklenip atır…', 'Yuklanmoqda…', 'Загрузка…', 'Loading…'],
   w4_n_siege: ['Qashal qamalı', 'Qashal qamali', 'Осада Кашала', 'Siege of Qashal'],
   w4o_siege: ['Qorǵandı qamań: diywaldaǵı sadaqshılardı atıń, dárwaza buzılǵan soń eki noqattı iyeleń', 'Qo\'rg\'onni qamal qiling: devordagi kamonchilarni oting, darvoza buzilgach ikki nuqtani egallang', 'Осадите крепость: сбейте лучников со стены, после пролома ворот захватите две точки', 'Besiege the fortress: shoot the archers off the wall, then take two points once the gate is breached'],
   w4_wave: ['Tolqın {n}/{m}', 'To\'lqin {n}/{m}', 'Волна {n}/{m}', 'Wave {n}/{m}'],
@@ -110,7 +124,7 @@ const tt = (k, v) => t(k, v);
 
 // ---------------------------------------------------------------- save
 const KEY = 'qq_w4';
-const fresh = () => ({ v: 1, men: 0, best: {}, up: { sword: 0, bow: 0, armor: 0, shield: 0, arch: 0 }, lostAll: 0, capSeen: 1, bossPaid: {} });
+const fresh = () => ({ v: 1, men: 0, best: {}, up: { sword: 0, bow: 0, armor: 0, shield: 0, arch: 0 }, lostAll: 0, capSeen: 1, bossPaid: {}, coins: {} });
 const W = (() => { let s = null; try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { } const f = fresh(); if (!s || typeof s !== 'object') s = f; for (const k in f) if (s[k] === undefined) s[k] = f[k]; for (const k in f.up) if (typeof s.up[k] !== 'number') s.up[k] = 0; return s; })();
 function save() { try { localStorage.setItem(KEY, JSON.stringify(W)); } catch (e) { } }
 // one upgrade system: the old shop's sword / maidens levels move into the new tracks once (no double bonus)
@@ -133,6 +147,9 @@ const archN = () => Math.min(5, lvl('arch'));
 const expLv = c => .85 * capOf(Math.max(1, c));
 const foeHpK = c => c > 0 ? 1 + .085 * expLv(c) : 1;
 const foeDmK = c => c > 0 ? 1 + .05 * expLv(c) : 1;
+// under-upgrade penalty (balance pass): the enemy is tuned for ~85 % of the chapter cap; every level the sword + armour average is BELOW that makes him hit 22 % harder (max x2.6) and gives him 10 % more HP.
+// ch1 at level 0: dmg x1.56, HP x1.26; ch3 at level 0: dmg x2.3, HP x1.6; at 85-100 % of the cap: no penalty.
+const defi = c => c > 0 ? Math.max(0, expLv(c) - (lvl('sword') + lvl('armor')) / 2) : 0;
 const COSTB = { sword: 60, bow: 60, armor: 50, shield: 50, arch: 70 };
 const cost = (k, l) => Math.round(COSTB[k] * (1 + .6 * (l >= 13 ? l - 7 : l)) / 5) * 5;   // the last chapter has no boss purse before it: its two levels are priced so that chapter 7 pays ~90 % of them (agents/w4/econ.js)
 
@@ -162,11 +179,13 @@ function dirOf(p) { const c = C(); const s = c && c.stickDir ? c.stickDir() : nu
 
 // ================================================================ A) CONTROLS
 // ---- attack: near = sword combo (engine startAtk via doAct('A')), far = bow volley, hold = spinning strong strike
+// QA: can her sword reach him? not across a closed gate, not up on a wall / tower, not through a wall
+function unreach(p, e) { return (G.limitZ > -1e8 && e.z < G.limitZ + .3 && p.z > G.limitZ) || (e.y || 0) > 1.6 || !losOK(p, e); }
 function rangedTargets(p, n) { const f = dirOf(p), out = [];
-  for (const e of G.ents) { if (!isFoe(e) || e.asleep) continue; const dx = e.x - p.x, dz = e.z - p.z, d = hyp(dx, dz); if (d < 6.8 || d > 30) continue; const cs = (dx * f.x + dz * f.z) / (d || 1); if (cs < .34) continue; if (!losOK(p, e)) continue;
+  for (const e of G.ents) { if (!isFoe(e)) continue; const dx = e.x - p.x, dz = e.z - p.z, d = hyp(dx, dz); if (d > 30) continue; const ur = unreach(p, e); if (d < (ur ? 1.5 : 6.8)) continue; if ((e.asleep || (e.farT || 0) < -1e8) && !ur && d > 16) continue;   /* sleepers: only the near or unreachable ones (an arrow wakes their post) */ const cs = (dx * f.x + dz * f.z) / (d || 1); if (cs < .34) continue; if (!losOK(p, e) && !((e.y || 0) > 1.6)) continue;
     let s = d - cs * 4 - (e.d.ranged ? 4 : 0) - (e.hunt || e.lead ? 3 : 0) - (e === G.boss ? 3 : 0); out.push([s, e]); }
   out.sort((a, b) => a[0] - b[0]); return out.slice(0, n).map(a => a[1]); }
-function meleeTarget(p) { const c = C(); if (!c || !c.aim) return null; const r0 = p.rot, l0 = p.lock, la = p.lockAt; const e = c.aim(p, 6.5); p.rot = r0; if (!e) { p.lock = l0; p.lockAt = la; } return e; }
+function meleeTarget(p) { const c = C(); if (!c || !c.aim) return null; const r0 = p.rot, l0 = p.lock, la = p.lockAt; let e = c.aim(p, 6.5); p.rot = r0; if (e && unreach(p, e)) { e = null; if (p.hl && unreach(p, p.hl)) p.hl = null; } if (!e) { p.lock = l0 && !unreach(p, l0) ? l0 : null; p.lockAt = la; } return e; }   /* an unreachable target is never a melee target: the volley takes it */
 function autoLock(p, e) { if (!e || e.dead) return; if ((e === G.boss || e.hunt || e.lead || (e.d && (e.d.heavy || e.d.elite))) && p.hl !== e) { p.hl = e; p.lock = e; p.lockAt = G.time; ringFx(e.x, e.z, (e.r || .6) + 1, 0xffd050); } }
 function attack() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (G.qte || busy()) { doAct('A'); return; }
   if (p.mounted) { doAct('A'); return; }
@@ -181,7 +200,7 @@ function attack() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (
     if (tgs.length) { volley(p, tgs); return; } }
   doAct('A'); const tg = p.act && p.act.kind === 'atk' ? (p.lock && !p.lock.dead ? p.lock : null) : null; if (tg && hyp(tg.x - p.x, tg.z - p.z) < 8) autoLock(p, tg); }
 function volley(p, tgs) { if (p.guard && C().w3Lock) { p.guard = false; } p.queued = false; p.combo = 0; const e0 = tgs[0]; p.rot = Math.atan2(e0.x - p.x, e0.z - p.z);
-  const a = { kind: 'cast', t: 0, dur: .52, w4v: { tgs, n: arrowsN(), fired: 0 } }; p.act = a; p.play('1H_Ranged_Shoot', { once: true, force: true, dur: .52 }); try { Sfx.arrow && Sfx.arrow(); } catch (e) { }
+  const a = { kind: 'cast', t: 0, dur: .52, w4v: { tgs, n: arrowsN(), fired: 0 } }; p.act = a; p.play('1H_Ranged_Shoot', { once: true, force: true, dur: .52 }); try { Sfx.bowDraw && Sfx.bowDraw(); Sfx.arrow && Sfx.arrow(); } catch (e) { }
   autoLock(p, e0); G.stats.volley = (G.stats.volley || 0) + 1; }
 function arrowDmg(p) { const d = p.d.dmg || [20, 30]; let k = (G.dmgBoost || 1); try { if (window.__META && __META.pdMul) k *= __META.pdMul('rain'); } catch (e) { } return rnd(d[0], d[1]) * .85 * k * bowK() * (p.wolfT > 0 ? 1.25 : 1); }
 function volleyTick(p) { const a = p && p.act; if (!a || !a.w4v) return; const v = a.w4v; while (v.fired < v.n && a.t >= .2 + v.fired * .055) { const i = v.fired++; const live = v.tgs.filter(e => !e.dead); const e = live.length ? live[i % live.length] : null; let tg;
@@ -197,7 +216,21 @@ function threat(p) { let best = null, bd = 1e9;
       reach = (e.d.range || 2) + 1.8 + (e.d.lane ? 1.2 : 0); }
     if (!ok || d > reach) continue; if (d < bd) { bd = d; best = e; } }
   return best; }
-function dodge() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (busy()) return;
+// bench #12 boss rules: three parries / dodges timed into the boss's wind-ups stagger him for 2.4 s (an opening); at 6 % HP he reels and the next hit is the finisher
+function bossEvade(p) { const b = G.boss; if (!b || b.dead || b.team !== 'enemy' || b.yield || G.time < (b.w4evT || 0)) return; const wind = b.state === 'windup' || (b.km && b.km.ph === 0); if (!wind || hyp(b.x - p.x, b.z - p.z) - (b.r || 1) > 7) return;
+  b.w4evT = G.time + .9; b.w4ev = (b.w4ev || 0) + 1; if (b.w4ev < 3) { num(b, b.w4ev + '/3', 'c'); return; }
+  b.w4ev = 0; b.w4evT = G.time + 4; setTimeout(() => { try { if (b.dead || G.boss !== b) return; openBoss(b, 6); b.state = 'chase'; b.tm = 0; try { b.clearTele(); } catch (e) { } b.km = null; b.stagger = 2.4; b.play('Hit_A', { once: true, force: true }); num(b, '💫 ' + tt('w4_stag'), 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.6, 0xffd050); G.slow = Math.max(G.slow || 0, .25); G.stats.w4stag = (G.stats.w4stag || 0) + 1; } catch (e) { } }, 420); }
+// finisher: slow-mo + impact through the animation agent's feel system (G.feel.trauma / G.hitStop — no second shake table) + a 0.9 s camera push-in on the boss
+function finisherFx(b) { G.slow = Math.max(G.slow || 0, .9); flash(.35); try { Sfx.big(); Sfx.hit('heavy', { x: b.x, z: b.z }); Sfx.bark && Sfx.bark('maid', 'kill', { x: b.x, z: b.z }); } catch (e) { } try { if (G.feel) G.feel.trauma = Math.max(G.feel.trauma || 0, .85); else G.shake = Math.max(G.shake || 0, .5); G.hitStop = Math.max(G.hitStop || 0, .1); } catch (e) { }
+  try { const prev = G.camFn, t0 = performance.now(), tx = b.x, tz = b.z, ty = (b.h || 2) * .6; G.camFn = (cam, dt) => { if (prev) { try { prev(cam, dt); } catch (e) { } } const u = (performance.now() - t0) / 900; if (u >= 1) { G.camFn = prev || null; return; } const k = Math.sin(Math.min(1, u) * Math.PI) * .32; cam.position.x += (tx - cam.position.x) * k; cam.position.z += (tz - cam.position.z) * k; cam.position.y += (ty + 3 - cam.position.y) * k * .6; cam.lookAt(tx, ty, tz); }; } catch (e) { } }
+// QA (3): boss weak points with three buttons. Whatever the old fight asked for (Earth Slam, Chain, Water Shield, Dev Strength, Wolf's Leap), the AMULET now does it: pressing 🔺 near the boss — or dodging three of his strikes —
+// opens his weak spot for 7 s (his own onSlam / onChain / onLeap script runs, so the dragon is still dragged ashore etc.). No fight stays at the 0.35x resist for long.
+function openBoss(b, sec = 7) { if (!b || b.dead || !b.weak) return false; b.w4open = G.time + sec; try { if (b.onChain) b.onChain(); else if (b.onSlam) b.onSlam(); else if (b.onLeap) b.onLeap(); else { b.openT = Math.max(b.openT || 0, sec); flash(.25); ringFx(b.x, b.z, 4, 0xffe080); hintRaw(t('w_open')); } } catch (e) { } G.stats.w4open = (G.stats.w4open || 0) + 1; return true; }
+function weakWrap(b) { if (!b || b.w4wk || typeof b.weak !== 'function') return; b.w4wk = 1; const w0 = b.weak; b.weak = (...a) => (b.w4open > G.time ? Math.max(1.6, w0(...a)) : w0(...a)); }
+function bossTick() { weakWrap(G.boss); const b = G.boss, M = G.mis; if (!b || b.dead || !M || !M.started || /^(0-0|0-2|2-2|7-4)$/.test(M.id) || b.yield || b.invuln || b.team !== 'enemy' || b.maxHp > 1e6) return;
+  if (b.w4fin === undefined) { if (b.hp > 0 && b.hp < b.maxHp * .06) { b.w4fin = b.hp; b.w4finT = G.time + 5; b.stagger = 5; try { b.clearTele(); } catch (e) { } b.km = null; b.state = 'chase'; b.play('Hit_A', { once: true, force: true }); hintRaw('⚔ ' + tt('w4_finish')); num(b, '⚔', 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.8, 0xff5030); } }
+  else if (b.w4fin > 0) { if (b.hp < b.w4fin - .5) { b.w4fin = -1; finisherFx(b); G.stats.w4fin = (G.stats.w4fin || 0) + 1; b.die(); } else if (G.time > b.w4finT) b.w4fin = -1; } }
+function dodge() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (busy()) return; if (!p.mounted) bossEvade(p);
   const e = p.mounted ? null : threat(p), a = p.act;
   if (e && (!a || c.canCancel(a) || a.kind === 'dodge' || a.kind === 'hvy')) {
     if (p.guard) p.guard = false; c.parry(p, e); e.state = 'chase'; e.tm = 0; try { e.clearTele(); } catch (er) { } if (e.km) { e.km = null; }
@@ -226,7 +259,7 @@ function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + 
   if (p.act && p.act.kind === 'block') p.guard = false; p.act = null;
   const u0 = G.ulti; doAct(k === 6 ? 1 : k === 7 ? 2 : k);
   const used = !!p.act || G.ulti < u0 || k === 8;
-  if (!used) return why('fail:' + k); G.ulti = 0; const nm = (HNAME[G.hero] && HNAME[G.hero][k]) ? t(HNAME[G.hero][k]) : t(PNAME[k]); num(p, '🔺 ' + nm, 'c'); try { Sfx.power && Sfx.power(); } catch (e) { } G.stats.amulet = (G.stats.amulet || 0) + 1; G.stats.amuK = k; why('ok:' + k); }
+  if (!used) return why('fail:' + k); G.ulti = 0; { const b = G.boss; if (b && !b.dead && b.weak && hyp(b.x - p.x, b.z - p.z) < 32) openBoss(b, 7); } const nm = (HNAME[G.hero] && HNAME[G.hero][k]) ? t(HNAME[G.hero][k]) : t(PNAME[k]); num(p, '🔺 ' + nm, 'c'); try { Sfx.power && Sfx.power(); } catch (e) { } G.stats.amulet = (G.stats.amulet || 0) + 1; G.stats.amuK = k; why('ok:' + k); }
 // ---- contextual: wolf leap over a ravine when she walks into its edge (no button)
 function ravineAhead(p) { if (G.ravineAhead) return true; for (const b of G.colB || []) if (b && b.ravine && !b.off && b.z2 < p.z + .5 && b.z2 > p.z - 3.2 && p.x > b.x1 - 1 && p.x < b.x2 + 1) return true; return false; }
 let ravT = 0;
@@ -284,22 +317,23 @@ function hudTick() { const b = $('bP'); if (!b) return; const u = clamp(G.ulti |
 // ================================================================ B) ARMY + ENEMY SCALING
 const NOARMY = /^(0-0|0-1|0-2|3-1|2-1|4-1|.*-S)$/;   // 7-1: no host while riding (mounted check below), it joins for the battle on foot
 const RUN = { m: null, bodies: [], rep: 0, lost: 0, start: 0 };
-function armyStart() { const M = G.mis, p = P(); if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.lost = 0; RUN.rep = 0;
+function armyStart() { const M = G.mis, p = P(); if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.lost = 0; RUN.rep = 0; try { coinsStart(M); } catch (e) { console.warn('[w4 coins]', e); }
   const id = M.id || ''; if (NOARMY.test(id) || p.mounted) { chip(); return; }
   const men = W.men | 0, nb = men > 0 ? Math.min(6, Math.ceil(men / 6)) : 0; RUN.rep = nb ? men / nb : 0;
   const z0 = p.z + 9, x0 = clamp(p.x, -4, 4);
   for (let i = 0; i < nb; i++) { const x = clamp(x0 + (i % 3 - 1) * 1.7, -G.W + 1, G.W - 1), z = z0 + Math.floor(i / 3) * 1.6; const e = spawn('w4bat', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI;
     e.maxHp = e.hp = Math.round(e.maxHp * shieldK()); e.d = { ...e.d, block: Math.min(.6, .25 + .03 * lvl('shield')) }; e.w4b = 1; RUN.bodies.push(e); }
   const na = archN(); for (let i = 0; i < na; i++) { const x = clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), z = z0 + 3.4; const e = spawn('w4arc', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI; e.maxHp = e.hp = Math.round(e.maxHp * armorK()); e.w4a = 1; }
-  const foe = foeCount(M); chip(); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + tt('w4_army', { q: 40, b: men }) + '   ·   ' + tt('w4_foe', { n: foe })); } catch (e) { } }, 600); }
+  const foe = foeCount(M); chip(); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + tt('w4_foe', { n: foe })); } catch (e) { } }, 600); }   /* the host itself is shown once, in the left chip */
 function foeCount(M) { const c = M.c || 1; const bodies = G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg).length; const ours = 40 + (W.men | 0); return Math.max(Math.round(ours * (1.15 + .05 * c)), bodies * 3); }
 function chip() { const el = $('w4army'); if (!el) return; const M = G.mis, on = !!(M && M.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on') && !archOn() && !NOARMY.test(M.id || ''));
   el.style.display = on ? 'block' : 'none'; if (!on) return; const alive = Math.max(0, Math.round((W.men | 0) - RUN.lost)); const s = '⚔ ' + tt('w4_army', { q: 40, b: alive }); if (el.textContent !== s) el.textContent = s; }
 // per-entity adjustments, once: enemy power curve per chapter, maidens' armour, captains' poise
 function entTick() { const M = G.mis; if (!M) return; const c = M.c || 0, tut = M.id === '0-0';
   for (const e of G.ents) { if (e.w4s || e.dead) continue; e.w4s = 1;
-    if (e.team === 'enemy' && !tut && c > 0 && !e.prop && e.maxHp < 1e6) { const hk = foeHpK(c); e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.round(e.hp * hk); e.dmgMul = (e.dmgMul || 1) * foeDmK(c); }
+    if (e.team === 'enemy' && !tut && c > 0 && !e.prop && e.maxHp < 1e6) { const df = defi(c), hk = foeHpK(c) * (1 + .10 * df); e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.round(e.hp * hk); e.dmgMul = (e.dmgMul || 1) * foeDmK(c) * Math.min(2.6, 1 + .22 * df); }
     else if (e.team === 'ally' && e !== P() && (e.type === 'qiz') && !tut) { e.maxHp = Math.round(e.maxHp * armorK()); e.hp = Math.round(e.hp * armorK()); } }
+  { const b = G.boss; if (b && !b.dead && !b.w4b && c > 0 && b.team === 'enemy' && b.d && b.d.heavy && !/^(0-2|2-2|7-4)$/.test(M.id || '')) { b.w4b = 1; b.d = { ...b.d, cd: (b.d.cd || 2) * .7, windup: (b.d.windup || 1) * .9 }; if (!b.weak && !b.weakHint) { b.maxHp = Math.round(b.maxHp * 1.6); b.hp = Math.round(b.hp * 1.6); } } }
   for (const h of M.hunt || []) if (!h.w4p && !h.dead) { h.w4p = 1; const pm = (h.poiseMax || 80) * (1 + .2 * c); h.poiseMax = pm; h.poise = pm; }
   for (const e of RUN.bodies) if (e.dead && !e.w4dead) { e.w4dead = 1; RUN.lost += RUN.rep; } }
 // mission end (META hook): rescued warriors join, fallen ones are lost; a chapter boss pays the reward that opens the next cap
@@ -307,7 +341,13 @@ function onEnd(id, k) { const M = G.mis; if (!M || M.w4end) return; M.w4end = tr
   const lost = Math.min(W.men | 0, Math.round(RUN.m === M ? RUN.lost : 0)); if (lost > 0) { W.men -= lost; W.lostAll = (W.lostAll | 0) + lost; msg.push(tt('w4_lost', { n: lost })); }
   try { const L0 = (M.res || []); let tot = 0, sv = 0; for (const g of L0) for (const c of g.ps || []) { tot++; if (c.saved) sv++; } if (tot > 0 && sv > 0) { const gain = clamp(Math.round(10 + 20 * sv / tot), 10, 30), prev = W.best[id] | 0; if (gain > prev) { W.best[id] = gain; W.men += gain - prev; msg.push(tt('w4_join', { n: gain - prev })); } } } catch (e) { }
   if (m.boss && !W.bossPaid[id]) { W.bossPaid[id] = 1; const c0 = cap(); setTimeout(() => { try { addGold(200 + 100 * (m.c || 1)); const c1 = capOf(Math.min(7, (m.c || 1) + 1)); toastW(tt('w4_capUp', { c: Math.max(c0, c1) })); } catch (e) { } }, 50); }
-  save(); if (msg.length) setTimeout(() => { for (const s of msg) toastW(s); endRow(msg); }, 400); }
+  save(); setTimeout(() => { for (const s of msg) toastW(s); const ex = []; try { if (!/^(0-0|.*-S)$/.test(id)) ex.push('🪙 ' + tt('w4_coins', { n: bits((W.coins || {})[id] | 0), m: 3 })); const cn = window.__META && __META.chestNext ? __META.chestNext() : 0; if (cn > 0) ex.push(tt('w4_chest', { n: cn })); } catch (e) { } endRow(msg.concat(ex)); }, 400); }
+// bench #19: three ancient coins stand at the roadside in every mission (+15 gold each, remembered per mission in qq_w4.coins); the end screen lists them and the stars missing for the next chest
+const COINS = [], bits = v => (v & 1) + (v >> 1 & 1) + (v >> 2 & 1);
+function coinsStart(M) { for (const c of COINS) { try { world.remove(c.g); } catch (e) { } } COINS.length = 0; const p = P(); if (!M || !p || /^(0-0|.*-S)$/.test(M.id || '')) return; if (!W.coins || typeof W.coins !== 'object') W.coins = {}; const got = W.coins[M.id] | 0, k = p.mounted ? 2.2 : 1;
+  [[-1, 24], [1, 55], [-1, 88]].forEach(([sd, dz], i) => { if (got & (1 << i)) return; const x = sd * 5.6, z = p.z - dz * k; const g = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .07, 14), new THREE.MeshStandardMaterial({ color: 0xffc83a, metalness: .8, roughness: .3, emissive: 0x7a5200 })); g.rotation.x = Math.PI / 2; g.position.set(x, 1, z); g.castShadow = true; world.add(g); COINS.push({ g, x, z, i, id: M.id }); }); }
+function coinTick(dt) { const p = P(); if (!p || !COINS.length) return; for (let k = COINS.length - 1; k >= 0; k--) { const c = COINS[k]; if (!c.g.parent) { COINS.splice(k, 1); continue; } c.g.rotation.z += dt * 3; c.g.position.y = 1 + Math.sin((G.time || 0) * 3 + c.i) * .12;
+    if (hyp(p.x - c.x, p.z - c.z) < 2.1) { world.remove(c.g); COINS.splice(k, 1); W.coins[c.id] = (W.coins[c.id] | 0) | (1 << c.i); save(); try { addGold(15, c.x, c.z); Sfx.pick && Sfx.pick(); } catch (e) { } ringFx(c.x, c.z, 1.6, 0xffd050); num(p, '🪙 ' + tt('w4_coin', { n: bits(W.coins[c.id]), m: 3 }), 'c'); } } }
 function toastW(s) { try { hintRaw(s); } catch (e) { } }
 function endRow(msg) { const stl = $('stl'); if (!stl) return; let r = $('w4end'); if (!r) { r = document.createElement('div'); r.id = 'w4end'; r.style.cssText = 'color:#ffe08a;font-weight:700'; stl.appendChild(r); } r.textContent = msg.join(' · '); }
 function hookMeta() { const M = window.__META; if (!M || M.w4) return !!M; const f = M.missionEnd; M.missionEnd = (id, k) => { try { onEnd(id, k); } catch (e) { console.warn('[w4 end]', e); } return f && f(id, k); };
@@ -319,9 +359,11 @@ const ROCKS = [];
 T.w4cat = { ...T.askar, like: 'askar', mdl: 'askar', name: 'w4_manj', block: 0, armor: .2, poise: 0, ranged: true, keep: 30 };   // own type: no soldier kit moves (the hidden body must not fight)
 const CATS = [];
 function catapult(x, z) { const e = spawn('w4cat', x, z, 'enemy', true); CATS.push(e); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.o.traverse(m => { if (m.isMesh || m.isSkinnedMesh) m.visible = false; });
-  const g = new THREE.Group(), k = 1 / (e.vs || e.d.scale || 1); const src = A.props && A.props.R_arava; if (src) { const c = src.clone(true); c.scale.setScalar(2.1); g.add(c); }
+  const g = new THREE.Group(), k = 1 / (e.vs || e.d.scale || 1); const MXB = window.__MXB; let arm, cup, mx = null; try { if (MXB) mx = MXB.put(g, 'catapult', 0, 0, 0, 'enemy'); } catch (er) { mx = null; }
+  if (mx && mx.userData && mx.userData.arm) { arm = mx.userData.arm; cup = mx.userData.cup; } else { const src = A.props && A.props.R_arava; if (src) { const c = src.clone(true); c.scale.setScalar(2.1); g.add(c); }
   const wd = new THREE.MeshStandardMaterial({ color: 0x5a3a1c, roughness: .9 }); const post = new THREE.Mesh(new THREE.BoxGeometry(.25, 1.6, .25), wd); post.position.set(0, 1.6, 0); g.add(post);
-  const arm = new THREE.Group(); arm.position.set(0, 2.3, 0); const beam = new THREE.Mesh(new THREE.BoxGeometry(.16, .16, 3.2), wd); beam.position.z = -.6; arm.add(beam); const cup = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0x777066, roughness: 1 })); cup.position.set(0, .2, -2.1); arm.add(cup); g.add(arm);
+  arm = new THREE.Group(); arm.position.set(0, 2.3, 0); const beam = new THREE.Mesh(new THREE.BoxGeometry(.16, .16, 3.2), wd); beam.position.z = -.6; arm.add(beam); cup = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0x777066, roughness: 1 })); cup.position.set(0, .2, -2.1); arm.add(cup); g.add(arm);
+   }
   g.traverse(o => { if (o.isMesh) o.castShadow = true; }); g.scale.setScalar(k); e.o.add(g); e.w4arm = arm; e.w4cup = cup;
   e.d = { ...e.d, name: 'w4_manj', block: 0, armor: .2, poise: 0, ranged: true, keep: 30 }; e.poiseMax = 0; e.speed = 0; e.r = 1.4; e.maxHp = e.hp = Math.round(300 * (1 + .2 * chap())); e.w4s = 1; e.w4cat = true;   /* w4s: no chapter HP curve on top (it was 3500+ HP with the ally balance) */ e.px = x; e.pz = z; e.cd = rnd(2, 4); e.rot = 0;
   e.custom = catAI; return e; }
@@ -335,10 +377,12 @@ function rockTick(dt) { for (let i = CATS.length - 1; i >= 0; i--) { const c = C
   for (let i = ROCKS.length - 1; i >= 0; i--) { const r = ROCKS[i]; r.t += dt; const k = Math.min(1, r.t / r.dur); r.m.position.set(r.x0 + (r.x1 - r.x0) * k, 2.4 + Math.sin(k * Math.PI) * 9 - k * 2.2 + k * (r.y1 || 0), r.z0 + (r.z1 - r.z0) * k);
     if (k >= 1) { world.remove(r.m); ROCKS.splice(i, 1); try { if (r.dmg) hitCircle(r.x1, r.z1, r.R, r.dmg, r.team || 'enemy', r.src, { ub: 1 }); if (r.cb) r.cb(); ringFx(r.x1, r.z1, r.R, 0xff7733); burst(r.x1, .4, r.z1, 0x8a7a64, 2.4, true); Sfx.big && Sfx.big(); G.shake = Math.max(G.shake || 0, .35); } catch (e) { } } } }
 // our own catapult cart (siege): a prop, not a unit; lob() throws a stone for either side (ally stones hurt enemies / call cb on landing)
-function catProp(x, z, ry = Math.PI) { const g = new THREE.Group(); const src = A.props && A.props.R_arava; if (src) { const c = src.clone(true); c.scale.setScalar(2.1); g.add(c); }
+function catProp(x, z, ry = Math.PI) { const g = new THREE.Group(); let arm, mx = null; try { if (window.__MXB) mx = window.__MXB.put(g, 'catapult', 0, 0, 0, 'ally'); } catch (er) { mx = null; }
+  if (mx && mx.userData && mx.userData.arm) arm = mx.userData.arm; else { const src = A.props && A.props.R_arava; if (src) { const c = src.clone(true); c.scale.setScalar(2.1); g.add(c); }
   const wd = new THREE.MeshStandardMaterial({ color: 0x6a4420, roughness: .9 }); const post = new THREE.Mesh(new THREE.BoxGeometry(.25, 1.6, .25), wd); post.position.set(0, 1.6, 0); g.add(post);
-  const arm = new THREE.Group(); arm.position.set(0, 2.3, 0); const beam = new THREE.Mesh(new THREE.BoxGeometry(.16, .16, 3.2), wd); beam.position.z = -.6; arm.add(beam); const cup = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0x777066, roughness: 1 })); cup.position.set(0, .2, -2.1); arm.add(cup); g.add(arm);
+  arm = new THREE.Group(); arm.position.set(0, 2.3, 0); const beam = new THREE.Mesh(new THREE.BoxGeometry(.16, .16, 3.2), wd); beam.position.z = -.6; arm.add(beam); const cup = new THREE.Mesh(new THREE.SphereGeometry(.28, 8, 6), new THREE.MeshStandardMaterial({ color: 0x777066, roughness: 1 })); cup.position.set(0, .2, -2.1); arm.add(cup); g.add(arm);
   const flag = new THREE.Mesh(new THREE.PlaneGeometry(.9, .55), new THREE.MeshBasicMaterial({ color: 0x2f6fd0, side: THREE.DoubleSide })); flag.position.set(.5, 3.3, 0); const pole = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 2, 5), wd); pole.position.set(0, 2.7, .0); g.add(flag, pole);
+   }
   g.traverse(o => { if (o.isMesh) o.castShadow = true; }); g.position.set(x, 0, z); g.rotation.y = ry; world.add(g); try { G.colC.push({ x, z, r: 1.8 }); } catch (e) { }
   const c = { g, arm, x, z, cockT: 0, fire() { c.cockT = .35; try { Sfx.swing && Sfx.swing(); } catch (e) { } } }; PROPS.push(c); return c; }
 const PROPS = [];
@@ -404,17 +448,25 @@ let mapObs = null;
 function mapHook() { const m = $('map'); if (!m || mapObs) return; mapObs = new MutationObserver(() => { if (m.classList.contains('on')) { try { campMarks(); mapBtn(); } catch (e) { console.warn(e); } } }); mapObs.observe(m, { attributes: true, attributeFilter: ['class'] }); if (m.classList.contains('on')) { campMarks(); mapBtn(); } }
 
 // ================================================================ loop + public API
+const TOUCH = (() => { try { return matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window; } catch (e) { return false; } })();
 let lastT = 0;
 function loop() { requestAnimationFrame(loop); try { hookMeta(); mapHook();
     const p = P(); const gt = G.time || 0, dt = clamp(gt - lastT, 0, .1); lastT = gt;
-    hudTick(); bufTick(); if (p) volleyTick(p);
+    hudTick(); bufTick(); bodyCap(); if (!G.paused) bossTick(); if (p) volleyTick(p);
     if (G.mis && G.mis.started && RUN.m !== G.mis) armyStart();
-    if (G.mis) entTick(); chip(); if (!G.paused) { rockTick(dt); propTick(dt); ctxTick(dt); }
+    if (G.mis) entTick(); chip(); if (!G.paused) { rockTick(dt); propTick(dt); coinTick(dt); ctxTick(dt); }
     const e = $('end'); if (e && e.classList.contains('on')) endBtn(); const mp = $('map'); if (mp && mp.classList.contains('on')) cardArmy();
-    const ct = $('w4ctl'); if (ct) { const on = !!(p && !G.paused && $('hud') && $('hud').classList.contains('on') && G.mis && G.mis.started && !archOn() && (G.time - (G.mis.t0 || 0)) < 14 && !$('tuc')); ct.style.display = on ? 'block' : 'none'; if (on && ct._l !== lang) { ct._l = lang; ct.textContent = tt('tu4_ctl'); } }
+    const ct = $('w4ctl'); if (ct) { const on = !!(p && !G.paused && $('hud') && $('hud').classList.contains('on') && G.mis && G.mis.started && !archOn() && (!TOUCH || (G.time - (G.mis.t0 || 0)) < 10) && !$('tuc'));   /* touch: first 10 s only; mouse / keyboard: always */ ct.style.display = on ? 'block' : 'none'; if (on && ct._l !== lang) { ct._l = lang; ct.textContent = tt('tu4_ctl'); } }
   } catch (e) { if (!loop.w) { loop.w = 1; console.warn('[w4]', e); } } }
+// bench #5: at low quality at most 26 bodies are drawn (the nearest to her; the boss, duel partner and captains always); ?perf=1 shows fps / bodies / draw calls / triangles
+const PERF = /[?&]perf=1/.test(location.search); let capT = 0, perfEl = null, capN = 0;
+function bodyCap() { const now = performance.now(); if (now < capT) return; capT = now + 400; const p = P(); if (!p) return; const low = SET && SET.q === 0, L = [];
+  for (const e of G.ents) { if (e === p || e.gone || !e.o) continue; if (e.w4hid) { e.w4hid = 0; e.o.visible = true; } if (!e.o.visible) continue; const keep = e === G.boss || e.duel || e.hunt || e.lead || e.vict || e.w4cat; L.push([keep ? -1 : hyp(e.x - p.x, e.z - p.z) + (e.dead ? 40 : e.team === 'enemy' ? 0 : 10), e]   /* corpses go first, then far allies; a living enemy is hidden last */); }
+  capN = L.length; if (low && L.length > 25) { L.sort((a, b) => a[0] - b[0]); for (let i = 25; i < L.length; i++) { const e = L[i][1]; e.w4hid = 1; e.o.visible = false; } capN = 25; }
+  if (PERF) { if (!perfEl) { perfEl = document.createElement('div'); perfEl.id = 'w4perf'; perfEl.style.cssText = 'position:fixed;left:50%;bottom:2px;transform:translateX(-50%);z-index:99;pointer-events:none;font:700 11px/1.2 monospace;color:#9f9;background:rgba(0,0,0,.55);padding:2px 6px;border-radius:4px'; document.body.appendChild(perfEl); }
+    const ri = renderer.info.render; perfEl.textContent = (G.fps || 0).toFixed(0) + ' fps · ' + (capN + 1) + '/' + (G.ents.length) + ' bodies · ' + ri.calls + ' calls · ' + Math.round(ri.triangles / 1000) + 'k tris · q' + SET.q; } }
 // bench #3: with no ad provider every "Reklama" reward button is hidden (engine ADS.rewarded() returns false then)
 const adsOn = () => !!((window.ysdk && window.ysdk.adv) || (window.QQ_ADS && window.QQ_ADS.rewarded));
-{ const st = document.createElement('style'); st.id = 'w4noadscss'; st.textContent = 'body.w4noads #drevive,body.w4noads #eadx2,body.w4noads #shad{display:none!important}#btns #bA.dn,#btns #bD.dn,#btns #bP.dn{transform:scale(.92);filter:brightness(1.25)}'; document.head.appendChild(st); setInterval(() => { try { document.body.classList.toggle('w4noads', !adsOn()); } catch (e) { } }, 1000); document.body.classList.toggle('w4noads', !adsOn()); }
+{ const st = document.createElement('style'); st.id = 'w4noadscss'; st.textContent = 'body.w4noads #drevive,body.w4noads #eadx2,body.w4noads #shad{display:none!important}#btns #bA.dn,#btns #bD.dn,#btns #bP.dn{transform:scale(.92);filter:brightness(1.25)}@media (pointer:coarse){#btns .ab .k,#btns .ab kbd{display:none!important}}'; document.head.appendChild(st); setInterval(() => { try { document.body.classList.toggle('w4noads', !adsOn()); } catch (e) { } }, 1000); document.body.classList.toggle('w4noads', !adsOn()); }
 hudInit(); loop();
-window.__W4 = { why: () => amulet.why, W, save, cap, capCh, capOf, lvl, cost, attack, dodge, amulet, strong, threat, rangedTargets, pickPower, catapult, catProp, lob, cavalry, paneHTML, upOpen, upClose, foeHpK, foeDmK, arrowsN, RUN, campMarks, TX };
+window.__W4 = { why: () => amulet.why, W, save, cap, capCh, capOf, lvl, cost, attack, dodge, amulet, strong, threat, rangedTargets, pickPower, catapult, catProp, lob, cavalry, paneHTML, upOpen, upClose, foeHpK, foeDmK, defi, arrowsN, RUN, campMarks, TX };

@@ -2,10 +2,10 @@
 // Systems: hero level/XP · skill upgrade tiers · equipment · maidens roster · daily/weekly quests · achievements · star chests · Camp screen.
 // Public API: window.__META (see bottom). Combat code may read __META.mul('spin.dmg') etc. — every key defaults to 1 (add() to 0).
 // Rules kept on purpose: one currency (the game's coins), no timers/energy, nothing sold for real money, every bonus is small and capped.
-import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795208631';
-import { t, lang } from './i18n.js?v=1795208631';
-import { Sfx } from './audio.js?v=1795208631';
-import { MLIST } from './missions.js?v=1795208631';
+import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795211861';
+import { t, lang } from './i18n.js?v=1795211861';
+import { Sfx } from './audio.js?v=1795211861';
+import { MLIST } from './missions.js?v=1795211861';
 
 const KEY = 'qq_meta', VER = 2, MAXLV = 30, TEAM = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,7 +297,7 @@ export function pdMul(kk) {
   return mul('hero.dmg') * k * (B.boss && G.boss && !G.boss.dead ? 1 + B.boss / 100 : 1) * (B.laststand && p.hp < p.maxHp * .35 ? 1 + B.laststand / 100 : 1);
 }
 // if engine.js carries the pdMul hook, the dmgBoost emulation is switched off (self-healing: if the hook disappears, emulation stays on)
-try { fetch(new URL('./engine.js?v=1795208631', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
+try { fetch(new URL('./engine.js?v=1795211861', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
 
 // ---------------------------------------------------------------- rewards
 let goldSeen = SAVE.gold;
@@ -561,7 +561,7 @@ const CSS = `
 #mt-toasts{position:fixed;z-index:95;right:max(10px,env(safe-area-inset-right));top:58px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;pointer-events:none}
 .mt-toast{padding:5px 12px;border:1px solid var(--mt-line2);border-radius:14px;background:rgba(20,13,7,.9);color:#ffe2a0;font-size:13px;animation:mttoast 2.8s ease-out forwards;max-width:60vw}
 @keyframes mttoast{0%{transform:translateX(30px);opacity:0}8%{transform:none;opacity:1}85%{opacity:1}100%{opacity:0}}
-#mt-lvup{position:fixed;z-index:59;left:0;right:0;top:20%;text-align:center;pointer-events:none;display:none;color:var(--mt-gold);text-shadow:0 2px 0 #3a2208,0 0 22px rgba(255,180,60,.8)}
+#mt-lvup{position:fixed;z-index:59;left:5vw;right:5vw;max-width:90vw;overflow:hidden;top:20%;text-align:center;pointer-events:none;display:none;color:var(--mt-gold);text-shadow:0 2px 0 #3a2208,0 0 22px rgba(255,180,60,.8)}
 #mt-lvup.open{display:block;animation:mtlv 2.4s ease-out forwards}
 #mt-lvup span{display:block;font-size:clamp(16px,3vw,26px);letter-spacing:.3em}
 #mt-lvup b{display:block;font-size:clamp(44px,11vw,88px);line-height:1;font-weight:700}
@@ -767,7 +767,7 @@ build(); ensureQuests(); requestAnimationFrame(frame);
 setInterval(() => { if (!M.fin && !ST.pend) { const SM = starMap(); if ('7-4' in SM) { M.fin = 1; dirty = true; if (G.mis && G.mis.id === '7-4' && !G.mis._mtDone) { ST.pend = { id: '7-4', k: +SM['7-4'] || 1 }; finalize(); } } } }, 3000);
 
 window.__META = {
-  ver: VER, mul, add, pdMul, native: k => { NATIVE[k] = 1; }, isNative: k => !!NATIVE[k],  missionEnd, openCamp, closeCamp, claimChest, endUI, tt,
+  ver: VER, chestNext: () => { try { refresh(); const ch = CHESTS.find(c => D.stars < c[0]); return ch ? ch[0] - D.stars : 0; } catch (e) { return 0; } }, mul, add, pdMul, native: k => { NATIVE[k] = 1; }, isNative: k => !!NATIVE[k],  missionEnd, openCamp, closeCamp, claimChest, endUI, tt,
   state: M, derived: D, bonus: B, level: () => lvInfo(M.xp), addXp, refresh: () => { refresh(); applyCd(); if (campEl && campEl.classList.contains('open')) render(); labels(); },
   tracks: TRACKS, items: ITEMS, maids: MAIDS, strings: S, save,
   // test helpers

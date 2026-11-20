@@ -3,11 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795208631';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795208631';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795208631';
-import { makeHorse } from './horse.js?v=1795208631';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795208631';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795211861';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795211861';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795211861';
+import { makeHorse } from './horse.js?v=1795211861';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795211861';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -48,10 +48,10 @@ const add = (geo, mat, x, y, z, parent, sh = true) => { const m = new THREE.Mesh
 // =====================================================================================================================
 const UN = 96; let blobs = null, rings = null; const _o = new THREE.Object3D(), _c = new THREE.Color();
 const TEAM = {
-  ally: { rim: 0xffd9a0, k: 1.15, sat: 1.28, tint: [1.2, 1.12, 1.04], ring: 0 },
-  enemy: { rim: 0xcfc6b8, k: .22, sat: .95, tint: [.95, .95, .96], ring: 0 },   // fix3: was blue rim k 1.25 + blue tint
-  elite: { rim: 0xff4a30, k: .7, sat: .95, tint: [.96, .93, .93], ring: 0x8a1810 },
-  hero: { rim: 0xffe0a0, k: .5, sat: 1.12, tint: [1.0, 1.0, 1.03], ring: 0xffc64a },
+  ally: { rim: 0xffe6b0, k: 1.35, sat: 1.3, tint: [1.22, 1.14, 1.05], ring: 0 },
+  enemy: { rim: 0xff5236, k: .5, sat: .92, tint: [.9, .9, .94], ring: 0 },   // gfx2 r2: thin red-orange rim on the geometric normal (no speckle)   // fix3: was blue rim k 1.25 + blue tint
+  elite: { rim: 0xff3a20, k: 1.0, sat: .95, tint: [.96, .93, .93], ring: 0x8a1810 },
+  hero: { rim: 0xfff0c8, k: .9, sat: 1.12, tint: [1.0, 1.0, 1.03], ring: 0xffc64a },
   npc: { rim: 0xfff0d0, k: .8, sat: 1.15, tint: [1.12, 1.1, 1.05], ring: 0 },
 };
 function unitMeshes() {
@@ -73,8 +73,8 @@ function rimPatch(m, P) {
   m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.uniforms.uRimC = u.c; sh.uniforms.uRimK = u.k; sh.uniforms.uSatK = u.sat; sh.uniforms.uTintC = u.tint;
     sh.fragmentShader = 'uniform vec3 uRimC; uniform float uRimK; uniform float uSatK; uniform vec3 uTintC;\n' + sh.fragmentShader
       .replace('#include <map_fragment>', '#include <map_fragment>\n { float fxl = dot(diffuseColor.rgb, vec3(.299, .587, .114)); diffuseColor.rgb = max(mix(vec3(fxl), diffuseColor.rgb, uSatK), 0.) * uTintC; }')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n { float fxf = 1. - abs(dot(normalize(normal), normalize(vViewPosition))); totalEmissiveRadiance += uRimC * (pow(fxf, 2.4) * uRimK * (.55 + .45 * normalize(normal).y)); }'); };
-  m.customProgramCacheKey = () => 'fxrim|' + pk; m.needsUpdate = true;
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n {\n #ifndef FLAT_SHADED\n vec3 fxn = normalize(vNormal);\n #else\n vec3 fxn = normalize(normal);\n #endif\n float fxf = 1. - abs(dot(fxn, normalize(vViewPosition))); totalEmissiveRadiance += uRimC * (pow(fxf, 2.6) * uRimK * (.6 + .4 * abs(fxn.y))); }'); };
+  m.customProgramCacheKey = () => 'fxrim2|' + pk; m.needsUpdate = true;
 }
 const teamOf = e => (e.team === 'enemy' ? (e.d && e.d.heavy ? 'elite' : 'enemy') : e.team === 'ally' ? 'ally' : 'npc');
 function patchEnt(e) { const tk = teamOf(e), P = e === G.player ? TEAM.hero : TEAM[tk]; e._fxT = tk; e._fxN = 0; const seen = new Set();
@@ -364,7 +364,7 @@ function scanShapes() { const sc = G.scn; if (!sc || !G.player) return; let ents
   if (edit && GD && GD.g.parent) GD.g.parent.remove(GD.g);   // ground detail is rebuilt on the new relief
 }
 function scanBoxes() { world.traverse(o => { if (!o.isMesh || o.userData.fxS) return; o.userData.fxS = 1; const g = o.geometry, m = o.material; if (!g || g.type !== 'BoxGeometry' || !m || !m.isMeshStandardMaterial || m.map || m.transparent) return; const hs = {}; m.color.getHSL(hs); if (hs.h > .13 || hs.s < .2) return;
-    const P = g.parameters; if (!P || P.width * P.height * P.depth > 30) return; try { o.geometry = plankBoxG(P.width, P.height, P.depth); const wv = woodV(); m.map = wv.map || null; m.normalMap = wv.normalMap || null; m.roughnessMap = wv.roughnessMap || null; m.vertexColors = true; m.color.set(0xd8c0a0); if (m.userData.c0) m.userData.c0.set(0xd8c0a0); m.needsUpdate = true; } catch (e) { console.warn('fx box', e); } }); }
+    const P = g.parameters; if (!P || P.width * P.height * P.depth > 30) return; try { const bk = 'pb' + P.width.toFixed(2) + '_' + P.height.toFixed(2) + '_' + P.depth.toFixed(2); o.geometry = GEOS[bk] || (GEOS[bk] = plankBoxG(P.width, P.height, P.depth)); /* gfx2 r2: one geometry per size, so the planked boxes batch */ const wv = woodV(); m.map = wv.map || null; m.normalMap = wv.normalMap || null; m.roughnessMap = wv.roughnessMap || null; m.vertexColors = true; m.color.set(0xd8c0a0); if (m.userData.c0) m.userData.c0.set(0xd8c0a0); m.needsUpdate = true; } catch (e) { console.warn('fx box', e); } }); }
 
 // ---------- HUD markers: small subtle player ring, thin dark-red lock ring, objective = small bobbing arrow + thin ring ----------
 let lockR = null, arrG = null, arrM = null;
@@ -385,7 +385,7 @@ function tuftTex(thorn) { return canvas(128, 128, (g, w, h) => { g.clearRect(0, 
     for (let i = 0; i < 5; i++) br(w / 2 + rnd(-6, 6), h, rnd(-.9, .9), rnd(22, 34), 0); } }); }
 function gdMat(map) { const m = new THREE.MeshStandardMaterial({ map, alphaTest: .45, side: THREE.DoubleSide, roughness: 1 }); m.onBeforeCompile = sh => { sh.uniforms.uT = U.t; sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n #ifdef USE_INSTANCING\n float ph = instanceMatrix[3].x * .7 + instanceMatrix[3].z * .5; transformed.x += sin(uT * 1.9 + ph) * .07 * position.y; transformed.z += cos(uT * 1.4 + ph) * .04 * position.y;\n #endif'); }; m.customProgramCacheKey = () => 'fxtuft'; return m; }
 function buildGD() { const P = G.player; if (!P) return; const W = G.W || 11.5, q = Q(), z0 = P.z + 30, z1 = P.z - 330; const hf = G.groundH && (G.groundHT || 0) >= gdClr - 50 ? G.groundH : null, H = (x, z) => { try { return hf ? hf(x, z) : 0; } catch (e) { return 0; } };
-  const g = new THREE.Group(); g.userData.fx = 1; const nT = [420, 1000, 1500][q] || 1000, nP = [250, 600, 900][q] || 600, nD = [40, 90, 120][q] || 90;
+  const g = new THREE.Group(); g.userData.fx = 1; const nT = [520, 1350, 2000][q] || 1350, nP = [320, 800, 1200][q] || 800, nD = [40, 90, 120][q] || 90;
   const crossed = merge([xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0), xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0, 0, Math.PI / 2)]);
   const mk = (geo, mat, n) => { const m = new THREE.InstancedMesh(geo, mat, n); m.count = 0; m.frustumCulled = false; m.receiveShadow = true; g.add(m); return m; };
   const tG = mk(crossed, gdMat(tuftTex(false)), nT), tT = mk(crossed, gdMat(tuftTex(true)), Math.ceil(nT * .45));
@@ -491,18 +491,18 @@ function buildRuin(o, kind) { const R = kind === 'yurt' ? yurtRuinG() : houseRui
   (o.parent || world).add(g); o.visible = false; g.updateMatrixWorld(true);
   for (const [x, y, z, s] of R.smk) { const v = new THREE.Vector3(x, y, z).applyMatrix4(g.matrixWorld); smokeAt(v.x, v.y, v.z, s * o.scale.x); }
   return g; }
-function charPatch(m) { if (m.userData.fxChar) return; m.userData.fxChar = 1; m.color.set(0x9a8474); const prev = m.onBeforeCompile, pk = prev ? String(prev).length : 0;
-  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.vertexShader = 'varying vec3 vChW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vChW = (modelMatrix * vec4(transformed, 1.)).xyz;');
+function charPatch(m) { if (m.userData.fxChar) return; m.userData.fxChar = 1; m.color.set(0xa89280); const prev = m.onBeforeCompile, pk = prev ? String(prev).length : 0; if (prev === THREE.Material.prototype.onBeforeCompile) m.userData.fxVarPure = 1; // gfx2: instancing-aware, so burnt props can be batched
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.vertexShader = 'varying vec3 vChW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n { mat4 fxM = modelMatrix;\n #ifdef USE_INSTANCING\n fxM = modelMatrix * instanceMatrix;\n #endif\n vChW = (fxM * vec4(transformed, 1.)).xyz; }');
     sh.fragmentShader = 'varying vec3 vChW;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
     { vec3 p = vChW * 1.6; float n = sin(p.x * 1.3 + p.z * 1.7 + p.y * .9) * .5 + sin(p.x * 3.1 - p.z * 2.3 + p.y * 2.7) * .3 + sin(p.z * 6.7 + p.x * 5.3 - p.y * 4.1) * .2; n = n * .5 + .5;
-      vec3 br = diffuseColor.rgb * vec3(.62, .46, .34); vec3 c = mix(br, vec3(.03, .026, .024), smoothstep(.32, .66, n + vChW.y * .06)); c = mix(c, vec3(.3, .29, .28), smoothstep(.8, .96, n) * .7); diffuseColor.rgb = c; }`); };
-  m.customProgramCacheKey = () => 'fxchar' + pk; m.needsUpdate = true; }
+      vec3 br = diffuseColor.rgb * vec3(.66, .5, .38); vec3 c = mix(br, vec3(.085, .07, .06), smoothstep(.42, .8, n + vChW.y * .07) * .9); c = mix(c, vec3(.36, .34, .32), smoothstep(.78, .96, n) * .75); diffuseColor.rgb = c; } // gfx2: scorched brown with soot streaks and ash, not a black box`); };
+  m.customProgramCacheKey = () => 'fxchar2' + pk; m.needsUpdate = true; }
 const DARK = 0x2a2420;
 function scanBurnt() { const Y = A.props && A.props.B_yurt, H = A.props && A.props.B_house, P = G.player, todo = [];
   for (const o of world.children) { if (o.userData.fxB) continue; if (o.userData.fx || !o.visible) { o.userData.fxB = 1; continue; } let m0 = null; o.traverse(k => { if (!m0 && k.isMesh) m0 = k.material; }); if (!m0 || !m0.color || m0.color.getHex() !== DARK) { o.userData.fxB = 1; continue; } todo.push(o); }
   if (P) todo.sort((a, b) => ((a.position.x - P.x) ** 2 + (a.position.z - P.z) ** 2) - ((b.position.x - P.x) ** 2 + (b.position.z - P.z) ** 2));
   let n = 0; for (const o of todo) { if (n >= 6) return true; o.userData.fxB = 1;
-    try { if (Y && (o.name === 'B_yurt' || o.getObjectByName('B_yurt'))) { buildRuin(o, 'yurt'); n++; continue; } if (H && (o.name === 'B_house' || o.getObjectByName('B_house'))) { buildRuin(o, 'house'); n++; continue; }
+    try { const pk = propKind(o); if (Y && (pk === 'B_yurt' || o.name === 'B_yurt' || o.getObjectByName('B_yurt'))) { buildRuin(o, 'yurt'); n++; continue; } if (H && (pk === 'B_house' || o.name === 'B_house' || o.getObjectByName('B_house'))) { buildRuin(o, 'house'); n++; continue; } // gfx2 r2: new models are recognised by geometry, not by node name
       o.traverse(k => { if (k.isMesh && k.material && k.material.color && k.material.color.getHex() === DARK) charPatch(k.material); }); } catch (e) { console.warn('fx ruin', e); } } return false; }
 // ---------- player outline (session 4): hull expanded in clip space (constant ~1.5 px gold line) and pushed slightly back in depth
 // (the Meshy models have mixed winding, so a BackSide hull alone drew over the body), hero only ----------
@@ -517,7 +517,7 @@ function outlineHero(e) { if (!e || e._fxOL) return; let sm = null; e.o.traverse
 // ---------- moods without a scenery preset (prologue / chapter 1 missions use only engine setMood): apply 'pro' / 'ch1' ----------
 let lastFog = null;
 // IBL strength per preset (scene.environmentIntensity is not in this three build): envMapIntensity on non-metal standard materials
-let envSeen = 0; function scanEnv() { if (G.envI === undefined) return; const k = G.envI, t = G.envT; scene.traverse(o => { const m = o.material; if (!m || !m.isMeshStandardMaterial || m.userData.fxE === t) return; m.userData.fxE = t; if (m.metalness > .5) return; m.envMapIntensity = k; }); }
+let envSeen = 0; function scanEnv() { if (G.envI === undefined) return; const k = G.envI, t = G.envT; scene.traverse(o => { const m = o.material; if (!m || !m.isMeshStandardMaterial || m.userData.fxE === t) return; m.userData.fxE = t; if (m.metalness > .5) return; m.envMapIntensity = k; if (m.transparent && m.roughness === .18) m.roughness = .42; /* gfx2: engine water() sun glare bloomed to white */ }); }
 function tickMood() { const f = scene.fog; if (!f || f === lastFog) return; lastFog = f;
   // daytime falling ash (engine mood ember 0x5a5550) read as black ink specks under the new grade -> light grey ash
   scene.traverse(o => { const m = o.isPoints && o.material; if (m && m.isPointsMaterial && m.color.getHex() === 0x5a5550) { m.color.set(0xb4aca4); m.opacity = Math.min(m.opacity, .38); } }); if (f.userData && f.userData.fxL) return;
@@ -579,7 +579,8 @@ function lowYurtG() { if (GEOS.lowYurt) return GEOS.lowYurt; const sg = 12, L = 
 function lowHouseG() { if (GEOS.lowHouse) return GEOS.lowHouse; const L = [colG(xf(new THREE.BoxGeometry(6.4, 3.3, 5), 0, 1.65, 0), 0xb8a07c, 0xd8c4a0), colG(xf(new THREE.BoxGeometry(6.7, .42, 5.3), 0, 3.45, 0), 0xc4ae88), colG(xf(new THREE.BoxGeometry(5.9, .3, 4.5), 0, 3.52, 0), 0x8a7654),
   colG(xf(new THREE.BoxGeometry(1.1, 2.1, .12), .8, 1.05, 2.52), 0x4a3020), colG(xf(new THREE.BoxGeometry(.6, .6, .12), -1.6, 2.1, 2.52), 0x2a1c12)]; return GEOS.lowHouse = merge(L); }
 function campBack(list, kind) { if (list.length < 3) return; let z0 = 1e9, z1 = -1e9, lum = 0; for (const p of list) { z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); lum += p.lum / list.length; } z0 -= 28; z1 += 28;
-  const hfOK = G.groundH && (G.groundHT || 0) >= gdClr - 50, H = (x, z) => { try { return hfOK ? G.groundH(x, z) : 0; } catch (e) { return 0; } }, W = G.W || 11.5, xr = (hfOK ? 70 : 37.5) - (W + 15);
+  const hfOK = G.groundH && (G.groundHT || 0) >= gdClr - 50, H = (x, z) => { try { return hfOK ? G.groundH(x, z) : 0; } catch (e) { return 0; } }, W = G.W || 11.5; let gx = 0; for (const o of world.children) if (o.isMesh && !o.isInstancedMesh && o.geometry && o.receiveShadow) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; if (bb.max.x - bb.min.x > 60) gx = Math.max(gx, Math.min(bb.max.x, -bb.min.x) + Math.abs(o.position.x) * 0); }
+  const xr = Math.max(4, Math.min(hfOK ? 70 : 37.5, (gx || 40) - 3) - (W + 15)); // never beyond the real ground mesh
   const n = Math.min(Q() === 0 ? 50 : 140, Math.round((z1 - z0) * (hfOK ? 1.3 : .5))), P = [], dk = lum < .3 ? .3 : 1, m = new THREE.InstancedMesh(kind === 'yurt' ? lowYurtG() : lowHouseG(), plainV(), n); m.count = 0;
   for (let i = 0; i < n * 5 && m.count < n; i++) { const a = hash2(i * 1.37, z0), b = hash2(z1, i * 2.11), x = (i % 2 ? 1 : -1) * (W + 15 + Math.pow(a, 1.4) * xr), z = z0 + b * (z1 - z0), y = H(x, z);
     if (y < -.1 || y > 7 || Math.abs(H(x + 2.5, z) - H(x - 2.5, z)) > 1.3 || Math.abs(H(x, z + 2.5) - H(x, z - 2.5)) > 1.3) continue;
@@ -611,20 +612,22 @@ let cineOn = false; function tickCine() { const fl = document.getElementById('fl
 // =====================================================================================================================
 const BT = { src: [], off: /[?&]nobatch=1/.test(location.search), n: 0 }, _zero = new THREE.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
 const pureMat = m => m && !Array.isArray(m) && !m.transparent && (m.onBeforeCompile === THREE.Material.prototype.onBeforeCompile || m.userData.fxVarPure);
+// materials that are per-object clones with identical settings (GLB loaders clone per placement) batch together: fingerprint, not uuid
+const matKey = m => m.userData.fxMK || (m.userData.fxMK = [m.type, m.map ? m.map.uuid : 0, m.normalMap ? m.normalMap.uuid : 0, m.roughnessMap ? m.roughnessMap.uuid : 0, m.metalnessMap ? m.metalnessMap.uuid : 0, m.emissiveMap ? m.emissiveMap.uuid : 0, m.aoMap ? m.aoMap.uuid : 0, m.alphaMap ? m.alphaMap.uuid : 0, m.color ? m.color.getHex() : 0, m.emissive ? m.emissive.getHex() : 0, m.emissiveIntensity, m.roughness, m.metalness, m.side, m.vertexColors, m.alphaTest, m.flatShading, m.envMapIntensity, m.opacity, m.userData.fxVar || 0, m.userData.fxChar || 0, String(m.customProgramCacheKey()).length].join(','));
 function batchScan() { if (BT.off) return; const groups = new Map(), OB = THREE.Object3D.prototype;
   world.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.userData.fxBt || o.children.length || !o.frustumCulled || o.morphTargetInfluences || o.customDepthMaterial || o.onBeforeRender !== OB.onBeforeRender || o.onAfterRender !== OB.onAfterRender) return;
     const g = o.geometry, m = o.material; if (!g || !g.attributes.position || !pureMat(m) || (g.index ? g.index.count : g.attributes.position.count) > 9000) return;
     let vis = o.visible; for (let p = o.parent; p && vis; p = p.parent) vis = p.visible; if (!vis) return; o.updateWorldMatrix(true, false); if (o.matrixWorld.determinant() <= 0) { o.userData.fxBt = -1; return; }
-    const key = g.uuid + '|' + m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + o.renderOrder + '|' + Math.floor(o.matrixWorld.elements[14] / 70); let L = groups.get(key); if (!L) groups.set(key, L = []); L.push(o); });
+    const key = g.uuid + '|' + matKey(m) + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + o.renderOrder + '|' + Math.floor(o.matrixWorld.elements[14] / 70); let L = groups.get(key); if (!L) groups.set(key, L = []); L.push(o); });
   for (const L of groups.values()) { if (L.length < 3) continue; const o0 = L[0], im = new THREE.InstancedMesh(o0.geometry, o0.material, L.length); im.castShadow = o0.castShadow; im.receiveShadow = o0.receiveShadow; im.renderOrder = o0.renderOrder; im.matrixAutoUpdate = false;
     Object.assign(im.userData, { fx: 1, fxV: 1, fxB: 1, fxS: 1, fxBt: 2 });
-    L.forEach((o, i) => { im.setMatrixAt(i, o.matrixWorld); o.userData.fxBt = 1; const st = { o, im, i, mat: o.material, want: true, vis: true, m: o.matrixWorld.elements.slice() }; Object.defineProperty(o, 'visible', { configurable: true, enumerable: true, get() { return false; }, set(v) { st.want = !!v; } }); BT.src.push(st); });
+    L.forEach((o, i) => { im.setMatrixAt(i, o.matrixWorld); o.userData.fxBt = 1; const st = { o, im, i, mat: o.material, col: o.material.color ? o.material.color.getHex() : 0, em: o.material.emissive ? o.material.emissive.getHex() : 0, want: true, vis: true, m: o.matrixWorld.elements.slice() }; Object.defineProperty(o, 'visible', { configurable: true, enumerable: true, get() { return false; }, set(v) { st.want = !!v; } }); BT.src.push(st); });
     im.computeBoundingSphere(); world.add(im); BT.n++; } }
 function batchFree(st, k) { const o = st.o; delete o.visible; o.visible = st.want; o.userData.fxBt = -1; BT.src.splice(k, 1); }
 function tickBatch() { const S = BT.src; if (!S.length) return; let dirty = null;
   for (let k = S.length - 1; k >= 0; k--) { const st = S[k], o = st.o, im = st.im; if (!im.parent) { batchFree(st, k); continue; }
     let vis = st.want, att = false; for (let p = o.parent; p; p = p.parent) { if (!p.visible) vis = false; if (p === scene) att = true; }
-    if (!att || o.material !== st.mat || o.geometry !== im.geometry) { im.setMatrixAt(st.i, _zero); im.instanceMatrix.needsUpdate = true; batchFree(st, k); continue; }
+    if (!att || o.material !== st.mat || o.geometry !== im.geometry || (st.mat.color && st.mat.color.getHex() !== st.col) || (st.mat.emissive && st.mat.emissive.getHex() !== st.em)) { im.setMatrixAt(st.i, _zero); im.instanceMatrix.needsUpdate = true; if (att && st.mat === im.material && o.material === st.mat && o.geometry === im.geometry) im.removeFromParent(); /* the batch's own material was edited: drop the whole batch */ batchFree(st, k); continue; }
     const e = o.matrixWorld.elements, m = st.m; let ch = vis !== st.vis; if (!ch) for (let i = 0; i < 16; i++) if (e[i] !== m[i]) { ch = true; break; }
     if (ch) { st.vis = vis; for (let i = 0; i < 16; i++) m[i] = e[i]; im.setMatrixAt(st.i, vis ? o.matrixWorld : _zero); im.instanceMatrix.needsUpdate = true; (dirty || (dirty = new Set())).add(im); } }
   if (dirty) for (const im of dirty) im.computeBoundingSphere(); }

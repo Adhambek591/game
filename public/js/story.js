@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795208631';
-import { t, setLang, lang, L, has } from './i18n.js?v=1795208631';
-import { place } from './env.js?v=1795208631';
-import * as SC from './scenery.js?v=1795208631';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795208631';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795208631';
-import { initMissions, runMission } from './missions.js?v=1795208631';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795211861';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795211861';
+import { place } from './env.js?v=1795211861';
+import * as SC from './scenery.js?v=1795211861';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795211861';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795211861';
+import { initMissions, runMission } from './missions.js?v=1795211861';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -416,7 +416,7 @@ addEventListener('keydown', e => { if (e.code === 'Escape') { $('set').classList
 window.__T = { prolog, mission1, CHAP, ms: runMission, spawn, potion: potionSoldier, soul: soulToAmulet, mount: toggleMount, kill: () => enemies().forEach(e => { if (!e.invuln) e.damage(1e6); }) };
 loadAssets(f => { $('loadbar').firstChild.style.width = (f * 100) + '%'; }).then(() => {
   ready = true; $('loadbar').style.display = 'none'; $('tplay').style.display = 'block'; if (prog) $('tcont').style.display = 'block'; texts(); setMood(NIGHT); start();
-  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-([0-4]|C[1-4]|Q)$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
+  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-([0-4]|C[1-4]|Q|S)$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
 }).catch(e => { $('loadtxt').textContent = 'Error: ' + e.message; console.error(e); });
 // urgent5: prefetch the prologue cutscene (v1 + nar1) when Start leads to 0-1, so it does not open on a black frame; fill the title buttons' texts before the load finishes
 $('tplay').addEventListener('click', () => { try { const tut = localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); if (!tut || qs.get('fast')) return; const v = $('cut').querySelector('video'); if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = './assets/video/v1.mp4'; v.load(); } preloadVoice('nar1'); } catch (e) { } });

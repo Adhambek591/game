@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795208631';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795211861';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);
@@ -46,7 +46,7 @@ export const M = {
   band: (bg, fg) => mat('band' + bg + fg, { map: TX.band(bg, fg), roughness: .95 }),
   iron: () => mat('iron', { color: 0x3a3a3e, metalness: .85, roughness: .45 }),
   steel: () => mat('steel', { color: 0x8a8e96, metalness: .9, roughness: .32 }),
-  dsteel: () => mat('dsteel', { color: 0x4a4c52, metalness: .9, roughness: .38 }),
+  dsteel: () => mat('dsteel', { color: 0x6a6e76, metalness: .9, roughness: .38 }),
   gold: () => mat('gold', { color: 0xe0b040, metalness: 1, roughness: .28, emissive: 0x3a2200, emissiveIntensity: .6 }),
   bronze: () => mat('bronze', { color: 0xa0702e, metalness: .95, roughness: .35 }),
   mail: () => mat('mail', { map: TX.mail(), bumpMap: TX.mail(), bumpScale: 2, metalness: .7, roughness: .5, side: THREE.DoubleSide }),
@@ -221,7 +221,7 @@ BUILD.yurt = (style = 'qq') => { srand(style === 'qq' ? 31 : 37); const g = new 
   mk(new THREE.CylinderGeometry(.09, .09, 1.1, 8), en ? M.felt(0x4a443c) : M.felt(0xc8b48a), 0, 1.86, .08, dg).rotation.z = PI / 2;
   return bake(g); };
 // ---- round Central-Asian shield (qalqan): hide dome, painted ring, iron rim, umbo + 4 bosses. paint 0..3. Face = +Z
-BUILD.shield = (paint = 0, R = .45) => { const g = new THREE.Group(); const P = [[0x6a4426, 0x8a1c14], [0x3a2a20, 0xb08a40], [0x7a5a36, 0x1a1a1a], [0x5a1a14, 0xd8b048]][paint % 4];
+BUILD.shield = (paint = 0, R = .45) => { const g = new THREE.Group(); const P = [[0x9a6a3e, 0x8a1c14], [0x6a5038, 0xb08a40], [0xa08058, 0x1a1a1a], [0x7a2a1e, 0xd8b048]][paint % 4];
   lathe([[0, R * .3], [R * .45, R * .26], [R * .8, R * .14], [R, 0]], 20, M.hide(P[0]), g).rotation.x = PI / 2; mk(new THREE.TorusGeometry(R * .62, R * .035, 4, 20), M.col(P[1], { roughness: .7 }), 0, 0, R * .19, g);
   mk(new THREE.TorusGeometry(R, R * .04, 5, 24), M.iron(), 0, 0, 0, g); mk(new THREE.SphereGeometry(R * .2, 10, 6, 0, 6.3, 0, 1.5), M.steel(), 0, 0, R * .26, g).rotation.x = PI / 2;
   for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + .78; mk(new THREE.SphereGeometry(R * .07, 6, 4, 0, 6.3, 0, 1.5), M.steel(), Math.cos(a) * R * .45, Math.sin(a) * R * .45, R * .24, g).rotation.x = PI / 2; }
@@ -297,7 +297,7 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   if (lk[0] !== 'none') { const hm = helm(lk[0], lk[2]); attachWorld(f.H, hm, f.ctr.clone().addScaledVector(f.fwd, -f.r * .04), qb, f.r * (lk[0] === 'fur' ? 1.04 : 1.1)); e._helm = hm; }
   if (cap || ty === 'nayza' || ty === 'qalqan' || (b === 'late' && n % 2)) for (const s of ['Left', 'Right']) { const A = rig.B[s + 'Arm']; if (!A) continue; const ap = A.getWorldPosition(new THREE.Vector3()); const sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : f.ctr; const out = ap.clone().sub(sp); out.y = 0; out.normalize();
     const pq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(f.up, out), f.up, out)); attachWorld(A, pauldron(1, cap), ap.clone().addScaledVector(out, f.r * .25).addScaledVector(f.up, f.r * .35), pq, f.r * 1.05); }
-  const lf = rig.B.LeftForeArm; if (lf) { const sg = lf.children.find(k => k.isGroup && !k.isBone); if (sg) { if (ty === 'qalqan') sg.scale.multiplyScalar(1.7); const tint = new THREE.Color([0xffffff, 0xd09080, 0x9098b8, 0xc0b080][(n + (cap ? 1 : 0)) % 4]); sg.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.color.multiply(tint); } }); } }
+  const lf = rig.B.LeftForeArm; if (lf) { const sg = lf.children.find(k => k.isGroup && !k.isBone); if (sg) { if (ty === 'qalqan') sg.scale.multiplyScalar(1.45); const tint = new THREE.Color([0xffffff, 0xd09080, 0x9098b8, 0xc0b080][(n + (cap ? 1 : 0)) % 4]); sg.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.color.multiply(tint); } }); } }
   if (ty === 'archer' && rig.B.Spine02) { const sp = rig.B.Spine02, p = sp.getWorldPosition(new THREE.Vector3()); const qq = qb.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(.35, 0, -.45))); attachWorld(sp, quiver(1), p.clone().addScaledVector(f.fwd, -f.r * 1.5).addScaledVector(f.side, f.r * .4).addScaledVector(f.up, -f.r * 2.2), qq, f.r * 6.5); }
 }
 export const MX = { G: null, on: true };
@@ -305,7 +305,8 @@ export function install(E) { if (MX.inst) return; MX.inst = 1; MX.G = E.G; windo
   const scan = () => { try { if (MX.on && MX.G && MX.G.ents) for (const e of MX.G.ents) if (!e._mx && e.rig && (e.team === 'enemy' || e.type === 'qiz') && !e.dead) vary(e); } catch (er) { console.warn('mx', er); } };
   setInterval(scan, 250); }
 // auto-install when loaded by the game (tools set window.__MX_NOAUTO before importing)
-if (typeof window !== 'undefined' && !window.__MX_NOAUTO) import('./engine.js?v=1795208631').then(install).catch(e => console.warn('models_ext', e));
+// uses window.__G (set by engine.js) instead of importing engine.js: no risk of a second engine instance if ?v tags ever differ
+if (typeof window !== 'undefined' && !window.__MX_NOAUTO) { const w = () => window.__G ? install({ G: window.__G }) : setTimeout(w, 300); w(); }
 // put(parent, name, x, z, ry, ...args): build once per (name,args), then clone (shared geometry/materials) and place on the ground
 const PC = {};
 export function put(parent, name, x, z, ry = 0, ...args) { const k = name + ':' + args.join(':'); const src = PC[k] || (PC[k] = BUILD[name](...args)); const o = src.clone(true); if (src.userData.arm) { o.userData.arm = o.children.find(c => c.userData.keep); o.userData.cup = src.userData.cup && o.userData.arm ? o.userData.arm.children[src.userData.arm.children.indexOf(src.userData.cup)] : null; } o.position.set(x, 0, z); o.rotation.y = ry; if (parent) parent.add(o); return o; }

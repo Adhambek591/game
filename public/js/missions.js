@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795208631';
-import { t } from './i18n.js?v=1795208631';
-import { Sfx, setMusic } from './audio.js?v=1795208631';
-import { applyLight, LIGHTS, place } from './env.js?v=1795208631';
-import { makeHorse } from './horse.js?v=1795208631';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795211861';
+import { t } from './i18n.js?v=1795211861';
+import { Sfx, setMusic } from './audio.js?v=1795211861';
+import { applyLight, LIGHTS, place } from './env.js?v=1795211861';
+import { makeHorse } from './horse.js?v=1795211861';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -56,8 +56,14 @@ export function runMission(id) {
   try { resCleanup(); } catch (e) { }
   G.mis = { id, m, c: m.c, t0: G.time, d0: 0, flag: false, flag2: false, run: (G.misRun = (G.misRun || 0) + 1) }; G.flying = false; try { hpBar(null); if (stEl) stEl.style.opacity = 0; storm.sv = storm.to = null; $('timer').style.display = 'none'; } catch (e) { }
   try { localStorage.setItem('qq_last', id); } catch (e) { }
-  return RUN[id]();
+  return (id === '0-0' ? Promise.resolve() : w4Ensure()).then(() => RUN[id]());
 }
+// bench #1 lazy load: characters that the title and the tutorial do not need are fetched before the first other mission, with a progress line (sizes in KB)
+const W4DEF = { allayar: 1069, surtaysha: 1075, wolf: 593, mother: 568, archer: 616, mage: 622 }; let w4EnsP = null;
+function w4Ensure() { if (w4EnsP) return w4EnsP; const ks = Object.keys(W4DEF).filter(k => !(A.real && A.real[k])); if (!ks.length || !A.real) return (w4EnsP = Promise.resolve());
+  const tot = ks.reduce((q, k) => q + W4DEF[k], 0) / 1024; let got = 0; const el = document.createElement('div'); el.id = 'w4load'; el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;padding:10px 18px;border-radius:12px;background:rgba(12,14,34,.92);border:1px solid rgba(255,210,120,.6);color:#ffe7b8;font:700 14px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el);
+  const show = () => { el.textContent = t('w4_loading') + ' ' + got.toFixed(1) + ' / ' + tot.toFixed(1) + ' MB'; }; show();
+  const p = Promise.all(ks.map(k => ensureReal([k]).then(() => { got += W4DEF[k] / 1024; show(); }))).catch(e => console.warn(e)).then(() => { el.remove(); if (ks.some(k => !A.real[k])) w4EnsP = null; }); return (w4EnsP = p); }
 const mstart = () => { G.mis.started = true; G.mis.t0 = G.time; G.mis.d0 = G.stats.deaths; G.mis.qz = G.ents.filter(e => e.type === 'qiz' && !e.dead); try { assignHunt(); } catch (e) { console.warn(e); } };
 function starsOf() { const M = G.mis, m = M.m, p = G.player;
   return m.s.map(r => r === 'win' ? true : r === 'nodeath' ? G.stats.deaths <= M.d0 : r === 'hp50' ? !!(p && !p.dead && p.hp > p.maxHp * .5) : r.startsWith('time:') ? (G.time - M.t0) <= +r.slice(5) : r === 'sec' ? !!(M.sec && M.sec.total && M.sec.list.filter(o => o.kind === 'page').every(o => o.got)) : r === 'most' ? starMost() : r === 'all' ? starAll() : r === 'flag' ? !!M.flag : r === 'flag2' ? !!M.flag2 : false); }
@@ -87,7 +93,7 @@ async function win() {
   clearTimeout(win.autoT); if (chEnd && MP) win.autoT = setTimeout(toMap, 4200);
   try { window.__META && window.__META.endUI && window.__META.endUI({ id: m.id, next: next ? next.id : null, chEnd: !!(chEnd && MP), gold: g0 }); } catch (e) { }   // ui (ui4): short ad label, layout class
 }
-async function fail() { $('timer').style.display = 'none'; G.tick = null; setMusic('off'); await H.bannerShow('', t('ms_fail'), '', 2.6); return runMission(G.mis.id); }
+async function fail() { $('timer').style.display = 'none'; G.tick = null; setMusic('off'); try { Sfx.defeat && Sfx.defeat(); } catch (e) { } await H.bannerShow('', t('ms_fail'), '', 2.6); return runMission(G.mis.id); }
 
 // ---------- shared setup ----------
 const M = () => G.mis.m;
@@ -155,7 +161,9 @@ const aimOf = all => () => { const r = resAim(); if (r) { const P = G.player, ne
 async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = aimOf(all); G.mis.need = all;
   await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
 // reinforcements (ambush / twist): pop in with the usual smoke, optional bark
-function rein(list, who, key) { list = list.slice(0, Math.max(0, F3_CAP - ((G.mis && G.mis.nE) || 0))); const es = list.map(([ty, x, z]) => sp(TY(ty), x, z)); if (G.time - hornT > 3) { hornT = G.time; Sfx.horn(); } if (key) bark(who, key); return es; }
+function rein(list, who, key) { list = list.slice(0, Math.max(0, F3_CAP - ((G.mis && G.mis.nE) || 0)));
+  // QA: reinforcements never appear next to her — a point closer than 16 m is moved behind the camera (or far up the road when there is no room behind)
+  { const P = G.player; if (P) list = list.map(([ty, x, z]) => { if (hyp(x - P.x, z - P.z) >= 16) return [ty, x, z]; const back = P.z + 17 + rnd(0, 3); if (back <= 11) return [ty, x, back]; const fwd = P.z - 26 - rnd(0, 4); return (G.limitZ > -1e8 && fwd < G.limitZ + 2) ? [ty, x, Math.min(11, back)] : [ty, x, fwd]; }); } const es = list.map(([ty, x, z]) => sp(TY(ty), x, z)); if (G.time - hornT > 3) { hornT = G.time; Sfx.horn(); } if (key) bark(who, key); return es; }
 async function dead(es) { G.mis.aim = aimOf(es); G.mis.need = es; await until(() => es.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of es) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
 const cp = () => { const P = G.player; if (P && !P.dead) H.setCP(P.x, P.z); };
 const bark = (who, key) => hintRaw(t('n_' + who) + ': ' + t(key));
@@ -163,7 +171,7 @@ const say = lines => H.dialog(lines);
 // elite leader: a big captain; when he falls the rest of his group falters (stagger + morale damage)
 function leader(g, x, z, nameKey = 'mb_cap') { const ty = T.elite ? 'elite' : 'askar'; const e = spawn(ty, x, z); e.spawnT = 0; if (ty === 'askar') { e.vs *= 1.38; e.r *= 1.3; e.h *= 1.38; e.maxHp = e.hp = Math.round(420 * (1 + .25 * (G.mis.c || 0))); e.dmgMul = 1.7; e.speed *= .92; e.d = { ...e.d, name: nameKey, windup: .7 }; for (const m of e.mats || []) if (m.color) m.color.offsetHSL(.02, .1, -.08); }
   e.o.scale.setScalar(e.vs || 1); e.grp = g; e.next = null; e.pose = 'g'; e.hx = x; e.hz0 = z; e.seed = 1; e.rot = e.rot0 = 0; e.farT = -1e9; e.custom = sleepAI; e.lead = true; g.es.push(e); g.boss = e; g.bossName = nameKey;
-  e.onDeath = () => { Sfx.big(); flash(.25); bark('gu', 'bk_leader'); for (const o of g.es) if (!o.dead && o !== e) { o.stagger = 1.6; o.hp = Math.max(1, o.hp - o.maxHp * .35); o.showBar && o.showBar(); o.play('Hit_A', { once: true, force: true }); } };
+  e.onDeath = () => { Sfx.big(); flash(.25); bark('gu', 'bk_leader'); try { Sfx.bark && Sfx.bark('maid', 'kill', { x: e.x, z: e.z }); if (g.es.some(o => !o.dead && o !== e)) setTimeout(() => { try { Sfx.bark('enemy', 'flee', { x: e.x, z: e.z }); } catch (er) { } }, 4300); } catch (er) { } for (const o of g.es) if (!o.dead && o !== e) { o.stagger = 1.6; o.hp = Math.max(1, o.hp - o.maxHp * .35); o.showBar && o.showBar(); o.play('Hit_A', { once: true, force: true }); } };
   return e; }
 // chapter boss standing in its arena from the start (idle); bossFight() adopts it
 function preBoss(type, x, z, label, img) { const b = spawn(type, x, z); b.rot = 0; b.spawnT = 0; b.o.scale.setScalar(b.vs || T[type].scale); b.custom = e => { e.play('Idle'); e.farT = -1e9; return true; }; b.asleep = true; G.mis.preBoss = b;
@@ -230,7 +238,16 @@ function huntTick() { const M = G.mis, P = G.player; if (!huEl) { huEl = documen
       if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
       c.style.display = 'block'; c.style.left = ((clamp(V3.x, -.88, .88) + 1) / 2 * W) + 'px'; c.style.top = ((1 - clamp(V3.y, -.82, .8)) / 2 * Hh) + 'px'; c.textContent = '🎯 ' + Math.round(d) + ' m'; k++; } }
   for (let i = k; i < huChips.length; i++) huChips[i].style.display = 'none'; }
-(function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; dirTick(); secTick(tm); cullTick(); needTick(tm); huntTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
+// QA watchdog: an enemy that is awake (or was displaced from his post) but stands beyond a closed gate or outside the lane for 8 s is brought back: behind the camera, awake, walking in. Mission ends never wait for an unreachable enemy.
+let wdL = 0;
+function wdTick(tm) { const dt = Math.min(.2, tm - wdL); wdL = tm; const M = G.mis, P = G.player; if (!M || !M.started || !P || P.dead || G.paused || G.flying || G.freeze) return;
+  for (const e of G.ents) { if (e.team !== 'enemy' || e.dead || e.gone || e.bg || e.w4cat || e.w4wall || e === M.preBoss || e.maxHp >= 1e6 || e.mounted || (e.y || 0) > 1 || e === G.boss) continue;
+    const post = e.custom === sleepAI && e.hz0 !== undefined && hyp(e.x - e.hx, e.z - e.hz0) < 5, far = (G.limitZ > -1e8 && e.z < G.limitZ + .4) || Math.abs(e.x) > G.W + .9;
+    if (!far || post || (e.asleep && e.custom && e.custom !== sleepAI && !(Math.abs(e.x) > G.W + .9))) { e.wdT = 0; continue; }
+    if (!e.wdT) { e.wdX = e.x; e.wdZ = e.z; } e.wdT = (e.wdT || 0) + dt; if (e.wdT < 8) continue; e.wdT = 0; if (hyp(e.x - e.wdX, e.z - e.wdZ) > 1.5 && e.custom) continue;   /* a scripted unit still travelling (boat landing, flanker walking in) is left alone */
+    const back = Math.min(11, P.z + 17); e.x = Math.max(-G.W + 2, Math.min(G.W - 2, e.x)); e.z = (back - P.z > 12) ? back : Math.max(G.limitZ > -1e8 ? G.limitZ + 1.6 : -1e9, e.z, P.z - 22);
+    if (G.limitZ > -1e8 && e.z < G.limitZ + 1.6) e.z = G.limitZ + 1.6; if (e.custom) e.custom = null; e.asleep = false; e.farT = 0; e.state = 'chase'; e.y = 0; e.o.visible = true; console.warn('[watchdog] enemy brought back', e.type); } }
+(function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; wdTick(tm); dirTick(); secTick(tm); cullTick(); needTick(tm); huntTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
 
 // safe practice moment (onboarding): a harmless telegraphed circle to dodge out of
 async function practiceDodge() { const p = G.player, x = p.x, z = p.z; H.hint('h_dodge', 6); telegraph(x, z, 3.2, 3); await wait(3); ringFx(x, z, 3.2, 0xff5522); Sfx.big(); if (hyp(p.x - x, p.z - z) > 3.2) { num(p, '✓', 'c'); Sfx.pick(); addGold(10, p.x, p.z); } else num(p, '✗', 'n'); }
@@ -437,7 +454,11 @@ function victimAI(c, dt) { const g = c.vict; if (G.flying) { c.play(g.kind === '
   c.play('Sit_Floor_Idle'); return true; }
 // handler AI: walks the roped line to the exit; turns to fight when the hero is close or he is hit
 function dragAI(g) { return (e, dt) => { const P = G.player; e.farT = -1e9; if (e.hp < e.maxHp || (P && !P.dead && hyp(P.x - e.x, P.z - e.z) < 6.5)) { e.custom = null; e.asleep = false; e.farT = 0; return false; } if (!g.on) { e.asleep = true; e.play('Idle'); return true; } e.asleep = false;
-  const ex = g.o.exit, dx = ex.x - e.x, dz = ex.z - e.z, l = hyp(dx, dz) || 1, v = (g.o.speed || 1.5) * FAST(); e.x += dx / l * v * dt; e.z += dz / l * v * dt; e.face(dx, dz, dt * 5); e.play('Walking_A', { ts: .75 }); e.farT = -1e9; return true; }; }
+  const ex = g.o.exit, dx = ex.x - e.x, dz = ex.z - e.z, l = hyp(dx, dz) || 1, v = (g.o.speed || 1.5) * FAST();
+  // QA blocker (1-1 / 1-3 / 3-2): a handler never walks through a closed gate or out of the lane — where he cannot go on he turns round and fights (awake, inside the arena, reachable)
+  const lim = G.limitZ > -1e8 ? G.limitZ + 1.6 : -1e9, nx = Math.max(-G.W + 1, Math.min(G.W - 1, e.x + dx / l * v * dt)), nz = Math.max(lim, e.z + dz / l * v * dt), mv = Math.abs(nx - e.x) + Math.abs(nz - e.z); e.x = nx; e.z = nz;
+  if (l < 1.2 || mv < v * dt * .35) { e.custom = null; e.asleep = false; e.farT = 0; e.state = 'chase'; return false; }
+  e.face(dx, dz, dt * 5); e.play('Walking_A', { ts: .75 }); e.farT = -1e9; return true; }; }
 function dragGroup(caps, hands, exit, o = {}) { const hs = hands.map(([ty, x, z]) => { const e = sp(TY(ty), x, z); e.spawnT = 0; e.o.scale.setScalar(e.vs || 1); e.farT = -1e9; return e; }); const g = people(caps, { ...o, kind: 'drag', handlers: hs, exit }); for (const e of hs) e.custom = dragAI(g); return g; }
 // maidens at the start of the mission (losses count against the 3rd star)
 function maidLost() { const L = (G.mis && G.mis.qz) || []; return L.filter(e => e.dead).length; }
@@ -478,7 +499,7 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
       e.w4t = (e.w4t || 0) + dt; if (e.z > 9 || e.w4t > 24) {   /* 24 s failsafe: nobody stays stuck in the street */ if (e.z <= 9) burst(e.x, 1, e.z, 0xc8a070, 1.6, true); e.gone = true; e.dead = true; e.o.visible = false; safeN++; } }
     for (const e of enemies()) if (!e.dead && e.z > -36 && !brk.has(e) && e.custom !== sleepAI) { brk.add(e); const v = folk.find(q => q.w4run && !q.gone && !q.w4lost) || folk.find(q => !q.gone && !q.w4lost); if (v) { v.w4lost = 1; v.w4run = 0; v.gone = true; lostN++; v.play('Death_A', { once: true, force: true }); hintRaw('⚠ ' + t('w4_hold_lost')); } }
     const s2 = '🛡 ' + t('w4_wave', { n: Math.min(3, wi + 1), m: 3 }) + ' — ' + t('w4_hold_hud', { n: safeN, m: folk.length - lostN }); if (s2 !== lp) { lp = s2; $('obj').textContent = s2; } };
-  for (wi = 0; wi < 3 && !G.mis.force; wi++) { if (wi) { cur = rein(WV[wi], 'al', null); for (const e of cur) { e.state = 'chase'; e.farT = 0; } } else cur = cur.concat(rein(WV[0], 'al', null));
+  for (wi = 0; wi < 3 && !G.mis.force; wi++) { try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } if (wi) { cur = rein(WV[wi], 'al', null); for (const e of cur) { e.state = 'chase'; e.farT = 0; } } else cur = cur.concat(rein(WV[0], 'al', null));
     await until(() => cur.every(e => e.dead) || G.mis.force); cp(); if (wi < 2) await wait(1.5); }
   for (const e of folk) if (!e.gone) e.w4run = 1; await until(() => folk.every(e => e.gone) || G.mis.force); if (G.mis.force) for (const e of enemies()) e.die();
   G.tick = null; G.mis.aim = null; setMusic('off'); g2.open(); await H.bannerShow('', '🛡 ' + t('w4_hold_win'), '', 2); await wait(.6); await H.victory(); return win(); };
@@ -1093,20 +1114,24 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795208631';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795211861';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
+// models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
+const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
 function w4Scene(k, c, CZ) {
   const W = G.W;
   if (k === 'yurt') { for (const [x, z] of [[-8.4, CZ + 3], [8.6, CZ - 1], [-8.6, CZ - 12], [8.8, CZ - 14], [-8.8, CZ - 25], [9, CZ - 26]]) w4Yurt(x, z, false, true);
-    for (const s of [-1, 1]) { try { w4Banner(s * 4.6, CZ + 7, 0x1a1a1a); } catch (e) { } } decor('R_arava', -9.4, CZ - 5, .6); w4Crate(5.5, CZ + 5); w4Crate(-5, CZ - 15); }
+    for (const s of [-1, 1]) { if (!w4mx('tug', s * 4.6, CZ + 7)) { try { w4Banner(s * 4.6, CZ + 7, 0x1a1a1a); } catch (e) { } } w4mx('mantlet', s * 2.6, CZ + 8.2, 0); } decor('R_arava', -9.4, CZ - 5, .6); w4Crate(5.5, CZ + 5); w4Crate(-5, CZ - 15);
+    if (w4mx('tent', -6.4, CZ - 19, .3)) G.colC.push({ x: -6.4, z: CZ - 19, r: 1.6 }); if (w4mx('tent', 6.6, CZ - 20, -.3)) G.colC.push({ x: 6.6, z: CZ - 20, r: 1.6 }); w4mx('weaponRack', 6.2, CZ - 7, -1.2); w4mx('weaponRack', -6.4, CZ + 1, 1.2); w4mx('arrowBasket', 5.2, CZ - 9.5, 0); w4mx('campfire', 0, CZ - 4, 0); }
   else if (k === 'tower') { w4Wall(-W - 3, -3.4, CZ + 6, 2.4, .8); w4Wall(3.4, W + 3, CZ + 6, 2.4, .8); for (const s of [-1, 1]) { try { w4Banner(s * 3.9, CZ + 6.4, 0x1a1a1a); } catch (e) { } }
-    for (const [x, z, r] of [[-6.5, CZ - 8, .3], [6.5, CZ - 9, -.3]]) { try { decor('B_tower', x, z, r); } catch (e) { } } w4Yurt(-8.8, CZ - 19, false, true); w4Yurt(8.8, CZ - 20, false, true); w4Crate(4.5, CZ + 2); }
+    for (const [x, z, r] of [[-6.5, CZ - 8, .3], [6.5, CZ - 9, -.3]]) { if (w4mx('watchtower', x, z, r)) G.colC.push({ x, z, r: 1.8 }); else { try { decor('B_tower', x, z, r); } catch (e) { } } } w4mx('tug', 0, CZ - 16, 0); w4mx('weaponRack', -5, CZ - 14, 1.2); w4mx('mantlet', -2.4, CZ + 3.4, 0); w4mx('mantlet', 2.4, CZ + 3.4, 0); w4mx('arrowBasket', 4, CZ - 11, 0); w4Yurt(-8.8, CZ - 19, false, true); w4Yurt(8.8, CZ - 20, false, true); w4Crate(4.5, CZ + 2); }
   else { try { w4Water(0, CZ + 9, 2 * W + 18, 7.5); } catch (e) { } for (const [x, z, s] of [[-8.5, CZ + 5, 1.4], [8, CZ + 4.6, 1.2], [-5, CZ + 13.4, 1], [6.5, CZ + 13.2, 1.3]]) { try { place(world, 'boulder_01', x, z, s); } catch (e) { } }
-    w4Yurt(-8.6, CZ - 8, false, true); w4Yurt(8.8, CZ - 13, false, true); w4Yurt(-8.8, CZ - 22, false, true); decor('R_arava', 9.4, CZ - 2, 2.4); }
+    w4Yurt(-8.6, CZ - 8, false, true); w4Yurt(8.8, CZ - 13, false, true); w4Yurt(-8.8, CZ - 22, false, true); decor('R_arava', 9.4, CZ - 2, 2.4);
+    w4mx('fordStones', 0, CZ + 9, 0, 9); w4mx('fordStakes', -3.6, CZ + 9, Math.PI / 2, 8); w4mx('reeds', -9.5, CZ + 11.5, 0, 7); w4mx('reeds', 9.8, CZ + 6.6, 0, 6); w4mx('boat', 9.2, CZ + 10.5, .5); w4mx('tug', -4.5, CZ - 3, 0); w4mx('weaponRack', 5, CZ - 9, -1.2); w4mx('campfire', 0, CZ - 12, 0); }
 }
 async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62, REP = 3, B = Math.ceil(N / REP);
   const mood = H.moods[W4MOOD[c]] || H.moods.DAY, build = c === 1 ? H.buildMission : H.B[c];
@@ -1129,7 +1154,7 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
     if (awake && reserve > 0) { waveT -= dt; const up = all.filter(e => !e.dead).length; if (up < 14 && waveT <= 0) { waveT = 6; const n = Math.min(5, reserve); reserve -= n;
         for (let i = 0; i < n; i++) { const [x, z] = exits[i % exits.length]; const e = sp(TY(pick(i + reserve)), x + rnd(-1, 1), z + rnd(-1, 1)); e.state = 'chase'; e.farT = 0; e.rot = 0; all.push(e); }
         if (!told) { told = true; hintRaw('⛺ ' + t('w4_camp_out')); } try { Sfx.horn(); } catch (er) { } } }
-    const wn = wv(); if (wn !== wLast) { wLast = wn; hintRaw('⛺ ' + t('w4_wave', { n: wn, m: 3 })); } const s = '⛺ ' + t(m.n) + ' — ' + t('w4_wave', { n: wn, m: 3 }) + ' · ' + t('w4_hud_camp', { n: left(), m: N }) + (capt.dead ? '' : '   🎯 ' + t('mb_cap')); if (s !== lp) { lp = s; $('obj').textContent = s; } };
+    const wn = wv(); if (wn !== wLast) { wLast = wn; hintRaw('⛺ ' + t('w4_wave', { n: wn, m: 3 })); try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } } const s = '⛺ ' + t(m.n) + ' — ' + t('w4_wave', { n: wn, m: 3 }) + ' · ' + t('w4_hud_camp', { n: left(), m: N }) + (capt.dead ? '' : '   🎯 ' + t('mb_cap')); if (s !== lp) { lp = s; $('obj').textContent = s; } };
   await until(() => (reserve <= 0 && all.every(e => e.dead)) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die();
   G.tick = null; G.mis.aim = null; G.mis.need = null; setMusic('off'); addGold(60 + 30 * c, G.player.x, G.player.z); if (m.keep) m.keep(); await H.bannerShow('', '⛺ ' + t('w4_camp_win'), '', 1.8); await H.victory(); return win(); }
 for (const m of MLIST) if (m.camp) RUN[m.id] = () => campRun(m);
@@ -1179,14 +1204,14 @@ async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   // wave 1: the sortie in front of the wall
   await until(() => !up(g1.es).length || F()); if (F()) for (const e of g1.es) if (!e.dead) e.die(); cp();
   // wave 2: flank attack from the steppe behind us + the archers on the wall
-  ph = 2; await H.bannerShow('', '🏰 ' + t('w4_wave', { n: 2, m: 3 }), t('w4_sg_arch'), 2.2); hintRaw('🏹 ' + t('w4_sg_arch'));
+  ph = 2; try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } await H.bannerShow('', '🏰 ' + t('w4_wave', { n: 2, m: 3 }), t('w4_sg_arch'), 2.2); hintRaw('🏹 ' + t('w4_sg_arch'));
   { const L = []; for (let i = 0; i < 8; i++) L.push([pick(i + 2), (i % 2 ? 1 : -1) * (5 + (i >> 1) * 1.5), Math.min(9, G.player.z + 20 + (i >> 1) * 1.6)]); w2 = rein(L, 'sa', null); for (const e of w2) { e.state = 'chase'; e.farT = 0; } }
   await until(() => (!up(w2).length && !up(wa).length) || F()); if (F()) for (const e of [...w2, ...wa]) if (!e.dead) e.die(); cp();
   // the catapults breach the gate
   ph = 3; lobT = .6; hintRaw('🏰 ' + t('w4_sg_gate')); await until(() => gt.dead || F()); if (!gt.dead) gt.shatter(); Sfx.big(); flash(.3);
   await H.bannerShow('', '🏰 ' + t('w4_sg_breach'), t('w4_wave', { n: 3, m: 3 }), 2); H.setCP(0, WZ + 6);
   // wave 3: the garrison behind the gate, then the two points
-  ph = 4; g3.wakeR = 16; wake(g3); for (const q of pts) q.g.wakeR = 12;
+  ph = 4; try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } g3.wakeR = 16; wake(g3); for (const q of pts) q.g.wakeR = 12;
   await until(() => (pts.every(q => q.done) && !up(g3.es).length && pts.every(q => !up(q.g.es).length)) || F()); if (F()) for (const g of [g3, ...pts.map(q => q.g)]) for (const e of g.es) if (!e.dead) e.die();
   ph = 5; G.tick = null; G.mis.aim = null; cp();
   // the lord of the fortress, one on one
@@ -1207,14 +1232,15 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(.2, .26, 10.5, 8), wd); mast.position.set(0, 5.25, -8.6); mast.castShadow = true; g.add(mast); box(7.6, .18, .18, 0, 9.2, -8.6);
   const sail = new THREE.Mesh(new THREE.PlaneGeometry(7, 5.2), new THREE.MeshStandardMaterial({ color: 0xd8c8a0, roughness: 1, side: THREE.DoubleSide })); sail.position.set(0, 6.5, -8.55); sail.castShadow = true; g.add(sail);
   g.position.set(x, 0, z); world.add(g); G.colC.push({ x, z: z - 8.6, r: .5 });
+  { const M = G.mis, iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); Sfx.surface && Sfx.surface(null); return; } const P = G.player; Sfx.surface && Sfx.surface(P && Math.abs(P.x - x) < 8.2 && Math.abs(P.z - z) < 8.2 ? 'wood' : null); } catch (e) { } }, 400); }   /* audio: wooden steps on the deck */
   try { w4Water(x, z - 27, 90, 30); for (const s of [-1, 1]) w4Water(x + s * 25, z - 2, 30, 22); } catch (e) { } }
 // ---------- TUTORIAL 0-0 "Shınıǵıw maydanı" (training field, before the war) ----------
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795208631';
-import * as tuSCN from './scenery.js?v=1795208631';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795208631';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795211861';
+import * as tuSCN from './scenery.js?v=1795211861';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795211861';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1478,9 +1504,14 @@ const TUT = (() => {
         tick: () => { if ((G.stats.amulet || 0) <= R.am0 && G.ulti < 100) G.ulti = 100; }, aim: () => R.am && R.am[2],
         ok: () => (G.stats.amulet || 0) > R.am0, done: () => { for (const e of R.am || []) dropProp(e); }, praise: ['gu', 'tu4_p_amu'], gold: 25 },
     ];
+    // bench #8: four steps (attack, parry / dodge, amulet, duel); no demo and one line of talk before the first step, so her first hit lands within ~12 s. ?tut8=1 plays the long 8-step version.
+    const TUT4 = !/[?&]tut8=1/.test(location.search);
+    if (TUT4) { const K = ['light', 'parry', 'amu']; for (let i = ST.length - 1; i >= 0; i--) if (!K.includes(ST[i].id)) ST.splice(i, 1);
+      const li = ST.find(o => o.id === 'light'); if (li) { li.demo = null; const b0 = li.btn; li.btn = () => [joyId(), ...b0()]; }
+      const am = ST.find(o => o.id === 'amu'); if (am) { const i0 = am.init; am.init = () => { try { toCrowd(SP, 6.8, -23, -1.6); } catch (e) { } i0(); }; } }
     R.total = ST.filter(o => !o.need || o.need()).length + 1;
     setMusic('calm'); await ban(3); if (!alive(R)) return; mstart();
-    await say([['gu', 'tu3_d1'], ['ays', 'tu3_d2'], ['gu', 'tu3_d3']]); if (!alive(R)) return;
+    await say(TUT4 ? [['gu', 'tu3_d1']] : [['gu', 'tu3_d1'], ['ays', 'tu3_d2'], ['gu', 'tu3_d3']]); if (!alive(R)) return;
     for (const o of ST) { await step(R, o); if (!alive(R)) return; }
     // ---- final: friendly duel with Sárbinaz (everything combined; she yields) ----
     R.k++; reveal('bA', 'bD', 'bP'); focus([]);
@@ -1554,9 +1585,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795208631';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795208631';
-import * as f3SC from './scenery.js?v=1795208631';
+import * as F3X from './fx.js?v=1795211861';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795211861';
+import * as f3SC from './scenery.js?v=1795211861';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1574,8 +1605,9 @@ function leaveAI(e, dt) { const P = G.player; e.farT = -1e9; e.lt = (e.lt || 0) 
   if (e.lt > 2.6 || Math.abs(e.x) > G.W - .6) { burst(e.x, .6, e.z, 0xc8a070, 1.6, true); e.dead = true; e.gone = true; try { e.remove(); } catch (er) { e.o.visible = false; } } return true; }
 let f3L = 0;
 function soloTick() { const now = performance.now() / 1000, dt = Math.min(.1, now - f3L); f3L = now; if (!G.paused && !G.flying) for (const e of G.ents) if (e.f3left && !e.dead) leaveAI(e, dt * (G.ts || 1));   // npc units get no AI call from the engine: drive them here
-  const M = G.mis, b = G.boss; if (!M || !M.m || !M.m.boss || !b || b.dead || G.paused || G.flying || !M.started) return;
-  if (M.soloB !== b) { M.soloB = b; try { $('obj').textContent = '⚔ ' + t('duelO', { n: t(b.d.name) }); } catch (e) { } }
+  const M = G.mis, b = G.boss; if (M && M.soloB && (!b || b.dead || b !== M.soloB) && !M.soloOff) { M.soloOff = true; try { $('obj').textContent = '✓ ' + t(M.m.n); } catch (e) { } }   /* QA: "Duel: …" no longer stays after the boss falls */
+  if (!M || !M.m || !M.m.boss || !b || b.dead || G.paused || G.flying || !M.started) return;
+  if (M.soloB !== b) { M.soloB = b; M.soloOff = false; try { $('obj').textContent = '⚔ ' + t('duelO', { n: t(b.d.name) }); } catch (e) { } }
   /* soldiers: the engine's boss-duel watcher ring (combat agent) makes everyone else stand back and watch — nothing to do here */ }
 (function f3loop() { requestAnimationFrame(f3loop); try { soloTick(); } catch (e) { } })();
 
@@ -1678,15 +1710,16 @@ RUN['2-3'] = async () => { const { HOT } = H.moods;
     const want = block || cv.s >= LEN ? 0 : cv.sp * FAST(); cv.v += (want - cv.v) * Math.min(1, dt * 1.6); if (cv.v < .03 && !want) cv.v = 0;
     for (const c of cv.carts) { c.speed = cv.v; c.update(dt); const q = at(c.s - c.back), q2 = at(c.s - c.back + 1), fx = q2.x - q.x, fz = q2.z - q.z, l = hyp(fx, fz) || 1; c.cols[0].x = q.x; c.cols[0].z = q.z; c.cols[1].x = q.x + fx / l * 3; c.cols[1].z = q.z + fz / l * 3; }
     if (cv.carts[0]) cv.s = cv.carts[0].s; else cv.s += cv.v * dt; const q = at(cv.s); cv.x = q.x; cv.z = q.z;
+    if ((cv.sndT = (cv.sndT || 0) - dt) <= 0) { cv.sndT = .5; try { Sfx.loop && Sfx.loop('cart', cv.v > .15, { x: cv.x, z: cv.z }); } catch (er) { } }   /* audio: cart loop while it rolls */
     if (cv.hitT > 0) cv.hitT -= dt; else if (!cv.amb && cv.pool < cv.max) cv.pool = Math.min(cv.max, cv.pool + cv.max * .004 * dt); hpBar(cv); prog(); };
   await until(() => (cv.s >= LEN && ai >= AMB.length && !cv.amb) || G.mis.force); if (G.mis.force) for (const e of enemies()) e.die();
   // wave4 / missions audit: the plan's "battle for the well" — once the caravan rests at the well, raiders storm it from both sides at once, twice
   if (!G.mis.force) { const x0 = cv.x, z0 = cv.z; await H.bannerShow('', '🛡 ' + t('w4_well'), t('w4_well2'), 2.2);
     for (let w = 0; w < 2 && !G.mis.force; w++) { const L = []; for (let i = 0; i < 3 + w; i++) { L.push([i % 3 === 2 ? 'archer' : 'askar', -11, z0 - 5 + i * 3]); L.push([i % 3 === 1 ? 'archer' : 'askar', 11, z0 - 4 + i * 3]); }
       const es = rein(L.map(([ty, dx, z]) => [ty, f3cl(x0 + dx, -G.W - .5, G.W + .5), z]), 'sa', w ? null : 'bk_amb'); for (const e of es) { e.f3amb = true; e.state = 'chase'; e.farT = 0; burst(e.x, .6, e.z, 0xd8b070, 2.4); } es.filter(e => e.type !== 'archer').slice(0, 3).forEach(e => { e.custom = raidAI(cv.mem); });
-      sideAlert(w ? 'right' : 'left', t('w4_well_w', { n: w + 1, m: 2 }), 4.5); setMusic('battle'); G.mis.aim = aimOf(es);
+      sideAlert(w ? 'right' : 'left', t('w4_well_w', { n: w + 1, m: 2 }), 4.5); setMusic('battle'); try { Sfx.loop && Sfx.loop('cart', false); Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } G.mis.aim = aimOf(es);
       await until(() => es.every(e => e.dead) || G.mis.force); sideOff(); cp(); await wait(1.2); } if (G.mis.force) for (const e of enemies()) e.die(); }
-  G.tick = null; G.mis.aim = null; sideOff(); for (const c of cv.carts) c.speed = 0; for (const e of cv.mem) e.custom = e2 => { e2.play('Cheer'); return true; };
+  G.tick = null; G.mis.aim = null; sideOff(); try { Sfx.loop && Sfx.loop('cart', false); } catch (er) { } for (const c of cv.carts) c.speed = 0; for (const e of cv.mem) e.custom = e2 => { e2.play('Cheer'); return true; };
   G.mis.flag = !cv.everFailed; setMusic('off'); await wait(.8); await say([['gu', 'cv_d3']]); hpBar(null); await H.victory(); return win(); };
 
 // ---------- 3-3 the bridge: cross, beat the guards — the freed captives RUN back over the bridge (saved at once); then boats land raiders on both banks ----------
@@ -1721,7 +1754,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795208631';
+import { runArchery } from './archery.js?v=1795211861';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }

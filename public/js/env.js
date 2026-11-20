@@ -1,7 +1,7 @@
 // Real PBR environment from Poly Haven (CC0): HDRI lighting, PBR ground/wall/wood textures, scanned props.
 import * as THREE from 'three';
-import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795208631';
-import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795208631';
+import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795211861';
+import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795211861';
 export const ENV = { pbr: {}, mod: {}, day: null, night: null, ok: false };
 const B = './assets/env/';
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -48,21 +48,23 @@ export function groundMat(L, night) { const m = pbrMat(night ? 'aerial_ground_ro
 // assets/env/tex/trail_det.jpg, a mean-0.5 detail map) runs along it. o: { amp, hw, k, dark, desat, lane, tint:[r,g,b], off }
 export const roadX = (z, amp = 1.6) => Math.sin(z * .045) * amp + Math.sin(z * .11 + 1.3) * amp * .35;
 export function roadify(m, o = {}) {
-  const u = m._road = { uRoad: { value: new THREE.Vector4(o.amp ?? 1.6, o.hw ?? 2.5, ENV.trail ? (o.k ?? 1) : 0, o.off ?? 0) }, uLane: { value: new THREE.Vector4(o.lane ?? 12.5, o.dark ?? .82, o.desat ?? .85, o.flat ?? .25) }, uGT: { value: new THREE.Vector3(...(o.gt || [.97, 1.04, .87])) }, uRoadT: { value: new THREE.Vector3(...(o.tint || [.42, .345, .25])) }, tRoad: { value: ENV.trail || null } };
+  const u = m._road = { uRoad: { value: new THREE.Vector4(o.amp ?? 1.6, o.hw ?? 2.5, ENV.trail ? (o.k ?? 1) : 0, o.off ?? 0) }, uLane: { value: new THREE.Vector4(o.lane ?? 12.5, o.dark ?? .82, o.desat ?? .85, o.flat ?? .25) }, uRip: { value: o.rip || 0 }, uGT: { value: new THREE.Vector3(...(o.gt || [.97, 1.04, .87])) }, uRoadT: { value: new THREE.Vector3(...(o.tint || [.42, .345, .25])) }, tRoad: { value: ENV.trail || null } };
   const prev = m.onBeforeCompile, pk = prev ? String(m.customProgramCacheKey()).slice(0, 60) : '';
   m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); Object.assign(sh.uniforms, u);
     sh.vertexShader = 'varying vec2 vRoadP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vRoadP = (modelMatrix * vec4(transformed, 1.)).xz;');
-    sh.fragmentShader = 'varying vec2 vRoadP; uniform vec4 uRoad; uniform vec4 uLane; uniform vec3 uRoadT; uniform vec3 uGT; uniform sampler2D tRoad; float fxLane = 0.; float fxRoad = 0.;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    sh.fragmentShader = 'varying vec2 vRoadP; uniform vec4 uRoad; uniform vec4 uLane; uniform vec3 uRoadT; uniform vec3 uGT; uniform float uRip; uniform sampler2D tRoad; float fxLane = 0.; float fxRoad = 0.;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
     { diffuseColor.rgb *= uGT; fxLane = 1. - smoothstep(uLane.x, uLane.x + 6., abs(vRoadP.x)); float l0 = dot(diffuseColor.rgb, vec3(.299, .587, .114));
       vec3 lc = mix(vec3(l0), diffuseColor.rgb, uLane.z); lc *= mix(1., .4 / max(l0, .1), uLane.w) * uLane.y; diffuseColor.rgb = mix(diffuseColor.rgb, lc, fxLane);
       if (uRoad.z > 0.) { float cx = sin(vRoadP.y * .045) * uRoad.x + sin(vRoadP.y * .11 + 1.3) * uRoad.x * .35 + uRoad.w; float dx = vRoadP.x - cx;
         vec3 rt = texture2D(tRoad, vec2(dx / (uRoad.y * 2.9) + .5, vRoadP.y / 11.)).rgb; float wob = texture2D(tRoad, vec2(.08, vRoadP.y / 47.)).g + texture2D(tRoad, vec2(.9, vRoadP.y / 23.)).g - 1.;
         float hw = uRoad.y * (1. + wob * .5); fxRoad = (1. - smoothstep(hw * .55, hw * 1.3, abs(dx))) * uRoad.z;
         float l1 = dot(diffuseColor.rgb, vec3(.299, .587, .114)); vec3 rc = mix(diffuseColor.rgb, uRoadT * (.75 + l1 * .6), .72) * (.2 + rt * 1.3) * .7; diffuseColor.rgb = mix(diffuseColor.rgb, rc, fxRoad);
-        float mv = texture2D(tRoad, vRoadP * .021).g * .6 + texture2D(tRoad, vRoadP.yx * .067 + .3).r * .4; diffuseColor.rgb *= .78 + mv * .44; } }`)
+        float mv = texture2D(tRoad, vRoadP * .021).g * .6 + texture2D(tRoad, vRoadP.yx * .067 + .3).r * .4; diffuseColor.rgb *= .78 + mv * .44;
+        float pv = texture2D(tRoad, vRoadP * .0063 + .17).b + texture2D(tRoad, vRoadP.yx * .0131 + .41).r * .5; diffuseColor.rgb *= mix(vec3(1.08, 1., .88), vec3(.88, 1.03, .96), smoothstep(.55, .95, pv));
+        if (uRip > 0.) { float rp = sin(vRoadP.x * .8 + vRoadP.y * 2.4 + mv * 7.) * .5 + .5; diffuseColor.rgb *= 1. + (rp * rp - .35) * .17 * uRip * (1. - fxRoad) * (1. - fxLane * .45); } } }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 1., clamp(fxLane * .85 + fxRoad, 0., 1.));')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize(mix(normal, normalize(vNormal) * (gl_FrontFacing ? 1. : -1.), clamp(fxLane * uLane.w * .6 + fxRoad * .3, 0., .6)));'); };
-  m.customProgramCacheKey = () => 'road2|' + pk + (ENV.trail ? 1 : 0); m.needsUpdate = true; return m;
+  m.customProgramCacheKey = () => 'road3|' + pk + (ENV.trail ? 1 : 0); m.needsUpdate = true; return m;
 }
 export function dressGround(world, zNear, zFar, W, night) {
   if (!ENV.ok) return;
@@ -118,6 +120,8 @@ export const LIGHTS = {
   ch6: { sun: [0xffc078, 3.7], dir: [.45, .5, -.75], hemi: [0x96b6de, 0x50402c, 1.76], fog: [0xcbc4b2, 65, 165], exp: 0.97, envI: .45, sat: 1.2, osat: .9, vib: .2, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0xffdcaa, sky: { top: 0x2c64b0, hor: 0xe6dcc4, cloud: 0xfff2e4, sun: 0xffcc88 } },
   ch7: { sun: [0xd0dcf0, 3.3], dir: [-.25, .62, -.74], hemi: [0x8a9cbc, 0x2a2626, 1.25], fog: [0x56606e, 36, 115], exp: 1.02, envI: .6, sat: 1.08, vib: .3, warm: -.02, con: .44, cmul: 1.18, piv: .4, sh: [.86, .94, 1.12], hi: [1.04, 1.0, .96], dust: 0, sky: { top: 0x2a3240, hor: 0x6a7482, cloud: 0x8a929e, sun: 0xb8c8e0, storm: 1 } },
 };
+// gfx2 r2: mission time-of-day presets (missions.js TOD, old format) that were too red -> warm golden hour, applied over the mission's own object
+const OVR = { m_dusk: { sun: [0xffb066, 3.9], hemi: [0xa0b6e2, 0x5c4230, 1.65], fog: [0xd4ae84, 52, 150], exp: 1.0, envI: .45, sat: 1.16, osat: .9, vib: .2, warm: .012, con: .32, cmul: 1.1, piv: .4, sh: [.9, .96, 1.1], hi: [1.07, 1.0, .88], dust: 0xffcf98, sky: { top: 0x34528e, hor: 0xf6c48c, cloud: 0xffdcb4, sun: 0xffb466 } } };
 const GRADE_FS = `uniform sampler2D tDiffuse; uniform vec2 res; uniform float sat, warm, tilt, con, vib, cmul, piv, osat; uniform vec3 shc, hic; varying vec2 vUv;
   void main(){ float d = clamp((abs(vUv.y - .48) - .2) * 2.6, 0., 1.) * tilt; vec3 c = vec3(0.); float w = 0.;
     if (d < .001) { c = texture2D(tDiffuse, vUv).rgb; w = 1.; } else for (int i = -4; i <= 4; i++) for (int j = -1; j <= 1; j++) { vec2 o = vec2(float(j) * 1.6, float(i)) * d * 2.2 / res; float k = 1. - abs(float(i)) / 5.; c += texture2D(tDiffuse, vUv + o).rgb * k; w += k; }
@@ -130,10 +134,10 @@ const GRADE_FS = `uniform sampler2D tDiffuse; uniform vec2 res; uniform float sa
     vec2 q = vUv - .5; c *= 1. - dot(q, q) * .26; gl_FragColor = vec4(clamp(c, 0., 1.), 1.); }`;
 // presets written for the old grade (additive shc/hic, no osat — e.g. missions.js TOD night/dusk): convert once to the new model
 function compatLight(L) { const sc = L.shc || [0, .08, .3], hc = L.hic || [1, .6, .18], ms = (sc[0] + sc[1] + sc[2]) / 3, mh = (hc[0] + hc[1] + hc[2]) / 3;
-  L.sh = sc.map(v => 1 + (v - ms) * .9); L.hi = hc.map(v => 1 + (v - mh) * .15); L.sat = (L.sat || 1.2) * .82; if (L.osat === undefined) L.osat = .82; if (L.cmul === undefined) L.cmul = 1.12; if (L.piv === undefined) L.piv = .43; if (L.vib === undefined) L.vib = .15; if (L.envI === undefined) L.envI = .5; L.warm = (L.warm || 0) * .5; }
+  L.sh = sc.map(v => 1 + (v - ms) * .9); L.hi = hc.map(v => 1 + (v - mh) * .15); L.sat = (L.sat || 1.2) * .82; if (L.osat === undefined) L.osat = .7; if (L.cmul === undefined) L.cmul = 1.12; if (L.piv === undefined) L.piv = .43; if (L.vib === undefined) L.vib = .15; if (L.envI === undefined) L.envI = .5; L.warm = (L.warm || 0) * .5; }
 // applies a preset to the live scene (lights found in scene.children; the engine's grade pass gets extra uniforms, no engine edit)
 export function applyLight(key, { scene, renderer, grade, G }) {
-  const L = LIGHTS[key]; if (!L) return null; if (!L.sh) compatLight(L);
+  const L = LIGHTS[key]; if (!L) return null; if (OVR[key] && !L._ovr) { Object.assign(L, OVR[key]); L._ovr = 1; } if (!L.sh) compatLight(L);
   scene.background = new THREE.Color(L.fog[0]); scene.fog = new THREE.Fog(L.fog[0], L.fog[1], L.fog[2]); if (scene.fog.userData === undefined) scene.fog.userData = {};
   for (const o of scene.children) { if (o.isHemisphereLight) { o.color.set(L.hemi[0]); o.groundColor.set(L.hemi[1]); o.intensity = L.hemi[2] * (ENV.ok ? .5 : 1); } else if (o.isDirectionalLight) { o.color.set(L.sun[0]); o.intensity = L.sun[1]; } }
   G.sunDir = new THREE.Vector3(...L.dir).normalize(); renderer.toneMappingExposure = L.exp; if (ENV.ok) { scene.environment = ENV.day; if ('environmentIntensity' in scene) scene.environmentIntensity = L.envI ?? .6; } G.envI = L.envI ?? .6; G.envT = (G.envT || 0) + 1;

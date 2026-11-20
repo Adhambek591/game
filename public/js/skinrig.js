@@ -1,7 +1,7 @@
 // Realistic skinned character (Meshy rig) driven by mocap clips retargeted from a shared library
 import * as THREE from 'three';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795208631';
-import { PROPS } from './glbrig.js?v=1795208631';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795211861';
+import { PROPS } from './glbrig.js?v=1795211861';
 export const ANIM = { data: null };
 const PI = Math.PI;
 // game action name -> [clip, loop, default duration (s) or null = natural]
@@ -69,7 +69,11 @@ export class SkinRig {
     scene.traverse(k => { if (k.isMesh) { k.castShadow = true; k.frustumCulled = false; k.material = k.material.clone(); k.material.userData.em0 = k.material.emissive ? k.material.emissive.clone() : null; if (k.material.emissive) this.mats.push(k.material); } if (k.isBone) this.B[k.name] = k; });
     if (o.amulet) scene.traverse(k => { if (k.isMesh && k.material.map) blueOutfit(k.material); });
     this.mixer = new THREE.AnimationMixer(scene); this.acts = {}; this.cur = null;
-    const D = ANIM.data; const hips = this.B.Hips; const tgtY = hips ? hips.position.y : 100;
+    // procedural creatures: their bones are not the humanoid set, so the mocap library must not bind to them
+    // (models_ext.vary() swaps wolf atlases painted for the old wolf-man UVs: keep this model's own map)
+    if (this.B.LeftFrontUpLeg) scene.traverse(k => { if (k.isMesh && k.material.map) { const mp = k.material.map; Object.defineProperty(k.material, 'map', { get: () => mp, set() { }, configurable: true }); } });
+    this.proc = this.B.LeftFrontUpLeg ? 'wolf' : (this.B.Tail7 && this.B.Jaw && !this.B.Hips) ? 'dragon' : null; this.pt = 0; this.pop = {}; this.gp = Math.random();
+    const D = this.proc ? null : ANIM.data; const hips = this.B.Hips; const tgtY = hips ? hips.position.y : 100;
     if (D) for (const cn in D.clips) {
       const tracks = [];
       for (const bn in D.clips[cn]) {
@@ -97,7 +101,7 @@ export class SkinRig {
     this.ribbons = []; const RB = o.ribbons || []; for (const r of RB) { const bn = this.B[r.bone]; if (bn) this.ribbons.push(new Ribbon(bn, r, S)); }
     scene.updateMatrixWorld(true); this.hipY0 = this.B.Hips ? this.B.Hips.getWorldPosition(new THREE.Vector3()).y : 1; this.mountY = 0; this.bob = 0;
     // ANIM LAYER state: additive bones (base pose restored before the mixer runs, so nothing accumulates), look-at, recoil spring, lean
-    this.ab = {}; for (const n of ADDB) { const b = this.B[n]; if (!b) continue; const pw = b.parent.getWorldQuaternion(new THREE.Quaternion()); this.ab[n] = { b, q: b.quaternion.clone(), r: b.quaternion.clone(), pw, pi: pw.clone().invert() }; }
+    this.ab = {}; if (!this.proc) for (const n of ADDB) { const b = this.B[n]; if (!b) continue; const pw = b.parent.getWorldQuaternion(new THREE.Quaternion()); this.ab[n] = { b, q: b.quaternion.clone(), r: b.quaternion.clone(), pw, pi: pw.clone().invert() }; }
     this.abL = Object.values(this.ab); this.T = Math.random() * 9; this.ph = Math.random() * 6.28; this.lookY = 0; this.lookP = 0; this.ly = 0; this.lp = 0; this.rc = { x: 0, z: 0, vx: 0, vz: 0 }; this.tw = 0; this.mv = 0; this.lvx = 0; this.lvz = 0; this.yawV = 0; this.accF = 0; this.lnF = 0; this.lnS = 0; this.wsc = 1; this.acts2 = {}; this.os = null; this.lm = false; this.lrun = 0; this.ovw = 0;
     { const ra = this.B.RightArm, hd = this.B.Head; this.sideR = ra && hd ? (Math.sign(ra.getWorldPosition(new THREE.Vector3()).x - hd.getWorldPosition(new THREE.Vector3()).x) || 1) : 1; }
     this.hasBow = o.wpn === 'bow'; this.heroBow = !!o.amulet;
@@ -119,6 +123,7 @@ export class SkinRig {
   _shot(key, op, fade) { const g = SEG[key], a = this._act(g[0]); if (!a) return false; const D = op.dur || g[8], hT = D * (op.dur ? g[7] : g[6]); this.os = { key, act: a, a: g[1], p: g[2], h: g[3], b: g[4], rec: g[5], hT, t: 0, sp: this.hero ? 1 : 1 + (this.var - 1) * .4, D: a.getClip().duration - .002 }; this.lm = false; this._fade(a, fade, false); a.timeScale = 0; a.time = g[1]; return true; }
   _warp(o, t) { if (t < o.hT) { const u = t / o.hT; if (o.hT >= .35) { if (u < .3) { const w = 1 - u / .3; return o.a + (o.p - o.a) * (1 - w * w); } const c = o.p + (o.h - o.p) * .14; if (u < .76) return o.p + (c - o.p) * ((u - .3) / .46); const w = (u - .76) / .24; return c + (o.h - c) * w * w; } if (u < .45) return o.a + (o.p - o.a) * (u / .45); const w = (u - .45) / .55; return o.p + (o.h - o.p) * w * (.4 + .6 * w); } const u = Math.min(1, (t - o.hT) / o.rec); return o.h + (o.b - o.h) * (1 - (1 - u) * (1 - u)); }
   play(name, op = {}) {
+    if (this.proc) { if (this.kind === name && !op.force) return; this.kind = name; this.pt = 0; this.pop = op; return; }
     if (name === 'Walking_A' && op.force && op.ts >= 2.5) name = '_Step';  // engine sidestep = quick low dash, not a sped-up walk
     const m = MAP[name] || (SEG[name] ? [SEG[name][0], 0] : MAP.Idle);
     if (!this.ab) { const a = this.acts[m[0]] || this.acts.idle; if (a) { this.kind = name; this.cur = a; a.play(); } return; }
@@ -174,6 +179,50 @@ export class SkinRig {
       else if (o && o.key === 'Cheer') { const e = cl(o.t / .25, 0, 1) * cl((o.hT + o.rec - o.t) / .3, 0, 1), pm = Math.sin(o.t * 12.5) * .5 + .5; this._aim('RightArm', 'RightForeArm', V(.15, .3, 1), w * e); this._aim('RightForeArm', 'RightHand', V(.1 + pm * .35, .05, 1 - pm * .2), w * e); } }
     // body weight: lean into acceleration, bank into turns (visual only, the engine's movement is untouched)
     if (!this.mounted) { const sc = this.hgt / 1.75 * this.wsc || 1, v = this.mv / sc, tf = dead || !this.lm ? 0 : cl(this.accF / sc * .011, -.09, .11), ts = dead || !this.lm ? 0 : cl(-this.yawV * v * .011, -.2, .2); this.lnF += (tf - this.lnF) * Math.min(1, dt * 6); this.lnS += (ts - this.lnS) * Math.min(1, dt * 6); this.body.rotation.x = this.lnF; this.body.rotation.z = this.lnS; } }
+  _pb(n, dt, x, y = 0, z = 0, r = 16) { const b = this.B[n]; if (!b) return; const q = Math.min(1, dt * r), e = b.rotation; e.x += (x - e.x) * q; e.y += (y - e.y) * q; e.z += (z - e.z) * q; }
+  _spring(dt) { const r = this.rc, n = Math.max(1, Math.ceil(dt / .016)), h = Math.min(dt, .05) / n; for (let i = 0; i < n; i++) { r.vx += (-196 * r.x - 12.6 * r.vx) * h; r.vz += (-196 * r.z - 12.6 * r.vz) * h; r.x += r.vx * h; r.z += r.vz * h; } r.x = cl(r.x, -.6, .6); r.z = cl(r.z, -.6, .6); return r; }
+  // ---- quadruped wolf (R_bori4): walk / trot / gallop chosen by ground speed, crouch-and-lunge bite, flinch, howl, falls on its side
+  _wolf(dt) { const k = this.kind, T = this.T, t = this.pt, H = this.hgt, PI2 = Math.PI * 2, dead = this.isDead || k === 'Death_A', r = this._spring(dt); if (this.isDead && this.dz === undefined) this.dz = Math.random() < .5 ? -1 : 1;
+    const v = this.mv / (this.wsc || 1) / (H / .95), atk = /Attack|Slam|Jump|Shoot|Stab/.test(k), moving = !dead && !atk && LOCOQ.test(k) && v > .25;
+    let by = 0, bz = 0, bp = 0, br = 0, sx = 0, nx = 0, hx = 0, jaw = 0, tx = -.15, ty = Math.sin(T * 2.1 + this.ph) * .25, rate = 16; const L = { LeftFront: [0, 0, 0], RightFront: [0, 0, 0], LeftBack: [0, 0, 0], RightBack: [0, 0, 0] };
+    if (moving) { const g = v < 1.7 ? 0 : v < 4.4 ? 1 : 2; this.gg = g; const f = v / ([.8, 1.25, 2.3][g] * (.8 + v * .04)); this.gp = (this.gp + dt * f) % 1; const off = [[.25, .75, 0, .5], [0, .5, .5, 0], [.5, .62, 0, .12]][g], A = [.36, .48, .84][g], st = [.62, .5, .4][g]; let i = 0;
+      for (const n in L) { const p = (this.gp + off[i]) % 1, fr = i < 2; i++; let a, lift = 0; if (p < st) a = A * (1 - 2 * p / st); else { const u = (p - st) / (1 - st); a = A * (-1 + 2 * u); lift = Math.sin(u * Math.PI); } L[n] = fr ? [a + lift * .2, lift * (.5 + g * .15), -lift * (.8 + g * .2)] : [a, -lift * (.5 + g * .15), lift * (.7 + g * .2)]; }
+      if (g === 2) { const w = Math.sin(PI2 * this.gp); sx = w * .26; bp = Math.sin(PI2 * this.gp + 1.2) * .11; by = (Math.abs(Math.sin(Math.PI * this.gp)) - .4) * .14 * H; nx = -w * .12; tx = -.35; ty *= .3; } else { by = Math.sin(PI2 * 2 * this.gp) * (g ? .022 : .01) * H; nx = g ? .05 : .12; tx = g ? -.3 : -.1; }
+      br = cl(-this.yawV * .035, -.25, .25); rate = 22; }
+    else if (/Jump/.test(k)) { const w = Math.min(1, t / .5); bp = -.28 + w * .5; nx = -.15; hx = -.1; jaw = w < .6 ? .6 : 0; tx = -.5; for (const n in L) L[n] = /Front/.test(n) ? [.95 - w * .6, .2, -.3] : [-.85 + w * .8, -.1, .3]; rate = 28; }  // pounce: the engine carries the body, the rig only stretches out
+    else if (atk) { const hT = this.pop.dur ? this.pop.dur * .42 : .34, w = (t - hT) / .24;
+      if (t < hT) { const u = t / hT; by = -.13 * H * u; bp = -.16 * u; nx = .25 * u; hx = -.2 * u; jaw = .18 * u; tx = .1; for (const n in L) L[n] = /Front/.test(n) ? [.25 * u, -.2 * u, 0] : [.35 * u, -.5 * u, .4 * u]; }
+      else if (w < 1) { const s = Math.sin(Math.PI * w); bz = .5 * H * s; by = .22 * H * s; bp = -.3 + w * .5; nx = -.2; hx = -.1; jaw = w < .55 ? .6 : 0; tx = -.5; for (const n in L) L[n] = /Front/.test(n) ? [.95 - w * .7, .2, -.3] : [-.8 + w * .7, -.1, .3]; rate = 30; }
+      else { nx = .15; jaw = .1; } }
+    else if (dead) { const u = Math.min(1, t / .42), e = u * u * (3 - 2 * u); br = (this.dz || 1) * 1.5 * e; by = .17 * H * e; nx = .25 * e; hx = .2 * e; jaw = .22 * e; tx = .3 * e; ty = 0; for (const n in L) L[n] = [/Front/.test(n) ? .35 * e : -.3 * e, -.25 * e, .3 * e]; rate = 12; }
+    else if (/^Hit/.test(k) && t < .3) { jaw = .35; nx = .2; hx = -.25; by = -.05 * H; tx = .4; }
+    else if (k === 'Cheer') { const u = Math.min(1, t / .35) * cl((1.5 - t) / .3, 0, 1); nx = -.75 * u; hx = -.35 * u; jaw = .4 * u; bp = -.12 * u; tx = -.5; }
+    else if (k === 'Idle_Combat') { by = -.1 * H; bp = -.06; nx = .25; hx = -.15; jaw = .14 + Math.sin(T * 9) * .02; tx = .05; ty *= .4; for (const n in L) L[n] = /Front/.test(n) ? [.18, -.12, 0] : [.3, -.42, .35]; }
+    else { nx = Math.sin(T * .7 + this.ph) * .05; sx = Math.sin(T * 1.9 * this.var + this.ph) * .012; }
+    const ly = dead ? 0 : cl(this.lookY, -1.1, 1.1), lp = dead ? 0 : cl(this.lookP, -.4, .4); this.ly += (ly - this.ly) * Math.min(1, dt * 7); this.lp += (lp - this.lp) * Math.min(1, dt * 7);
+    this._pb('Spine', dt, sx, r.x * .5 + cl(this.yawV * .03, -.2, .2), 0, rate); this._pb('Chest', dt, -sx * .6, r.x * .3, 0, rate); this._pb('Neck', dt, nx + this.lp * .5 + r.z * .3, this.ly * .45, 0, rate); this._pb('Head', dt, hx + this.lp * .5, this.ly * .55, r.x * .4, rate); this._pb('Jaw', dt, jaw, 0, 0, 30);
+    this._pb('Tail1', dt, tx, ty, 0, 10); this._pb('Tail2', dt, tx * .5, ty * 1.3, 0, 8);
+    for (const n in L) { const a = L[n]; this._pb(n + 'UpLeg', dt, a[0], 0, 0, rate); this._pb(n + 'Leg', dt, a[1], 0, 0, rate); this._pb(n + 'Foot', dt, a[2], 0, 0, rate); }
+    const b = this.body, q = Math.min(1, dt * (dead ? 9 : rate)); b.position.y += (by - b.position.y) * q; b.position.z += (bz - b.position.z) * q; b.rotation.x += (bp - r.z * .25 - b.rotation.x) * q; b.rotation.z += (br - b.rotation.z) * q; }
+  // ---- Aydarha (R_aydarho, 16 bones): breathing and slow sway, neck follows the hero, bite / tail whip / water jet / dive / emerge roar / death, driven by the action names the boss kit already plays
+  _dragon(dt) { const k = this.kind, T = this.T, t = this.pt, dead = this.isDead || k === 'Death_A', r = this._spring(dt), y = this.root.position.y; const vy = dt > 0 ? (y - (this.py ?? y)) / dt : 0; this.py = y; this.em = Math.max((this.em || 0) - dt * 1.1, vy > 2.5 && !dead ? 1 : 0);
+    let nx = [0, 0, 0], hx = 0, jaw = .05 + Math.sin(T * 1.6) * .03, tw = 0, tamp = .11, spy = 0, rate = 8, nyk = 1;
+    if (dead) { const e = Math.min(1, t / .9); nx = [.3 * e, .45 * e, .4 * e]; hx = .2 * e; jaw = .3 * e; tamp = .02; nyk = 0; }
+    else if (k === 'E_Attack') { const hT = this.pop.dur ? Math.max(.3, this.pop.dur - .4) : .9, w = (t - hT) / .3;  // bite: coil back and up, mouth opens, strike down and forward, snap
+      if (t < hT) { const u = Math.min(1, t / (hT * .55)); nx = [-.7 * u, -.45 * u, .1 * u]; hx = .4 * u; jaw = .15 + .6 * Math.min(1, t / hT); }
+      else if (w < 1) { nx = [.8, .45, .1]; hx = -.3; jaw = w < .45 ? .75 : 0; rate = 26; } else { nx = [.2, .1, 0]; jaw = .05; rate = 5; } }
+    else if (k === '2H_Melee_Attack_Spin') { const hT = this.pop.dur ? Math.max(.3, this.pop.dur - .5) : 1.0, w = (t - hT) / .35;  // tail: curl to one side, whip across
+      if (t < hT) { const u = Math.min(1, t / (hT * .7)); tw = .3 * u; spy = .22 * u; tamp = .03; } else if (w < 1) { tw = -.42; spy = -.3; tamp = .03; rate = 24; } else { tw = -.1 * Math.max(0, 2 - w); tamp = .2; rate = 6; } }
+    else if (/Shoot|Spellcast/.test(k)) { const hT = 1.1;  // jet: rear up, open wide, level the neck and hold while the beam runs
+      if (t < hT) { const u = Math.min(1, t / (hT * .6)); nx = [-.45 * u, -.3 * u, -.1 * u]; hx = .25 * u; jaw = .7 * Math.min(1, t / hT); } else if (t < hT + 1.5) { const s = Math.sin(T * 38) * .015; nx = [.12 + s, .1, .05]; hx = -.1; jaw = .8 + s * 2; rate = 20; } }
+    else if (/^Hit/.test(k) && this.pop.ts && this.pop.ts < 1) { const u = Math.min(1, t / .5); nx = [.8 * u, .7 * u, .5 * u]; hx = .4 * u; jaw = 0; tw = 0; tamp = .2; }  // dive
+    else if (/^Hit/.test(k) && t < .35) { nx = [-.2, -.1, 0]; jaw = .5; rate = 20; }
+    else if (k === 'Cheer' || this.em > 0) { const u = k === 'Cheer' ? Math.min(1, t / .4) * cl((1.6 - t) / .3, 0, 1) : this.em; nx = [-.5 * u, -.3 * u, -.15 * u]; hx = -.2 * u; jaw = Math.max(jaw, .7 * u); }
+    const ly = dead ? 0 : cl(this.lookY, -1.2, 1.2) * nyk, lp = dead ? 0 : cl(this.lookP, -.4, .4); this.ly += (ly - this.ly) * Math.min(1, dt * 4); this.lp += (lp - this.lp) * Math.min(1, dt * 4);
+    const br = Math.sin(T * 1.3) * .02; this._pb('Spine1', dt, br + r.z * .15, this.ly * .1 + r.x * .2, 0, rate); this._pb('Spine3', dt, -br, spy, 0, rate); this._pb('Spine4', dt, 0, spy * .7, 0, rate);
+    for (let i = 0; i < 3; i++) this._pb('Neck' + (i + 1), dt, nx[i] + this.lp * .25 + r.z * .2, this.ly * .25 + Math.sin(T * .8 + i * .7) * .07 * nyk + r.x * .25, 0, rate);
+    this._pb('Head', dt, hx + this.lp * .25, this.ly * .15, Math.sin(T * .6) * .04, rate); this._pb('Jaw', dt, jaw, 0, 0, 26);
+    for (let i = 1; i <= 7; i++) this._pb('Tail' + i, dt, dead ? .05 : Math.sin(T * 1.1 - i * .6) * .03, tw * (.6 + i * .12) + Math.sin(T * 1.3 - i * .75) * tamp * (.5 + i * .12), 0, rate); }
   setMount(on, y) { this.mounted = on; this.mountY = on ? y : 0; this.body.position.set(0, this.mountY, 0); this.body.rotation.x = 0; if (!on) this.sad = null; }
   // seat on a moving saddle (y, z in root space; pitch of the horse's back)
   setSaddle(y, z, pitch) { this.sad = { y, z, pitch }; }
@@ -182,11 +231,12 @@ export class SkinRig {
     for (const s of ['Left', 'Right']) { const th = B[s + 'UpLeg']; if (!th || !hp) continue; const sg = Math.sign(th.getWorldPosition(new THREE.Vector3()).sub(hp).dot(Sd)) || 1; const side = Sd.clone().multiplyScalar(sg);
       this.aimBone(th, B[s + 'Leg'], F.clone().multiplyScalar(.7).addScaledVector(side, .55).addScaledVector(U, -.45)); this.aimBone(B[s + 'Leg'], B[s + 'Foot'], F.clone().multiplyScalar(-.25).addScaledVector(side, .18).addScaledVector(U, -1)); this.aimBone(B[s + 'Foot'], B[s + 'ToeBase'], F.clone().addScaledVector(U, -.2)); } }
   update(dt) { const G = globalThis.__G; if (G && G.hitStop > 0 && !G.paused) dt *= .05;  // hit-stop freezes the bodies too
-    this.T += dt; for (const s of this.abL) s.b.quaternion.copy(s.q);
+    this.T += dt; if (this.proc) { this.pt += dt; if (this.proc === 'wolf') this._wolf(dt); else this._dragon(dt); for (const r of this.ribbons) r.update(dt, this.root); return; }
+    for (const s of this.abL) s.b.quaternion.copy(s.q);
     const o = this.os; if (o) { o.t += dt * o.sp; o.act.time = cl(this._warp(o, o.t), 0, o.D); if (o.key === '_GetUp' && o.t >= o.hT + o.rec) { this.kd = false; this.os = null; const nx = this.next || ['Idle_Combat', {}]; this.next = null; this.kind = ''; this.play(nx[0], nx[1]); } } else if (this.lm) this._loco(dt);
     this.mixer.update(dt); if (this.post) this.post(this); for (const s of this.abL) s.q.copy(s.b.quaternion); this._layer(dt); if (this.mounted) { if (this.sad) { const h = this.hipY0 * .93, c = Math.cos(this.sad.pitch), sn = Math.sin(this.sad.pitch); this.body.rotation.x = this.sad.pitch; this.body.position.set(0, this.sad.y - h * c, this.sad.z - h * sn); } else this.body.position.y = this.mountY + this.bob; this.legPose(); } for (const r of this.ribbons) r.update(dt, this.root); }
   dispose() { for (const r of this.ribbons) r.dispose(); }
 }
 
 // feel systems (hit-stop, recoil, look-at, blade trails, FOV punch) live in feel.js; loaded lazily so engine.js / index.html stay untouched
-setTimeout(() => import('./feel.js?v=1795208631').catch(e => console.warn('feel', e)), 0);
+setTimeout(() => import('./feel.js?v=1795211861').catch(e => console.warn('feel', e)), 0);
