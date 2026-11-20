@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795194545';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795194545';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795194545';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795194545';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795194545';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795194545';
-import { t } from './i18n.js?v=1795194545';
-import { Sfx, initAudio } from './audio.js?v=1795194545';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795194545';
-import * as FX from './fx.js?v=1795194545';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795194545';
-import { GlbRig, PROPS } from './glbrig.js?v=1795194545';
-import { makeHorse, horseBase } from './horse.js?v=1795194545';
+import { Rig, TX } from './rig.js?v=1795208631';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795208631';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795208631';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795208631';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795208631';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795208631';
+import { t } from './i18n.js?v=1795208631';
+import { Sfx, initAudio } from './audio.js?v=1795208631';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795208631';
+import * as FX from './fx.js?v=1795208631';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795208631';
+import { GlbRig, PROPS } from './glbrig.js?v=1795208631';
+import { makeHorse, horseBase } from './horse.js?v=1795208631';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -81,7 +81,7 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
   pos.needsUpdate = true; sm.geometry.computeVertexNormals(); }
 const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
 const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan']);
-export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795194545').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795208631').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -89,9 +89,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const step = () => onp(++n / 2);
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795194545').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { })));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795194545').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795194545').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795208631').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { })));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795208631').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795208631').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
@@ -599,7 +599,7 @@ const sparkL = []; const sparkMat = {};
 export function sparks(x, y, z, color = 0xffd070, n = 8, sp = 6) { const m = sparkMat[color] || (sparkMat[color] = new THREE.SpriteMaterial({ map: glowTex, color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); for (let i = 0; i < n; i++) { const s = new THREE.Sprite(m); s.position.set(x, y, z); const a = rnd(0, 6.28), u = rnd(.3, 1); s.scale.setScalar(rnd(.12, .3)); fxg.add(s); sparkL.push({ s, vx: Math.cos(a) * sp * u, vy: rnd(2, 6), vz: Math.sin(a) * sp * u, t: 0, d: rnd(.25, .5) }); } }
 function tickSparks(dt) { for (let i = sparkL.length - 1; i >= 0; i--) { const q = sparkL[i]; q.t += dt; q.vy -= 18 * dt; q.s.position.x += q.vx * dt; q.s.position.y = Math.max(.05, q.s.position.y + q.vy * dt); q.s.position.z += q.vz * dt; if (q.t > q.d) { fxg.remove(q.s); sparkL.splice(i, 1); } } }
 const nums = $('dmg'); const v3 = new THREE.Vector3();
-export function num(e, text, cls) { v3.set(e.x + rnd(-.4, .4), (e.h || 2) + .3, e.z); v3.project(camera); if (v3.z > 1) return; const el = document.createElement('div'); el.className = 'dn ' + (cls || ''); el.textContent = text; el.style.left = ((v3.x * .5 + .5) * innerWidth) + 'px'; el.style.top = ((-v3.y * .5 + .5) * innerHeight) + 'px'; nums.appendChild(el); setTimeout(() => el.remove(), 820); }
+export function num(e, text, cls) { if (text == null || text === '' || /NaN|undefined|\{[a-z]\w*\}/.test(String(text))) return; /* urgent5: never float raw code */ v3.set(e.x + rnd(-.4, .4), (e.h || 2) + .3, e.z); v3.project(camera); if (v3.z > 1) return; const el = document.createElement('div'); el.className = 'dn ' + (cls || ''); el.textContent = text; el.style.left = ((v3.x * .5 + .5) * innerWidth) + 'px'; el.style.top = ((-v3.y * .5 + .5) * innerHeight) + 'px'; nums.appendChild(el); setTimeout(() => el.remove(), 820); }
 function addPick(x, z) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: 0x55ff77, blending: THREE.AdditiveBlending, depthWrite: false })); s.scale.setScalar(1.5); s.position.set(x, .9, z); fxg.add(s); G.picks.push({ s, x, z, t: 0 }); }
 // embers / ash
 const EN = 160, emberPos = new Float32Array(EN * 3), emberVel = new Float32Array(EN);
@@ -758,7 +758,7 @@ export const UPG = { sword: { max: 8, cost: l => 60 + l * 50 }, life: { max: 8, 
 export function addGold(n, x, z) { SAVE.gold += n; G.chGold = (G.chGold || 0) + n; saveGame(); hudGold(); if (x !== undefined) { const fake = { x, z, h: 2.2 }; num(fake, '+' + n + ' 🪙', 'g'); } }
 export function hudGold() { const el = $('gold'); if (el) el.textContent = '🪙 ' + SAVE.gold; }
 export const ADS = { async rewarded() { try { if (window.ysdk && ysdk.adv) return await new Promise(r => ysdk.adv.showRewardedVideo({ callbacks: { onRewarded: () => r(true), onClose: () => r(false), onError: () => r(false) } })); if (window.QQ_ADS && QQ_ADS.rewarded) return await QQ_ADS.rewarded(); } catch (e) { }
-  return await new Promise(r => { const el = $('adov'); el.classList.add('on'); let n = 5; const c = el.querySelector('b'); c.textContent = n; const iv = setInterval(() => { n--; c.textContent = n; if (n <= 0) { clearInterval(iv); el.classList.remove('on'); r(true); } }, 1000); }); } };
+  return false;   /* wave4/bench #3: no ad provider = no ad at all (the fake 5 s countdown is never shown) */ return await new Promise(r => { const el = $('adov'); el.classList.add('on'); let n = 5; const c = el.querySelector('b'); c.textContent = n; const iv = setInterval(() => { n--; c.textContent = n; if (n <= 0) { clearInterval(iv); el.classList.remove('on'); r(true); } }, 1000); }); } };
 // passive bonuses for the maidens from defeated bosses + upgrades
 export function maidBuff() { const pw = G.powers ? Object.keys(G.powers).length : 0; return { hp: 1 + .25 * pw + .15 * SAVE.up.maid, dmg: 1 + .2 * pw + .15 * SAVE.up.maid, stun: !!(G.powers && G.powers[6]) }; }
 
@@ -863,7 +863,7 @@ function updatePlayer(p, dt) {
   if (a) {
     a.t += dt; const u = a.t / a.dur; if (p.mounted) tickMount(p, dt, a.kind === 'dodge' || a.kind === 'dash' || a.kind === 'thrust');
     if (HACT[a.kind]) HACT[a.kind](p, a, dt, fxx, fzz, mx, mz);
-    if (a.kind === 'atk') { if (a.lunge && a.t < .14) { p.x += fxx * a.lunge / .14 * dt; p.z += fzz * a.lunge / .14 * dt; } if (!a.hit && a.t >= a.hitAt) { a.hit = true; Sfx.swing(); slashFx(p.x + fxx * .4, 1.2, p.z + fzz * .4, p.rot, a.counter ? 1.5 : 1.05, a.counter ? 0x9fd8ff : 0xfff0c0); const last = p.combo === 4, km = a.counter ? 2.6 : last ? 1.6 : p.combo === 3 ? 1.2 : 1; if (last && !a.counter) slashFx(p.x, 1.0, p.z, p.rot + 2.6, 1.2); const n = hitArc(p, p.mounted ? 3.8 : last ? 3.3 : 2.9, p.mounted ? -.2 : last ? -.55 : .05, () => pd() * km * (p.mounted ? 1.25 : 1), { crit: last, kb: last ? 9 : 4, kd: last ? 1 : 0, gb: a.counter ? 1 : 0, pz: a.counter ? 3 : last ? 1.6 : 1 }); if (n) { Sfx.hit(); G.shake = Math.max(G.shake, last ? .3 : .15); G.ulti = Math.min(100, G.ulti + 4 * n); if (last) G.zk = Math.max(G.zk || 0, a.counter ? .14 : .06); } hitBreak(p.x + fxx * 1.4, p.z + fzz * 1.4, 1.6, 'atk'); } p.x += mx * p.speed * .25 * dt; p.z += mz * p.speed * .25 * dt; }
+    if (a.kind === 'atk') { if (a.lunge && a.t < .14) { p.x += fxx * a.lunge / .14 * dt; p.z += fzz * a.lunge / .14 * dt; } if (!a.hit && a.t >= a.hitAt) { a.hit = true; Sfx.swing(); slashFx(p.x + fxx * .4, 1.2, p.z + fzz * .4, p.rot, a.counter ? 1.5 : 1.05, a.counter ? 0x9fd8ff : 0xfff0c0); const last = p.combo === 4, km = a.counter ? 2.6 : last ? 1.6 : p.combo === 3 ? 1.2 : 1; if (last && !a.counter) slashFx(p.x, 1.0, p.z, p.rot + 2.6, 1.2); const n = hitArc(p, p.mounted ? 3.8 : last ? 3.4 : 3.25, p.mounted ? -.2 : last ? -.55 : -.12, () => pd() * km * (p.mounted ? 1.25 : 1), { crit: last, kb: last ? 9 : 4, kd: last ? 1 : 0, gb: a.counter ? 1 : 0, pz: a.counter ? 3 : last ? 1.6 : 1 }); if (n) { Sfx.hit(); G.shake = Math.max(G.shake, last ? .3 : .15); G.ulti = Math.min(100, G.ulti + 4 * n); if (last) G.zk = Math.max(G.zk || 0, a.counter ? .14 : .06); } hitBreak(p.x + fxx * 1.4, p.z + fzz * 1.4, 1.6, 'atk'); } p.x += mx * p.speed * .25 * dt; p.z += mz * p.speed * .25 * dt; }
     else if (a.kind === 'dodge') { const sp = (a.sp || 13) * (1 - .5 * u); p.x += a.dx * sp * dt; p.z += a.dz * sp * dt; }
     else if (a.kind === 'spin') { p.x += mx * p.speed * .5 * dt; p.z += mz * p.speed * .5 * dt; if (a.n < 2 && a.t > .16 + a.n * .26) { a.n++; Sfx.swing(); const wv = p.shield > 0; ringFx(p.x, p.z, wv ? 5.5 : 3.9, wv ? 0x66ccff : 0xfff0c0); if (wv) { hitCircle(p.x, p.z, 5.5, () => pd(), 'ally', p, { kb: 14 }); if (a.n === 1) num(p, t('combo'), 'c'); } const n = hitCircle(p.x, p.z, 3.9, () => pd() * 1.6, 'ally', p, { kb: 8 }); hitBreak(p.x, p.z, 3.9, 'atk'); if (n) { Sfx.hit(); G.ulti = Math.min(100, G.ulti + 3 * n); G.shake = .25; } } }
     else if (a.kind === 'dash') { p.x += fxx * 10 * dt; p.z += fzz * 10 * dt; for (const e of G.ents) { if (e.dead || e.team !== 'enemy' || a.hit.has(e)) continue; if (Math.hypot(e.x - p.x, e.z - p.z) < 2 + e.r) { a.hit.add(e); e.damage(pd() * 2.4, p, { crit: true, kb: 10 }); Sfx.hit(); G.ulti = Math.min(100, G.ulti + 5); } } if (Math.random() < .6) burst(p.x, 1, p.z, 0xfff0c0, .7); if (!a.hb && hitBreak(p.x + fxx, p.z + fzz, 1.2, 'atk')) a.hb = 1; }
@@ -1255,7 +1255,7 @@ function w3UI() {
   const hb = $('hbar'); if (hb && !$('sbar')) { stEl = document.createElement('div'); stEl.className = 'bar'; stEl.id = 'sbar'; stEl.innerHTML = '<i></i>'; hb.parentNode.insertBefore(stEl, hb.nextSibling); }
   cpEl = document.createElement('div'); cpEl.id = 'w3cp'; btns.appendChild(cpEl);
   // swipe on the right half of the screen = dodge that way; double tap = roll
-  const SW = {}; addEventListener('pointerdown', e => { if (!P() || busy() || e.clientX < innerWidth * .46 || (e.target.closest && e.target.closest('.ab,#joy,button,.ov,#dlg,#map,#set,#pause,a,input'))) return; SW[e.pointerId] = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
+  const SW = {}; addEventListener('pointerdown', e => { if (e.pointerType === 'mouse' || !P() || busy() || e.clientX < innerWidth * .46 || (e.target.closest && e.target.closest('.ab,#joy,button,.ov,#dlg,#map,#set,#pause,a,input'))) return; SW[e.pointerId] = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
   addEventListener('pointerup', e => { const s = SW[e.pointerId]; if (!s) return; delete SW[e.pointerId]; const dx = e.clientX - s.x, dy = e.clientY - s.y, l = Math.hypot(dx, dy), dtm = performance.now() - s.t; const p = P(); if (!p) return;
     if (l > 42 && dtm < 380) { w3Dodge(p, false, { x: dx / l, z: dy / l }); G.tapT = 0; } else if (l < 18 && dtm < 260) { const now = performance.now(); if (now - (G.tapT || 0) < 320) { w3Dodge(p, true); G.tapT = 0; } else G.tapT = now; } }, true);
 }
@@ -1268,6 +1268,8 @@ addEventListener('keydown', e => { if (e.repeat) return; const c = e.code, p = G
 addEventListener('keyup', e => { if ((e.code === 'KeyQ' || e.code === 'KeyI') && G.player) w3Guard(G.player, false); });
 w3UI();
 G.w3 = { dodge: (r, d) => w3Dodge(G.player, r, d), guard: on => w3Guard(G.player, on), jump: () => w3Jump(G.player), strong: () => w3Strong(G.player), lock: r => w3Lock(G.player, r), kit: (e, k) => kmStart(e, G.player, k), W3K, KM };
+// wave4: internals for the 3-button controller (js/wave4.js)
+Object.assign(G.w3, { aim, startAtk, parry: w3Parry, startHeavy, doActInner, heroSkill, stickDir, canCancel, spend: w3Spend, keys, joy, hostile, w3Lock });
 // ==== /W3 ====
 
 // ---------- Input ----------
@@ -1277,7 +1279,7 @@ addEventListener('keyup', e => { if (e.code === 'KeyJ' || e.code === 'Space') G.
 addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = 1; const m = { KeyJ: 'A', Space: 'A', KeyK: 'D', ShiftLeft: 'D', Digit1: 1, Digit2: 2, Digit3: 3, Digit4: 4, Digit5: 5, Digit6: 6, Digit7: 7, Digit8: 8, Digit9: 9, Digit0: 0, KeyH: 'M' }[e.code]; if (m) { doAct(m); e.preventDefault(); } if (e.code === 'Enter' && G.onEnter) G.onEnter(); });
 addEventListener('keyup', e => { keys[e.code] = 0; });
 const jz = $('joy'), jb = $('jb'), jk = $('jk');
-function joyMove(e) { const r = jb.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; let dx = e.clientX - cx, dy = e.clientY - cy; const l = Math.hypot(dx, dy), m = 48; if (l > m) { dx = dx / l * m; dy = dy / l * m; } jk.style.transform = `translate(${dx}px,${dy}px)`; joy.x = dx / m; joy.z = dy / m; }
+function joyMove(e) { const r = jb.getBoundingClientRect(); const cx = r.left + r.width / 2, cy = r.top + r.height / 2; let dx = e.clientX - cx, dy = e.clientY - cy; const l = Math.hypot(dx, dy), m = 48; if (l > m) { dx = dx / l * m; dy = dy / l * m; } jk.style.transform = `translate(${dx}px,${dy}px)`; if (l < 8) { joy.x = joy.z = 0; } else { joy.x = dx / m; joy.z = dy / m; } }   /* 8 px dead zone (bench #9); the base already floats to the thumb on pointerdown */
 jz.addEventListener('pointerdown', e => { initAudio(); joy.id = e.pointerId; jz.setPointerCapture(e.pointerId); const zr = jz.getBoundingClientRect(); jb.style.left = clamp(e.clientX - zr.left - 60, 6, zr.width - 126) + 'px'; jb.style.bottom = 'auto'; jb.style.top = clamp(e.clientY - zr.top - 60, 6, zr.height - 126) + 'px'; joyMove(e); });
 jz.addEventListener('pointermove', e => { if (e.pointerId === joy.id) joyMove(e); });
 const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.z = 0; jk.style.transform = ''; };

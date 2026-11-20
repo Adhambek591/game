@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795194545';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795194545';
-import * as FX from './fx.js?v=1795194545';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795208631';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795208631';
+import * as FX from './fx.js?v=1795208631';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };
@@ -214,7 +214,7 @@ function seaMat(sdGLSL) {
   m.customProgramCacheKey = () => 'sea' + sdGLSL; return m;
 }
 function riverMat() { if (mcache.river) return mcache.river;
-  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .2, metalness: 0, transparent: true, envMapIntensity: .15 });
+  const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .3, metalness: 0, transparent: true, envMapIntensity: .15 });
   m.onBeforeCompile = sh => { sh.uniforms.uT = U.uT; const head = 'uniform float uT; varying vec2 vR; varying vec3 vWp;\n' + GLSL;
     sh.vertexShader = head + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
       vR = uv; vec4 w0 = modelMatrix * vec4(position, 1.); transformed.y += sin(w0.x * .9 + uT * 2.) * .025 + sin(w0.z * .7 - uT * 1.6) * .02; vWp = w0.xyz;`);
@@ -223,7 +223,7 @@ function riverMat() { if (mcache.river) return mcache.river;
         vec2 f = vec2(vR.x * 2.5, vR.y - uT * .45);
         float n = vno(f * vec2(2.2, 1.3)) * .6 + vno(f * vec2(5., 3.) + 7.) * .4;
         float mid = smoothstep(0., .3, vR.x) * smoothstep(1., .7, vR.x);
-        vec3 wc = mix(vec3(.3, .33, .24), vec3(.09, .19, .2), mid) + (n - .5) * .06;
+        vec3 wc = mix(vec3(.3, .35, .29), vec3(.05, .19, .3), mid) + (n - .5) * .06;
         float foam = (1. - smoothstep(.1, .24, min(vR.x, 1. - vR.x))) * smoothstep(.45, .75, n) + smoothstep(.8, .95, n) * .35 * mid;
         foam = clamp(foam, 0., 1.);
         vec4 diffuseColor = vec4(mix(wc, vec3(.85, .86, .8), foam * .8), mix(.8, .95, mid));`)
@@ -231,7 +231,7 @@ function riverMat() { if (mcache.river) return mcache.river;
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         { float a = f.y * 9. + n * 5., b = f.x * 7. + n * 4. + uT; vec3 rn = vec3(sin(b) * .06, 0., cos(a) * .09);
           normal = normalize(normal + (viewMatrix * vec4(rn, 0.)).xyz); }`); };
-  m.customProgramCacheKey = () => 'river'; return mcache.river = m; }
+  m.customProgramCacheKey = () => 'river2'; return mcache.river = m; }
 // ribbon along a path of {x,z}; uv.x across (0..1), uv.y = distance / 5
 function ribbon(pts, hw, y) {
   const P = [], UVa = [], idx = []; let dist = 0;
@@ -378,14 +378,20 @@ function pier(x0, x1, z, hw = 1.3) { const P = [], y = .32;
 function boxUV(g, sc = 3) { const p = g.attributes.position, n = g.attributes.normal, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) { const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)); const x = p.getX(i), y = p.getY(i), z = p.getZ(i); if (ay > ax && ay > az) uv.setXY(i, x / sc, z / sc); else if (ax > az) uv.setXY(i, z / sc, y / sc); else uv.setXY(i, x / sc, y / sc); } return g; }
 function town(list) { // list of {x,z,w,d,h,face,dome}
   const wall = [], dark = [], wood = [], tile = [];
-  for (const b of list) { const { x, z, w, d, h } = b, f = b.face, tint = C(0xffffff).multiplyScalar(rr(.82, 1.08)).lerp(C(0xffd8b0), rr(0, .3));
+  for (const b of list) { const { w, d, h } = b, x = 0, z = 0, f = b.face, n0 = [wall.length, dark.length, wood.length, tile.length], tint = C(0xffffff).multiplyScalar(rr(.82, 1.08)).lerp(C(0xffd8b0), rr(0, .3));
     wall.push(box(w, h, d, x, h / 2, z, tint)); wall.push(box(w + .3, .25, d + .3, x, h + .02, z, tint.clone().multiplyScalar(.8)));
     for (const s of [-1, 1]) { wall.push(box(w + .3, .5, .25, x, h + .38, z + s * (d / 2), tint)); wall.push(box(.25, .5, d + .3, x + s * (w / 2), h + .38, z, tint)); }
     const fx = x + f * (w / 2 + .02); dark.push(box(.08, 2.1, 1.1, fx, 1.05, z + rr(-d / 4, d / 4), C(0x3a2416)));
     for (let k = -1; k <= 1; k += 2) if (d > 4.5) dark.push(box(.08, .7, .55, fx, h * .62, z + k * d / 3.2, C(0x1a120c)));
     for (let k = -d / 2 + .5; k < d / 2; k += 1.1) wood.push(cyl(.09, .09, .5, 0, 0, 0, C(0x6a4a30), 6).rotateZ(Math.PI / 2).translate(fx + f * .2, h - .3, z + k));
     if (b.iwan) { wall.push(box(.6, h + 2.4, d * .7, fx + f * .3, (h + 2.4) / 2, z, tint)); dark.push(box(.08, h * .9, d * .32, fx + f * .62, h * .45, z, C(0x2a1c12))); tile.push(box(.06, .45, d * .7, fx + f * .62, h + 1.7, z, C(0x2e8aa0))); }
-    if (b.dome) { const r = Math.min(w, d) * .36; tile.push(colorGeo(new THREE.SphereGeometry(r, 16, 8, 0, 6.29, 0, Math.PI / 2).translate(x, h + .55, z), (X, Y) => (Y > h + .55 + r * .25 ? C(0x2f8fa8) : C(0x3a6fa0)).multiplyScalar(.85 + .3 * hash(Math.round(X * 4), Math.round(Y * 4))))); tile.push(cyl(r + .05, r + .05, .55, x, h, z, C(0xd8c098), 14)); } }
+    if (b.dome) { const r = Math.min(w, d) * .36; tile.push(colorGeo(new THREE.SphereGeometry(r, 16, 8, 0, 6.29, 0, Math.PI / 2).translate(x, h + .55, z), (X, Y) => (Y > h + .55 + r * .25 ? C(0x2f8fa8) : C(0x3a6fa0)).multiplyScalar(.85 + .3 * hash(Math.round(X * 4), Math.round(Y * 4))))); tile.push(cyl(r + .05, r + .05, .55, x, h, z, C(0xd8c098), 14)); }
+    // gfx2: less boxy silhouettes - battered (inward-leaning) walls, a wooden porch (ayvan) on some, corner turrets (guldasta) on the tall ones
+    { const p = wall[n0[0]].attributes.position, tp = .88 + hash(b.x + 1, b.z) * .08; for (let i = 0; i < p.count; i++) if (p.getY(i) > h * .5) { p.setX(i, p.getX(i) * tp); p.setZ(i, p.getZ(i) * tp); }
+      const hv = hash(b.z + 2, b.x); if (hv > .45 && !b.iwan && d > 5) { const px = f * (w / 2 + 1.15), pd = d * (.45 + hv * .3); wood.push(box(2.3, .14, pd, px, 2.62, 0, C(0x7a5a3a))); wall.push(box(2.1, .1, pd - .3, px, 2.74, 0, tint.clone().multiplyScalar(.9))); for (const k of [-1, 0, 1]) wood.push(cyl(.09, .08, 2.6, f * (w / 2 + 2.15), 0, k * (pd / 2 - .15), C(0x6a4a30), 6)); }
+      if (h > 6 && !b.dome) for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const tx = sx * w / 2 * tp, tz = sz * d / 2 * tp; wall.push(cyl(.52, .4, h + 1.2, tx, 0, tz, tint, 8)); tile.push(colorGeo(new THREE.SphereGeometry(.44, 8, 4, 0, 6.29, 0, Math.PI / 2).translate(tx, h + 1.2, tz), C(0x2f8fa8))); } }
+    // gfx2: every house is built at the origin, then turned by its own angle and moved into place (no more axis-aligned rows)
+    const ry = b.ry ?? (hash(b.x, b.z) - .5) * .3; [wall, dark, wood, tile].forEach((A, k) => { for (let i = n0[k]; i < A.length; i++) A[i].rotateY(ry).translate(b.x, 0, b.z); }); }
   const cm = (ENV.ok && pbrMat('clay_block_wall', 1, 1, { color: 0xe0c49c, vertexColors: true })) || vcMat('clay');
   const g = merge(wall); boxUV(g); addMesh(g, cm); addMesh(merge(dark), vcMat('dark', { roughness: 1 })); addMesh(merge(wood), vcMat('wood2')); if (tile.length) addMesh(merge(tile), vcMat('tile', { roughness: .35, metalness: .1 }));
 }
@@ -407,7 +413,7 @@ function stalls(list) { const S = stallParts(); const T = list.map(([x, z, ry]) 
   inst(S.cloth, mcache.cloth || (mcache.cloth = new THREE.MeshStandardMaterial({ map: stripeTex(), side: THREE.DoubleSide, roughness: 1 })), T, { sink: 0 }); inst(S.wood, vcMat('wood2'), T.map(t => [...t.slice(0, 4)]), { sink: 0 }); inst(S.goods, vcMat('goods', { roughness: .6 }), T.map(t => [...t.slice(0, 4)]), { sink: 0 }); }
 function paving(z0, z1, hw) { const t = tex('pave', () => canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#6e5a46'; g.fillRect(0, 0, w, h); const bw = 32, bh = 16; for (let y = 0; y < h; y += bh) for (let x = (y / bh) % 2 * bw / 2 - bw; x < w; x += bw) { const v = Math.random() * 40 - 20; g.fillStyle = `rgb(${150 + v},${114 + v * .8},${90 + v * .6})`; g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3); if (Math.random() < .3) { g.fillStyle = 'rgba(40,25,15,.35)'; g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3); } }
     for (let i = 0; i < 26; i++) { const x = Math.random() * w, y = Math.random() * h, r = 20 + Math.random() * 60, gr = g.createRadialGradient(x, y, 0, x, y, r); const c = Math.random() < .5 ? '150,128,100' : '50,36,24'; gr.addColorStop(0, `rgba(${c},.32)`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); } }));
-  t.repeat.set(hw * 2 / 6, (z0 - z1) / 6); const m = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 1.5, roughness: .95, color: 0x94867a, polygonOffset: true, polygonOffsetFactor: -2 });
+  t.repeat.set(hw * 2 / 6, (z0 - z1) / 6); const m = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 1.5, roughness: .95, color: 0xc2b6a6, polygonOffset: true, polygonOffsetFactor: -2 });
   const g = new THREE.PlaneGeometry(hw * 2, z0 - z1); g.rotateX(-Math.PI / 2); g.translate(0, .012, (z0 + z1) / 2); const k = addMesh(g, m, { shadow: false }); k.userData.pave = { hw, z0, z1 }; return k; }
 
 // ---------- horde camp ----------
@@ -460,7 +466,7 @@ function dust(col, n) { if (!Q) return; const P = new Float32Array(n * 3); for (
 function startTicker() { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([0, -99, 0, .01, -99, 0, 0, -99, .01], 3)); const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
   m.frustumCulled = false; m.userData.scn = 1; let last = -1; m.onBeforeRender = () => { const t = performance.now() / 1000; if (t - last < .004) return; last = t; U.uT.value = t; for (const f of tickers) f(t); }; world.add(m); }
 // lane readability + caravan trail per chapter (see env.js roadify); rides (ch*10) get a wider track
-const ROADS = { 2: { amp: 1.8, hw: 2.6, dark: .52, desat: .42, tint: [.52, .42, .3] }, 3: { amp: .9, hw: 2.4, dark: .55, desat: .45, tint: [.4, .34, .25] }, 4: { amp: 1.4, hw: 2.3, dark: .56, desat: .48, tint: [.5, .43, .32] }, 5: { amp: 1.1, hw: 2.3, dark: .6, desat: .5, tint: [.46, .38, .32] }, 6: { k: 0, dark: .62, desat: .5 }, 7: { amp: 1.5, hw: 2.5, dark: .8, desat: .75, tint: [.3, .28, .26] },
+const ROADS = { 2: { gt: [1.02, 1.07, .86], amp: 1.8, hw: 2.6, dark: 0.82, desat: 0.82, tint: [.52, .42, .3] }, 3: { amp: .9, hw: 2.4, dark: 0.85, desat: 0.85, tint: [.4, .34, .25] }, 4: { amp: 1.4, hw: 2.3, dark: 0.86, desat: 0.88, tint: [.5, .43, .32] }, 5: { amp: 1.1, hw: 2.3, dark: 0.90, desat: 0.90, tint: [.46, .38, .32] }, 6: { k: 0, dark: 0.90, desat: 0.90 }, 7: { amp: 1.5, hw: 2.5, dark: .8, desat: .75, tint: [.3, .28, .26] },
   20: { amp: 2.2, hw: 3, dark: .52, desat: .42, tint: [.52, .42, .3] }, 40: { amp: 2, hw: 2.8, dark: .56, desat: .48, tint: [.5, .43, .32] }, 70: { amp: 2.2, hw: 3, dark: .78, desat: .7, tint: [.3, .28, .26] } };
 let ROAD = null;
 const trail = (o = {}) => { try { if (DBG.includes('notrail')) return; FX.trailDress({ z0: 4, z1: LANE_END > -1e8 ? LANE_END : -186, hf: heightAt, ...o }); } catch (e) { console.warn('trail', e); } };
@@ -573,6 +579,8 @@ function _ch6() { begin(6, 'ch6');
   const L = []; for (const s of [-1, 1]) for (let z = 8; z > -182; z -= rr(8, 11)) { const w = rr(6, 9), d = rr(6, 8.5); L.push({ x: s * rr(26.5, 30) , z, w, d, h: rr(3.8, 6.2), face: -s, dome: R() < .25, iwan: R() < .18 }); if (R() < .6) L.push({ x: s * rr(36, 40), z: z + rr(-3, 3), w: rr(6, 9), d: rr(6, 9), h: rr(4, 7), face: -s, dome: R() < .4 }); }
   for (const s of [-1, 1]) for (let z = -128; z > -178; z -= rr(9, 12)) if (Math.abs(z + 140) > 6 && Math.abs(z + 158) > 6) L.push({ x: s * rr(19.5, 21), z, w: rr(5, 6.5), d: rr(6, 8), h: rr(4, 5.5), face: -s, dome: R() < .3 });
   L.push({ x: 31, z: -150, w: 12, d: 12, h: 7, face: -1, dome: true, iwan: true });
+  // gfx2: two more tiers of bigger, freely turned houses behind the street rows so the city reads as a city (merged into the same 4 draws)
+  for (const s of [-1, 1]) for (let z = 16; z > -196; z -= 7 + hash(z, s) * 5) { L.push({ x: s * (47 + hash(z, 3) * 6), z, w: 6 + hash(z, 5) * 5, d: 6 + hash(z, 7) * 4, h: 5 + hash(z, 9) * 4.5, face: -s, dome: hash(z, 11) < .2, ry: (hash(z, 13) - .5) * .9 }); L.push({ x: s * (59 + hash(z, 4) * 9), z: z + 3, w: 7 + hash(z, 6) * 6, d: 7 + hash(z, 8) * 5, h: 7 + hash(z, 10) * 6, face: -s, dome: hash(z, 12) < .3, ry: (hash(z, 14) - .5) * 1.2 }); }
   town(L); minaret(-24, -133, 28); minaret(27, -44, 22);
   const st = []; for (const s of [-1, 1]) for (let z = -6; z > -108; z -= rr(6.5, 9)) { const x = s * (G.W + 1.9); if (G.fires.some(f => Math.hypot(f.x - x, f.z - z) < 3.2)) continue; st.push([x, z, s < 0 ? Math.PI / 2 : -Math.PI / 2]); } stalls(st);
   plant('poplar', scatter(dens(34), 22.5, 25, 10, -180, () => rr(.8, 1.1)), { nv: 2 }); plant('elm', scatter(dens(16), 31, 40, 10, -180, () => rr(.8, 1.1)), { nv: 2 });

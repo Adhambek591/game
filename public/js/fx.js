@@ -3,10 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795194545';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795194545';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795194545';
-import { makeHorse } from './horse.js?v=1795194545';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795208631';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795208631';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795208631';
+import { makeHorse } from './horse.js?v=1795208631';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795208631';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -194,7 +195,7 @@ function fireBase() { if (baseGeo) return baseGeo; const L = []; for (let i = 0;
   return baseGeo = merge(L); }
 // raw fire: world position (x, y, z); o: { base, smoke, glow, embers }
 export function fireAt(x, y, z, size = 1.4, o = {}) { const S = fireSys(); if (S.n >= MAXF) return; const ph = rnd(0, 20), q = Q();
-  const L = [[1.75, 2.5, 0], [1.05, 1.75, rnd(-.08, .08)], [.8, 1.3, rnd(.22, .34) * (Math.random() < .5 ? -1 : 1)]];
+  const fw = rnd(.78, 1.25), fh = rnd(.75, 1.35), L = [[1.75 * fw, 2.5 * fh, 0], [1.05 * fw, 1.75 * fh * rnd(.85, 1.15), rnd(-.12, .12)], [.8 * fw, 1.3 * fh * rnd(.8, 1.2), rnd(.2, .4) * (Math.random() < .5 ? -1 : 1)]]; // gfx2: every fire has its own proportions
   for (let k = 0; k < FL; k++) { const i = S.n * FL + k; S.fa.iP.setXYZW(i, x, y + .02 + k * .01, z, size); S.fa.iS.setXYZW(i, ph + k * 3.7, L[k][0], L[k][1], L[k][2]); } S.n++; S.fa.iP.needsUpdate = S.fa.iS.needsUpdate = true; S.flame.geometry.instanceCount = S.n * FL;
   if (o.smoke !== false) { const ns = Math.min(S.SM, size < .7 ? 2 : S.SM); for (let k = 0; k < ns; k++) { const i = S.ns++; S.sa.iP.setXYZW(i, x + rnd(-.15, .15) * size, y + size * .6, z + rnd(-.15, .15) * size, size * rnd(.8, 1.15)); S.sa.iS.setXYZW(i, (k + Math.random() * .6) / ns, rnd(.13, .19), rnd(0, 6.28), rnd(-1.2, 1.2)); } S.sa.iP.needsUpdate = S.sa.iS.needsUpdate = true; S.smoke.geometry.instanceCount = S.ns; }
   if (o.glow !== false) { const i = S.ng++; S.ga.iP.setXYZW(i, x, o.glowY !== undefined ? o.glowY : y + .06, z, size * (o.glowK || 1)); S.ga.iS.setXYZW(i, ph, 0, 0, 0); S.ga.iP.needsUpdate = S.ga.iS.needsUpdate = true; S.glow.geometry.instanceCount = S.ng; }
@@ -377,7 +378,7 @@ function tickHud(t) { const p = G.player;
     if (ring) ring.scale.setScalar(.9 * (1 + Math.sin(t * 4) * .06)); if (m._fxA) { m._fxA.position.y = 1.9 + Math.abs(Math.sin(t * 3)) * .45; m._fxA.rotation.y = t * 1.6; } } }
 
 // ---------- ground detail at gameplay distance: dry grass tufts + camel thorn (dense on lane edges), pebbles, dark patches ----------
-let GD = null, gdT = 0, gdClr = 0;
+let GD = null, gdT = 0, gdClr = 0, lvlT = 0;
 function tuftTex(thorn) { return canvas(128, 128, (g, w, h) => { g.clearRect(0, 0, w, h); g.lineCap = 'round';
   if (!thorn) for (let i = 0; i < 46; i++) { const x0 = w / 2 + rnd(-22, 22), a = rnd(-.55, .55), L = rnd(40, 110), dry = Math.random() < .55; g.strokeStyle = dry ? `rgb(${rnd(118, 150) | 0},${rnd(100, 122) | 0},${rnd(66, 84) | 0})` : `rgb(${rnd(84, 108) | 0},${rnd(92, 112) | 0},${rnd(58, 72) | 0})`; g.lineWidth = rnd(1.5, 3); g.beginPath(); g.moveTo(x0, h); g.quadraticCurveTo(x0 + Math.sin(a) * L * .4, h - L * .6, x0 + Math.sin(a) * L * .85, h - L * Math.cos(a * .6)); g.stroke(); }
   else { const br = (x, y, a, L, d) => { if (d > 4 || L < 4) return; const x1 = x + Math.sin(a) * L, y1 = y - Math.cos(a) * L; g.strokeStyle = d < 2 ? '#4a3622' : '#6a5030'; g.lineWidth = 4 - d * .7; g.beginPath(); g.moveTo(x, y); g.lineTo(x1, y1); g.stroke(); if (d > 1) { g.fillStyle = Math.random() < .5 ? '#7a8a3a' : '#5a6a2a'; g.fillRect(x1 - 2, y1 - 2, 4, 4); } br(x1, y1, a - rnd(.3, .7), L * .72, d + 1); br(x1, y1, a + rnd(.3, .7), L * .72, d + 1); };
@@ -388,7 +389,7 @@ function buildGD() { const P = G.player; if (!P) return; const W = G.W || 11.5, 
   const crossed = merge([xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0), xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0, 0, Math.PI / 2)]);
   const mk = (geo, mat, n) => { const m = new THREE.InstancedMesh(geo, mat, n); m.count = 0; m.frustumCulled = false; m.receiveShadow = true; g.add(m); return m; };
   const tG = mk(crossed, gdMat(tuftTex(false)), nT), tT = mk(crossed, gdMat(tuftTex(true)), Math.ceil(nT * .45));
-  const pg = merge([colG(rock(.07, 1), 0x8a8074), colG(xf(rock(.05, 2), .12, 0, .05), 0x6e665c), colG(xf(rock(.04, 3), -.08, 0, .1), 0x9a9084)]);
+  const lo = r => { const g = new THREE.IcosahedronGeometry(r, 0); g.scale(1, .62, 1.25); return g; }; const pg = merge([colG(lo(.075), 0x8a8074), colG(xf(lo(.055), .12, 0, .05), 0x6e665c), colG(xf(lo(.045), -.08, 0, .1), 0x9a9084)]); // gfx2: 60 tris per cluster (was 240)
   const pM = mk(pg, rockV(), nP); const dt = canvas(64, 64, (c, s) => { const r = c.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); r.addColorStop(0, 'rgba(40,28,18,.55)'); r.addColorStop(.6, 'rgba(40,28,18,.3)'); r.addColorStop(1, 'rgba(40,28,18,0)'); c.fillStyle = r; c.fillRect(0, 0, s, s); });
   const dq = new THREE.PlaneGeometry(1, 1); dq.rotateX(-Math.PI / 2); const dM = mk(dq, new THREE.MeshStandardMaterial({ map: dt, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), nD); dM.renderOrder = 1; dM.receiveShadow = true;
   const ok = (x, z, y) => !(y < -.15 || y > 2.6) && !G.fires.some(f => Math.abs(f.x - x) < 1.6 && Math.abs(f.z - z) < 1.6) && !G.colC.some(c => (c.x - x) ** 2 + (c.z - z) ** 2 < c.r * c.r);
@@ -400,7 +401,7 @@ function buildGD() { const P = G.player; if (!P) return; const W = G.W || 11.5, 
   for (let i = 0; i < nP * 1.2 && pM.count < nP; i++) { const z = rnd(z1, z0), x = Math.random() < .5 && !paved ? rnd(-W - 4, W + 4) : edgeX(); put(pM, x, z, rnd(.7, 2.2), rnd(.6, 1.6)); }
   for (let i = 0; i < nD; i++) { const z = rnd(z1, z0), x = paved ? edgeX() : rnd(-W - 6, W + 6), s = rnd(1.8, 4.5); put(dM, x, z, s, 1); }
   for (const m of [tG, tT, pM, dM]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } tG.castShadow = tT.castShadow = false; world.add(g); GD = { g }; }
-function tickGD() { const now = performance.now(); if (GD && !GD.g.parent) { GD = null; gdClr = now; gdT = now + 1200; } if (!GD && G.player && now > gdT && world.children.length > 3) { gdT = now + 3000; try { buildGD(); } catch (e) { console.warn('fx gd', e); } } }
+function tickGD() { const now = performance.now(); if (world.children.length < 3) lvlT = now / 1000; if (GD && !GD.g.parent) { GD = null; gdClr = now; gdT = now + 1200; lvlT = now / 1000; } if (!GD && G.player && now > gdT && world.children.length > 3) { gdT = now + 3000; try { buildGD(); } catch (e) { console.warn('fx gd', e); } } }
 
 // =====================================================================================================================
 // 9. BURNT RUINS (session 4, author playtest: "burnt houses are black boxes — a burnt house isn't all black, the beams show").
@@ -522,10 +523,116 @@ function tickMood() { const f = scene.fog; if (!f || f === lastFog) return; last
   scene.traverse(o => { const m = o.isPoints && o.material; if (m && m.isPointsMaterial && m.color.getHex() === 0x5a5550) { m.color.set(0xb4aca4); m.opacity = Math.min(m.opacity, .38); } }); if (f.userData && f.userData.fxL) return;
   try { applyLight(G.night ? 'pro' : 'ch1', { scene, renderer, grade: gradePass, G }); lastFog = scene.fog; } catch (e) { console.warn('fx mood', e); } }
 
+// =====================================================================================================================
+// 10. gfx2: QUALITY LADDER (auto-selected from measured fps), shadow LOD for units, building variety, irregular wall towers
+// =====================================================================================================================
+// The engine's composer is module-private: grab it when it renders (same module instance as the engine's import).
+let COMP = null; try { const r0 = EffectComposer.prototype.render; EffectComposer.prototype.render = function (...a) { COMP = this; return r0.apply(this, a); }; } catch (e) { }
+// levels: 0 = as configured by SET.q; 1 = 85% resolution; 2 = 72% + 512 shadow map + 8 unit shadows; 3 = 60%, no sun shadows; 4 = 50%, no bloom
+const PF = { lvl: 0, acc: 0, n: 0, good: 0, ups: 0, lock: 0, base: 0, ms0: 1024, fps: 0, init: false, shadowN: 14, last: 0 };
+// (applied from a timer, never in the middle of a frame: resizing disposes the render targets the composer is drawing into)
+function pfApply() { setTimeout(pfDo, 0); }
+function pfDo() { const L = PF.lvl, pr = Math.max(.5, PF.base * [1, .85, .72, .6, .5][L]);
+  if (Math.abs(renderer.getPixelRatio() - pr) > .01) { renderer.setPixelRatio(pr); if (COMP) COMP.setPixelRatio(pr); }
+  const sl = scene.children.find(o => o.isDirectionalLight);
+  if (sl && renderer.shadowMap.enabled) { const want = L < 3; if (sl.castShadow !== want) sl.castShadow = want; const ms = L >= 2 ? 512 : PF.ms0; if (sl.shadow.mapSize.x !== ms) { sl.shadow.mapSize.set(ms, ms); if (sl.shadow.map) { sl.shadow.map.dispose(); sl.shadow.map = null; } } }
+  if (COMP && COMP.passes[1] && COMP.passes[1].strength !== undefined) COMP.passes[1].enabled = L < 4;
+  PF.shadowN = [14, 14, 8, 0, 0][L]; G.pf = PF; try { sessionStorage.qq_pf = String(L); } catch (e) { } }
+function tickPerf() { const now = performance.now() / 1000, raw = now - PF.last; PF.last = now;
+  if (!PF.init) { PF.init = true; PF.base = renderer.getPixelRatio(); const sl = scene.children.find(o => o.isDirectionalLight); if (sl) PF.ms0 = sl.shadow.mapSize.x; const q = /[?&]pf=(\d)/.exec(location.search);
+    if (q) { PF.lvl = Math.min(4, +q[1]); PF.lock = 1; } else try { const v = +sessionStorage.qq_pf; if (v > 0 && v <= 4) PF.lvl = v; } catch (e) { } pfApply(); return; }
+  if (PF.lock || G.paused || document.hidden || raw > .22 || raw <= 0) return; PF.acc += raw; PF.n++;
+  if (PF.acc < 2.5) return; const fps = PF.fps = PF.n / PF.acc; PF.acc = PF.n = 0;
+  if (fps < 27 && PF.lvl < 4) { PF.lvl += fps < 18 && PF.lvl < 3 ? 2 : 1; PF.good = 0; pfApply(); }
+  else if (fps > 54 && PF.lvl > 0 && PF.ups < 2) { if (++PF.good >= 5) { PF.lvl--; PF.ups++; PF.good = 0; pfApply(); } } else PF.good = 0; }
+// only the hero and the nearest units cast real shadows (the rest keep their contact blobs): the shadow pass re-skins every caster
+let shT = 0, shN = 0; function tickShadowLOD(now) { if (now - shT < .6 || !G.ents || !G.player || !renderer.shadowMap.enabled) return; shT = now; const lim = Q() >= 2 && PF.lvl === 0 ? 40 : PF.shadowN, P = G.player, L = [], fresh = (++shN % 8) === 0;
+  for (const e of G.ents) { if (e.gone || !e.o || !e.o.visible) continue; L.push([e === P ? -1 : (e.x - P.x) ** 2 + (e.z - P.z) ** 2, e]); } L.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < L.length; i++) { const d = L[i][0], e = L[i][1], on = i < lim && d < 900 && !(e.dead && (e.deadT || 0) > 1.5); if (e._fxSh === on && !fresh) continue; e._fxSh = on;
+    e.o.traverse(o => { if (!o.isMesh || o.userData.fxOL) return; if (o.userData.fxCS === undefined) o.userData.fxCS = o.castShadow; if (o.userData.fxCS) o.castShadow = on; }); } }
+// ---------- building variety: the engine places identical GLB clones (B_house / B_yurt / B_wall) on a grid ----------
+// per-object tone variation in the shader (hash of the object's world origin; one shared material, no clones), small deterministic
+// rotation / height / size jitter, chimney smoke on some houses and yurts with random phase, extra towers on long walls.
+const hash2 = (x, z) => { const v = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return v - Math.floor(v); };
+function varyPatch(m) { if (!m || !m.isMeshStandardMaterial || m.userData.fxVar) return; m.userData.fxVar = 1; const prev = m.onBeforeCompile, pk = String(m.customProgramCacheKey()).slice(0, 48); if (prev === THREE.Material.prototype.onBeforeCompile) m.userData.fxVarPure = 1;
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r);
+    sh.vertexShader = 'varying vec3 vFxVar;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n { mat4 fxM = modelMatrix;\n #ifdef USE_INSTANCING\n fxM = modelMatrix * instanceMatrix;\n #endif\n vec2 o = floor(fxM[3].xz * 4.); float h1 = fract(sin(dot(o, vec2(12.9898, 78.233))) * 43758.5453), h2 = fract(sin(dot(o, vec2(39.346, 11.135))) * 24634.6345); vFxVar = vec3(mix(.78, 1.14, h1)) * mix(vec3(1.07, 1., .88), vec3(.95, 1., 1.07), h2); }');
+    sh.fragmentShader = 'varying vec3 vFxVar;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= vFxVar;'); };
+  m.customProgramCacheKey = () => 'fxvar2|' + pk; m.needsUpdate = true; }
+const PGEO = {}; function propKind(o) { if (!A.props) return null; let g0 = null; o.traverse(k => { if (!g0 && k.isMesh) g0 = k.geometry; }); if (!g0) return null;
+  for (const n of ['B_house', 'B_yurt', 'B_wall', 'B_tower']) { const src = A.props[n]; if (!src) continue; if (!PGEO[n]) { PGEO[n] = new Set(); src.traverse(k => { if (k.isMesh) PGEO[n].add(k.geometry); }); } if (PGEO[n].has(g0)) return n; } return null; }
+const _bx = new THREE.Box3();
+function scanVary() { const walls = []; let S = null; const now = performance.now();
+  if (CAMP.t && now > CAMP.t) { CAMP.t = 0; for (const k of ['yurt', 'house']) { const L = CAMP[k]; CAMP[k] = []; if (L.length >= 3 && !G.gdPaved && !world.children.some(o => o.userData && o.userData.pave)) try { campBack(L.filter(p => p.o.parent), k); } catch (e) { console.warn('fx camp', e); } } }
+  for (const o of world.children) { if (o.userData.fxV) continue; o.userData.fxV = 1; if (o.userData.fx || !o.visible || o.isInstancedMesh || o.isLight || o.isSprite || o.isPoints) continue; const k = propKind(o); if (!k) continue;
+    let burnt = false; o.traverse(m => { if (m.isMesh && m.material && m.material.color && m.material.color.getHex() === DARK) burnt = true; }); if (burnt) continue;
+    o.traverse(m => { if (m.isMesh) varyPatch(m.material); }); const h = hash2(o.position.x, o.position.z), h2 = hash2(o.position.z + 7.3, o.position.x - 2.1);
+    if (k === 'B_wall') { walls.push(o); continue; } if (k === 'B_tower') continue; let lum = 1; o.traverse(m => { if (m.isMesh && m.material.color && lum === 1) lum = m.material.color.r * .3 + m.material.color.g * .6 + m.material.color.b * .1; }); CAMP[k === 'B_house' ? 'house' : 'yurt'].push({ x: o.position.x, z: o.position.z, o, lum }); CAMP.t = now + 2500;
+    if (k === 'B_house') { o.rotation.y += (h - .5) * .22; o.scale.y *= .84 + h2 * .4; o.scale.x *= .95 + h * .08; o.scale.z *= .95 + h2 * .08; } else o.scale.multiplyScalar(.88 + h * .26);
+    if (h2 > (k === 'B_house' ? .5 : .62)) { S = S || fireSys(); if (S.ns < MAXF * S.SM * .55) { o.updateMatrixWorld(true); _bx.setFromObject(o); smokeAt(o.position.x + (h - .5) * (k === 'B_house' ? 2.2 : .2), _bx.max.y - (k === 'B_house' ? .1 : .5), o.position.z + (h2 - .75) * (k === 'B_house' ? 2 : .2), .42 + h * .3); } } }
+  if (walls.length) try { wallTowers(walls); } catch (e) { console.warn('fx towers', e); } }
+// ---------- settlement scale: a camp / village of a handful of real yurts or houses gets a field of cheap instanced ones behind it
+// (one draw, ~130 tris each, no shadows cast) so it reads as a big encampment in the haze; placed outside the play area on dry ground ----------
+const CAMP = { yurt: [], house: [], t: 0 };
+function lowYurtG() { if (GEOS.lowYurt) return GEOS.lowYurt; const sg = 12, L = [colG(xf(new THREE.CylinderGeometry(2.6, 2.66, 1.7, sg, 1, true), 0, .85, 0), 0xb4a890, 0xd8cfbc), colG(xf(new THREE.CylinderGeometry(2.68, 2.68, .3, sg, 1, true), 0, 1.52, 0), 0x8a3a24),
+  colG(xf(new THREE.ConeGeometry(2.78, 1.45, sg, 2, true), 0, 2.42, 0), 0xc6bca6, 0xe8e0d0), colG(xf(new THREE.CylinderGeometry(.5, .62, .16, 8), 0, 3.16, 0), 0x4a3424), colG(xf(new THREE.BoxGeometry(.95, 1.5, .14), 0, .76, 2.6), 0x7a2a16)]; return GEOS.lowYurt = merge(L); }
+function lowHouseG() { if (GEOS.lowHouse) return GEOS.lowHouse; const L = [colG(xf(new THREE.BoxGeometry(6.4, 3.3, 5), 0, 1.65, 0), 0xb8a07c, 0xd8c4a0), colG(xf(new THREE.BoxGeometry(6.7, .42, 5.3), 0, 3.45, 0), 0xc4ae88), colG(xf(new THREE.BoxGeometry(5.9, .3, 4.5), 0, 3.52, 0), 0x8a7654),
+  colG(xf(new THREE.BoxGeometry(1.1, 2.1, .12), .8, 1.05, 2.52), 0x4a3020), colG(xf(new THREE.BoxGeometry(.6, .6, .12), -1.6, 2.1, 2.52), 0x2a1c12)]; return GEOS.lowHouse = merge(L); }
+function campBack(list, kind) { if (list.length < 3) return; let z0 = 1e9, z1 = -1e9, lum = 0; for (const p of list) { z0 = Math.min(z0, p.z); z1 = Math.max(z1, p.z); lum += p.lum / list.length; } z0 -= 28; z1 += 28;
+  const hfOK = G.groundH && (G.groundHT || 0) >= gdClr - 50, H = (x, z) => { try { return hfOK ? G.groundH(x, z) : 0; } catch (e) { return 0; } }, W = G.W || 11.5, xr = (hfOK ? 70 : 37.5) - (W + 15);
+  const n = Math.min(Q() === 0 ? 50 : 140, Math.round((z1 - z0) * (hfOK ? 1.3 : .5))), P = [], dk = lum < .3 ? .3 : 1, m = new THREE.InstancedMesh(kind === 'yurt' ? lowYurtG() : lowHouseG(), plainV(), n); m.count = 0;
+  for (let i = 0; i < n * 5 && m.count < n; i++) { const a = hash2(i * 1.37, z0), b = hash2(z1, i * 2.11), x = (i % 2 ? 1 : -1) * (W + 15 + Math.pow(a, 1.4) * xr), z = z0 + b * (z1 - z0), y = H(x, z);
+    if (y < -.1 || y > 7 || Math.abs(H(x + 2.5, z) - H(x - 2.5, z)) > 1.3 || Math.abs(H(x, z + 2.5) - H(x, z - 2.5)) > 1.3) continue;
+    if (P.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < 52) || list.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < 70) || G.colC.some(c => (c.x - x) ** 2 + (c.z - z) ** 2 < (c.r + 3.6) ** 2) || G.fires.some(f => (f.x - x) ** 2 + (f.z - z) ** 2 < 30)) continue; P.push({ x, z });
+    const sc = .92 + hash2(x, z) * .45; _o.position.set(x, y - .06, z); _o.rotation.set(0, hash2(z, x) * 6.283, 0); _o.scale.set(sc, sc * (kind === 'house' ? .8 + hash2(x + 1, z) * .7 : 1), sc); _o.updateMatrix(); m.setMatrixAt(m.count, _o.matrix);
+    const v = (.8 + hash2(x * 3, z * 3) * .28) * dk; m.setColorAt(m.count, _c.setRGB(v, v * (.95 + hash2(z, x * 2) * .06), v * (.86 + hash2(x, z * 5) * .12))); m.count++; }
+  if (!m.count) return; G.fxCamp = (G.fxCamp || 0) + m.count; m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; m.castShadow = false; m.receiveShadow = true; m.frustumCulled = false; m.userData.fx = 1; m.userData.fxV = 1; m.userData.fxB = 1; world.add(m);
+  const S = fireSys(); let k = 0; for (const p of P) { if (S.ns >= MAXF * S.SM * .7 || k++ > 12) break; if (hash2(p.x * 2, p.z) > .7) smokeAt(p.x, H(p.x, p.z) + (kind === 'yurt' ? 3.2 : 3.6), p.z, .5); } }
+// towers at irregular joints of long wall runs (the engine only puts one at each end of a run longer than 18 m)
+function wallTowers(walls) { const src = A.props.B_tower; if (!src) return; const runs = {};
+  for (const w of walls) { const hz = Math.abs(Math.sin(w.rotation.y)) < .5, key = (hz ? 'h' : 'v') + Math.round((hz ? w.position.z : w.position.x) * 2); (runs[key] || (runs[key] = [])).push({ w, hz, t: hz ? w.position.x : w.position.z, len: w.scale.x * 6, h: w.scale.y * 6 }); }
+  for (const key in runs) { const R = runs[key].sort((a, b) => a.t - b.t); if (R.length < 3) continue; let next = 2 + Math.floor(hash2(R[0].t, R.length) * 3);
+    for (let i = 0; i < R.length - 1; i++) { const a = R[i], b = R[i + 1]; if (b.t - a.t > (a.len + b.len) * .5 * 1.15) { next = i + 2; continue; } if (i + 1 < next) continue; const t = (a.t + a.len / 2 + b.t - b.len / 2) / 2, hh = hash2(t, a.h), s = a.h * 1.35 / 9.6 * (.74 + hh * .36);
+      const o = src.clone(true), off = (hash2(t + 3.1, 1.7) - .5) * .8; o.position.set(a.hz ? t : a.w.position.x + off, 0, a.hz ? a.w.position.z + off : t); o.scale.set(s * (.9 + hh * .25), s, s * (.9 + hh * .25)); o.rotation.y = Math.floor(hh * 4) * Math.PI / 2; o.userData.fxV = 1; o.userData.fxTower = 1;
+      o.traverse(m => { if (m.isMesh) { varyPatch(m.material); m.castShadow = Q() > 0; m.receiveShadow = true; } }); world.add(o); next = i + 4 + Math.floor(hash2(t, 9.3) * 4); } } }
+// gfx2: intro fly-over (map.js #fly.on): no glowing rings on the ground (the additive zone rings / objective rings / hero ring bloomed to
+// white circles from above) - hidden while the fly-over runs, restored when it ends
+let cineOn = false; function tickCine() { const fl = document.getElementById('fly'), on = !!(fl && fl.classList.contains('on')); if (!on && !cineOn) return; const p = G.player;
+  if (on) { for (const o of world.children) if (o.isGroup && o.visible && o.children.length === 2 && o.children[0].geometry && o.children[0].geometry.type === 'RingGeometry') o.visible = false;
+    for (const m of G.markers || []) m.g.visible = false; if (p && p.mark && p.mark.g) p.mark.g.visible = false; if (rings) rings.visible = false; }
+  else { for (const m of G.markers || []) m.g.visible = true; if (p && p.mark && p.mark.g) p.mark.g.visible = true; if (rings) rings.visible = true; } cineOn = on; }
+// =====================================================================================================================
+// 11. gfx2: STATIC BATCHING. The engine / missions place hundreds of identical single meshes (debris beams, GLB prop clones, crates...)
+// = one draw call each, twice with shadows. Meshes under `world` that share geometry + material are drawn as InstancedMeshes
+// (per 70 m chunk of the level so frustum culling still works). The originals stay in the scene graph with `visible` turned into an
+// accessor (always false, remembers what the game sets), so game logic, raycasts and collisions are untouched; every frame the batch
+// follows each source: moved -> instance matrix updated, hidden / removed / material or geometry swapped -> instance removed and the
+// original drawn normally again. ?nobatch=1 turns it off.
+// =====================================================================================================================
+const BT = { src: [], off: /[?&]nobatch=1/.test(location.search), n: 0 }, _zero = new THREE.Matrix4().set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1);
+const pureMat = m => m && !Array.isArray(m) && !m.transparent && (m.onBeforeCompile === THREE.Material.prototype.onBeforeCompile || m.userData.fxVarPure);
+function batchScan() { if (BT.off) return; const groups = new Map(), OB = THREE.Object3D.prototype;
+  world.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.userData.fxBt || o.children.length || !o.frustumCulled || o.morphTargetInfluences || o.customDepthMaterial || o.onBeforeRender !== OB.onBeforeRender || o.onAfterRender !== OB.onAfterRender) return;
+    const g = o.geometry, m = o.material; if (!g || !g.attributes.position || !pureMat(m) || (g.index ? g.index.count : g.attributes.position.count) > 9000) return;
+    let vis = o.visible; for (let p = o.parent; p && vis; p = p.parent) vis = p.visible; if (!vis) return; o.updateWorldMatrix(true, false); if (o.matrixWorld.determinant() <= 0) { o.userData.fxBt = -1; return; }
+    const key = g.uuid + '|' + m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + o.renderOrder + '|' + Math.floor(o.matrixWorld.elements[14] / 70); let L = groups.get(key); if (!L) groups.set(key, L = []); L.push(o); });
+  for (const L of groups.values()) { if (L.length < 3) continue; const o0 = L[0], im = new THREE.InstancedMesh(o0.geometry, o0.material, L.length); im.castShadow = o0.castShadow; im.receiveShadow = o0.receiveShadow; im.renderOrder = o0.renderOrder; im.matrixAutoUpdate = false;
+    Object.assign(im.userData, { fx: 1, fxV: 1, fxB: 1, fxS: 1, fxBt: 2 });
+    L.forEach((o, i) => { im.setMatrixAt(i, o.matrixWorld); o.userData.fxBt = 1; const st = { o, im, i, mat: o.material, want: true, vis: true, m: o.matrixWorld.elements.slice() }; Object.defineProperty(o, 'visible', { configurable: true, enumerable: true, get() { return false; }, set(v) { st.want = !!v; } }); BT.src.push(st); });
+    im.computeBoundingSphere(); world.add(im); BT.n++; } }
+function batchFree(st, k) { const o = st.o; delete o.visible; o.visible = st.want; o.userData.fxBt = -1; BT.src.splice(k, 1); }
+function tickBatch() { const S = BT.src; if (!S.length) return; let dirty = null;
+  for (let k = S.length - 1; k >= 0; k--) { const st = S[k], o = st.o, im = st.im; if (!im.parent) { batchFree(st, k); continue; }
+    let vis = st.want, att = false; for (let p = o.parent; p; p = p.parent) { if (!p.visible) vis = false; if (p === scene) att = true; }
+    if (!att || o.material !== st.mat || o.geometry !== im.geometry) { im.setMatrixAt(st.i, _zero); im.instanceMatrix.needsUpdate = true; batchFree(st, k); continue; }
+    const e = o.matrixWorld.elements, m = st.m; let ch = vis !== st.vis; if (!ch) for (let i = 0; i < 16; i++) if (e[i] !== m[i]) { ch = true; break; }
+    if (ch) { st.vis = vis; for (let i = 0; i < 16; i++) m[i] = e[i]; im.setMatrixAt(st.i, vis ? o.matrixWorld : _zero); im.instanceMatrix.needsUpdate = true; (dirty || (dirty = new Set())).add(im); } }
+  if (dirty) for (const im of dirty) im.computeBoundingSphere(); }
 // ---------- per-frame driver (scene.onBeforeRender: runs after the engine's update, before the draw) ----------
 let lastT = 0, inst = false, err = 0;
 function tick() { const now = performance.now() / 1000, dt = Math.min(.05, now - lastT); if (dt < .002) return; lastT = now; U.t.value = now % 3600;
-  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickRings(); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); tickMood(); if (G.player) { outlineHero(G.player); renderer.getDrawingBufferSize(UO.res.value); UO.w.value = Math.max(1.4, UO.res.value.y / 300); } if (now - scanT > 1.5) { scanT = now; scanShapes(); scanBoxes(); if (scanBurnt()) scanT = now - 1.3; scanEnv(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
+  try { tickPerf(); tickShadowLOD(now); tickCine(); tickBatch(); } catch (e) { if (err++ < 3) console.warn('fx perf', e); }
+  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickRings(); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); tickMood(); if (G.player) { outlineHero(G.player); renderer.getDrawingBufferSize(UO.res.value); UO.w.value = Math.max(1.4, UO.res.value.y / 300); } if (now - scanT > 1.5) { scanT = now; scanShapes(); scanBoxes(); if (scanBurnt()) scanT = now - 1.3; else { scanVary(); if (now - lvlT > 3) batchScan(); } scanEnv(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
 const _v2 = new THREE.Vector2();
 // the engine's hero point light (22 cd, 9 m) is tuned for night; in daylight it doubles the sun on the ground around the hero and the
 // bloom turns the lane white — keep it as a soft fill by day (no engine edit: found once in the scene graph)

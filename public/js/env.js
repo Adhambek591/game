@@ -1,7 +1,7 @@
 // Real PBR environment from Poly Haven (CC0): HDRI lighting, PBR ground/wall/wood textures, scanned props.
 import * as THREE from 'three';
-import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795194545';
-import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795194545';
+import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795208631';
+import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795208631';
 export const ENV = { pbr: {}, mod: {}, day: null, night: null, ok: false };
 const B = './assets/env/';
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -42,18 +42,18 @@ export function place(world, name, x, z, s, idx) {
 // radial alpha for ground decals
 let decalAlpha = null;
 function alphaTex() { if (decalAlpha) return decalAlpha; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 8, 64, 64, 64); r.addColorStop(0, '#fff'); r.addColorStop(.55, '#bbb'); r.addColorStop(1, '#000'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return decalAlpha = new THREE.CanvasTexture(c); }
-export function groundMat(L, night) { const m = pbrMat(night ? 'aerial_ground_rock' : 'brown_mud_dry', 80 / 7, L / 7, { color: night ? 0xc8b49a : 0xc2a07a }); if (m && !m._road) roadify(m, night ? { dark: .8, desat: .8, tint: [.36, .32, .28] } : {}); return m; }
+export function groundMat(L, night) { const m = pbrMat(night ? 'aerial_ground_rock' : 'brown_mud_dry', 80 / 7, L / 7, { color: night ? 0xc8b49a : 0xcfae82 }); if (m && !m._road) roadify(m, night ? { dark: .8, desat: .8, tint: [.36, .32, .28], gt: [1, 1, 1] } : {}); return m; }
 // ---------- lane readability + caravan trail, added to a ground material's shader ----------
 // The play lane is darkened / desaturated so units stand out; a meandering packed-earth trail (wheel ruts, hoof and foot prints from
 // assets/env/tex/trail_det.jpg, a mean-0.5 detail map) runs along it. o: { amp, hw, k, dark, desat, lane, tint:[r,g,b], off }
 export const roadX = (z, amp = 1.6) => Math.sin(z * .045) * amp + Math.sin(z * .11 + 1.3) * amp * .35;
 export function roadify(m, o = {}) {
-  const u = m._road = { uRoad: { value: new THREE.Vector4(o.amp ?? 1.6, o.hw ?? 2.5, ENV.trail ? (o.k ?? 1) : 0, o.off ?? 0) }, uLane: { value: new THREE.Vector4(o.lane ?? 12.5, o.dark ?? .56, o.desat ?? .48, o.flat ?? .5) }, uRoadT: { value: new THREE.Vector3(...(o.tint || [.42, .345, .25])) }, tRoad: { value: ENV.trail || null } };
+  const u = m._road = { uRoad: { value: new THREE.Vector4(o.amp ?? 1.6, o.hw ?? 2.5, ENV.trail ? (o.k ?? 1) : 0, o.off ?? 0) }, uLane: { value: new THREE.Vector4(o.lane ?? 12.5, o.dark ?? .82, o.desat ?? .85, o.flat ?? .25) }, uGT: { value: new THREE.Vector3(...(o.gt || [.97, 1.04, .87])) }, uRoadT: { value: new THREE.Vector3(...(o.tint || [.42, .345, .25])) }, tRoad: { value: ENV.trail || null } };
   const prev = m.onBeforeCompile, pk = prev ? String(m.customProgramCacheKey()).slice(0, 60) : '';
   m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); Object.assign(sh.uniforms, u);
     sh.vertexShader = 'varying vec2 vRoadP;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vRoadP = (modelMatrix * vec4(transformed, 1.)).xz;');
-    sh.fragmentShader = 'varying vec2 vRoadP; uniform vec4 uRoad; uniform vec4 uLane; uniform vec3 uRoadT; uniform sampler2D tRoad; float fxLane = 0.; float fxRoad = 0.;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
-    { fxLane = 1. - smoothstep(uLane.x, uLane.x + 6., abs(vRoadP.x)); float l0 = dot(diffuseColor.rgb, vec3(.299, .587, .114));
+    sh.fragmentShader = 'varying vec2 vRoadP; uniform vec4 uRoad; uniform vec4 uLane; uniform vec3 uRoadT; uniform vec3 uGT; uniform sampler2D tRoad; float fxLane = 0.; float fxRoad = 0.;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    { diffuseColor.rgb *= uGT; fxLane = 1. - smoothstep(uLane.x, uLane.x + 6., abs(vRoadP.x)); float l0 = dot(diffuseColor.rgb, vec3(.299, .587, .114));
       vec3 lc = mix(vec3(l0), diffuseColor.rgb, uLane.z); lc *= mix(1., .4 / max(l0, .1), uLane.w) * uLane.y; diffuseColor.rgb = mix(diffuseColor.rgb, lc, fxLane);
       if (uRoad.z > 0.) { float cx = sin(vRoadP.y * .045) * uRoad.x + sin(vRoadP.y * .11 + 1.3) * uRoad.x * .35 + uRoad.w; float dx = vRoadP.x - cx;
         vec3 rt = texture2D(tRoad, vec2(dx / (uRoad.y * 2.9) + .5, vRoadP.y / 11.)).rgb; float wob = texture2D(tRoad, vec2(.08, vRoadP.y / 47.)).g + texture2D(tRoad, vec2(.9, vRoadP.y / 23.)).g - 1.;
@@ -62,7 +62,7 @@ export function roadify(m, o = {}) {
         float mv = texture2D(tRoad, vRoadP * .021).g * .6 + texture2D(tRoad, vRoadP.yx * .067 + .3).r * .4; diffuseColor.rgb *= .78 + mv * .44; } }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 1., clamp(fxLane * .85 + fxRoad, 0., 1.));')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n normal = normalize(mix(normal, normalize(vNormal) * (gl_FrontFacing ? 1. : -1.), clamp(fxLane * uLane.w * .6 + fxRoad * .3, 0., .6)));'); };
-  m.customProgramCacheKey = () => 'road|' + pk + (ENV.trail ? 1 : 0); m.needsUpdate = true; return m;
+  m.customProgramCacheKey = () => 'road2|' + pk + (ENV.trail ? 1 : 0); m.needsUpdate = true; return m;
 }
 export function dressGround(world, zNear, zFar, W, night) {
   if (!ENV.ok) return;
@@ -89,7 +89,7 @@ const _o = new THREE.Object3D(), _m = new THREE.Matrix4();
 function buildDress(world, list, Q) {
   const groups = {}; for (const it of list) (groups[it.name + '|' + it.idx] || (groups[it.name + '|' + it.idx] = [])).push(it);
   for (const k in groups) { const items = groups[k], [name, idx] = k.split('|'), part = ENV.mod[name][+idx];
-    const m = new THREE.InstancedMesh(part.geometry, part.material, items.length); m.castShadow = Q > 0; m.receiveShadow = true; m.userData.dress = { items, mw: part.mw }; setDress(m, null); world.add(m); }
+    const m = new THREE.InstancedMesh(part.geometry, part.material, items.length); m.castShadow = Q > 1 || (Q > 0 && /boulder|trunk/.test(name)); m.receiveShadow = true; m.userData.dress = { items, mw: part.mw }; setDress(m, null); world.add(m); }
 }
 function setDress(m, hf, wet = -1e9) { const { items, mw } = m.userData.dress;
   items.forEach((it, i) => { const y = hf ? hf(it.x, it.z) : 0; _o.position.set(it.x, y - (hf ? .05 : 0), it.z); _o.rotation.set(0, it.ry, 0); _o.scale.setScalar(y < wet - .08 ? 0 : it.s); _o.updateMatrix(); _m.multiplyMatrices(_o.matrix, mw); m.setMatrixAt(i, _m); });
@@ -107,15 +107,15 @@ export async function loadGLB(url) { const g = await new GLTFLoader().loadAsync(
 // Sunlit surfaces warm (gold sun), shadows and distance cool (blue sky fill + cool fog), ground darker/richer so the units
 // (allies red/white, Guloyim blue/gold, enemies black/steel) pop. envI = IBL strength (less flat ambient), vib = vibrance,
 // sh/hi = multiplicative split-tone for shadows/highlights, piv/cmul = contrast pivot/gain, con = S-curve.
-const SPLIT = { sh: [.86, .97, 1.14], hi: [1.06, 1.0, .9] };
+const SPLIT = { sh: [.92, .97, 1.08], hi: [1.06, 1.0, .9] };
 export const LIGHTS = {
-  ch1: { sun: [0xffdcaa, 3.6], dir: [.55, .6, -.58], hemi: [0x8fb0dc, 0x4a3420, .95], fog: [0xa9b8c4, 60, 150], exp: .96, envI: .45, sat: 1.12, osat: .8, vib: .15, warm: 0, con: .4, cmul: 1.16, piv: .42, ...SPLIT, dust: 0 },
+  ch1: { sun: [0xffdcaa, 3.6], dir: [.55, .6, -.58], hemi: [0x8fb0dc, 0x4a3420, 1.52], fog: [0xb9bfbc, 62, 160], exp: 1.03, envI: .45, sat: 1.14, osat: .9, vib: .15, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0 },
   pro: { sun: [0xffc088, 3.5], dir: [-.7, .42, -.55], hemi: [0x5276c0, 0x3a2418, 1.15], fog: [0x6a6478, 45, 125], exp: .96, envI: .4, sat: 1.06, osat: .7, vib: .15, warm: 0, con: .42, cmul: 1.18, piv: .4, sh: [.82, .94, 1.2], hi: [1.08, .98, .86], dust: 0 },
-  ch2: { sun: [0xffc88e, 3.5], dir: [.35, .5, -.8], hemi: [0x9ab8e0, 0x6a4a2c, 1.05], fog: [0xb8c0c4, 60, 150], exp: .84, envI: .45, sat: 1.12, osat: .76, vib: .2, warm: .01, con: .4, cmul: 1.16, piv: .42, ...SPLIT, dust: 0xffe0b0, sky: { top: 0x3f78c0, hor: 0xd8dccc, cloud: 0xfff4e4, sun: 0xffd9a0 } },
-  ch3: { sun: [0xffbe7a, 3.7], dir: [-.5, .46, -.74], hemi: [0x90b4dc, 0x3e4426, 1.1], fog: [0xaec0c4, 60, 150], exp: .92, envI: .45, sat: 1.14, osat: .82, vib: .2, warm: .01, con: .42, cmul: 1.16, piv: .42, ...SPLIT, dust: 0xffd8a0, sky: { top: 0x3a72b8, hor: 0xd4dcd0, cloud: 0xfff0dc, sun: 0xffc880 } },
-  ch4: { sun: [0xffb870, 3.7], dir: [-.55, .45, -.7], hemi: [0x8ab4e0, 0x34484e, 1.1], fog: [0xa8bccc, 60, 155], exp: .84, envI: .42, sat: 1.12, osat: .7, vib: .2, warm: .01, con: .42, cmul: 1.16, piv: .42, ...SPLIT, dust: 0xffe0c0, sky: { top: 0x2f6cb8, hor: 0xd0dce0, cloud: 0xffeedc, sun: 0xffc27a } },
-  ch5: { sun: [0xffa060, 3.8], dir: [.65, .42, -.62], hemi: [0x7a8cc8, 0x3a2626, 1.05], fog: [0x9a7a84, 45, 125], exp: .95, envI: .45, sat: 1.16, osat: .85, vib: .2, warm: .02, con: .42, cmul: 1.16, piv: .42, sh: [.84, .92, 1.18], hi: [1.08, .98, .86], dust: 0xffb070, sky: { top: 0x2c3e7c, hor: 0xf09868, cloud: 0xffc8a0, sun: 0xffa050 } },
-  ch6: { sun: [0xffc078, 3.7], dir: [.45, .5, -.75], hemi: [0x96b6de, 0x50402c, 1.1], fog: [0xb4c0c8, 60, 150], exp: .9, envI: .45, sat: 1.12, osat: .78, vib: .2, warm: .01, con: .42, cmul: 1.16, piv: .42, ...SPLIT, dust: 0xffdcaa, sky: { top: 0x3a72b8, hor: 0xd8dcd0, cloud: 0xfff2e4, sun: 0xffcc88 } },
+  ch2: { sun: [0xffc88e, 3.5], dir: [.35, .5, -.8], hemi: [0x9ab8e0, 0x6a4a2c, 1.68], fog: [0xd2c8ae, 70, 175], exp: 0.95, envI: .45, sat: 1.2, osat: .95, vib: .2, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0xffe0b0, sky: { top: 0x2f68b8, hor: 0xe6dcc0, cloud: 0xfff4e4, sun: 0xffd9a0 } },
+  ch3: { sun: [0xffbe7a, 3.7], dir: [-.5, .46, -.74], hemi: [0x90b4dc, 0x3e4426, 1.76], fog: [0xb8c4c0, 62, 160], exp: 0.99, envI: .45, sat: 1.16, osat: .88, vib: .2, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0xffd8a0, sky: { top: 0x2c64b0, hor: 0xe2dcc4, cloud: 0xfff0dc, sun: 0xffc880 } },
+  ch4: { sun: [0xffb870, 3.7], dir: [-.55, .45, -.7], hemi: [0x8ab4e0, 0x34484e, 1.76], fog: [0xa8bccc, 60, 155], exp: 0.91, envI: .42, sat: 1.2, osat: .95, vib: .2, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0xffe0c0, sky: { top: 0x2660b0, hor: 0xdcdcd0, cloud: 0xffeedc, sun: 0xffc27a } },
+  ch5: { sun: [0xffa060, 3.8], dir: [.65, .42, -.62], hemi: [0x7a8cc8, 0x3a2626, 1.42], fog: [0x9a7a84, 45, 125], exp: .95, envI: .45, sat: 1.16, osat: .95, vib: .2, warm: .02, con: .34, cmul: 1.12, piv: .4, sh: [.84, .92, 1.18], hi: [1.08, .98, .86], dust: 0xffb070, sky: { top: 0x2c3e7c, hor: 0xf09868, cloud: 0xffc8a0, sun: 0xffa050 } },
+  ch6: { sun: [0xffc078, 3.7], dir: [.45, .5, -.75], hemi: [0x96b6de, 0x50402c, 1.76], fog: [0xcbc4b2, 65, 165], exp: 0.97, envI: .45, sat: 1.2, osat: .9, vib: .2, warm: .012, con: .3, cmul: 1.1, piv: .4, ...SPLIT, dust: 0xffdcaa, sky: { top: 0x2c64b0, hor: 0xe6dcc4, cloud: 0xfff2e4, sun: 0xffcc88 } },
   ch7: { sun: [0xd0dcf0, 3.3], dir: [-.25, .62, -.74], hemi: [0x8a9cbc, 0x2a2626, 1.25], fog: [0x56606e, 36, 115], exp: 1.02, envI: .6, sat: 1.08, vib: .3, warm: -.02, con: .44, cmul: 1.18, piv: .4, sh: [.86, .94, 1.12], hi: [1.04, 1.0, .96], dust: 0, sky: { top: 0x2a3240, hor: 0x6a7482, cloud: 0x8a929e, sun: 0xb8c8e0, storm: 1 } },
 };
 const GRADE_FS = `uniform sampler2D tDiffuse; uniform vec2 res; uniform float sat, warm, tilt, con, vib, cmul, piv, osat; uniform vec3 shc, hic; varying vec2 vUv;
@@ -127,7 +127,7 @@ const GRADE_FS = `uniform sampler2D tDiffuse; uniform vec2 res; uniform float sa
     c += vec3(warm, warm * .45, -warm * .6) * (1. - l * .5);
     float sh = 1. - smoothstep(.05, .5, l), hi = smoothstep(.5, .95, l); c *= mix(vec3(1.), shc, sh) * mix(vec3(1.), hic, hi);
     c = (c - piv) * cmul + piv; c = clamp(c, 0., 1.); c = mix(c, c * c * (3. - 2. * c), con);
-    vec2 q = vUv - .5; c *= 1. - dot(q, q) * .42; gl_FragColor = vec4(clamp(c, 0., 1.), 1.); }`;
+    vec2 q = vUv - .5; c *= 1. - dot(q, q) * .26; gl_FragColor = vec4(clamp(c, 0., 1.), 1.); }`;
 // presets written for the old grade (additive shc/hic, no osat — e.g. missions.js TOD night/dusk): convert once to the new model
 function compatLight(L) { const sc = L.shc || [0, .08, .3], hc = L.hic || [1, .6, .18], ms = (sc[0] + sc[1] + sc[2]) / 3, mh = (hc[0] + hc[1] + hc[2]) / 3;
   L.sh = sc.map(v => 1 + (v - ms) * .9); L.hi = hc.map(v => 1 + (v - mh) * .15); L.sat = (L.sat || 1.2) * .82; if (L.osat === undefined) L.osat = .82; if (L.cmul === undefined) L.cmul = 1.12; if (L.piv === undefined) L.piv = .43; if (L.vib === undefined) L.vib = .15; if (L.envI === undefined) L.envI = .5; L.warm = (L.warm || 0) * .5; }

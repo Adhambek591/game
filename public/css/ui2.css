@@ -1,0 +1,195 @@
+/* ===== Qırq qız — ui2 refinement layer (ui2 agent, 2026-11-20). Loaded after the inline <style>; source: /home/user/agents/ui2/src/ui2.css =====
+   System: felt-indigo surfaces, hammered-gold hairlines, carnelian red for the ONE primary action per screen.
+   Type: Forum (display) 18/24/32, PT Sans (UI) 12/13/15. Spacing 4/8/12/16/24. Touch >= 48. Motion: 180 ms in, press 70 ms. */
+:root{
+--t-xs:12px;--t-s:13px;--t-m:15px;--t-l:18px;--t-xl:24px;
+--s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--tap:48px;
+--ease:cubic-bezier(.2,.8,.2,1);
+--chipbg:rgba(14,17,42,.84);
+--hair:0 0 0 1px rgba(232,189,98,.58);
+--carn:radial-gradient(circle at 35% 30%,#ff8a6a,#c22a20 55%,#6a0d0a);
+--muyiz:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 88 30'%3E%3Cg fill='none' stroke='%23e8bd62' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M44 24C37 24 30 20 30 12A9 9 0 0 0 12 12A5.5 5.5 0 0 0 23 12A3 3 0 0 0 17 12'/%3E%3Cpath d='M44 24C51 24 58 20 58 12A9 9 0 0 1 76 12A5.5 5.5 0 0 1 65 12A3 3 0 0 1 71 12'/%3E%3C/g%3E%3Cpath d='M44 3l4 6-4 6-4-6z' fill='%23c22a20' stroke='%23ffe9ad' stroke-width='1.2'/%3E%3Cpath d='M0 24h8M80 24h8' stroke='%23e8bd62' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+/* ---------- motion ---------- */
+@keyframes ui2in{from{opacity:0;scale:.965}to{opacity:1;scale:1}}
+@keyframes ui2fade{from{opacity:0}to{opacity:1}}
+.ov.on .in,#set.on>div,#lore.on>div{animation:ui2in .18s var(--ease) both}
+#w4up.on,#dlg.on #dbox{animation:ui2fade .18s ease-out both}
+button:focus-visible,.ab:focus-visible{outline:2px solid #ffe9ad;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ---------- loading: only the name, the bar and one line ---------- */
+#tbox:not(:has(#tplay[style*="block"],#tcont[style*="block"]))>:is(#tcamp,#tshop,#tbook,#tmap,#tcred){display:none!important}
+#loadbar{flex:0 0 78%;height:8px;margin-top:18px!important}
+#loadtxt{font-size:var(--t-xs);margin-top:2px!important}
+/* ---------- title: one primary button, two quiet links ---------- */
+#tbox>#tshop{display:none!important}                      /* merged: the shop sold the same upgrades as the upgrade screen */
+#tbox>#tcamp,#tbox>#tbook{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;min-height:var(--tap);padding:4px 12px;font:700 var(--t-s)/1.15 var(--fu);letter-spacing:.02em;text-transform:none;white-space:normal}
+#tbox>#tcamp:before,#tbox>#tbook:before{flex:none;width:32px;height:32px;margin:0}
+#tsub{font-size:clamp(12px,1.5vw,14px)}
+#langs button{font-size:var(--t-xs);min-height:40px}
+#daily{font-size:var(--t-xs)}
+@media (max-width:760px){#daily{max-width:36vw;white-space:normal;line-height:1.2}}
+
+/* ---------- settings / pause: two columns, everything visible without scrolling ---------- */
+#set>div{width:min(720px,calc(100vw - var(--sl) - var(--sr) - 16px));display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:26px;align-content:start;padding:14px 32px 14px}
+#set h3,#set .acts{grid-column:1/-1}
+#set .row{min-height:var(--tap);gap:10px}
+#set .row>span{font:700 var(--t-s)/1.15 var(--fu);min-width:0;overflow-wrap:anywhere}
+#set .seg{flex:none}
+#set .seg button{min-width:44px;height:40px;padding:0 10px;font-size:var(--t-xs)}
+#set .vrow>span{flex:0 0 32%;max-width:32%}
+#set .vrow .vv{min-width:38px;font-size:var(--t-xs)}
+#set .acts{margin-top:8px;gap:14px}
+#set .acts button{height:var(--tap);font-size:var(--t-l)}
+#set .x button{height:36px;font-size:var(--t-xs)}
+html.vh380 #set .row{min-height:44px}html.vh380 #set .seg button{height:36px}html.vh380 #set .acts button{height:44px}
+@media (max-width:640px){#set>div{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- HUD ---------- */
+/* hero block: narrower bars so the objective plate never touches it */
+#pbars{padding-right:10px}
+#pbars .bar{width:clamp(112px,16vw,164px)}
+#pbars #hbar{height:13px}
+#pbars #ubar,#pbars #hhorse,#pbars #sbar{width:clamp(92px,13vw,132px)}
+#pname{font-size:var(--t-m)}
+/* one tidy column of status chips under the portrait (coins, army, rescued, targets) */
+#gold{height:24px;font-size:var(--t-s)}
+html #hud #w4army,html #hud #rescnt,html #hud #huntcnt{left:calc(var(--sl) + 12px)!important;height:24px;padding:0 10px 0 7px!important;border-radius:12px!important;background:var(--chipbg)!important;box-shadow:var(--hair);color:var(--gold-l)!important;font:700 var(--t-xs)/24px var(--fu)!important;text-shadow:0 1px 2px #000!important;white-space:nowrap}
+html #hud #w4army{top:calc(var(--st) + 96px)!important}
+html #hud #rescnt{top:calc(var(--st) + 124px)!important}
+html #hud #huntcnt{top:calc(var(--st) + 152px)!important}
+html #hud #w4army .ic,html #hud #rescnt .ic,html #hud #huntcnt .ic{width:18px;height:18px;margin:0 3px 0 -3px;vertical-align:-4px}
+/* objective: one plate, one line when it fits, balanced two lines when it does not */
+#topc{width:min(42vw,440px)}
+#obj{font-size:clamp(12px,1.55vw,14px);line-height:1.22;text-wrap:balance}
+#obj .ic{width:18px;height:18px;vertical-align:-4px}
+#hint{font-size:clamp(12px,1.4vw,13.5px)}
+#bname{font-size:clamp(15px,1.9vw,18px)}
+#bbar{height:14px}
+html #hud #cvbar{top:calc(var(--st) + 46px)!important;font:700 var(--t-xs)/1 var(--fu)!important;color:var(--gold-l)!important}
+/* direction arrow + distance pill */
+html #dir b{top:31px!important;padding:0 8px;border-radius:10px;background:var(--chipbg);box-shadow:var(--hair);font:700 var(--t-xs)/20px var(--fu)!important;color:var(--gold-l)!important;text-shadow:none!important}
+html #dir .da{filter:drop-shadow(0 0 1px #3a1a00) drop-shadow(0 2px 4px #000)!important}
+/* side alert */
+html #f3side{font:700 17px/1.1 var(--fu)!important;padding:8px 14px!important;border-radius:12px!important;border:1px solid #ffe9ad!important;background:linear-gradient(180deg,rgba(194,42,32,.94),rgba(106,13,10,.94))!important;box-shadow:0 4px 14px rgba(0,0,0,.6)}
+html #f3side b{font-size:24px!important}
+/* combo */
+#hc i{font-size:var(--t-xs)}
+/* amulet power button: same enamel + gold rim as the other two, gauge is a ring, lights up only when ready */
+html #btns #bP{border:3px solid transparent;background:radial-gradient(circle at 35% 30%,#2b3570,#0e1126) padding-box,var(--rim) border-box;box-shadow:0 4px 9px rgba(0,0,0,.7),0 0 0 1px rgba(40,20,0,.85)}
+html #btns #bP .g{inset:-1px;background:conic-gradient(#ffcf5a calc(var(--p,0)*1%),rgba(5,6,16,.78) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px));mask:radial-gradient(farthest-side,transparent calc(100% - 7px),#000 calc(100% - 6px))}
+html #btns #bP:not(.full) svg.amu{opacity:.85;filter:saturate(.6)}
+html #btns #bP.full{box-shadow:0 0 0 2px #ffe9ad,0 0 22px 8px rgba(255,190,60,.85)}
+html #btns #bP.full .g{background:#ffcf5a}
+.ab{transition:transform .07s,filter .07s}
+/* tutorial card + skip */
+html #tuc{font:700 clamp(14px,1.9vw,17px)/1.25 var(--fu)!important;background:linear-gradient(180deg,rgba(27,35,80,.95),rgba(12,14,34,.96))!important;border:1px solid rgba(232,189,98,.8)!important;box-shadow:0 6px 18px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.1)!important;bottom:calc(var(--sb) + 50px)!important}
+html #tuc .n{background:linear-gradient(180deg,#f8dc92,#c8922f)!important;color:#2a1503!important}
+html #tuskip{min-height:36px;padding:0 16px!important;bottom:calc(var(--sb) + 6px)!important;font:700 var(--t-xs)/36px var(--fu)!important;background:var(--chipbg)!important;border:0!important;box-shadow:var(--hair);color:var(--parch)!important}
+html #tuskip:before{content:"";position:absolute;inset:-6px 0}
+/* dialogue */
+#dtap{font-size:var(--t-xs);letter-spacing:.06em}
+#dline{font-size:clamp(15px,1.95vw,18px)}
+
+/* ---------- upgrade screen (wave4 #w4up) ---------- */
+html #w4up{background:radial-gradient(120% 80% at 50% -10%,rgba(49,61,134,.5),transparent 60%),var(--night);padding:calc(var(--st) + 8px) calc(var(--sr) + 14px) calc(var(--sb) + 10px) calc(var(--sl) + 14px);top:var(--appt,0px);bottom:auto;height:var(--apph,100dvh);font:400 var(--t-s)/1.25 var(--fu);touch-action:pan-y}
+html :is(#w4up,.w4pane) .hd{max-width:860px;margin:0 0 4px;min-height:var(--tap)}
+html :is(#w4up,.w4pane) .hd h2{font:400 clamp(20px,3vw,28px)/1 var(--fd);letter-spacing:.06em;color:var(--gold);background:var(--goldtx);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+html :is(#w4up,.w4pane) .bk{height:44px;min-width:var(--tap);padding:0 16px;border-radius:22px;border:0;background:var(--chipbg);box-shadow:var(--hair);color:var(--parch);font:700 var(--t-s)/1 var(--fu)}
+html :is(#w4up,.w4pane) .gd{height:36px;display:flex;align-items:center;gap:4px;padding:0 14px;border:0;border-radius:18px;background:var(--chipbg);box-shadow:var(--hair);color:var(--gold-l);font:700 var(--t-m)/1 var(--fu)}
+html :is(#w4up,.w4pane) .army{max-width:860px;margin:0;font:400 var(--t-l)/1.2 var(--fd);letter-spacing:.04em;color:var(--gold-l)}
+html :is(#w4up,.w4pane) .army:after{content:"";display:block;width:132px;height:15px;margin:2px auto 3px;background:var(--muyiz) center/auto 100% repeat-x;opacity:.8}
+html.vh430 :is(#w4up,.w4pane) .army:after{display:none}
+html :is(#w4up,.w4pane) .info{max-width:860px;font-size:var(--t-xs);line-height:1.3;color:var(--mute);margin-bottom:6px;text-wrap:balance}
+html :is(#w4up,.w4pane) .info b{color:var(--gold-l);font-weight:700}
+html :is(#w4up,.w4pane) .grid{max-width:860px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px}
+html :is(#w4up,.w4pane) .tr{flex-wrap:nowrap;align-items:center;gap:10px;padding:6px 10px;border-radius:var(--r-m);border:0;background:var(--felt);box-shadow:var(--hair),inset 0 1px 0 rgba(255,255,255,.1),0 3px 8px rgba(0,0,0,.4)}
+html :is(#w4up,.w4pane) .tr>.ic{width:42px;height:42px;font-size:24px;border:2px solid transparent;background:radial-gradient(circle at 35% 30%,#2b3570,#0e1126) padding-box,var(--rim) border-box;box-shadow:0 2px 5px rgba(0,0,0,.6);margin:0;vertical-align:0}
+html :is(#w4up,.w4pane) i.ic{display:inline-block;flex:none;width:1.35em;height:1.35em;margin:0 .15em;vertical-align:-.32em;border-radius:50%;font-size:inherit;background:url(../assets/img/ui/icons.webp) 0 0/400% 800% no-repeat;box-shadow:0 0 0 1px rgba(255,225,150,.75),0 1px 3px rgba(0,0,0,.7)}
+html :is(#w4up,.w4pane) .tr>.ic i.ic{width:100%;height:100%;margin:0;box-shadow:none;display:block}
+html :is(#w4up,.w4pane) .tx b{font:700 var(--t-m)/1.15 var(--fu);color:var(--text)}
+html :is(#w4up,.w4pane) .tx small{font-size:var(--t-xs);line-height:1.25;color:var(--mute)}
+html :is(#w4up,.w4pane) .pp{gap:5px;margin:4px 0 3px 2px}
+html :is(#w4up,.w4pane) .pp i{width:8px;height:8px;border-radius:1px;transform:rotate(45deg);background:rgba(5,6,16,.7);box-shadow:0 0 0 1px rgba(232,189,98,.55)}
+html :is(#w4up,.w4pane) .pp i.on{background:var(--carn);box-shadow:0 0 0 1px #ffe9ad,0 0 5px rgba(255,90,50,.6)}
+html :is(#w4up,.w4pane) .pp i.cap{opacity:.3}
+html :is(#w4up,.w4pane) .bb{flex:0 0 auto;min-width:0;white-space:nowrap!important;height:var(--tap);margin:0;padding:0 2px;border-radius:0;border-style:solid;border-color:transparent;border-width:0 15px;border-image:url(../assets/img/ui/btn_red.webp) 0 70 fill/0 20px stretch;background:none;box-shadow:none;color:#fff4d8;font:700 var(--t-s)/1.1 var(--fu);filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+html :is(#w4up,.w4pane) .bb .ic{width:16px;height:16px;vertical-align:-3px}
+html :is(#w4up,.w4pane) .bb.poor{filter:grayscale(.75) brightness(.72)}
+html :is(#w4up,.w4pane) .bb.done{border-image-source:url(../assets/img/ui/btn_blue.webp);background:none;color:var(--gold-l)}
+html :is(#w4up,.w4pane) .bb:active{transform:translateY(2px)}
+@media (max-width:700px){html :is(#w4up,.w4pane) .grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- mission result ---------- */
+#end #mt-end{order:5;flex:1 1 calc(100% - 220px);min-width:0;width:auto;justify-content:flex-start;text-align:left}
+#end #mt-end .mt-endbtn{display:none!important}           /* merged: Camp shortcut duplicated the Upgrade button below */
+#end #eadx2{order:6;flex:0 0 auto;height:40px;margin-top:0}
+#end #emap{order:10;flex:0 1 132px;height:var(--tap)}
+#end #w4upb{order:12;flex:0 1 200px;height:var(--tap);font:400 clamp(13px,1.6vw,15px)/1.05 var(--fd);letter-spacing:.02em;border-width:0 18px;border-image-width:0 18px}
+#end #ereplay{order:11;flex:1 1 230px}
+#stl{font-size:var(--t-s)}
+#stars .best{font-size:var(--t-xs)}
+html.vh380 #stl{font-size:var(--t-xs)}
+html.vh380 #end #emap,html.vh380 #end #w4upb{height:44px}
+
+/* ---------- defeat: say why and what to try ---------- */
+#dead .in{width:min(620px,calc(100vw - var(--sl) - var(--sr) - 20px));gap:10px 12px;padding:18px 30px 20px}
+#dead h2{margin:0;font-size:clamp(24px,4vw,36px)}
+#dead h2:after{margin:2px auto 0}
+#dtip{flex:0 0 100%;margin:0 0 4px;padding:9px 14px;border-radius:var(--r-m);background:rgba(5,6,16,.5);box-shadow:inset 0 0 0 1px rgba(232,189,98,.25);font:400 var(--t-m)/1.35 var(--fu);color:var(--text);text-align:left;text-wrap:pretty;position:relative;padding-left:36px}
+#dtip:empty{display:none}
+#dtip:before{content:"";position:absolute;left:14px;top:50%;margin-top:-5px;width:10px;height:10px;transform:rotate(45deg);background:var(--carn);box-shadow:0 0 0 1px #ffe9ad}
+#dead #dretry{order:2}#dead #drevive{order:3}
+#dead .btn{flex:1 1 0;min-width:0;height:var(--tap);flex-wrap:nowrap;font-size:clamp(14px,1.9vw,16.5px);border-width:0 24px;border-image-width:0 24px}
+#dtip .ic{width:20px;height:20px;vertical-align:-5px}
+
+/* ---------- world map ---------- */
+#map .mh #w4mapb{width:44px;height:44px;min-width:44px;padding:0;margin-left:6px;border:2px solid transparent;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2b3570,#0e1126) padding-box,var(--rim) border-box;box-shadow:0 3px 8px rgba(0,0,0,.6);color:var(--gold-l);font-size:19px;line-height:1;filter:none;border-image:none}
+html .w4camp{z-index:2}
+html .w4camp .ci{width:22px;height:22px;font-size:12px;box-shadow:0 0 0 1.5px #c0392b,0 2px 5px rgba(0,0,0,.7)}
+html .w4camp .ci .ic{width:100%;height:100%;margin:0;box-shadow:none;display:block}
+html .w4camp.done .ci{box-shadow:0 0 0 1.5px #7fb86a,0 2px 5px rgba(0,0,0,.7)}
+html .w4camp small{font:700 11px/1.5 var(--fu);padding:0 6px;border-radius:8px}
+
+/* ---------- rotate hint ---------- */
+#rot{font-size:var(--t-l);line-height:1.6;background:radial-gradient(120% 70% at 50% 0,rgba(49,61,134,.5),transparent 60%),var(--night)}
+#rot:after{content:"";width:176px;height:20px;background:var(--muyiz) center/auto 100% repeat-x;opacity:.7}
+
+/* ---------- HUD declutter (after first gameplay shots) ---------- */
+#hud #mt-xp{display:none!important}                       /* XP/level lives on the result screen and in Camp; it overlapped the army chip */
+@media (pointer:coarse){#hud #w4ctl{display:none!important}}   /* key legend is for keyboards only */
+html #hud #w4ctl{font:700 var(--t-xs)/1 var(--fu)!important;bottom:calc(var(--sb) + 6px)!important;padding:5px 12px;border-radius:12px;background:rgba(14,17,42,.6)}
+/* while somebody speaks: only the speaker and the hero block stay */
+#btns,#jb,#gold,#hc{transition:opacity .15s}
+body:has(#dlg.on) :is(#btns,#jb,#gold,#hc,#w4army,#rescnt,#huntcnt,#w4ctl,#dir,#tuskip){opacity:0!important}
+/* ---------- mission start banner (chapter, name, the one objective line) ---------- */
+#ban1{font-size:clamp(12px,1.3vw,13px);letter-spacing:.3em;padding-left:.3em}
+#ban3{font:700 clamp(13px,1.5vw,15px)/1.3 var(--fu);padding:6px 16px;background:var(--chipbg);box-shadow:var(--hair);text-wrap:balance}
+#obj,#dir{transition:opacity .25s}
+body:has(#ban.show) :is(#obj,#dir,#hint){opacity:0!important}      /* the start banner already says the objective */
+html :is(#w4up,.w4pane) .tr{min-height:72px}
+
+/* ---------- wave 2 of fixes (coordinator / benchmark list) ---------- */
+/* ads: no button unless an ad provider exists (html.qq-ads set by ui_skin.js) */
+html:not(.qq-ads) #end #eadx2[id],html:not(.qq-ads) #dead #drevive[id],html:not(.qq-ads) #shad[id],html:not(.qq-ads) button:has(.ic.ad),html:not(.qq-ads) #adov{display:none!important}
+html:not(.qq-ads) #end #mt-end{flex-basis:100%}
+html:not(.qq-ads) #dead #dretry{flex:0 1 320px}
+/* loading: percent + MB under the bar */
+#loadmb{order:10;flex:0 0 100%;font:700 var(--t-xs)/1.2 var(--fu);color:var(--gold-l);letter-spacing:.04em;min-height:14px}
+#loadmb:empty{display:none}
+/* action buttons: every press answers at once */
+#btns .ab.prs,#btns .ab:active{transform:scale(.92)!important;filter:brightness(1.3)!important;box-shadow:0 0 0 3px rgba(255,233,173,.95),0 0 18px 5px rgba(255,200,90,.65)!important;transition-duration:.06s!important;animation:none!important}
+/* one upgrade hub: army/weapon screen opens from Camp; the separate map button goes */
+#map .mh #w4mapb{display:none!important}
+html #w4up{z-index:400}
+html .w4pane{font:400 var(--t-s)/1.25 var(--fu)}
+html .w4pane .army:after{display:none}
+/* map: labels above camp markers, markers 26 px, moved off labels by ui_skin.js */
+html .w4camp .ci{width:26px;height:26px}
+#map .nd{z-index:4}
+html .w4camp{transition:translate .2s}
+/* stars to the next chest */
+#mt-chestbar .ui2-next{position:relative;min-width:84px;height:22px;margin-left:4px;border-radius:11px;background:rgba(5,6,16,.75);box-shadow:var(--hair);overflow:hidden}
+#mt-chestbar .ui2-next i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(180deg,#ffe9a0,#e0a23a 50%,#9a6217)}
+#mt-chestbar .ui2-next b{position:relative;display:block;padding:0 9px;font:700 var(--t-xs)/22px var(--fu);color:#fff;text-shadow:0 1px 2px #000,0 0 3px #000;white-space:nowrap;text-align:center}

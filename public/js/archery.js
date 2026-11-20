@@ -9,20 +9,22 @@
 // so nothing of the melee game (AI, collisions, player) touches them. Missions: LEVELS at the bottom; started from
 // missions.js (m2/src/75_archery.js) through runArchery(id, H) → resolves { ok, noAlarm, all, why }.
 // =====================================================================================================================
-import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795194545';
-import { torch, banner } from './fx.js?v=1795194545';
-import { heightAt } from './scenery.js?v=1795194545';
-import { t, lang } from './i18n.js?v=1795194545';
-import { Sfx, setMusic } from './audio.js?v=1795194545';
+import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795208631';
+import { torch, banner } from './fx.js?v=1795208631';
+import { heightAt } from './scenery.js?v=1795208631';
+import { t, lang, has } from './i18n.js?v=1795208631';
+import { Sfx, setMusic, volOf } from './audio.js?v=1795208631';
 
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => v < a ? a : v > b ? b : v, hyp = Math.hypot, lerp = (a, b, k) => a + (b - a) * k;
 const GRAV = 0, V0 = 150, KW = 0, ZFOV = 11, WFOV = 52, SIM = 120, WATER = -.32;
 const WY = () => (G.waterY ?? WATER);   // fix3: per-level water surface (ch3 river is now ~1 m below the lane)   // fix3: straight, fast flight (no drop, no wind)
 const ZL = [52, 24, 11], ZN = ['1×', '2×', '5×'];   // 🔍 zoom levels (fov)
 const assistR = () => Math.round(Math.max(34, Math.min(innerWidth, innerHeight) * .12));   // aim-assist radius (px) around the reticle
-const tt = (k, o) => { if (LS[k]) return LS[k][lang] || LS[k].en; const s = t(k, o); return s === k ? (EN[k] || k) : s; };
+const tt = (k, o) => { if (LS[k]) return LS[k][lang] || LS[k].uz || LS[k].en || ''; if (has(k)) return t(k, o); return EN[k] || '';  /* urgent5: never show a raw key */ };
 // fix3 strings (local; qq to be checked by the author). tu_t_bow2/3 override the tutorial's lead/wind texts.
 const LS = {
+  ar_hit: { qq: 'Tiydi!', uz: 'Tegdi!', ru: 'Попадание!', en: 'Hit!' },   // urgent5: target hit (was shown as raw "ar_hit")
+  ar_bull: { qq: 'Dál ortasına!', uz: 'Rosa markazga!', ru: 'В яблочко!', en: 'Bullseye!' },
   arz_zoom: { qq: '🔍 túymesi — jaqınlatıw (1× · 2× · 5×)', uz: '🔍 tugmasi — yaqinlashtirish (1× · 2× · 5×)', ru: '🔍 — приближение (1× · 2× · 5×)', en: '🔍 — zoom (1× · 2× · 5×)' },
   arz_assist: { qq: 'Nıshandı saqshıǵa tuwrılasańız — oq tiyedi', uz: 'Nishonni soqchiga to‘g‘rilasangiz — o‘q tegadi', ru: 'Наведите прицел на стражника — стрела попадёт', en: 'Put the reticle on a guard — the arrow will hit' },
   tu_t_bow2: { qq: 'Endi qozǵalıp baratırǵan nıshan — nıshandı oǵan tuwrılap, jiberiń', uz: 'Endi harakatlanayotgan nishon — nishonni unga to‘g‘rilab, qo‘yib yuboring', ru: 'Теперь движущаяся мишень — наведите прицел и отпустите', en: 'Now a moving target — put the reticle on it and release' },
@@ -347,7 +349,7 @@ function stick(a, P, D) { a.m.position.copy(P).addScaledVector(D, .12); S.stuck.
 function hitMark(k) { if (!UI) return; const el = UI.hm; el.className = 'hm'; void el.offsetWidth; el.className = 'hm on ' + k; }
 let AC = null; function acInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { } }
 // impact: a short wooden thock + low punch, a bright ring for headshots (own tiny WebAudio graph; follows the game's sound volume)
-function thwack(big) { try { acInit(); const ac = AC; if (!ac) return; const vol = typeof SET.snd === 'number' ? SET.snd : 1; if (vol <= 0) return; const t0 = ac.currentTime + .005, out = ac.createGain(); out.gain.value = .9 * vol; out.connect(ac.destination);
+function thwack(big) { try { acInit(); const ac = AC; if (!ac) return; const vol = volOf('sfx') * .8; if (vol <= 0) return;   /* urgent5: follows Settings master x effects */ const t0 = ac.currentTime + .005, out = ac.createGain(); out.gain.value = .9 * vol; out.connect(ac.destination);
   const n = ac.createBuffer(1, ac.sampleRate * .09 | 0, ac.sampleRate), dd = n.getChannelData(0); for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / dd.length, 3);
   const ns = ac.createBufferSource(); ns.buffer = n; const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 1.4; const ng = ac.createGain(); ng.gain.value = .8; ns.connect(bp); bp.connect(ng); ng.connect(out); ns.start(t0);
   const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(190, t0); o.frequency.exponentialRampToValueAtTime(48, t0 + .16); og.gain.setValueAtTime(.0001, t0); og.gain.exponentialRampToValueAtTime(.9, t0 + .006); og.gain.exponentialRampToValueAtTime(.0001, t0 + .2); o.connect(og); og.connect(out); o.start(t0); o.stop(t0 + .22);

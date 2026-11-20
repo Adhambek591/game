@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795194545';
-import { t, setLang, lang, L } from './i18n.js?v=1795194545';
-import { place } from './env.js?v=1795194545';
-import * as SC from './scenery.js?v=1795194545';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle } from './audio.js?v=1795194545';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795194545';
-import { initMissions, runMission } from './missions.js?v=1795194545';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795208631';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795208631';
+import { place } from './env.js?v=1795208631';
+import * as SC from './scenery.js?v=1795208631';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795208631';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795208631';
+import { initMissions, runMission } from './missions.js?v=1795208631';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -16,7 +16,7 @@ const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: '
 const objective = (k, v) => { $('obj').textContent = k ? t(k, v) : ''; };
 let hintTo; function hint(k, dur = 5, raw) { { const m = { h_move: 'joy', h_attack: 'bA', h_dodge: 'bD', h_skill: 'b1', h_ulti: 'b2' }[k]; document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); if (m && $(m)) { $(m).classList.add('tutor'); setTimeout(() => $(m) && $(m).classList.remove('tutor'), dur * 1000); } } const h = $('hint'); h.textContent = (raw || t(k)).replace(TOUCH ? /\s*\([^)]*WASD\)/ : /$^/, ''); h.classList.add('show'); clearTimeout(hintTo); hintTo = setTimeout(() => h.classList.remove('show'), dur * 1000); }
 function bannerShow(a, b, c, dur = 3) { const fly = flyFor(a); if (fly) return fly.then(() => bannerShow(a, b, c, dur)); $('hint').classList.remove('show'); $('ban1').textContent = a || ''; $('ban2').textContent = b || ''; $('ban3').textContent = c || ''; const e = $('ban'); e.classList.add('show'); const hold = !!(G.mis && !G.mis.started && G.player); if (hold) G.freeze = true; return new Promise(r => setTimeout(() => { e.classList.remove('show'); if (hold) G.freeze = false; r(); }, dur * 1000)); }  /* start banner: nobody moves (the player cannot run past the first gate / wake a camp early) */
-function fadeTo(on) { const f = $('fade'); f.classList.toggle('in', on); return new Promise(r => setTimeout(r, 550)); }
+function fadeTo(on) { const f = $('fade'); f.dataset.l = t('loading'); f.classList.toggle('in', on); return new Promise(r => setTimeout(r, 550)); }
 function setHero(k) { $('pport').style.backgroundImage = `url(./assets/img/${PORT[k]}.jpg)`; $('pname').textContent = t('n_' + k); }
 function dialog(lines) {
   return new Promise(res => {
@@ -28,15 +28,22 @@ function dialog(lines) {
   });
 }
 function cutscene(key, narKey, still) {
-  return new Promise(res => {
+  // urgent5: narration (baqsı voice) and video are sequential/cooperative — a cutscene waits for a narration line that is still being spoken, the line plays on the
+  // WebAudio voice bus (an iOS <video> with sound no longer pauses it), the video's own sound is lowered while the line plays, and the cutscene only ends when BOTH the
+  // video and the line are finished. Skip: 1st press drops the video but lets the sentence finish (subtitle + still stay), 2nd press skips everything.
+  return new Promise(async res => {
+    const fast = qs.get('fast'); if (!fast) await waitVoice(25);
     const c = $('cut'), v = c.querySelector('video'), st = c.querySelector('.still'); duck(true); c.classList.add('on'); $('fade').classList.remove('in');
-    $('cnar').textContent = narKey ? t(narKey) : ''; $('cnar').style.display = narKey ? 'block' : 'none'; $('cskip').textContent = t('skip'); st.style.backgroundImage = `url(./assets/img/${still || 'keyart'}.jpg)`;
-    let voice = null, vEnd = !narKey, mEnd = false; if (narKey && !qs.get('fast')) { voice = new Audio(`./assets/audio/${narKey}.mp3`); voice.onended = () => { vEnd = true; if (mEnd) setTimeout(fin, 700); }; voice.onerror = () => { vEnd = true; }; setTimeout(() => { if (!done) voice.play().catch(() => { vEnd = true; }); }, 900); } else vEnd = true;
-    let done = false, to; const fin = () => { if (done) return; done = true; clearTimeout(to); try { v.pause(); if (voice) voice.pause(); } catch (e) { } v.onended = v.onerror = null; c.classList.remove('on'); duck(false); G.onEnter = null; res(); };
-    const soft = () => { mEnd = true; if (vEnd) fin(); };
-    const fallback = () => { v.style.display = 'none'; to = setTimeout(soft, qs.get('fast') ? 300 : 6500); };
-    if (key && !qs.get('fast')) { v.style.display = 'block'; v.muted = false; v.volume = voice ? .3 : 1; v.src = `./assets/video/${key}.mp4`; v.onended = soft; v.onerror = fallback; const pr = v.play(); if (pr) pr.catch(() => { v.muted = true; v.play().catch(fallback); }); } else fallback();
-    $('cskip').onclick = fin; G.onEnter = fin;
+    $('cnar').textContent = narKey ? t(narKey) : ''; $('cnar').style.display = narKey ? 'block' : 'none'; $('cskip').textContent = t('skip'); const img = `./assets/img/${still || 'keyart'}.jpg`; st.style.backgroundImage = `url(${img})`; v.poster = img;
+    let voice = null, vEnd = !narKey || !!fast, mEnd = false, done = false, to, skips = 0, tReady = 0; const ready = () => { if (!tReady) tReady = performance.now(); };
+    const fin = () => { if (done) return; done = true; clearTimeout(to); try { v.pause(); } catch (e) { } if (voice && voice.playing) voice.stop(); v.onended = v.onerror = v.onplaying = null; unbindMedia(v); c.classList.remove('on'); duck(false); G.onEnter = null; res(); };
+    const soft = () => { mEnd = true; if (vEnd) fin(); };   /* video over: if the line is still being spoken, hold the still + subtitle until it ends */
+    if (narKey && !fast) { preloadVoice(narKey); setTimeout(() => { if (done) return; voice = playVoice(narKey); ready(); voice.done.then(() => { vEnd = true; if (done) return; bindMedia(v, 'music', 1); if (mEnd) setTimeout(fin, 700); }); }, 900); }
+    const fallback = () => { ready(); v.style.display = 'none'; to = setTimeout(soft, fast ? 300 : 6500); };
+    if (key && !fast) { v.style.display = 'block'; v.muted = false; bindMedia(v, 'music', narKey ? .35 : 1); const src = `./assets/video/${key}.mp4`; if ((v.getAttribute('src') || '') !== src) v.src = src; else { try { v.currentTime = 0; } catch (e) { } } v.onended = soft; v.onerror = fallback; v.onplaying = () => { v.onplaying = null; ready(); }; const pr = v.play(); if (pr) pr.catch(() => { v.muted = true; v.play().catch(fallback); }); } else fallback();
+    const skip = () => { if (!tReady || performance.now() - tReady < 800) return;   /* a double Enter/tap from the lore card (or a key queued during a long first frame) must not kill the cutscene: skips count only once it is really playing */
+      if (!vEnd && skips === 0) { skips = 1; mEnd = true; clearTimeout(to); try { v.pause(); } catch (e) { } v.style.display = 'none'; return; } fin(); };
+    $('cskip').onclick = skip; G.onEnter = skip;
   });
 }
 const reach = (x, z, r) => until(() => (G.mis && G.mis.force) || (G.player && (r >= 4 ? G.player.z < z + r : Math.hypot(G.player.x - x, G.player.z - z) < r)));
@@ -178,14 +185,14 @@ function unlockPowers(upto) { G.powers = G.powers || {}; for (let c = 2; c <= up
 function heroSetup(type, x, z, chap) { const p = makePlayer(type, x, z); unlockPowers(chap); for (const k of [1, 2, 3, 4, 5]) G.sk[k].on = true; for (const k in G.powers) G.sk[k].on = true; refreshSkills(); G.ulti = 60; setDeath(); checkpoint = { x, z }; return p; }
 function saveProg(n) { try { const v = +localStorage.getItem('qq_ch') || 1; if (n > v) localStorage.setItem('qq_ch', n); localStorage.setItem('qq_prog', 'done'); } catch (e) { } }
 async function chapterIntro(n, nar, still) { await fadeTo(true); G.paused = true; $('hud').classList.remove('on'); await lore('lore' + n); await cutscene('c' + n, nar, still || 'keyart'); }
-function lore(k) { return new Promise(r => { const el = $('lore'); if (!el || t(k) === k) return r(); el.querySelector('h3').textContent = t('lorehead'); el.querySelector('p').textContent = t(k); el.querySelector('button').textContent = t('loreok'); el.classList.add('on'); const done = () => { el.classList.remove('on'); G.onEnter = null; r(); }; el.querySelector('button').onclick = done; G.onEnter = done; }); }
+function lore(k) { return new Promise(r => { const el = $('lore'); if (!el || !has(k)) return r(); el.querySelector('h3').textContent = t('lorehead'); el.querySelector('p').textContent = t(k); el.querySelector('button').textContent = t('loreok'); el.classList.add('on'); const done = () => { el.classList.remove('on'); G.onEnter = null; r(); }; el.querySelector('button').onclick = done; G.onEnter = done; }); }
 async function chapterStart(mood, build, need = []) { await ensureReal(need); clearLevel(); G.chGold = 0; setMood(mood); G.emberDown = mood === DAY || mood === HOT; build(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; setBoss(null); objective(''); }
 async function bossFight(type, x, z, intro, ai, onPhase) { if (/aydarho|qashqir|qumdev/.test(type)) setTimeout(() => Sfx.roar && Sfx.roar(), 400); else setTimeout(() => Sfx.horn(), 300); const pre = G.mis && G.mis.preBoss && !G.mis.preBoss.dead && G.mis.preBoss.type === type ? G.mis.preBoss : null; const b = pre || spawn(type, x, z); if (pre) { b.asleep = false; b.custom = null; G.mis.preBoss = null; } b.rot = 0; b.spawnT = 0; b.o.scale.setScalar(b.vs || T[type].scale); if (ai) b.custom = ai; if (G.onBoss) { G.onBoss(b); G.onBoss = null; } G.freeze = true; const p = G.player; p.act = null; p.play('Idle'); await wait(.5); if (intro) await dialog(intro); G.freeze = false; setBoss(b); setMusic('boss'); Sfx.howl(); const d0 = G.stats.deaths; await until(() => b.dead || (G.mis && G.mis.force)); if (!b.dead) b.die(); if (G.hero === 'gulayim') soulToAmulet(b); for (const e of enemies()) if (!e.grp || e.grp.awake) e.die(); setMusic('off'); await wait(1.2); await victory(); return G.stats.deaths === d0; }
-async function gainPower(k, nameKey, descKey) { G.powers = G.powers || {}; G.powers[k] = true; G.sk[k].on = true; refreshSkills(); Sfx.power(); flash(.5); await bannerShow(t('newpower'), t(nameKey), t(descKey), 3.6); if (t('use' + k) !== 'use' + k) await dialog([['sa', 'use' + k]]); }
+async function gainPower(k, nameKey, descKey) { G.powers = G.powers || {}; G.powers[k] = true; G.sk[k].on = true; refreshSkills(); Sfx.power(); flash(.5); await bannerShow(t('newpower'), t(nameKey), t(descKey), 3.6); if (has('use' + k)) await dialog([['sa', 'use' + k]]); }
 async function chapterEnd(n, stars, next) {
   saveProg(n + 1); await fadeTo(true); G.paused = true; $('hud').classList.remove('on');
   const k = stars.filter(Boolean).length; $('eh').textContent = t('ch' + n) + ' — ' + t('done'); endStars(n, k, stars.length); $('etb').textContent = ''; $('stl').innerHTML = '';
-  $('ereplay').textContent = next ? t('nextch') : t('replay'); const g0 = G.chGold || 0; $('eadx2').style.display = g0 > 0 ? 'block' : 'none'; $('eadx2').textContent = t('adX2') + ' (+' + g0 + ' 🪙)'; $('eadx2').onclick = async () => { if (await ADS.rewarded()) { addGold(g0); $('eadx2').style.display = 'none'; } }; $('eshop').textContent = t('shopT'); $('eshop').onclick = () => openShop(); $('end').classList.add('on'); $('fade').classList.remove('in');
+  $('ereplay').textContent = next ? t('nextch') : t('replay'); const g0 = G.chGold || 0; $('eadx2').style.display = (g0 > 0 && (window.QQ_ADS || window.ysdk)) ? '' : 'none';   /* no inline block: css/ui2 + body.w4noads decide */ $('eadx2').textContent = t('adX2') + ' (+' + g0 + ' 🪙)'; $('eadx2').onclick = async () => { if (await ADS.rewarded()) { addGold(g0); $('eadx2').style.display = 'none'; } }; $('eshop').textContent = t('shopT'); $('eshop').onclick = () => openShop(); $('end').classList.add('on'); $('fade').classList.remove('in');
   $('ereplay').onclick = () => { $('end').classList.remove('on'); (next || prolog)(); };
   // chapter finished: the map is the next step (opens by itself; Map button = primary)
   const MP = window.__M; if (MP) { const em = $('emap'); if (em) em.style.display = 'none'; $('ereplay').textContent = t('m_btn') + ' ▸'; const go = () => { clearTimeout(chapterEnd.autoT); if ($('end').classList.contains('on')) MP.openMap('end'); }; $('ereplay').onclick = go; clearTimeout(chapterEnd.autoT); chapterEnd.autoT = setTimeout(go, 4200); }
@@ -250,7 +257,8 @@ async function rideLevel(hero, mood, objKey, foes, mode) {
   await until(() => es.every(f => f.dead));
   const ok = !G.rideEsc; setMusic('off'); await wait(.6); for (const m of G.ents) if (m.mounted) toggleMount(m, false); await bannerShow('', t(ok ? 'rideWin' : 'rideMiss'), '', 2.2); if (ok) addGold(80, p.x, p.z); return ok; }
 // ---------- Shop / ads ----------
-function openShop() { return new Promise(res => { const el = $('shop'); const wasP = G.paused; G.paused = true; $('shh').textContent = t('shopT'); $('shclose').textContent = t('shopClose');
+function openShop() { if (window.__META && window.__META.openCamp && window.__W4 && window.__W4.paneHTML) { window.__META.openCamp('army'); return Promise.resolve(); }   /* one upgrade screen: Camp → host & arms */
+  return new Promise(res => { const el = $('shop'); const wasP = G.paused; G.paused = true; $('shh').textContent = t('shopT'); $('shclose').textContent = t('shopClose');
   const draw = () => { $('shg').textContent = '🪙 ' + SAVE.gold; $('shl').innerHTML = ''; for (const k of ['sword', 'life', 'maid', 'squad', 'horse']) { const lv = SAVE.up[k], U = UPG[k], c = U.cost(lv), row = document.createElement('div'); row.className = 'row'; row.innerHTML = `<span>${t('u_' + k)} — ${lv}/${U.max}<small>${t('u_' + k + 'd')}</small></span>`; const b = document.createElement('button'); b.textContent = lv >= U.max ? 'MAX' : '🪙 ' + c; b.disabled = lv >= U.max || SAVE.gold < c; b.onclick = () => { if (SAVE.gold < c) return; SAVE.gold -= c; SAVE.up[k]++; saveGame(); Sfx.power(); hudGold(); draw(); }; row.appendChild(b); $('shl').appendChild(row); }
     const ad = $('shad'); const left = 3 - (SAVE.adToday || 0); ad.textContent = t('adGold') + (left > 0 ? '' : ' ✓'); ad.disabled = left <= 0; ad.onclick = async () => { if (await ADS.rewarded()) { SAVE.adToday = (SAVE.adToday || 0) + 1; addGold(100); draw(); } }; };
   draw(); el.classList.add('on'); $('shclose').onclick = () => { el.classList.remove('on'); G.paused = wasP; res(); }; }); }
@@ -388,18 +396,28 @@ initMap({ CHAP, prolog, begin, run: runMission });
 // ---- Sozlamalar ----
 setVol(SET.mus, SET.snd);
 let setWas = null;
-function setTexts() { $('sett').textContent = t('setT'); $('sl_q').textContent = t('setQ'); $('sl_d').textContent = t('setD'); $('sl_m').textContent = t('setM'); $('sl_s').textContent = t('setS'); $('sl_v').textContent = t('setV'); $('setok').textContent = t('setOk'); $('setmenu').textContent = t('setMenu');
+function setTexts() { $('sett').textContent = t('setT'); $('sl_q').textContent = t('setQ'); $('sl_d').textContent = t('setD'); $('sl_m').textContent = t('setM'); $('sl_s').textContent = t('setFx'); $('sl_vm').textContent = t('setMa'); $('sl_vo').textContent = t('setVo'); volUI(); $('sl_v').textContent = t('setV'); $('setok').textContent = t('setOk'); $('setmenu').textContent = t('setMenu');
   const L = { q: ['q0', 'q1', 'q2'], diff: ['d0', 'd1', 'd2'], mus: ['off', 'on'], snd: ['off', 'on'], vib: ['off', 'on'] };
   document.querySelectorAll('#set .seg').forEach(g => { const k = g.dataset.k; g.querySelectorAll('button').forEach(b => { b.textContent = t(L[k][+b.dataset.v]); b.classList.toggle('on', +b.dataset.v === SET[k]); }); }); }
 let qWas = SET.q;
 function openSet() { setTexts(); $('set').classList.add('on'); $('setmenu').style.display = $('title').style.display === 'none' ? '' : 'none'; if (setWas === null) { setWas = G.paused; G.paused = true; } }
 function closeSet() { $('set').classList.remove('on'); if (setWas !== null) { G.paused = setWas; setWas = null; } if (SET.q !== qWas) { saveSet(); location.reload(); } }
 document.querySelectorAll('#set .seg').forEach(g => g.querySelectorAll('button').forEach(b => b.onclick = () => { SET[g.dataset.k] = +b.dataset.v; saveSet(); setVol(SET.mus, SET.snd); setTexts(); Sfx.ui && Sfx.ui(); }));
+// urgent5: volume sliders (master / music / effects / voice), live + saved (audio.js VOL, localStorage qq_vol)
+{ const VT = { setMa: ['Ulıwma', 'Umumiy', 'Общая', 'Master'], setFx: ['Effektler', 'Effektlar', 'Эффекты', 'Effects'], setVo: ['Baqsı dawısı', 'Baxshi ovozi', 'Голос рассказчика', 'Voice (narrator)'] };
+  ['qq', 'uz', 'ru', 'en'].forEach((lg, i) => { if (L[lg]) for (const k in VT) if (L[lg][k] == null) L[lg][k] = VT[k][i]; }); }
+function volUI() { document.querySelectorAll('#set input[data-vk]').forEach(r => { const k = r.dataset.vk, v = VOL[k]; if (document.activeElement !== r) r.value = v; r.style.setProperty('--p', v + '%'); if (r.nextElementSibling) r.nextElementSibling.textContent = v + '%'; }); }
+{ let pv = 0; document.querySelectorAll('#set input[data-vk]').forEach(r => { const k = r.dataset.vk;
+  r.oninput = () => { initAudio(); setVolume(k, r.value); SET.mus = VOL.music > 0 ? 1 : 0; SET.snd = VOL.sfx > 0 ? 1 : 0; volUI(); const n = performance.now(); if ((k === 'sfx' || k === 'master') && n - pv > 180) { pv = n; Sfx.swing && Sfx.swing(); } };
+  r.onchange = () => { saveSet(); if (k === 'sfx' || k === 'master') Sfx.hit && Sfx.hit(); }; }); volUI(); }
 $('bset').onclick = openSet; $('setok').onclick = closeSet; $('setmenu').onclick = () => { saveSet(); location.href = location.pathname; };
 document.addEventListener('visibilitychange', () => { if (document.hidden && $('title').style.display === 'none' && !$('set').classList.contains('on') && !G.paused) openSet(); });
 addEventListener('keydown', e => { if (e.code === 'Escape') { $('set').classList.contains('on') ? closeSet() : openSet(); } });
 window.__T = { prolog, mission1, CHAP, ms: runMission, spawn, potion: potionSoldier, soul: soulToAmulet, mount: toggleMount, kill: () => enemies().forEach(e => { if (!e.invuln) e.damage(1e6); }) };
 loadAssets(f => { $('loadbar').firstChild.style.width = (f * 100) + '%'; }).then(() => {
   ready = true; $('loadbar').style.display = 'none'; $('tplay').style.display = 'block'; if (prog) $('tcont').style.display = 'block'; texts(); setMood(NIGHT); start();
-  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-[0-4]$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
+  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-([0-4]|C[1-4]|Q)$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
 }).catch(e => { $('loadtxt').textContent = 'Error: ' + e.message; console.error(e); });
+// urgent5: prefetch the prologue cutscene (v1 + nar1) when Start leads to 0-1, so it does not open on a black frame; fill the title buttons' texts before the load finishes
+$('tplay').addEventListener('click', () => { try { const tut = localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); if (!tut || qs.get('fast')) return; const v = $('cut').querySelector('video'); if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = './assets/video/v1.mp4'; v.load(); } preloadVoice('nar1'); } catch (e) { } });
+try { texts(); } catch (e) { }
