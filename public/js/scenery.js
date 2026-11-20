@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795179205';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795179205';
-import * as FX from './fx.js?v=1795179205';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795194545';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795194545';
+import * as FX from './fx.js?v=1795194545';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };
@@ -318,12 +318,49 @@ const timber = () => (ENV.ok && pbrMat('brown_planks_09', 1, 1, { color: 0x8a6c5
 const box = (w, h, d, x, y, z, c, ry = 0, rx = 0, rz = 0) => { const g = new THREE.BoxGeometry(w, h, d); if (rx) g.rotateX(rx); if (rz) g.rotateZ(rz); if (ry) g.rotateY(ry); g.translate(x, y, z); return c ? colorGeo(g, c) : g; };
 const cyl = (r0, r1, h, x, y, z, c, seg = 7) => colorGeo(new THREE.CylinderGeometry(r1, r0, h, seg).translate(x, y + h / 2, z), c);
 const WC = () => C(0xffffff).multiplyScalar(rr(.72, 1.05));
+// ---------- fix3: post-build relief edits (used by fx.js scanShapes and by missions through G.scn) ----------
+// G.scn.reshape(fn, box)  fn(x, z, h) -> new height; box {x1,x2,z1,z2}. Edits the level's terrain meshes in place (or relief-ifies the
+//                         engine's flat ground planes on levels without scenery) and wraps heightAt / G.groundH.
+// G.scn.bridgeGap(o)      cuts a river (o.water !== false) or dry ravine across the play field under a bridge deck that spans
+//                         z o.z1..o.z2 (deck stays where it is); adds flowing water, wet banks and support piles under the deck.
+// G.scn.deckAt(x, z)      deck top y if (x, z) is on a registered bridge deck, else null (for the combat agent: units on a deck
+//                         walk at this height; the lane elsewhere is y 0).
+const DECKS = [];
+const deckAt = (x, z) => { for (const d of DECKS) if (x >= d.x1 && x <= d.x2 && z >= d.z1 && z <= d.z2) return d.y; return null; };
+function reshape(fn, B) {
+  const terr = []; world.traverse(o => { if (o.isMesh && o.userData.terr) terr.push(o); });
+  if (!terr.length) { const flat = groundMeshes(); if (!flat.length) return false; HF = null; const r0 = ROAD; ROAD = null; try { terrain({ h: (x, z) => fn(x, z, 0), laneDip: () => true, noFade: true }); } finally { ROAD = r0; } G.groundH = (x, z) => (HF ? HF(x, z) : 0); return true; }
+  const prev = HF || (() => 0); HF = (x, z) => (x >= B.x1 && x <= B.x2 && z >= B.z1 && z <= B.z2 ? fn(x, z, prev(x, z)) : prev(x, z));
+  for (const g of terr) { const P = g.geometry.attributes.position; let ch = 0;
+    for (let i = 0; i < P.count; i++) { const x = P.getX(i), z = P.getZ(i); if (x < B.x1 || x > B.x2 || z < B.z1 || z > B.z2) continue; const h0 = P.getY(i), h1 = fn(x, z, h0); if (h1 !== h0) { P.setY(i, h1); ch++; } }
+    if (ch) { P.needsUpdate = true; g.geometry.computeVertexNormals(); g.geometry.computeBoundingSphere(); g.geometry.computeBoundingBox(); } }
+  // paved lanes (ch6) are one flat quad on top of the terrain: re-mesh them subdivided and follow the new relief
+  world.traverse(k => { const pv = k.isMesh && k.userData.pave; if (!pv || pv.z1 > B.z2 || pv.z0 < B.z1) return; const L = pv.z0 - pv.z1, g = new THREE.PlaneGeometry(pv.hw * 2, L, Math.ceil(pv.hw * 2), Math.ceil(L)); g.rotateX(-Math.PI / 2); g.translate(0, 0, (pv.z0 + pv.z1) / 2);
+    const P = g.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, (HF ? HF(P.getX(i), P.getZ(i)) : 0) + .012); g.computeVertexNormals(); k.geometry.dispose(); k.geometry = g; });
+  G.groundHT = performance.now(); return true; }
+function bridgeGap(o) { const z0 = (o.z1 + o.z2) / 2, half = Math.abs(o.z1 - o.z2) / 2, hw = o.hw ?? Math.max(2, half - 5.5), bw = o.bank ?? Math.min(5, half - hw - .3), wy = o.wy ?? -1.15, wet = o.water !== false;
+  const wob = x => (o.straight || Math.abs(x) < 9 ? 0 : Math.sin(x * .07 + 1.3) * 1.6 + Math.sin(x * .17) * .5) * Math.min(1, (Math.abs(x) - 9) / 10);
+  const prof = (x, z) => { const d = Math.abs(z - z0 - wob(x)); if (d < hw) return (wet ? wy - .1 : wy) - (wet ? 1.2 : .6) * Math.sqrt(Math.min(1, (hw - d) / 2.5)); if (d < hw + bw) return (wet ? wy - .1 : wy) * Math.pow(1 - (d - hw) / bw, 1.35); return 0; };
+  const ok = reshape((x, z, h) => Math.min(h, prof(x, z)), { x1: -80, x2: 80, z1: z0 - hw - bw - 4, z2: z0 + hw + bw + 4 }); if (!ok) return null;
+  if (wet) { const pts = []; for (let x = -72; x <= 72; x += 1.5) pts.push({ x, z: z0 + wob(x) }); const w = addMesh(ribbon(pts, hw + .9, wy), riverMat(), { shadow: false }); w.userData.fxS = 1; }
+  if (o.piles !== false) { const P = [], dw = o.deckW ?? 6.4, yb = o.deckY ?? 0; for (let z = z0 - hw - bw * .5; z <= z0 + hw + bw * .5 + .01; z += 3.4) { const gb = prof(0, z); if (gb > -.35) continue; const hgt = yb - gb + .4;
+      for (const sx of [-1, 1]) P.push(cyl(.17, .2, hgt, sx * (dw / 2 + .12), gb - .4, z, C(0x4a3a2a), 7)); P.push(box(dw + .5, .22, .26, 0, yb - .12, z, C(0x3e2e20))); P.push(box(Math.hypot(dw - 1, hgt * .7), .14, .14, 0, gb + hgt * .45, z, C(0x3e2e20), 0, 0, Math.atan2(hgt * .7, dw - 1))); }
+    if (P.length) { const m = addMesh(merge(P), timber()); m.userData.fxS = 1; } }
+  if (o.deck) { const dw = o.deckW ?? 6.4, top = o.deckTop ?? .06, z1 = Math.min(o.z1, o.z2), z2 = Math.max(o.z1, o.z2), P = [];   // plank deck over the mission's flat box
+    for (let z = z2 - .28; z > z1; z -= .56) P.push(box(dw + rr(-.12, .12), .12, .5, rr(-.06, .06), top - .06, z, WC(), rr(-.015, .015)));
+    for (const x of [-dw / 2 + .3, 0, dw / 2 - .3]) P.push(box(.3, .3, z2 - z1, x, top - .27, (z1 + z2) / 2, C(0x5a4636)));
+    const m = addMesh(merge(P), timber()); m.userData.fxS = 1; o.deck.visible = false; }
+  // props the mission left on the now-carved ground: drop them onto the banks, hide the ones that would stand in the water
+  { const dwh = (o.deckW ?? 6.4) / 2 + .7, ents = new Set((G.ents || []).map(e => e.o)); for (const k of world.children) { if (k.userData.scn || k.userData.terr || k.userData.fxS === 2 || ents.has(k) || k === o.deck) continue; const x = k.position.x, z = k.position.z; if (Math.abs(x) < dwh && Math.abs(z - z0) < half + .5) continue; const d = prof(x, z); if (d > -.05) continue; if (wet && d < wy + .15) k.visible = false; else k.position.y += d; } }
+  DECKS.push({ x1: -(o.deckW ?? 6.4) / 2, x2: (o.deckW ?? 6.4) / 2, z1: Math.min(o.z1, o.z2), z2: Math.max(o.z1, o.z2), y: (o.deckTop ?? o.deckY ?? 0) });
+  if (wet) G.waterY = wy; return { z0, hw, bw, wy }; }
+G.scn = { reshape, bridgeGap, deckAt, decks: DECKS };
 // walkable plank bridge across a river that crosses the lane at z0 (deck top at y≈0.06)
 function bridge(z0, hw, len) {
   const P = []; const zN = z0 + len / 2, zF = z0 - len / 2;
   for (let z = zN - .26; z > zF; z -= .56) P.push(box(2 * hw + .5 + rr(-.15, .15), .12, .5, rr(-.08, .08), 0, z, WC(), rr(-.02, .02)));
   for (let x = -hw; x <= hw + .01; x += hw / 2) P.push(box(.32, .34, len + .4, x, -.24, z0, C(0x5a4636)));
-  for (const zz of [z0 + len / 2 - 1.2, z0 + 2.2, z0 - 2.2, z0 - len / 2 + 1.2]) { P.push(box(2 * hw + .9, .28, .34, 0, -.5, zz, C(0x4a3828))); for (let x = -hw; x <= hw + .01; x += hw / 2) P.push(cyl(.22, .2, 2.4, x + rr(-.05, .05), -2.5, zz, C(0x4a3a2a), 8)); }
+  for (const zz of [z0 + len / 2 - 1.2, z0 + 2.2, z0 - 2.2, z0 - len / 2 + 1.2]) { P.push(box(2 * hw + .9, .28, .34, 0, -.5, zz, C(0x4a3828))); for (let x = -hw; x <= hw + .01; x += hw / 2) P.push(cyl(.22, .2, 3.4, x + rr(-.05, .05), -3.6, zz, C(0x4a3a2a), 8)); }
   for (const s of [-1, 1]) { const x = s * (hw + .12); for (let z = zN - .3; z >= zF + .2; z -= 1.6) { P.push(box(.2, 1.25, .2, x, .62, z, C(0x6a5038))); if (z - 1.6 >= zF + .2) P.push(box(.1, .1, 1.75, x, .62, z - .8, C(0x6a5038), 0, (s > 0 ? 1 : -1) * .55)); }
     P.push(box(.2, .14, len - .2, x, 1.25, z0, C(0x7a5c40))); P.push(box(.14, .1, len - .2, x, .7, z0, C(0x6a5038))); }
   for (const zz of [zN + .4, zF - .4]) for (const s of [-1, 1]) for (let k = 0; k < 3; k++) P.push(box(rr(.8, 1.3), rr(.5, .8), rr(.8, 1.2), s * (hw + rr(-.3, .9)), .05, zz + rr(-.6, .6), C(0x8a7d6c), rr(0, 3)));
@@ -371,7 +408,7 @@ function stalls(list) { const S = stallParts(); const T = list.map(([x, z, ry]) 
 function paving(z0, z1, hw) { const t = tex('pave', () => canvasTex(512, 512, (g, w, h) => { g.fillStyle = '#6e5a46'; g.fillRect(0, 0, w, h); const bw = 32, bh = 16; for (let y = 0; y < h; y += bh) for (let x = (y / bh) % 2 * bw / 2 - bw; x < w; x += bw) { const v = Math.random() * 40 - 20; g.fillStyle = `rgb(${150 + v},${114 + v * .8},${90 + v * .6})`; g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3); if (Math.random() < .3) { g.fillStyle = 'rgba(40,25,15,.35)'; g.fillRect(x + 1.5, y + 1.5, bw - 3, bh - 3); } }
     for (let i = 0; i < 26; i++) { const x = Math.random() * w, y = Math.random() * h, r = 20 + Math.random() * 60, gr = g.createRadialGradient(x, y, 0, x, y, r); const c = Math.random() < .5 ? '150,128,100' : '50,36,24'; gr.addColorStop(0, `rgba(${c},.32)`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r); } }));
   t.repeat.set(hw * 2 / 6, (z0 - z1) / 6); const m = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 1.5, roughness: .95, color: 0x94867a, polygonOffset: true, polygonOffsetFactor: -2 });
-  const g = new THREE.PlaneGeometry(hw * 2, z0 - z1); g.rotateX(-Math.PI / 2); g.translate(0, .012, (z0 + z1) / 2); const k = addMesh(g, m, { shadow: false }); return k; }
+  const g = new THREE.PlaneGeometry(hw * 2, z0 - z1); g.rotateX(-Math.PI / 2); g.translate(0, .012, (z0 + z1) / 2); const k = addMesh(g, m, { shadow: false }); k.userData.pave = { hw, z0, z1 }; return k; }
 
 // ---------- horde camp ----------
 const blackCache = new Map();
@@ -427,7 +464,7 @@ const ROADS = { 2: { amp: 1.8, hw: 2.6, dark: .52, desat: .42, tint: [.52, .42, 
   20: { amp: 2.2, hw: 3, dark: .52, desat: .42, tint: [.52, .42, .3] }, 40: { amp: 2, hw: 2.8, dark: .56, desat: .48, tint: [.5, .43, .32] }, 70: { amp: 2.2, hw: 3, dark: .78, desat: .7, tint: [.3, .28, .26] } };
 let ROAD = null;
 const trail = (o = {}) => { try { if (DBG.includes('notrail')) return; FX.trailDress({ z0: 4, z1: LANE_END > -1e8 ? LANE_END : -186, hf: heightAt, ...o }); } catch (e) { console.warn('trail', e); } };
-function begin(ch, light) { G.groundH = (x, z) => (HF ? HF(x, z) : 0); G.groundHT = performance.now(); G.gdPaved = ch === 6; ROAD = ROADS[ch] || null; SCN.noDecal = null; tickers = []; ships.length = 0; HF = null; seed(ch * 31 + 7); startTicker(); tickers.push(tickShips);
+function begin(ch, light) { G.waterY = undefined; DECKS.length = 0; G.groundH = (x, z) => (HF ? HF(x, z) : 0); G.groundHT = performance.now(); G.gdPaved = ch === 6; ROAD = ROADS[ch] || null; SCN.noDecal = null; tickers = []; ships.length = 0; HF = null; seed(ch * 31 + 7); startTicker(); tickers.push(tickShips);
   const L = DBG.includes('nolight') ? null : applyLight(light, { scene, renderer, grade: gradePass, G }); if (L && L.sky && !DBG.includes('nosky')) skyDome(L.sky, L.dir); if (L && L.dust) dust(L.dust, [0, 120, 220][Q]); }
 const done = ch => { window.__SCN = ch; console.warn('[scenery] built', ch); window.__R = () => { let m = 0, i = 0, t = 0; world.traverse(o => { if ((o.isMesh || o.isLine || o.isPoints) && o.visible) { m++; if (o.isInstancedMesh) i += o.count; const g = o.geometry; t += ((g.index ? g.index.count : g.attributes.position ? g.attributes.position.count : 0) / 3) * (o.isInstancedMesh ? o.count : 1); } }); return { meshes: m, instances: i, ktris: Math.round(t / 1000) }; }; };
 
@@ -463,15 +500,16 @@ function _ch2() { begin(2, 'ch2');
 // ---- ch3: river camp: side river + crossing river with a bridge, tugai forest ----
 const cxL = z => -20.3 + Math.sin(z * .035) * 1.2 + Math.sin(z * .09 + 1) * .3, ZC = -78, HWc = 3.4, HWs = 4;
 const zcx = x => ZC + (x > 10 ? (x - 10) * .22 + Math.sin((x - 10) * .12) * 2.5 : x < -10 ? (x + 10) * -.18 : 0);
-const bank = d => (d > 2.6 ? 99 : d >= 0 ? (RIVER - .06) * (1 - d / 2.6) : RIVER - .06 - 1.1 * Math.sqrt(Math.min(1, -d / 3)));
+const RW3 = -1.05;   // fix3: ch3 river surface (was RIVER -0.42 -> read as a bridge lying on flat ground)
+const bank = d => (d > 3.6 ? 99 : d >= 0 ? (RW3 - .08) * Math.pow(1 - d / 3.6, 1.35) : RW3 - .08 - 1.3 * Math.sqrt(Math.min(1, -d / 3)));
 const rivD = (x, z) => Math.min(Math.abs(x - cxL(z)) - HWs, x > cxL(z) ? Math.abs(z - zcx(x)) * .97 - HWc : 99);
-function _ch3() { begin(3, 'ch3'); SCN.noDecal = (x, z) => Math.abs(z - ZC) < 9;
-  terrain({ laneDip: (x, z) => Math.abs(z - ZC) < 7, h: (x, z) => Math.min(laneF(x) * (fbm(x * .05, z * .05, 3) * 2 + Math.max(0, fbm(x * .02 + 5, z * .02, 2) - .5) * 6), bank(Math.abs(x - cxL(z)) - HWs), x > cxL(z) ? bank(Math.abs(z - zcx(x)) * .97 - HWc) : 99),
+function _ch3() { begin(3, 'ch3'); G.waterY = RW3; SCN.noDecal = (x, z) => Math.abs(z - ZC) < 9;
+  terrain({ laneDip: (x, z) => Math.abs(z - ZC) < 7.6, h: (x, z) => Math.min(laneF(x) * (fbm(x * .05, z * .05, 3) * 2 + Math.max(0, fbm(x * .02 + 5, z * .02, 2) - .5) * 6), bank(Math.abs(x - cxL(z)) - HWs), x > cxL(z) ? bank(Math.abs(z - zcx(x)) * .97 - HWc) : 99),
     col: (x, z, h) => { const d = rivD(x, z); let c = mixc(tint(x, z, h, [1.02, .98, .82]), GRASS, (1 - sst(1, 12, d)) * .75); if (d < 1.2) c = mixc(c, WETS, 1 - sst(-.5, 1.2, d)); return c; }, tint: (x, z, h) => { const d = rivD(x, z), g = (1 - sst(2, 14, d)) * sst(.35, .6, fbm(x * .09, z * .09, 3)) + (1 - sst(.5, 4, d)) * .5; return d < .6 ? [.32, .28, .22, .75 * (1 - sst(-.4, .6, d)) + .2] : [.42, .54, .2, Math.min(.8, g * .85)]; } });
-  settle(RIVER);
-  const side = []; for (let z = 18; z > -186; z -= 2) side.push({ x: cxL(z), z }); addMesh(ribbon(side, HWs + 1.3, RIVER - .01), riverMat(), { shadow: false });
-  const cr = []; for (let x = 72; x > cxL(ZC); x -= 1) cr.push({ x, z: zcx(x) }); addMesh(ribbon(cr, HWc + 1.3, RIVER), riverMat(), { shadow: false });
-  bridge(ZC, 6, 13); G.colB.push({ x1: -60, x2: -6.35, z1: ZC - 5.6, z2: ZC + 5.6 }, { x1: 6.35, x2: 60, z1: ZC - 5.6, z2: ZC + 5.6 });
+  settle(RW3 + .1);
+  const side = []; for (let z = 18; z > -186; z -= 2) side.push({ x: cxL(z), z }); addMesh(ribbon(side, HWs + 1.1, RW3 - .01), riverMat(), { shadow: false });
+  const cr = []; for (let x = 72; x > cxL(ZC); x -= 1) cr.push({ x, z: zcx(x) }); addMesh(ribbon(cr, HWc + 1.1, RW3), riverMat(), { shadow: false });
+  bridge(ZC, 6, 15.6); G.colB.push({ x1: -60, x2: -6.35, z1: ZC - 7.2, z2: ZC + 7.2 }, { x1: 6.35, x2: 60, z1: ZC - 7.2, z2: ZC + 7.2 }); DECKS.push({ x1: -6.2, x2: 6.2, z1: ZC - 7.8, z2: ZC + 7.8, y: .06 });
   // funnel walkers toward the bridge so the squad never gets stuck at the bank
   tickers.push(() => { if (G.paused) return; for (const e of G.ents) { if (e === G.player || e.dead) continue; if (Math.abs(e.z - ZC) < 8.5 && Math.abs(e.x) > 5.2) e.x += (e.x > 0 ? -1 : 1) * Math.min(Math.abs(e.x) - 5.2, .12); } });
   const nearRiv = (lo, hi) => (x, z) => { const d = rivD(x, z); return d > lo && d < hi; };

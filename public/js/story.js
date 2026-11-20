@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795179205';
-import { t, setLang, lang, L } from './i18n.js?v=1795179205';
-import { place } from './env.js?v=1795179205';
-import * as SC from './scenery.js?v=1795179205';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle } from './audio.js?v=1795179205';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795179205';
-import { initMissions, runMission } from './missions.js?v=1795179205';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795194545';
+import { t, setLang, lang, L } from './i18n.js?v=1795194545';
+import { place } from './env.js?v=1795194545';
+import * as SC from './scenery.js?v=1795194545';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle } from './audio.js?v=1795194545';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795194545';
+import { initMissions, runMission } from './missions.js?v=1795194545';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -85,7 +85,7 @@ async function prolog() {
   let tm = 0; await until(() => { tm += 1 / 60; return tm > 20 || p.hp < p.maxHp * .3; });
   await dialog([['su', 'd_su2']]); objective('o_resist');
   for (const e of G.ents) if (e.team === 'ally' && e !== p) e.die(); G.tele.forEach(o => o.dead = true);
-  G.freeze = true; su.x = p.x; su.z = p.z - 3.4; su.rot = 0; p.rot = Math.PI; p.act = null; p.y = 0; p.play('Block', { force: true }); su.play('2H_Melee_Idle', { force: true });
+  G.freeze = true; p.x = clamp(p.x, -2.5, 2.5); p.z = clamp(p.z, -100.5, -97); su.x = p.x; su.z = p.z - 3.4; su.rot = 0;  /* the clinch happens mid-arena, never against the wall */ p.rot = Math.PI; p.act = null; p.y = 0; p.play('Block', { force: true }); su.play('2H_Melee_Idle', { force: true });
   await qte(qs.get('fast') ? 1 : 6.5, 36, 5.5);
   flash(.9); Sfx.big(); G.shake = 1; p.play('Death_A', { once: true, force: true }); await wait(1.3);
   G.freeze = false; await dialog([['al', 'd_al3']]);
@@ -115,7 +115,7 @@ function qashqirAI(e, dt) {
   const go = () => { e.leap = { t: 0, wind: e.phase >= 3 ? .55 : .9, x: P.x, z: P.z, x0: e.x, z0: e.z }; e.clearTele(); e.tele = telegraph(P.x, P.z, 3.3, e.leap.wind + .35); e.state = 'chase'; e.play('Jump_Full_Long', { once: true, force: true, ts: 1.1 }); };
   if (e.leap) { const Lp = e.leap; Lp.t += dt; if (Lp.t < Lp.wind) { e.face(Lp.x - e.x, Lp.z - e.z, dt * 8); return true; } const u = clamp((Lp.t - Lp.wind) / .35, 0, 1); e.x = Lp.x0 + (Lp.x - Lp.x0) * u; e.z = Lp.z0 + (Lp.z - Lp.z0) * u; e.y = Math.sin(u * Math.PI) * 3; if (u >= 1) { e.y = 0; e.tele = null; hitCircle(Lp.x, Lp.z, 3.3, () => rnd(55, 70), 'enemy', e); ringFx(Lp.x, Lp.z, 3.6, 0xaa44ff); Sfx.big(); G.shake = .6; e.leap = null; if (--e.chain > 0) go(); else { e.leapCd = e.phase >= 3 ? 4.5 : 6.5; e.state = 'recover'; e.tm = .7; } } return true; }
   if (e.howl > 0) { e.howl -= dt; return true; }
-  if (e.phase < 2 && e.hp < e.maxHp * .5) { e.phase = 2; e.howl = 1.4; e.clearTele(); e.state = 'chase'; e.play('Cheer', { once: true, force: true }); Sfx.howl(); e.spdMul = 1.25; e.dmgMul = 1.15; for (const m of e.mats) m.color.set(0x7a3a8a); burst(e.x, 2, e.z, 0x8822cc, 5); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + .6; spawn('wolf', clamp(e.x + Math.cos(a) * 6, -10, 10), e.z + Math.sin(a) * 5); } return true; }
+  if (e.phase < 2 && e.hp < e.maxHp * .5) { e.phase = 2; e.howl = 1.4; e.clearTele(); e.state = 'chase'; e.play('Cheer', { once: true, force: true }); Sfx.howl(); e.spdMul = 1.25; e.dmgMul = 1.15; for (const m of e.mats) m.color.set(0x7a3a8a); burst(e.x, 2, e.z, 0x8822cc, 5); return true; }  /* phase 2: no wolf adds — Gulayim fights Qashqir alone */
   if (e.phase < 3 && e.hp < e.maxHp * .2) { e.phase = 3; e.howl = 1.1; e.clearTele(); e.state = 'chase'; e.play('Cheer', { once: true, force: true }); Sfx.howl(); e.leapCd = 0; burst(e.x, 2, e.z, 0xcc2244, 5); return true; }
   if (e.leapCd <= 0 && e.state === 'chase') { e.chain = e.phase >= 3 ? 3 : 1; go(); return true; }
   return false;
@@ -201,6 +201,7 @@ function bossBrain(o) {
     for (const [hp, fn] of o.phases || []) if (e.phase === hp[0] && e.hp < e.maxHp * hp[1]) { e.phase++; e.busy = 1.3; e.play('Cheer', { once: true, force: true }); Sfx.howl(); burst(e.x, 2.5, e.z, o.col || 0xaa2222, 5); fn && fn(e); return true; }
     if (e.bt <= 0 && e.state === 'chase') {
       const pick = o.moves[Math.floor(Math.random() * o.moves.length)]; e.bt = o.every * (e.phase >= 3 ? .65 : e.phase === 2 ? .82 : 1);
+      if (pick === 'summon' && o.summon && G.duel === e) { e.bt = .3; return false; }  // one-on-one: no adds while the hero duels the boss
       if (pick === 'summon' && o.summon) { e.busy = 1.1; e.play('Spellcast_Shoot', { once: true, force: true }); for (const [ty, n] of o.summon) for (let i = 0; i < n; i++) { const a = rnd(0, 6.28); spawn(ty, clamp(e.x + Math.cos(a) * 5, -G.W, G.W), e.z + Math.sin(a) * 5); } return true; }
       if (pick === 'charge') { const dx = P.x - e.x, dz = P.z - e.z, l = Math.hypot(dx, dz) || 1; e.face(dx, dz); e.chg = { dx: dx / l, dz: dz / l, t: 0, wind: .8, hit: false }; e.busy = 1.6; e.play('Running_A', { force: true, ts: 1.6 }); telegraph(e.x + dx / l * 9, e.z + dz / l * 9, 2.2, .8, 0xff6600); return true; }
       if (pick === 'quake') { e.busy = 1.6; e.play('E_Slam', { once: true, force: true, dur: 1.3 }); const pts = []; for (let i = 0; i < 6; i++) { const x = clamp(P.x + rnd(-6, 6), -G.W, G.W), z = P.z + rnd(-6, 6); pts.push([x, z]); telegraph(x, z, 2.6, 1.1, o.col || 0xff3300); } G.waits.push({ t: 1.1, r: () => { for (const [x, z] of pts) { ringFx(x, z, 2.6, o.col || 0xff6633); burst(x, .5, z, 0xb08a60, 2.5, true); if (Math.hypot(P.x - x, P.z - z) < 2.8) P.damage(o.dmg * .8, e, { kb: 5 }); } G.shake = .5; Sfx.big(); } }); return true; }
@@ -290,7 +291,7 @@ function dragonAI(e, dt) { const P = G.player; if (!P || P.dead) return true; e.
   if (e.bt <= 0) { e.bt = e.hp < e.maxHp * .4 ? 2.0 : 2.8; const k = Math.random();
     if (k < .45) { for (let i = 0; i < 9; i++) { const x = clamp(P.x + rnd(-8, 8), -G.W, G.W), z = P.z + rnd(-6, 6); telegraph(x, z, 1.8, 1.2, 0xaa0022); G.waits.push({ t: 1.2, r: () => { burst(x, 1, z, 0xcc1133, 2); if (Math.hypot(P.x - x, P.z - z) < 2 && !(P.shield > 0)) P.damage(22, e, { kb: 2 }); } }); } hint('', 3, t('h_dodge')); }
     else if (k < .8) { for (let i = -3; i <= 3; i++) { const a = Math.atan2(P.x - e.x, P.z - e.z) + i * .14; const m = new THREE.Mesh(new THREE.SphereGeometry(.5, 10, 8), new THREE.MeshBasicMaterial({ color: 0x55ddff })); m.position.set(e.x, 2, e.z); world.add(m); G.proj.push({ m, x: e.x, z: e.z, vx: Math.sin(a) * 12, vz: Math.cos(a) * 12, dmg: 22, team: 'enemy', life: 4, src: e, r: .6 }); } Sfx.orb(); }
-    else { e.sub = true; e.subT = 3; for (let i = 0; i < 3; i++) spawn('wolf', rnd(-8, 8), P.z - rnd(4, 8)); } }
+    else { e.sub = true; e.subT = 3; } }  /* dive: no wolf adds — the dragon is fought alone */
   return true; }
 async function chapter4() {
   await chapterIntro(4, 'nar8', 'ruins'); G.curCh = 3; await rideLevel('gulayim', DAY, 'o_ride4', [['askar', -4, -18], ['archer', 4, -24], ['askar', 0, -30], ['archer', -6, -38], ['askar', 6, -44], ['archer', 0, -50], ['askar', -3, -56]], 'flee'); await fadeTo(true); await chapterStart(DAY, buildCh4, ['aydarho','otbasqan']); const p = heroSetup('gulayim', 0, 3, 3); spawn('otbasqan', 2.6, 5); for (let i = 0; i < 4 + SAVE.up.squad; i++) spawn('qiz', (i % 2 ? 1 : -1) * (1.5 + (i >> 1) * 1.6), 5 + (i >> 1) * 1.2); setHero('gu');

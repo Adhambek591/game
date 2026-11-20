@@ -2,22 +2,31 @@
 // Qırq qız — ARCHERY "SNIPER" MODE (js/archery.js — owned by the archery agent, log: /home/user/agents/archery_log.md)
 // From a hidden position (ridge / cliff ledge / rooftop) the heroine shoots sentries on a distant Kalmyk camp or fortress
 // 60–150 m away. Touch: drag = look; hold 🏹 = draw the bow (zoomed bow-sight with range pins 50–150 m, sway that steadies
-// with 🫁 "hold breath"), release = loose. Arrows drop (gravity) and drift (wind) — lead walkers, aim above for range.
+// zoom 🔍 1×/2×/5×), release = loose. fix3: no wind, no drop, fast arrows with a bright trail; aim assist (reticle on/near a target = hit).
 // Guards patrol / stand / talk in pairs; a body in sight or an arrow landing close by raises suspicion → alarm (horn) → rush.
 // Good shots (headshot / last target / rope) get the slow-motion ARROW CAM (tap to skip; toggle in ⚙ settings or the HUD).
 // Units are real engine models (spawn(...,'npc',raw)) driven here; the engine is frozen (G.freeze) while this mode runs,
 // so nothing of the melee game (AI, collisions, player) touches them. Missions: LEVELS at the bottom; started from
 // missions.js (m2/src/75_archery.js) through runArchery(id, H) → resolves { ok, noAlarm, all, why }.
 // =====================================================================================================================
-import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795179205';
-import { torch, banner } from './fx.js?v=1795179205';
-import { heightAt } from './scenery.js?v=1795179205';
-import { t } from './i18n.js?v=1795179205';
-import { Sfx, setMusic } from './audio.js?v=1795179205';
+import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795194545';
+import { torch, banner } from './fx.js?v=1795194545';
+import { heightAt } from './scenery.js?v=1795194545';
+import { t, lang } from './i18n.js?v=1795194545';
+import { Sfx, setMusic } from './audio.js?v=1795194545';
 
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => v < a ? a : v > b ? b : v, hyp = Math.hypot, lerp = (a, b, k) => a + (b - a) * k;
-const GRAV = 6.2, V0 = 80, KW = .45, ZFOV = 10, WFOV = 52, SIM = 120, WATER = -.32;
-const tt = (k, o) => { const s = t(k, o); return s === k ? (EN[k] || k) : s; };
+const GRAV = 0, V0 = 150, KW = 0, ZFOV = 11, WFOV = 52, SIM = 120, WATER = -.32;
+const WY = () => (G.waterY ?? WATER);   // fix3: per-level water surface (ch3 river is now ~1 m below the lane)   // fix3: straight, fast flight (no drop, no wind)
+const ZL = [52, 24, 11], ZN = ['1×', '2×', '5×'];   // 🔍 zoom levels (fov)
+const assistR = () => Math.round(Math.max(34, Math.min(innerWidth, innerHeight) * .12));   // aim-assist radius (px) around the reticle
+const tt = (k, o) => { if (LS[k]) return LS[k][lang] || LS[k].en; const s = t(k, o); return s === k ? (EN[k] || k) : s; };
+// fix3 strings (local; qq to be checked by the author). tu_t_bow2/3 override the tutorial's lead/wind texts.
+const LS = {
+  arz_zoom: { qq: '🔍 túymesi — jaqınlatıw (1× · 2× · 5×)', uz: '🔍 tugmasi — yaqinlashtirish (1× · 2× · 5×)', ru: '🔍 — приближение (1× · 2× · 5×)', en: '🔍 — zoom (1× · 2× · 5×)' },
+  arz_assist: { qq: 'Nıshandı saqshıǵa tuwrılasańız — oq tiyedi', uz: 'Nishonni soqchiga to‘g‘rilasangiz — o‘q tegadi', ru: 'Наведите прицел на стражника — стрела попадёт', en: 'Put the reticle on a guard — the arrow will hit' },
+  tu_t_bow2: { qq: 'Endi qozǵalıp baratırǵan nıshan — nıshandı oǵan tuwrılap, jiberiń', uz: 'Endi harakatlanayotgan nishon — nishonni unga to‘g‘rilab, qo‘yib yuboring', ru: 'Теперь движущаяся мишень — наведите прицел и отпустите', en: 'Now a moving target — put the reticle on it and release' },
+  tu_t_bow3: { qq: 'Alıstaǵı nıshan — 🔍 menen jaqınlatıp, altın ortaǵa tuwrılań', uz: 'Uzoqdagi nishon — 🔍 bilan yaqinlashtirib, oltin markazga to‘g‘rilang', ru: 'Дальняя мишень — приблизьте 🔍 и цельтесь в золото', en: 'Far target — zoom in with 🔍 and aim at the gold' } };
 const EN = { ar_wind: 'Wind', ar_alarm: 'ALARM!', ar_head: 'Headshot!', ar_kill: 'Down!', ar_skip: 'Tap to skip', ar_cam: 'Arrow cam', ar_go: 'Forward!' };
 const PIN = [[50, '#7dff6a'], [75, '#ffe14a'], [100, '#ff5a3c'], [125, '#5ad8ff'], [150, '#ffffff']];
 const pinAng = d => GRAV * d / (2 * V0 * V0);   // radians below the launch line where an arrow at full draw lands at distance d
@@ -39,7 +48,7 @@ function segSeg(p1x, p1y, p1z, q1x, q1y, q1z, p2x, p2y, p2z, q2x, q2y, q2z) {
 function segBox(ax, ay, az, bx, by, bz, B) { let t0 = 0, t1 = 1; const d = [bx - ax, by - ay, bz - az], o = [ax, ay, az];
   for (let i = 0; i < 3; i++) { if (Math.abs(d[i]) < 1e-9) { if (o[i] < B.min[i] || o[i] > B.max[i]) return false; continue; } let u0 = (B.min[i] - o[i]) / d[i], u1 = (B.max[i] - o[i]) / d[i]; if (u0 > u1) [u0, u1] = [u1, u0]; t0 = Math.max(t0, u0); t1 = Math.min(t1, u1); if (t0 > t1) return false; } return true; }
 const RC = new THREE.Raycaster();
-const groundY = (x, z) => { const h = heightAt(x, z); return h < WATER ? WATER : h; };
+const groundY = (x, z) => { const d = G.scn && G.scn.deckAt(x, z); if (d !== null && d !== undefined) return d; const h = heightAt(x, z); return h < WY() ? WY() : h; };   // fix3: bridge decks first
 
 // ---------------------------------------------------------------- shared meshes / materials
 const MAT = {};
@@ -49,7 +58,10 @@ function arrowMesh() { const g = new THREE.Group();
   const tip = new THREE.Mesh(new THREE.ConeGeometry(.024, .09, 5).rotateX(Math.PI / 2), mat('tip', () => new THREE.MeshStandardMaterial({ color: 0x3a3a40, metalness: .8, roughness: .35 }))); tip.position.z = .43; g.add(tip);
   const fm = mat('fl', () => new THREE.MeshStandardMaterial({ color: 0xc8281e, roughness: .8, side: THREE.DoubleSide })), fm2 = mat('fl2', () => new THREE.MeshStandardMaterial({ color: 0xf2ead8, roughness: .8, side: THREE.DoubleSide }));
   const fg = new THREE.PlaneGeometry(.16, .045).rotateY(Math.PI / 2); for (let i = 0; i < 3; i++) { const f = new THREE.Mesh(fg, i ? fm2 : fm); f.position.set(0, 0, -.32); const w = new THREE.Group(); w.rotation.z = i * 2.094; f.position.y = .026; w.add(f); g.add(w); }
-  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } }); return g; }
+  g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; } });
+  const gl = new THREE.Sprite(mat('glow', () => new THREE.SpriteMaterial({ map: glowTex(), color: 0xffd890, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, sizeAttenuation: false, fog: false, toneMapped: false })));
+  gl.scale.setScalar(.035); gl.position.z = .3; gl.frustumCulled = false; gl.renderOrder = 5; g.add(gl); g.userData.gl = gl; return g; }
+function glowTex() { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), r = x.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(.18, 'rgba(255,236,190,.9)'); r.addColorStop(.5, 'rgba(255,190,90,.28)'); r.addColorStop(1, 'rgba(255,160,60,0)'); x.fillStyle = r; x.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
 function grassTex() { return mat('grassT', () => { const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
   for (let i = 0; i < 46; i++) { const x = 8 + Math.random() * 112, h = 50 + Math.random() * 74, b = (Math.random() - .5) * 34; g.strokeStyle = `hsl(${42 + Math.random() * 30},${30 + Math.random() * 25}%,${22 + Math.random() * 28}%)`; g.lineWidth = 1.5 + Math.random() * 2.5; g.beginPath(); g.moveTo(x, 128); g.quadraticCurveTo(x + b * .3, 128 - h * .6, x + b, 128 - h); g.stroke(); }
   const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return tx; }); }
@@ -184,7 +196,28 @@ function css() { if ($('archCss')) return; const s = document.createElement('sty
 #set .aseg{display:flex;padding:2px;border-radius:22px;background:rgba(5,6,16,.7);box-shadow:0 0 0 1px rgba(232,189,98,.45)}
 #set .aseg button{min-width:58px;height:40px;padding:0 12px;border:0;border-radius:20px;background:none;color:var(--mute);font:700 13px/1 var(--fu);cursor:pointer}
 #set .aseg button.on{background:linear-gradient(180deg,#f8dc92,#c8922f);color:#2a1503;box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 3px rgba(0,0,0,.6)}
-@media (max-height:420px){#arch .shoot{width:84px;height:84px;font-size:36px}#arch .breath{right:calc(118px + var(--sr,0px));width:58px;height:58px;font-size:24px}}
+@media (max-height:420px){#arch .shoot{width:84px;height:84px;font-size:36px}#arch .breath{right:calc(118px + var(--sr,0px));width:58px;height:58px;font-size:24px}#arch .zm{right:calc(116px + var(--sr,0px));width:60px;height:60px}}
+#arch .wind,#arch .breath{display:none!important}
+#arch .arr{font-size:16px;padding:6px 11px;color:#ffe9ad}
+#arch .shoot b.n{position:absolute;right:-6px;top:-6px;min-width:28px;height:28px;padding:0 4px;box-sizing:border-box;border-radius:14px;background:#1a1430;border:2px solid #e8bd62;font:800 14px/24px var(--fu,sans-serif);color:#ffe9ad;text-align:center;text-shadow:none}
+#arch .zm{position:absolute;right:calc(130px + var(--sr,0px));bottom:calc(20px + var(--sb,0px));width:68px;height:68px;border-radius:50%;pointer-events:auto;touch-action:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;border:0;background:radial-gradient(circle at 40% 32%,#3a5aa8,#141c48 70%);box-shadow:0 0 0 2px #e8bd62,0 4px 10px rgba(0,0,0,.6);color:#fff;font:22px/1 sans-serif}
+#arch .zm b{font:800 15px/1 var(--fu,sans-serif);color:#ffe9ad}
+#arch .zm.z1,#arch .zm.z2{box-shadow:0 0 0 3px #9fe0ff,0 0 14px rgba(159,224,255,.7)}
+#arch svg.xh{position:absolute;left:50%;top:50%;width:2px;height:2px;overflow:visible;pointer-events:none;transition:opacity .15s}
+#arch .xh .a{fill:none;stroke:rgba(255,244,220,.6);stroke-width:1.6;stroke-dasharray:7 6}
+#arch .xh .c{stroke:#fff;stroke-width:1.8;stroke-linecap:round;filter:drop-shadow(0 0 2px #000)}
+#arch .xh .d{fill:#fff}
+#arch .xh.lock .a{stroke:#ff6a3c;stroke-width:2.6;stroke-dasharray:none;filter:drop-shadow(0 0 4px rgba(255,90,40,.9))}
+#arch .xh.lock .c,#arch .xh.lock .d{stroke:#ff6a3c;fill:#ff6a3c}
+#arch .xh.head .a{stroke:#ffd24a;filter:drop-shadow(0 0 5px rgba(255,210,74,.95))}
+#arch .xh.head .c,#arch .xh.head .d{stroke:#ffd24a;fill:#ffd24a}
+#arch.cine-on .xh,#arch.cine-on .hm{opacity:0}
+#arch .hm{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;opacity:0}
+#arch .hm i{position:absolute;left:-2px;top:-15px;width:4px;height:11px;border-radius:2px;background:#fff;box-shadow:0 0 3px #000;transform-origin:2px 15px}
+#arch .hm i:nth-child(1){transform:rotate(45deg)}#arch .hm i:nth-child(2){transform:rotate(135deg)}#arch .hm i:nth-child(3){transform:rotate(225deg)}#arch .hm i:nth-child(4){transform:rotate(315deg)}
+#arch .hm.on{animation:arhm .42s ease-out}
+#arch .hm.k i{background:#ff4a2a}#arch .hm.h i{background:#ffd24a;height:15px;top:-21px;transform-origin:2px 21px}
+@keyframes arhm{0%{opacity:1;transform:scale(1.5)}25%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.15)}}
 `; document.head.appendChild(s); }
 const BOW_SVG = `<svg class="bow" viewBox="0 0 220 640" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="arbw" x1="0" x2="1"><stop offset="0" stop-color="#3a2210"/><stop offset=".5" stop-color="#8a5a2c"/><stop offset="1" stop-color="#4a2a12"/></linearGradient></defs>
 <path class="str" d="M150 40 L120 320 L150 600" stroke="#efe6cc" stroke-width="2.4" fill="none"/>
@@ -192,15 +225,16 @@ const BOW_SVG = `<svg class="bow" viewBox="0 0 220 640" preserveAspectRatio="xMi
 <path d="M150 40 C 40 60, 205 250, 92 320 C 205 390, 40 580, 150 600" stroke="#c8922f" stroke-width="2" fill="none" stroke-dasharray="3 22" opacity=".8"/>
 <rect x="80" y="290" width="24" height="62" rx="8" fill="#2a160a" stroke="#c8922f" stroke-width="2"/><g class="arw"><line x1="120" y1="320" x2="-30" y2="320" stroke="#8a6438" stroke-width="5"/><path d="M-30 320 l14 -7 v14z" fill="#3a3a40"/><path d="M112 320 l18 -9 h10 l-14 9 l14 9 h-10z" fill="#c8281e"/></g></svg>`;
 function buildUI() { css(); if (UI) return UI; const r = document.createElement('div'); r.id = 'arch';
-  r.innerHTML = `<div class="look"></div>${BOW_SVG}<div class="scope"><div class="vig"></div><svg class="ret"></svg><div class="rng"></div></div><div class="mk"></div>
+  r.innerHTML = `<div class="look"></div>${BOW_SVG}<div class="scope"><div class="vig"></div><svg class="ret"></svg><div class="rng"></div></div><div class="mk"></div><svg class="xh"></svg><div class="hm"><i></i><i></i><i></i><i></i></div>
   <div class="cine"><div class="lines"></div><div class="bar" style="top:0"></div><div class="bar" style="bottom:0"></div><div class="skip"></div></div>
   <div class="top"><div class="pill obj"><b></b><span></span></div><div class="alert"><span>👁</span><i><b></b></i></div>
   <div class="rt"><div class="pill wind"><span class="wa">➤</span><b></b></div><div class="pill arr"></div><button class="pill cam">🎥</button><button class="pill set">⚙</button></div></div>
   <div class="msg"></div><div class="tip"></div><button class="go"></button>
   <div class="breath"><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="31" class="bg"/><circle cx="40" cy="40" r="31" class="fg"/></svg><span>🫁</span></div>
-  <div class="shoot"><svg viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" class="fg"/></svg><span>🏹</span></div>`;
+  <button class="zm">🔍<b>1×</b></button>
+  <div class="shoot"><svg viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" class="fg"/></svg><span>🏹</span><b class="n"></b></div>`;
   document.body.appendChild(r); const q = s => r.querySelector(s);
-  UI = { r, look: q('.look'), bow: q('.bow'), str: q('.bow .str'), arw: q('.bow .arw'), scope: q('.scope'), ret: q('.ret'), rng: q('.rng'), mk: q('.mk'), cine: q('.cine'), skip: q('.skip'), ot: q('.obj b'), oc: q('.obj span'), alert: q('.alert'), alb: q('.alert i b'), wa: q('.wind .wa'), wv: q('.wind b'), arr: q('.arr'), cam: q('.cam'), set: q('.set'), msg: q('.msg'), tip: q('.tip'), go: q('.go'), breath: q('.breath'), brf: q('.breath .fg'), shoot: q('.shoot'), shf: q('.shoot .fg'), marks: new Map() };
+  UI = { r, look: q('.look'), bow: q('.bow'), str: q('.bow .str'), arw: q('.bow .arw'), scope: q('.scope'), ret: q('.ret'), rng: q('.rng'), mk: q('.mk'), cine: q('.cine'), skip: q('.skip'), ot: q('.obj b'), oc: q('.obj span'), alert: q('.alert'), alb: q('.alert i b'), wa: q('.wind .wa'), wv: q('.wind b'), arr: q('.arr'), cam: q('.cam'), set: q('.set'), msg: q('.msg'), tip: q('.tip'), go: q('.go'), breath: q('.breath'), brf: q('.breath .fg'), shoot: q('.shoot'), shf: q('.shoot .fg'), shn: q('.shoot .n'), zm: q('.zm'), zmb: q('.zm b'), xh: q('.xh'), hm: q('.hm'), marks: new Map() };
   // input: look layer (drag / tap-to-skip), shoot (hold to draw), breath (hold), forward (maidens)
   const ptr = new Map();
   UI.look.addEventListener('pointerdown', e => { if (!S) return; if (S.cine) { endCine(); return; } ptr.set(e.pointerId, [e.clientX, e.clientY]); try { UI.look.setPointerCapture(e.pointerId); } catch (er) { } });
@@ -212,9 +246,11 @@ function buildUI() { css(); if (UI) return UI; const r = document.createElement(
   const br = UI.breath; br.addEventListener('pointerdown', e => { e.preventDefault(); try { br.setPointerCapture(e.pointerId); } catch (er) { } if (S) S.holdBr = true; });
   const bu = () => { if (S) S.holdBr = false; }; br.addEventListener('pointerup', bu); br.addEventListener('pointercancel', bu);
   UI.go.addEventListener('pointerdown', e => { e.preventDefault(); if (S && S.L.go) S.L.go(); });
+  UI.zm.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); cycleZoom(1); });
+  UI.look.addEventListener('wheel', e => { if (S) { e.preventDefault(); const z = S.zl || 0, n = clamp(z + (e.deltaY < 0 ? 1 : -1), 0, ZL.length - 1); if (n !== z) cycleZoom(n - z); } }, { passive: false });
   UI.cam.addEventListener('click', () => { SET.arcam = arcamOn() ? 0 : 1; saveSet(); camBtn(); Sfx.ui && Sfx.ui(); });
   UI.set.addEventListener('click', () => { const b = $('bset'); if (b) b.click(); });
-  addEventListener('keydown', e => { if (!S || G.paused) return; if (e.code === 'Space' && !e.repeat) { drawStart(); e.preventDefault(); } if (e.key === 'Shift' || e.code === 'KeyB') S.holdBr = true; if (S.cine && (e.code === 'Escape' || e.code === 'Enter')) endCine();
+  addEventListener('keydown', e => { if (!S || G.paused) return; if (e.code === 'Space' && !e.repeat) { drawStart(); e.preventDefault(); } if (e.key === 'Shift' || e.code === 'KeyB') S.holdBr = true; if (S.cine && (e.code === 'Escape' || e.code === 'Enter')) endCine(); if (e.code === 'KeyZ' && !e.repeat) cycleZoom(1);
     const k = { ArrowLeft: [-14, 0], ArrowRight: [14, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.code]; if (k) look(k[0], k[1]); });
   addEventListener('keyup', e => { if (!S) return; if (e.code === 'Space') drawEnd(); if (e.key === 'Shift' || e.code === 'KeyB') S.holdBr = false; });
   addEventListener('resize', () => { if (S) drawReticle(); });
@@ -229,29 +265,48 @@ function injectSet() { const box = document.querySelector('#set > div'), acts = 
 function setRowTexts() { const row = $('archSetRow'); if (!row) return; row.querySelector('span').textContent = '🏹 ' + tt('ar_cam'); const bs = row.querySelectorAll('button'); bs[0].textContent = t('off'); bs[1].textContent = t('on'); camBtn(); }
 let msgT = 0; function msg(s, cls = '', dur = 1.6) { if (!UI) return; UI.msg.textContent = s; UI.msg.className = 'msg on ' + cls; clearTimeout(msgT); msgT = setTimeout(() => UI.msg.classList.remove('on'), dur * 1000); }
 let tipT = 0; function tip(s, dur = 5) { if (!UI || !s) return; UI.tip.textContent = s; UI.tip.classList.add('on'); clearTimeout(tipT); tipT = setTimeout(() => UI.tip.classList.remove('on'), dur * 1000); }
-function drawReticle() { if (!UI || !S) return; const H = innerHeight, W = innerWidth, R = Math.round(Math.min(W, H) * .45), vf = ZFOV * Math.PI / 180, px = a => a / vf * H;
-  UI.scope.style.setProperty('--r', R + 'px'); UI.rng.style.setProperty('--r', R + 'px'); S.pxPerRad = H / vf;
-  let s = `<circle r="${R - 5}" fill="none" stroke="#120c06" stroke-width="10"/><circle r="${R - 10}" fill="none" stroke="#c8922f" stroke-width="1.6" opacity=".9"/><circle r="${R - 1}" fill="none" stroke="#5a3a18" stroke-width="2"/>`;
-  s += `<line x1="${-R + 14}" y1="0" x2="-16" y2="0" stroke="#e8d8b0" stroke-width="1" opacity=".55"/><line x1="16" y1="0" x2="${R - 14}" y2="0" stroke="#e8d8b0" stroke-width="1" opacity=".55"/><line x1="0" y1="-10" x2="0" y2="10" stroke="#e8d8b0" stroke-width="1" opacity=".7"/>`;
-  const wy = px(pinAng(100)); for (let i = -6; i <= 6; i++) { if (!i) continue; const x = px(i * .005); s += `<line x1="${x}" y1="${wy - (i % 2 ? 4 : 7)}" x2="${x}" y2="${wy + (i % 2 ? 4 : 7)}" stroke="#9fe0ff" stroke-width="1.4" opacity=".75"/>`; }
-  for (const [d, c] of PIN) { const y = px(pinAng(d)); if (y > R - 12) continue; s += `<line x1="${R - 9}" y1="${y}" x2="5" y2="${y}" stroke="#20160c" stroke-width="3.2"/><line x1="${R - 9}" y1="${y}" x2="5" y2="${y}" stroke="${c}" stroke-width="1.1" opacity=".55"/><circle cx="0" cy="${y}" r="3.6" fill="${c}" style="filter:drop-shadow(0 0 3px ${c})"/><text x="${R - 26}" y="${y - 4}" fill="${c}" font-size="11" font-weight="700" text-anchor="middle" style="paint-order:stroke;stroke:#000;stroke-width:3px">${d}</text>`; }
-  s += `<rect x="${-R * .72}" y="${-R * .8}" width="${R * .3}" height="9" rx="4.5" fill="#1a2a1a" stroke="#c8922f" stroke-width="1"/><circle class="bub" cx="${-R * .57}" cy="${-R * .8 + 4.5}" r="3.2" fill="#a8ff60"/>`;
-  UI.ret.innerHTML = s; UI.ret.setAttribute('width', 2); UI.ret.setAttribute('height', 2); UI.ret.style.transform = 'translate(-1px,-1px)'; }
+function drawReticle() { if (!UI || !S) return; const H = innerHeight, W = innerWidth, R = Math.round(Math.min(W, H) * .45), RA = assistR();
+  UI.scope.style.setProperty('--r', R + 'px'); UI.rng.style.setProperty('--r', R + 'px');
+  UI.ret.innerHTML = `<circle r="${R - 5}" fill="none" stroke="#120c06" stroke-width="10"/><circle r="${R - 10}" fill="none" stroke="#c8922f" stroke-width="1.6" opacity=".9"/><circle r="${R - 1}" fill="none" stroke="#5a3a18" stroke-width="2"/>`
+    + `<line x1="${-R + 14}" y1="0" x2="${-RA - 8}" y2="0" stroke="#e8d8b0" stroke-width="1.2" opacity=".6"/><line x1="${RA + 8}" y1="0" x2="${R - 14}" y2="0" stroke="#e8d8b0" stroke-width="1.2" opacity=".6"/><line x1="0" y1="${RA + 8}" x2="0" y2="${R - 14}" stroke="#e8d8b0" stroke-width="1.2" opacity=".6"/>`;
+  UI.ret.setAttribute('width', 2); UI.ret.setAttribute('height', 2); UI.ret.style.transform = 'translate(-1px,-1px)';
+  UI.xh.innerHTML = `<circle class="a" r="${RA}"/><path class="c" d="M-12 0h7M5 0h7M0 -12v7M0 5v7"/><circle class="d" r="2.2"/>`; UI.xh.style.transform = 'translate(-1px,-1px)'; }
+function cycleZoom(d = 1) { if (!S || S.over || S.cine) return; S.zl = ((S.zl || 0) + d + ZL.length) % ZL.length; Sfx.ui && Sfx.ui(); if (UI) { UI.zmb.textContent = ZN[S.zl]; UI.zm.className = 'zm z' + S.zl; } }
+// ---------------------------------------------------------------- aim assist: the target nearest to the reticle within assistR() px gets hit
+function assist(noCam) { if (!S) return null; if (!noCam) { camera.position.set(S.cam.x, S.cam.y, S.cam.z); camera.rotation.set(S.cp, S.cy, 0, 'YXZ'); camera.updateMatrixWorld(); }
+  const cx = innerWidth / 2, cy = innerHeight / 2, RA = assistR(), o = S.cam; let best = null;
+  const cand = (d, c) => { if (d <= RA && (!best || d < best.d)) { c.d = d; best = c; } };
+  const segD = (p, q) => { const dx = q[0] - p[0], dy = q[1] - p[1], L = dx * dx + dy * dy || 1, k = clamp(((cx - p[0]) * dx + (cy - p[1]) * dy) / L, 0, 1); return hyp(p[0] + dx * k - cx, p[1] + dy * k - cy); };
+  for (const g of S.guards) { if (g.dead || g.pend || !g.on || !g.e.o.visible) continue;
+    const ph = project(g.e.x, g.y + g.H * .9, g.e.z), pb = project(g.e.x, g.y + g.H * .55, g.e.z), pf = project(g.e.x, g.y + g.H * .08, g.e.z); if (!ph || !pb || !pf) continue;
+    const dh = hyp(ph[0] - cx, ph[1] - cy), d = Math.min(dh, segD(pf, ph)), head = dh <= hyp(pb[0] - cx, pb[1] - cy);
+    const T = hyp(g.e.x - o.x, g.e.z - o.z) / V0, lx = g.e.x + g.vx * T, lz = g.e.z + g.vz * T, hp = new THREE.Vector3(lx, g.y + g.H * .9, lz), bp = new THREE.Vector3(lx, g.y + g.H * .55, lz);
+    cand(d, { kind: 'guard', obj: g, head, pts: head ? [hp, bp] : [bp, hp] }); }
+  const ad = aimDir(new THREE.Vector3());
+  for (const T of S.tgts) { const pc = project(T.x, T.y, T.z), pe = project(T.x + T.R, T.y, T.z); if (!pc || !pe) continue; const rp = hyp(pe[0] - pc[0], pe[1] - pc[1]), dc = hyp(pc[0] - cx, pc[1] - cy);
+    const tf = hyp(T.x - o.x, T.z - o.z) / V0, tx = T.x + (T.vx || 0) * tf; let ix = tx, iy = T.y;
+    if (Math.abs(ad.z) > 1e-4) { const k = (T.z - o.z) / ad.z; if (k > 0) { ix = o.x + ad.x * k + (tx - T.x); iy = o.y + ad.y * k; } }
+    let ox = ix - tx, oy = iy - T.y; const r = hyp(ox, oy), mx = T.R * .85; if (r > mx) { ox *= mx / r; oy *= mx / r; }
+    cand(Math.max(0, dc - rp), { kind: 'tgt', obj: T, pts: [new THREE.Vector3(tx + ox, T.y + oy, T.z)] }); }
+  for (const r of S.ropes) { if (r.cut) continue; let bd = 1e9, bp = null; for (let i = 0; i <= 16; i++) { const k = i / 16, x = lerp(r.a[0], r.b[0], k), y = lerp(r.a[1], r.b[1], k), z = lerp(r.a[2], r.b[2], k), p = project(x, y, z); if (!p) continue; const d = hyp(p[0] - cx, p[1] - cy); if (d < bd) { bd = d; bp = new THREE.Vector3(x, y, z); } } if (bp) cand(bd, { kind: 'rope', obj: r, pts: [bp] }); }
+  return best; }
 
 // ---------------------------------------------------------------- input → state
 function look(dx, dy) { if (!S || S.cine || S.over) return; const k = .0046 * (S.fov / WFOV) * (S.drawing ? .8 : 1); S.yaw = clamp(S.yaw - dx * k, S.L.yawLim[0], S.L.yawLim[1]); S.pitch = clamp(S.pitch - dy * k, -.5, .3); S.looked = (S.looked || 0) + Math.abs(dx) + Math.abs(dy); }
-function drawStart() { if (S && S.cine) { endCine(); return; } if (!S || S.over || G.paused) return; if (S.reload > 0 || S.arrows <= 0) { if (S.arrows <= 0) msg(tt('ar_noarrow'), 'r'); return; } if (S.drawing) return; S.drawing = true; S.drawT = 0; S.zoomT = 0; }
-function drawEnd(cancel) { if (!S || !S.drawing) return; S.drawing = false; if (cancel || S.drawT < .3 || S.over) { S.drawT = 0; return; } loose(); }
+function drawStart() { acInit(); if (S && S.cine) { endCine(); return; } if (!S || S.over || G.paused) return; if (S.reload > 0 || S.arrows <= 0) { if (S.arrows <= 0) msg(tt('ar_noarrow'), 'r'); return; } if (S.drawing) return; S.drawing = true; S.drawT = 0; S.zoomT = 0; }
+function drawEnd(cancel) { if (!S || !S.drawing) return; S.drawing = false; if (cancel || S.drawT < .12 || S.over) { S.drawT = 0; return; } loose(); }
 
 // ---------------------------------------------------------------- the shot
 function aimDir(out) { const cp = Math.cos(S.cp), sp = Math.sin(S.cp); return out.set(-Math.sin(S.cy) * cp, sp, -Math.cos(S.cy) * cp); }
-function loose() { const pw = clamp(S.drawT / .75, .35, 1), V = V0 * (.55 + .45 * pw); S.arrows--; S.shots++; S.reload = .85; S.drawT = 0; Sfx.arrow && Sfx.arrow(); S.kick = 1;
-  const d = aimDir(new THREE.Vector3()), o = new THREE.Vector3(S.cam.x, S.cam.y - .06, S.cam.z).addScaledVector(d, .5); const h = simulate(o, d.multiplyScalar(V));
+function loose() { const V = V0; S.arrows--; S.shots++; S.reload = .7; S.drawT = 0; Sfx.arrow && Sfx.arrow(); S.kick = 1;
+  const d = aimDir(new THREE.Vector3()), o = new THREE.Vector3(S.cam.x, S.cam.y - .06, S.cam.z).addScaledVector(d, .5); let h = null;
+  const A = assist(); if (A) for (const P of A.pts) { const hh = simulate(o, new THREE.Vector3().subVectors(P, o).normalize().multiplyScalar(V)); if (hh.kind === A.kind && hh.obj === A.obj) { h = hh; break; } }   // aim assist: straight at the target if nothing is in the way
+  if (!h) h = simulate(o, d.multiplyScalar(V)); S.lastAssist = A ? A.kind : null;
   const a = { h, t: 0, m: arrowMesh(), spin: rnd(0, 6), trail: trailMesh(), done: false }; world.add(a.m); world.add(a.trail.m); S.flying.push(a); arrowTick(a, 0, 0);
   S.commit = Math.max(S.commit, S.t + h.T + .06); if (h.kind === 'guard') h.obj.pend = true;
   const g = h.kind === 'guard' ? h.obj : null, lastT = g && g.target && remainingTargets() <= 1;
-  if (arcamOn() && !S.cine && h.T > .32 && (g && (h.head || lastT || g.key) || h.kind === 'rope' || h.kind === 'tgt' && (h.head || h.obj.final))) startCine(a);
-  if (!S.tut.shot) { S.tut.shot = 1; setTimeout(() => S && tip(tt('ar_t4'), 6), 2200); } return h; }
+  if (arcamOn() && !S.cine && h.T > .2 && h.T < .9 && (g && lastT || h.kind === 'rope' && S.ropes.filter(r => !r.cut).length <= 1 || h.kind === 'tgt' && h.obj.final)) startCine(a);   // fix3: arrow cam only for the final kill / last rope / last range target
+  if (!S.tut.shot && !S.L.tips) { S.tut.shot = 1; setTimeout(() => S && tip(tt('arz_assist'), 5), 1800); } return h; }
 function remainingTargets() { return S.guards.filter(g => g.target && !g.bonus && !g.dead && g.on).length; }
 // deterministic flight: the guards keep their current velocity during any flight (S.commit), so the path is pre-computed exactly
 function simulate(o, v) { const pts = [o.x, o.y, o.z]; let x = o.x, y = o.y, z = o.z, vx = v.x, vy = v.y, vz = v.z; const dt = 1 / SIM, wx = S.wind.x * KW, wz = S.wind.z * KW;
@@ -264,40 +319,49 @@ function simulate(o, v) { const pts = [o.x, o.y, o.z]; let x = o.x, y = o.y, z =
     for (const T of S.tgts) { const tz = T.z, cx = T.x + (T.vx || 0) * tm; if ((pz - tz) * (z - tz) > 0) continue; const k = (tz - pz) / ((z - pz) || 1e-9), ix = px + (x - px) * k, iy = py + (y - py) * k, rr = hyp(ix - cx, iy - T.y); if (rr < T.R) { pts.length -= 3; pts.push(ix, iy, tz + .02); const f = fin('tgt', T); f.r = rr / T.R; f.head = f.r < .2; return f; } }
     for (const r of S.ropes) if (!r.cut && segSeg(px, py, pz, x, y, z, ...r.a, ...r.b) < .3) return fin('rope', r);
     for (const c of S.cols) if (segBox(px, py, pz, x, y, z, c)) { if (!c.o) return fin('solid', c); const L = hyp(x - px, y - py, z - pz); RC.set(_t.set(px, py, pz), _s.set(x - px, y - py, z - pz).normalize()); RC.far = L; const hit = RC.intersectObject(c.o, true)[0]; if (hit) { pts.length -= 3; pts.push(hit.point.x, hit.point.y, hit.point.z); return fin('solid', c); } }   // AABB first, then the real mesh
-    const gh = heightAt(x, z); if (gh < WATER && y < WATER) return fin('water'); if (y < gh) return fin('ground');
+    const gh = heightAt(x, z); if (gh < WY() && y < WY()) return fin('water'); if (y < gh) return fin('ground');
     if (hyp(x - o.x, z - o.z) > 300 || y < -20) break; }
   return fin('none'); }
 function trailMesh() { const N = 28, g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 2 * 3), 3)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 2 * 3), 3));
   const idx = []; for (let i = 0; i < N - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx);
   const m = new THREE.Mesh(g, mat('trail', () => new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }))); m.frustumCulled = false; return { m, N }; }
 function pathAt(h, tm, out) { const f = clamp(tm, 0, h.T) * SIM, i = Math.min(h.n - 2, Math.floor(f)), k = f - i, P = h.pts; return out.set(lerp(P[i * 3], P[i * 3 + 3], k), lerp(P[i * 3 + 1], P[i * 3 + 4], k), lerp(P[i * 3 + 2], P[i * 3 + 5], k)); }
-function arrowTick(a, dt, rdt) { if (a.done) { if (a.fade !== undefined) { a.fade -= rdt; trailUpd(a, a.h.T, Math.max(0, a.fade / .4)); if (a.fade <= 0) { world.remove(a.trail.m); a.fade = undefined; } } return; }
+function arrowTick(a, dt, rdt) { if (a.done) { if (a.fade !== undefined) { a.fade -= rdt; trailUpd(a, a.h.T, Math.max(0, a.fade / .5)); if (a.fade <= 0) { world.remove(a.trail.m); a.fade = undefined; } } return; }
   a.t += dt; const p = pathAt(a.h, a.t, _v), q = pathAt(a.h, a.t + 1 / SIM, _w).sub(p); if (q.lengthSq() < 1e-8) q.copy(a.dir || ZAX); a.dir = q.clone().normalize();
   a.m.position.copy(p); a.m.quaternion.setFromUnitVectors(ZAX, a.dir); a.spin += rdt * (S.cine && S.cine.a === a ? 9 : 30); a.m.quaternion.multiply(_q.setFromAxisAngle(ZAX, a.spin)); trailUpd(a, a.t, 1);
-  if (a.t >= a.h.T) { a.done = true; a.fade = .4; resolve(a); } }
-function trailUpd(a, tm, k) { const { m, N } = a.trail, P = m.geometry.attributes.position.array, C = m.geometry.attributes.color.array, cp = camera.position, big = S.cine && S.cine.a === a, span = big ? .16 : .28;
-  for (let i = 0; i < N; i++) { const u = i / (N - 1), tt0 = Math.max(0, tm - span * (1 - u)); pathAt(a.h, tt0, _v); pathAt(a.h, tt0 + .01, _w).sub(_v).normalize(); const side = _s.copy(_w).cross(_t.subVectors(cp, _v)).normalize(); const wdt = .045 * u * (big ? .5 : 1);
-    P.set([_v.x + side.x * wdt, _v.y + side.y * wdt, _v.z + side.z * wdt, _v.x - side.x * wdt, _v.y - side.y * wdt, _v.z - side.z * wdt], i * 6); const c = u * u * .55 * k * (big ? clamp((_v.distanceTo(cp) - .6) / 1.6, 0, 1) * .6 : 1); C.set([c, c * .96, c * .85, c, c * .96, c * .85], i * 6); }
+  const gl = a.m.userData.gl; if (gl) gl.scale.setScalar((S.cine && S.cine.a === a ? .012 : .035) * Math.tan(camera.fov * Math.PI / 360) / Math.tan(WFOV * Math.PI / 360) * (WFOV / 52));
+  if (a.t >= a.h.T) { a.done = true; a.fade = .5; if (gl) { a.m.remove(gl); a.m.userData.gl = null; } resolve(a); } }
+function trailUpd(a, tm, k) { const { m, N } = a.trail, P = m.geometry.attributes.position.array, C = m.geometry.attributes.color.array, cp = camera.position, big = S.cine && S.cine.a === a, span = big ? .12 : .22, tk = Math.tan(camera.fov * Math.PI / 360) / Math.tan(WFOV * Math.PI / 360);
+  for (let i = 0; i < N; i++) { const u = i / (N - 1), tt0 = Math.max(0, tm - span * (1 - u)); pathAt(a.h, tt0, _v); pathAt(a.h, tt0 + .01, _w).sub(_v).normalize(); const side = _s.copy(_w).cross(_t.subVectors(cp, _v)).normalize(); const dcp = _v.distanceTo(cp), wdt = u * (big ? .022 : dcp * .0048 * tk), nf = big ? 1 : clamp((dcp - 2.5) / 6, 0, 1);   // constant ~3.5 px wide, faded in over the first metres
+    P.set([_v.x + side.x * wdt, _v.y + side.y * wdt, _v.z + side.z * wdt, _v.x - side.x * wdt, _v.y - side.y * wdt, _v.z - side.z * wdt], i * 6); const c = (.18 + .82 * u * u) * k * nf * (big ? clamp((_v.distanceTo(cp) - .6) / 1.6, 0, 1) * .6 : 1); C.set([c, c * .84, c * .5, c, c * .84, c * .5], i * 6); }
   m.geometry.attributes.position.needsUpdate = true; m.geometry.attributes.color.needsUpdate = true; }
 function resolve(a) { const h = a.h, P = pathAt(h, h.T, new THREE.Vector3()), D = a.dir || ZAX;
   for (const g of h.near) if (!g.dead) noise(g, P, .42);
   if (h.kind === 'guard') { const g = h.obj; g.pend = false; if (g.dead) { world.remove(a.m); return; } kill(g, h.head, D, P, a); return; }
   if (h.kind === 'rope') { cutRope(h.obj, P); world.remove(a.m); return; }
-  if (h.kind === 'tgt') { const T = h.obj; a.m.position.copy(P).addScaledVector(D, .18); a.m.updateMatrixWorld(true); T.g.updateMatrixWorld(true); T.g.attach(a.m); burst(P.x, P.y, P.z, 0xe8d090, h.head ? 1.4 : .9, true); sparks(P.x, P.y, P.z, 0xf0d890, h.head ? 14 : 7, 4); Sfx.hit && Sfx.hit(); msg(tt(h.head ? 'ar_bull' : 'ar_hit'), '', 1.3); if (S.L.onTgt) S.L.onTgt(T, h); return; }
-  if (h.kind === 'water') { burst(P.x, WATER + .2, P.z, 0xd8ecff, 1.2); sparks(P.x, WATER + .1, P.z, 0xe8f4ff, 8, 3); world.remove(a.m); noiseAt(P, 4); return; }
+  if (h.kind === 'tgt') { hitMark(h.head ? 'h' : 'x'); thwack(h.head); const T = h.obj; a.m.position.copy(P).addScaledVector(D, .18); a.m.updateMatrixWorld(true); T.g.updateMatrixWorld(true); T.g.attach(a.m); burst(P.x, P.y, P.z, 0xe8d090, h.head ? 1.4 : .9, true); sparks(P.x, P.y, P.z, 0xf0d890, h.head ? 14 : 7, 4); Sfx.hit && Sfx.hit(); msg(tt(h.head ? 'ar_bull' : 'ar_hit'), '', 1.3); if (S.L.onTgt) S.L.onTgt(T, h); return; }
+  if (h.kind === 'water') { burst(P.x, WY() + .2, P.z, 0xd8ecff, 1.2); sparks(P.x, WY() + .1, P.z, 0xe8f4ff, 8, 3); world.remove(a.m); noiseAt(P, 4); return; }
   if (h.kind === 'none') { world.remove(a.m); return; }
   stick(a, P, D); burst(P.x, P.y, P.z, 0xb8a080, .9, true); sparks(P.x, P.y, P.z, 0xd8c8a0, 6, 3); Sfx.hit && Sfx.hit(); noiseAt(P, 6); }
 function stick(a, P, D) { a.m.position.copy(P).addScaledVector(D, .12); S.stuck.push(a.m); if (S.stuck.length > 26) world.remove(S.stuck.shift()); }
+function hitMark(k) { if (!UI) return; const el = UI.hm; el.className = 'hm'; void el.offsetWidth; el.className = 'hm on ' + k; }
+let AC = null; function acInit() { try { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); } catch (e) { } }
+// impact: a short wooden thock + low punch, a bright ring for headshots (own tiny WebAudio graph; follows the game's sound volume)
+function thwack(big) { try { acInit(); const ac = AC; if (!ac) return; const vol = typeof SET.snd === 'number' ? SET.snd : 1; if (vol <= 0) return; const t0 = ac.currentTime + .005, out = ac.createGain(); out.gain.value = .9 * vol; out.connect(ac.destination);
+  const n = ac.createBuffer(1, ac.sampleRate * .09 | 0, ac.sampleRate), dd = n.getChannelData(0); for (let i = 0; i < dd.length; i++) dd[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / dd.length, 3);
+  const ns = ac.createBufferSource(); ns.buffer = n; const bp = ac.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1300; bp.Q.value = 1.4; const ng = ac.createGain(); ng.gain.value = .8; ns.connect(bp); bp.connect(ng); ng.connect(out); ns.start(t0);
+  const o = ac.createOscillator(), og = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(190, t0); o.frequency.exponentialRampToValueAtTime(48, t0 + .16); og.gain.setValueAtTime(.0001, t0); og.gain.exponentialRampToValueAtTime(.9, t0 + .006); og.gain.exponentialRampToValueAtTime(.0001, t0 + .2); o.connect(og); og.connect(out); o.start(t0); o.stop(t0 + .22);
+  if (big) for (const [f, a] of [[1568, .22], [2349, .12]]) { const r = ac.createOscillator(), rg = ac.createGain(); r.type = 'triangle'; r.frequency.value = f; rg.gain.setValueAtTime(.0001, t0 + .03); rg.gain.exponentialRampToValueAtTime(a, t0 + .04); rg.gain.exponentialRampToValueAtTime(.0001, t0 + .42); r.connect(rg); rg.connect(out); r.start(t0 + .03); r.stop(t0 + .45); } } catch (e) { } }
 function noiseAt(P, R) { let heard = false; for (const g of S.guards) { if (g.dead || !g.on || g.mode === 'rush') continue; const d = hyp(g.e.x - P.x, g.y + 1.6 - P.y, g.e.z - P.z); if (d < R) { noise(g, P, .55 + .45 * (1 - d / R)); heard = true; } } if (heard && !S.alarm) msg(tt('ar_miss'), '', 1.4); }
 function noise(g, P, amt) { if (S.alarm) return; g.sus += amt; g.susPt = { x: P.x, z: P.z }; if (g.sus >= 1) return alarm(g, 'noise'); g.st = 'sus'; g.susT = 4.5; }
-function kill(g, head, D, P, a) { const e = g.e; g.dead = true; g.deadT = S.t; S.kills++; if (head) S.heads++;
+function kill(g, head, D, P, a) { const e = g.e; g.dead = true; g.deadT = S.t; S.kills++; if (head) S.heads++; hitMark(head ? 'h' : 'k'); thwack(head);
   e.o.updateMatrixWorld(true); a.m.position.copy(P).addScaledVector(D, head ? .02 : .1); a.m.updateMatrixWorld(true); e.o.attach(a.m);
   anim(g, 'Hit_A', { force: true }); g.dieT = .14; g.vx = g.vz = 0;
   const gy = groundY(e.x, e.z); if (g.y - gy > .9) g.fall = { vx: D.x * 2.9 + rnd(-.3, .3), vz: D.z * 2.9 + rnd(-.3, .3), vy: 2.3, rx: 0 }; else g.slide = { vx: D.x * 1.5, vz: D.z * 1.5, t: .3 };
   sparks(P.x, P.y, P.z, 0xf0e0b0, head ? 14 : 9, 5); burst(P.x, P.y, P.z, 0xfff0c8, head ? 1.3 : .9); Sfx.hit && Sfx.hit(); setTimeout(() => Sfx.death && Sfx.death(), 90);
   try { addGold(head ? 12 : 6, e.x, e.z); } catch (er) { } msg(tt(head ? 'ar_head' : 'ar_kill'), '', 1.2); S.bodies.push(g);
   if (S.L.onKill) S.L.onKill(g, head); }
-function cutRope(r, P) { r.cut = true; world.remove(r.m); world.remove(r.rib); Sfx.hit && Sfx.hit(); sparks(P.x, P.y, P.z, 0xffe0a0, 12, 5); burst(P.x, P.y, P.z, 0xd8b878, 1);
+function cutRope(r, P) { hitMark('k'); thwack(false); r.cut = true; world.remove(r.m); world.remove(r.rib); Sfx.hit && Sfx.hit(); sparks(P.x, P.y, P.z, 0xffe0a0, 12, 5); burst(P.x, P.y, P.z, 0xd8b878, 1);
   for (const A of [r.a, r.b]) { const top = new THREE.Vector3(...A), L = Math.min(2.6, top.distanceTo(P) * .5); const m = new THREE.Mesh(new THREE.CylinderGeometry(.06, .06, L, 6).translate(0, -L / 2, 0), r.m.material); m.position.copy(top); m.rotation.z = rnd(-.25, .25); world.add(m); }
   msg(tt('ar_rope'), '', 1.4); if (S.L.onRope) S.L.onRope(r); }
 
@@ -314,7 +378,7 @@ function gTick(g, dt) { const e = g.e;
   if (!g.on) { if (g.mode === 'rush' && S.alarm && (g.delay -= dt) <= 0) { g.on = true; e.o.visible = true; burst(e.x, 1, e.z, 0x8a7a60, 1.4, true); } else return; }
   if (S.t < S.commit) { e.x += g.vx * dt; e.z += g.vz * dt; e.y = g.y; return; }   // committed while an arrow is in the air
   let seen = false;
-  if (g.mode === 'rush') { const T = g.to(g), dx = T.x - e.x, dz = T.z - e.z, d = hyp(dx, dz); const sp = g.speed * (heightAt(e.x, e.z) < WATER ? .5 : 1) * (1 + Math.sin(S.t * 2 + g.seed) * .08);
+  if (g.mode === 'rush') { const T = g.to(g), dx = T.x - e.x, dz = T.z - e.z, d = hyp(dx, dz); const sp = g.speed * (heightAt(e.x, e.z) < WY() ? .5 : 1) * (1 + Math.sin(S.t * 2 + g.seed) * .08);
     if (d < 1.3) { g.vx = g.vz = 0; if (!g.reached) { g.reached = true; if (S.L.onReach) S.L.onReach(g); else over(false, 'ar_found'); } anim(g, 'Idle_Combat'); }
     else { const wob = Math.sin(S.t * 1.3 + g.seed) * .35; g.vx = (dx / d + -dz / d * wob) * sp; g.vz = (dz / d + dx / d * wob) * sp; e.x += g.vx * dt; e.z += g.vz * dt; g.y = groundY(e.x, e.z); turn(e, Math.atan2(g.vx, g.vz), dt * 8); anim(g, 'Running_A', { ts: sp / 4.4 }); }
     e.y = g.y; return; }
@@ -340,37 +404,38 @@ function alarm(g, why) { if (!S || S.alarm) return; S.alarm = true; S.noAlarm = 
   if (S.L.onAlarm) S.L.onAlarm(g, why); if (S.rushers.length) setTimeout(() => S && !S.over && tip(tt('ar_rush'), 5), 1600); }
 
 // ---------------------------------------------------------------- arrow cam
-function startCine(a) { S.cine = { a, ph: 'fly', t0: performance.now() }; G.ts = .13; UI.cine.classList.add('on'); UI.r.classList.add('cine-on'); UI.cine.querySelector('.lines').style.opacity = ''; UI.skip.textContent = tt('ar_skip'); S.drawing = false; }
+function startCine(a) { S.cine = { a, ph: 'fly', t0: performance.now() }; G.ts = 1; UI.cine.classList.add('on'); UI.r.classList.add('cine-on'); UI.cine.querySelector('.lines').style.opacity = ''; UI.skip.textContent = tt('ar_skip'); S.drawing = false; }
 function endCine() { if (!S || !S.cine) return; S.cine = null; G.ts = 1; UI.cine.classList.remove('on'); UI.r.classList.remove('cine-on'); S.zoom = 0; }
 function cineCam() { const C = S.cine, a = C.a, h = a.h, now = performance.now(), rdt = Math.min(.05, (now - (C.last || now)) / 1000); C.last = now;
   if (C.ph === 'fly') { const p = a.m.position, d = a.dir || ZAX, side = _w.set(-d.z, 0, d.x).normalize(); const rem = (h.T - a.t);
     camera.position.copy(p).addScaledVector(d, -1.05).addScaledVector(side, .16).add(_v.set(0, .1, 0)); camera.up.set(0, 1, 0); camera.lookAt(p.x + d.x * 6, p.y + d.y * 6, p.z + d.z * 6);
     const sh = .006; camera.position.x += rnd(-sh, sh); camera.position.y += rnd(-sh, sh); setFov(46);
     if (rem < .07 || a.done) { C.ph = 'imp'; C.ti = now; const P = pathAt(h, h.T, new THREE.Vector3()), s2 = _w.set(-d.z, 0, d.x).normalize();
-      const gk = h.kind === 'guard' ? h.obj : null, high = gk && gk.y - groundY(gk.e.x, gk.e.z) > 2; C.pos = P.clone().addScaledVector(_t.set(d.x, 0, d.z).normalize(), high ? -4.4 : -2.7).addScaledVector(s2, 1.7 * (Math.random() < .5 ? 1 : -1)).add(new THREE.Vector3(0, gk ? -.35 : .4, 0)); if (gk) C.pos.y = Math.max(C.pos.y, groundY(C.pos.x, C.pos.z) + .4); C.look = P.clone(); camera.position.copy(C.pos); camera.lookAt(C.look); G.ts = .28; UI.cine.querySelector('.lines').style.opacity = 0; } }
-  else { const el = (now - C.ti) / 1000; if (el > .55) G.ts = Math.min(1, G.ts + rdt * 1.2);
+      const gk = h.kind === 'guard' ? h.obj : null, high = gk && gk.y - groundY(gk.e.x, gk.e.z) > 2; C.pos = P.clone().addScaledVector(_t.set(d.x, 0, d.z).normalize(), high ? -4.4 : -2.7).addScaledVector(s2, 1.7 * (Math.random() < .5 ? 1 : -1)).add(new THREE.Vector3(0, gk ? -.35 : .4, 0)); if (gk) C.pos.y = Math.max(C.pos.y, groundY(C.pos.x, C.pos.z) + .4); C.look = P.clone(); camera.position.copy(C.pos); camera.lookAt(C.look); G.ts = .4; UI.cine.querySelector('.lines').style.opacity = 0; }
+    if ((now - C.t0) / 1000 > 1.2 && !C.hold) endCine(); }
+  else { const el = (now - C.ti) / 1000; if (el > .22) G.ts = Math.min(1, G.ts + rdt * 3);
     const g = h.kind === 'guard' ? h.obj : null; if (g && g.fall) C.pos.y = Math.max(groundY(C.pos.x, C.pos.z) + .5, lerp(C.pos.y, g.y + .9, Math.min(1, rdt * 3))); if (g) C.look.lerp(_v.set(g.e.x, g.y + (g.fall ? 1 : .6), g.e.z), Math.min(1, rdt * 4)); C.cur = C.cur || C.pos.clone(); C.cur.lerp(C.pos, Math.min(1, rdt * 6)); camera.position.copy(C.cur); camera.lookAt(C.look); setFov(38);   // absolute every frame: the engine resets the camera before camFn
-    const fin = g ? (!g.fall && el > 1.1) : el > 1.3; if ((fin || el > 2.6) && !C.hold) endCine(); } }
+    if ((el > .6 || (now - C.t0) / 1000 > 1.2) && !C.hold) endCine(); } }
 function setFov(f) { if (Math.abs(camera.fov - f) > .01) { camera.fov = f; camera.updateProjectionMatrix(); } }
 
 // ---------------------------------------------------------------- per-frame
 function camFn(cam) { if (!S) return; if (S.cine) return cineCam();
-  const z = S.zoom, sw = S.sway, br = Math.sin(performance.now() / 1000 * 1.5) * .0012 * (1 - z);
+  const z = S.zoom, sw = S.sway, br = 0;
   S.cy = S.yaw + sw[0] * z; S.cp = S.pitch + sw[1] * z + br + S.kick * .012;
   cam.position.set(S.cam.x, S.cam.y, S.cam.z); if (S.shake > 0) { cam.position.x += rnd(-1, 1) * S.shake * .05; cam.position.y += rnd(-1, 1) * S.shake * .05; }
-  cam.rotation.set(S.cp, S.cy, 0, 'YXZ'); S.fov = lerp(WFOV, ZFOV, z * z * (3 - 2 * z)); setFov(S.fov); }
+  cam.rotation.set(S.cp, S.cy, 0, 'YXZ'); S.fov = S.fovC || WFOV; setFov(S.fov); }
 function tick(dt) { if (!S || S.over === 2) return; const now = performance.now(), rdt = Math.min(.05, (now - (S.lastNow || now)) / 1000); S.lastNow = now;
   if (G.mis && G.mis.run !== S.run) return cleanup();
   S.t += dt; if (G.mis && G.mis.force && !S.over) { for (const g of S.guards) if (!g.dead && g.target) { g.dead = true; } over(true); }
   // bow / zoom / sway
-  if (S.reload > 0) S.reload -= rdt; if (S.drawing) S.drawT += rdt; const zt = S.drawing ? clamp(S.drawT / .32, 0, 1) : 0; S.zoom = S.cine ? 0 : lerp(S.zoom, zt, Math.min(1, rdt * (S.drawing ? 14 : 9)));
+  if (S.reload > 0) S.reload -= rdt; if (S.drawing) S.drawT += rdt; const fT = S.cine ? WFOV : ZL[S.zl || 0] * (S.drawing ? .9 : 1); S.fovC = S.fovC === undefined ? fT : lerp(S.fovC, fT, Math.min(1, rdt * 9)); S.zoom = clamp((WFOV - S.fovC) / (WFOV - ZFOV), 0, 1);   // 🔍 levels, smooth
   S.kick = Math.max(0, S.kick - rdt * 4); S.shake = Math.max(0, (S.shake || 0) - rdt * 2);
   if (S.holdBr && S.zoom > .5 && S.br > 0 && !(S.exh > 0)) { S.br -= rdt / 4.2; S.brK = lerp(S.brK, .16, Math.min(1, rdt * 5)); if (S.br <= 0) { S.br = 0; S.exh = 2.2; } }
   else { S.br = Math.min(1, S.br + rdt / 3.2); S.brK = lerp(S.brK, S.exh > 0 ? 2.4 : 1, Math.min(1, rdt * 3)); } if (S.exh > 0) S.exh -= rdt;
-  const fat = S.drawing ? 1 + Math.max(0, S.drawT - 5) * .5 + Math.max(0, .9 - S.drawT) * 1.2 : 1, A = .0032 * S.brK * fat, tm = now / 1000;
+  const fat = S.drawing ? 1 + Math.max(0, S.drawT - 5) * .5 + Math.max(0, .9 - S.drawT) * 1.2 : 1, A = 0 * fat, tm = now / 1000;   // fix3: auto steady (no sway)
   S.sway[0] = A * (Math.sin(tm * .83 + .4) * .62 + Math.sin(tm * 1.91) * .38); S.sway[1] = A * (Math.sin(tm * 1.17 + 1.3) * .55 + Math.sin(tm * .61 + 2) * .45);
   // world
-  S.wT -= dt; if (S.wT <= 0) { S.wT = rnd(14, 24); S.wTo = rnd(S.L.wind[0], S.L.wind[1]) * (Math.random() < .5 ? -1 : 1); } S.wS = lerp(S.wS, S.wTo, Math.min(1, dt * .25)); S.wind.set(Math.cos(S.wA) * S.wS, 0, Math.sin(S.wA) * S.wS);
+  S.wS = S.wTo = 0; S.wind.set(0, 0, 0);   // fix3: no wind
   for (const g of S.guards) gTick(g, dt);
   for (const m of S.maids) mTick(m, dt);
   for (const T of S.tgts) if (T.move) T.move(T, dt, S.t < S.commit);
@@ -395,7 +460,8 @@ function hud(rdt) { const U = UI; S.hT = (S.hT || 0) - rdt; const slow = S.hT <=
   if (slow) { // texts
     const al = S.alarm ? 1 : Math.min(1, Math.max(0, ...S.guards.filter(g => !g.dead && g.on).map(g => Math.max(g.sus, g.spot || 0)))); U.alb.style.width = (al * 100) + '%'; U.alert.classList.toggle('hot', S.alarm);
     const rel = S.wind.x * Math.cos(S.yaw) - S.wind.z * Math.sin(S.yaw), ws = Math.abs(S.wS); U.wv.textContent = ws.toFixed(1) + ' m/s'; U.wa.style.transform = `rotate(${rel >= 0 ? 0 : 180}deg) scale(${.8 + Math.min(1, ws / 4) * .5})`;
-    U.arr.textContent = '🏹 × ' + (S.arrows > 900 ? '∞' : S.arrows); U.ot.textContent = S.L.objKey ? tt(S.L.objKey()) : (G.mis ? t(G.mis.m.o) : ''); U.oc.textContent = S.L.count ? S.L.count() : '';
+    U.arr.textContent = '🏹 × ' + (S.arrows > 900 ? '∞' : S.arrows); U.shn.textContent = S.arrows > 900 ? '∞' : S.arrows; U.zmb.textContent = ZN[S.zl || 0];
+    { const A = S.cine || S.over ? null : assist(true); U.xh.classList.toggle('lock', !!A); U.xh.classList.toggle('head', !!(A && A.head)); } U.ot.textContent = S.L.objKey ? tt(S.L.objKey()) : (G.mis ? t(G.mis.m.o) : ''); U.oc.textContent = S.L.count ? S.L.count() : '';
     if (z > .6) { let best = null, bd = 1e9; const o = camera.position, d = aimDir(_w), R = Math.min(innerWidth, innerHeight) * .45; S.rf = null; for (const g of S.guards) { if (g.dead || !g.on) continue; const q = project(g.e.x, g.y + g.H * .6, g.e.z); if (!q) continue; const off = hyp(q[0] - innerWidth / 2, (q[1] - innerHeight / 2) * .6); if (off < R * .95 && off < bd) { bd = off; best = [g, hyp(g.e.x - o.x, g.y + g.H * .6 - o.y, g.e.z - o.z)]; } } if (best) S.rf = best;
       if (!best) { for (let s = 4; s < 240; s += 2) { const x = o.x + d.x * s, y = o.y + d.y * s, zz = o.z + d.z * s; if (y < heightAt(x, zz) || S.cols.some(c => x > c.min[0] && x < c.max[0] && y > c.min[1] && y < c.max[1] && zz > c.min[2] && zz < c.max[2])) { best = [null, s]; break; } } }
       U.rng.textContent = best ? (best[0] ? '◎ ' : '') + Math.round(best[1]) + ' m' : '— m'; U.rng.style.color = best && best[0] ? '#ffb070' : ''; } }
@@ -421,7 +487,7 @@ export async function runArchery(id, H) { const L = LEVELS[id]; if (!L) return {
   G.freeze = true; G.player = null; G.ts = 1;
   S = { L, run: G.mis && G.mis.run, t: 0, cam: { x: L.cam[0], y: 0, z: L.cam[1] }, yaw: L.yaw || 0, pitch: L.pitch || -.04, cy: 0, cp: 0, fov: WFOV, zoom: 0, sway: [0, 0], br: 1, brK: 1, exh: 0, kick: 0, reload: 0, drawT: 0,
     arrows: L.arrows, shots: 0, kills: 0, heads: 0, guards: [], rushers: [], maids: [], bodies: [], ropes: [], tgts: [], cols: [], colObjs: [], flying: [], stuck: [], commit: 0, alarm: false, noAlarm: true,
-    wind: new THREE.Vector3(), wA: L.windA ?? rnd(-.45, .45), wS: rnd(L.wind[0], L.wind[1]) * (Math.random() < .5 ? -1 : 1), wT: rnd(14, 24), tut: {}, done: null };
+    wind: new THREE.Vector3(), wA: L.windA ?? rnd(-.45, .45), wS: 0, wT: 1e9, zl: 0, fovC: WFOV, tut: {}, done: null };
   S.wTo = S.wS; S.cam.y = (L.camY ?? (groundY(S.cam.x, S.cam.z) + (L.camH || 7))); L.state = {};
   try { L.build(K, S); } catch (e) { console.error('[archery] build', e); cleanup(); return { ok: true, noAlarm: false, all: false, why: 'build' }; }   // never strand the player in a broken level
   if (scene.fog) { scene.fog.near = Math.max(scene.fog.near, 110); scene.fog.far = Math.max(scene.fog.far, 330); }
@@ -431,9 +497,9 @@ export async function runArchery(id, H) { const L = LEVELS[id]; if (!L) return {
   if (!L.noBanner) await H.bannerShow(t('ch' + L.ch), t(G.mis.m.n), t(G.mis.m.o), 3.2); else await new Promise(r => setTimeout(r, 600));
   if (!S) return { ok: false };
   if (L.intro && !window.__ARCH_NOINTRO) { await H.dialog(L.intro); if (!S) return { ok: false }; }
-  UI.r.classList.add('on'); S.lastNow = performance.now(); if (L.start) L.start(S);
+  UI.r.classList.add('on'); UI.zm.className = 'zm z0'; S.lastNow = performance.now(); if (L.start) L.start(S);
   const first = !localStorage.getItem('qq_arch_tut'); try { localStorage.setItem('qq_arch_tut', '1'); } catch (e) { }
-  const tips = L.tips ? [] : first ? ['ar_t1', 'ar_t2', 'ar_t3', 'ar_t5'] : ['ar_t2', 'ar_t3']; tips.forEach((k, i) => setTimeout(() => S && !S.over && !S.cine && tip(tt(k), 5.5), 400 + i * 6200));
+  const tips = L.tips ? [] : first ? ['ar_t1', 'ar_t2', 'arz_zoom', 'arz_assist'] : ['ar_t2', 'arz_zoom']; tips.forEach((k, i) => setTimeout(() => S && !S.over && !S.cine && tip(tt(k), 5.5), 400 + i * 6200));
   const res = await new Promise(r => { S.done = r; }); cleanup(); return res; }
 // test hooks (headless screenshots): aim at a guard with lead/drop solved, then loose
 ARCH.aimAt = (i, o = {}) => { const g = S.guards[i]; if (!g) return null; const tgtY = g.y + g.H * (o.head ? .9 : .55); let best = null;
@@ -512,6 +578,8 @@ export const LEVELS = {
       const piv = new THREE.Group(); piv.position.set(0, groundY(0, -116.2), -116.2); /* just in front of the gate towers (the B_tower props almost close the gap) */ const pm = mat('plank', () => new THREE.MeshStandardMaterial({ color: 0x5e4228, roughness: .85 })), im = mat('iron', () => new THREE.MeshStandardMaterial({ color: 0x2a2a2e, metalness: .7, roughness: .5 }));
       const bw = 4.6, bh = 6.2; const pl = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, .28), pm); pl.position.y = bh / 2; pl.castShadow = pl.receiveShadow = true; piv.add(pl);
       for (const y of [.8, bh / 2, bh - .8]) { const b = new THREE.Mesh(new THREE.BoxGeometry(bw + .05, .16, .32), im); b.position.y = y; piv.add(b); } world.add(piv); L.bridge = { piv, ang: 0, v: 0, fall: false };
+      // fix3 (author: "why a bridge on flat ground?"): a water-filled moat in front of the gate, spanned by the drawbridge once it falls
+      try { if (G.scn) G.scn.bridgeGap({ z1: -116.2, z2: -116.2 + bh, hw: 1.75, bank: 1.3, wy: -1.25, deckW: bw, deckY: piv.position.y, deckTop: piv.position.y + .14, piles: false, straight: true }); } catch (e) { console.warn('[archery] moat', e); }
       S.cols.push({ min: [-bw / 2, piv.position.y, -116.5], max: [bw / 2, piv.position.y + bh, -115.9] }); L.bcol = S.cols[S.cols.length - 1];
       const by0 = piv.position.y + bh, beam = new THREE.Mesh(new THREE.BoxGeometry(8.6, .45, .5), pm); beam.position.set(0, by0 + 2.4, -116.5); beam.castShadow = true; world.add(beam); K.solid([beam]);   // timber lintel between the gate towers carrying the bridge ropes
       for (const sx of [-1, 1]) { const pul = new THREE.Mesh(new THREE.CylinderGeometry(.22, .22, .2, 10).rotateZ(Math.PI / 2), im); pul.position.set(sx * (bw / 2 - .25), by0 + 2.12, -116.4); world.add(pul); }
@@ -547,8 +615,8 @@ export const LEVELS = {
       L.t = [K.target(-3, -46), K.target(0, -71, { cart: [6, 1.6] }), K.target(4, -116, { R: .9 })]; L.t[2].final = true; L.stage = 0;
       for (const [x, z] of [[-6, -48], [6.5, -73], [-2, -118]]) K.banner(x, z, 0x8a1c14, { scale: .6 }); K.horse(-9, -60, .6); },
     start() { this.stage(0); },
-    stage(i) { const L = this.state; L.stage = i; L.miss = 0; S.wS = S.wTo = i === 2 ? 2.4 : 0; S.wT = 1e9;
-      const tips = [['tu_t_bow1', 'ar_t2', 'ar_t3'], ['tu_t_bow2', 'ar_t4'], ['tu_t_bow3', 'ar_t5', 'ar_t3']][i]; tips.forEach((k, j) => setTimeout(() => S && !S.over && L.stage === i && !S.cine && tip(tt(k), 5.5), 300 + j * 6000)); },
+    stage(i) { const L = this.state; L.stage = i; L.miss = 0; S.wS = S.wTo = 0; S.wT = 1e9;
+      const tips = [['tu_t_bow1', 'ar_t2', 'arz_zoom'], ['tu_t_bow2', 'arz_assist'], ['tu_t_bow3']][i]; tips.forEach((k, j) => setTimeout(() => S && !S.over && L.stage === i && !S.cine && tip(tt(k), 5.5), 300 + j * 6000)); },
     onTgt(T, h) { const L = this.state, i = L.t.indexOf(T); if (i !== L.stage) return; if (i === 2) L.bull = h.head; setTimeout(() => { if (!S || S.over) return; if (i < 2) this.stage(i + 1); else L.done = 1; }, 900); },
     tick() { const L = this.state; if (S.flying.length === 0 && S.shots > (L.shots0 || 0)) { } },
     count() { const L = this.state; return '🎯 ' + Math.min(3, L.stage + (L.done ? 1 : 0)) + '/3' + (S.wS ? '  🌬' : ''); },

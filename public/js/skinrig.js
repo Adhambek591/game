@@ -1,7 +1,7 @@
 // Realistic skinned character (Meshy rig) driven by mocap clips retargeted from a shared library
 import * as THREE from 'three';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795179205';
-import { PROPS } from './glbrig.js?v=1795179205';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795194545';
+import { PROPS } from './glbrig.js?v=1795194545';
 export const ANIM = { data: null };
 const PI = Math.PI;
 // game action name -> [clip, loop, default duration (s) or null = natural]

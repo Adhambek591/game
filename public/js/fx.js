@@ -3,10 +3,10 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795179205';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795179205';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795179205';
-import { makeHorse } from './horse.js?v=1795179205';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795194545';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795194545';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795194545';
+import { makeHorse } from './horse.js?v=1795194545';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -48,8 +48,8 @@ const add = (geo, mat, x, y, z, parent, sh = true) => { const m = new THREE.Mesh
 const UN = 96; let blobs = null, rings = null; const _o = new THREE.Object3D(), _c = new THREE.Color();
 const TEAM = {
   ally: { rim: 0xffd9a0, k: 1.15, sat: 1.28, tint: [1.2, 1.12, 1.04], ring: 0 },
-  enemy: { rim: 0x6fb4ff, k: 1.25, sat: .82, tint: [.74, .8, .98], ring: 0 },
-  elite: { rim: 0xff4a30, k: 1.9, sat: .9, tint: [.82, .78, .9], ring: 0x8a1810 },
+  enemy: { rim: 0xcfc6b8, k: .22, sat: .95, tint: [.95, .95, .96], ring: 0 },   // fix3: was blue rim k 1.25 + blue tint
+  elite: { rim: 0xff4a30, k: .7, sat: .95, tint: [.96, .93, .93], ring: 0x8a1810 },
   hero: { rim: 0xffe0a0, k: .5, sat: 1.12, tint: [1.0, 1.0, 1.03], ring: 0xffc64a },
   npc: { rim: 0xfff0d0, k: .8, sat: 1.15, tint: [1.12, 1.1, 1.05], ring: 0 },
 };
@@ -79,14 +79,21 @@ const teamOf = e => (e.team === 'enemy' ? (e.d && e.d.heavy ? 'elite' : 'enemy')
 function patchEnt(e) { const tk = teamOf(e), P = e === G.player ? TEAM.hero : TEAM[tk]; e._fxT = tk; e._fxN = 0; const seen = new Set();
   const walk = o => { if (o === e.horse || o === e.bar || (e.mark && o === e.mark.g)) return; if (o.isMesh && o.material && !seen.has(o.material)) { seen.add(o.material); if (!o.material.transparent || o.isSkinnedMesh) rimPatch(o.material, P); } for (const c of o.children) walk(c); };
   walk(e.o); e._fxN = seen.size; let hip = null; e.o.traverse(o => { if (!hip && o.isBone && /hips?$|pelvis/i.test(o.name)) hip = o; }); e._fxHip = hip; }
+// fix3: walk-surface height (same rules as engine deckY: flat deck boxes, scenery decks, lane over a river channel = bridge .07)
+function deckH(x, z) { let y = 0; for (const d of G.decks || []) if (x > d.x1 && x < d.x2 && z > d.z1 && z < d.z2 && d.y > y) y = d.y;
+  if (!y && G.scn) { const v = G.scn.deckAt(x, z); if (v !== null && v > y) y = v; }
+  if (!y && G.groundH && (G.groundHT || 0) >= (G.clrT || 0) - 50 && Math.abs(x) < G.W + .5) { let h = 0; try { h = G.groundH(x, z); } catch (er) { } if (h < -.3) y = .07; } return y; }
+// hero ring + attack telegraphs (engine draws them at y .05-.08): lift them to the deck / bridge surface so planks don't hide them
+function tickRings() { const p = G.player; if (p && p.mark && p.mark.g && p.o) { const gy = Math.max(0, (p.o.position.y || 0) - (p.y || 0)); p.mark.g.position.y = gy; }
+  for (const o of G.tele || []) { const g = o.g; if (!g || o.dead) continue; if (o._fy === undefined || Math.abs(g.position.y - o._fy - (o._fd || 0)) > 1e-4) o._fy = g.position.y; o._fd = deckH(g.position.x, g.position.z); g.position.y = o._fy + o._fd; } }
 function tickUnits(t) {
   if (!G || !G.ents) return; unitMeshes(); let n = 0, rn = 0; const sd = G.sunDir, ox = sd ? -sd.x * .16 : 0, oz = sd ? -sd.z * .16 : 0;
   for (const e of G.ents) { if (e.aura && !e.aura.userData.fx) { const am = e.aura.material; e.aura.userData.fx = 1; am.color.set(0x7a140c); am.blending = THREE.NormalBlending; am.opacity = .5; am.needsUpdate = true; e.aura.scale.multiplyScalar(.58); } if (e.gone || !e.o || !e.o.visible || !e.o.parent || e.spawnT > .2) continue;
     if (e._fxT !== teamOf(e) || (e._fxC = (e._fxC || 0) + 1) % 90 === 1) patchEnt(e);
-    if (n >= UN) break; const dk = e.dead ? Math.max(0, 1 - (e.deadT || 0) / 2.4) : 1; const sc = (e.d && e.d.scale) || 1, y = (e.y || 0) + .05;
+    if (n >= UN) break; const dk = e.dead ? Math.max(0, 1 - (e.deadT || 0) / 2.4) : 1; const sc = (e.d && e.d.scale) || 1, gy = e.dead ? deckH(e.x, e.z) : Math.max(0, (e.o.position.y || 0) - (e.y || 0)), y = (e.y || 0) + .05 + gy;   // fix3: foot height on decks/bridges
     const hm = !e.mounted && e._fxHip && e._fxHip.matrixWorld.elements, hx = hm && Math.abs(hm[12] - e.x) < 4 && Math.abs(hm[14] - e.z) < 4 ? hm[12] : e.x, hz = hx !== e.x ? hm[14] : e.z;
-    const R = e.mounted ? 3.3 : 1.5 * sc + .2; _o.position.set(hx + ox, y > .3 ? .05 : y, hz + oz); _o.rotation.set(0, e.mounted ? e.rot : 0, 0); _o.scale.set(R * (e.mounted ? .72 : 1), 1, R * (e.mounted ? 1.25 : 1)).multiplyScalar(.35 + .65 * dk); _o.updateMatrix(); blobs.setMatrixAt(n++, _o.matrix);
-    const P = TEAM[e._fxT]; if (!e.dead && P.ring && !e.aura && e !== G.player && !e.bg && rn < UN) { const el = e._fxT === 'elite', rr = (e.mounted ? 2.0 : .8 * sc + .2) * (el ? 1 + Math.sin(t * 4 + e.x) * .04 : 1); _o.position.set(hx, y > .3 ? .06 : y + .01, hz); _o.rotation.set(0, 0, 0); _o.scale.set(rr, 1, rr); _o.updateMatrix(); rings.setMatrixAt(rn, _o.matrix); rings.setColorAt(rn++, _c.set(P.ring)); } }
+    const R = e.mounted ? 3.3 : 1.5 * sc + .2; _o.position.set(hx + ox, y - gy > .3 ? gy + .05 : y, hz + oz); _o.rotation.set(0, e.mounted ? e.rot : 0, 0); _o.scale.set(R * (e.mounted ? .72 : 1), 1, R * (e.mounted ? 1.25 : 1)).multiplyScalar(.35 + .65 * dk); _o.updateMatrix(); blobs.setMatrixAt(n++, _o.matrix);
+    const P = TEAM[e._fxT]; if (!e.dead && P.ring && !e.aura && e !== G.player && !e.bg && rn < UN) { const el = e._fxT === 'elite', rr = (e.mounted ? 2.0 : .8 * sc + .2) * (el ? 1 + Math.sin(t * 4 + e.x) * .04 : 1); _o.position.set(hx, y - gy > .3 ? gy + .06 : y + .01, hz); _o.rotation.set(0, 0, 0); _o.scale.set(rr, 1, rr); _o.updateMatrix(); rings.setMatrixAt(rn, _o.matrix); rings.setColorAt(rn++, _c.set(P.ring)); } }
   blobs.count = n; rings.count = rn; blobs.instanceMatrix.needsUpdate = true; rings.instanceMatrix.needsUpdate = true; if (rings.instanceColor) rings.instanceColor.needsUpdate = true;
 }
 
@@ -338,6 +345,23 @@ function plankBoxG(w, h, d) { const L = [], thin = Math.min(w, d) < .5 && h > 1.
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) { const c = bbox(.07, h + .01, .07, .01); colF(c, () => IR); L.push(xf(c, sx * (w / 2 - .02), 0, sz * (d / 2 - .02))); }
     for (const sx of [-.3, .3]) { const b = bbox(.06, h + .02, d + .03, .01); colF(b, () => DK); L.push(xf(b, sx * w, 0, 0)); } const lk = bbox(.12, .14, .04, .01); colF(lk, () => hx(0xb08a3a)); L.push(xf(lk, 0, h * .2, d / 2 + .02)); }
   return merge(L); }
+// ---------- fix3 (author playtest 2-3 / 1-3): relief fix-ups for primitives that missions drop on flat ground ----------
+// a) flattened untextured sphere used as a dune / mound (2-3 ridge) rendered as a huge flat beige ellipse with props floating on it
+//    -> real terrain mound (scenery G.scn.reshape), sphere hidden, props on it re-seated;
+// b) a long thin wooden deck lying on flat ground (1-3 "narrow bridge") -> river with banks + piles under it (G.scn.bridgeGap).
+function scanShapes() { const sc = G.scn; if (!sc || !G.player) return; let ents = null, edit = false;
+  for (const o of world.children) { if (o.userData.fxR) continue; o.userData.fxR = 1; if (!o.isMesh || !o.geometry || !o.visible) continue; const gp = o.geometry.parameters || {}, m = o.material;
+    if (o.geometry.type === 'SphereGeometry' && m && m.isMeshStandardMaterial && !m.map && o.scale.x > 1.5 && o.scale.y < Math.min(o.scale.x, o.scale.z) * .7) {
+      ents = ents || new Set((G.ents || []).map(e => e.o)); const px = o.position.x, pz = o.position.z, sx = o.scale.x * (gp.radius || 1), sz = o.scale.z * (gp.radius || 1), top = o.position.y + o.scale.y * (gp.radius || 1);
+      const mh = (x, z) => { const r = Math.hypot((x - px) / sx, (z - pz) / sz); return top * (1 - THREE.MathUtils.smoothstep(r, .45, 1.32)); };
+      if (sc.reshape((x, z, h) => h + mh(x, z), { x1: px - sx * 1.35, x2: px + sx * 1.35, z1: pz - sz * 1.35, z2: pz + sz * 1.35 })) { o.visible = false; edit = true;
+        for (const k of world.children) { if (k === o || ents.has(k) || k.userData.terr) continue; const d = mh(k.position.x, k.position.z); if (d > .02 && k.position.y < d) k.position.y += d; } }
+      continue; }
+    if (o.geometry.type === 'BoxGeometry' && gp.depth >= 12 && gp.width <= 9 && gp.height <= .5 && Math.abs(o.position.y) < .4 && Math.abs(o.position.x) < 2 && Math.abs(o.rotation.y) < .01 && m && m.color) {
+      const hs = {}; m.color.getHSL(hs); if (hs.h > .14 || hs.s < .15 || sc.deckAt(o.position.x, o.position.z) !== null) continue;
+      if (sc.bridgeGap({ z1: o.position.z - gp.depth / 2, z2: o.position.z + gp.depth / 2, deckW: gp.width, deckY: o.position.y - gp.height / 2, deckTop: o.position.y + gp.height / 2, deck: o })) edit = true; } }
+  if (edit && GD && GD.g.parent) GD.g.parent.remove(GD.g);   // ground detail is rebuilt on the new relief
+}
 function scanBoxes() { world.traverse(o => { if (!o.isMesh || o.userData.fxS) return; o.userData.fxS = 1; const g = o.geometry, m = o.material; if (!g || g.type !== 'BoxGeometry' || !m || !m.isMeshStandardMaterial || m.map || m.transparent) return; const hs = {}; m.color.getHSL(hs); if (hs.h > .13 || hs.s < .2) return;
     const P = g.parameters; if (!P || P.width * P.height * P.depth > 30) return; try { o.geometry = plankBoxG(P.width, P.height, P.depth); const wv = woodV(); m.map = wv.map || null; m.normalMap = wv.normalMap || null; m.roughnessMap = wv.roughnessMap || null; m.vertexColors = true; m.color.set(0xd8c0a0); if (m.userData.c0) m.userData.c0.set(0xd8c0a0); m.needsUpdate = true; } catch (e) { console.warn('fx box', e); } }); }
 
@@ -501,7 +525,7 @@ function tickMood() { const f = scene.fog; if (!f || f === lastFog) return; last
 // ---------- per-frame driver (scene.onBeforeRender: runs after the engine's update, before the draw) ----------
 let lastT = 0, inst = false, err = 0;
 function tick() { const now = performance.now() / 1000, dt = Math.min(.05, now - lastT); if (dt < .002) return; lastT = now; U.t.value = now % 3600;
-  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); tickMood(); if (G.player) { outlineHero(G.player); renderer.getDrawingBufferSize(UO.res.value); UO.w.value = Math.max(1.4, UO.res.value.y / 300); } if (now - scanT > 1.5) { scanT = now; scanBoxes(); if (scanBurnt()) scanT = now - 1.3; scanEnv(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
+  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickRings(); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); tickMood(); if (G.player) { outlineHero(G.player); renderer.getDrawingBufferSize(UO.res.value); UO.w.value = Math.max(1.4, UO.res.value.y / 300); } if (now - scanT > 1.5) { scanT = now; scanShapes(); scanBoxes(); if (scanBurnt()) scanT = now - 1.3; scanEnv(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
 const _v2 = new THREE.Vector2();
 // the engine's hero point light (22 cd, 9 m) is tuned for night; in daylight it doubles the sun on the ground around the hero and the
 // bloom turns the lane white — keep it as a soft fill by day (no engine edit: found once in the scene graph)

@@ -19,10 +19,12 @@ function tone(f0,f1,dur,peak,type,out,t0){ if(!ac) return; const t=t0||ac.curren
 function ring(freqs,dur,peak,t0){ if(!ac) return; const t=t0||ac.currentTime; freqs.forEach((f,i)=>{ const o=ac.createOscillator(); o.type='sine'; o.frequency.value=f*(1+Math.random()*.01); const g=ac.createGain(); env(g,t,0.002,dur*(1-i*.12),peak/(i+1.5)); o.connect(g); g.connect(sfxG); o.start(t); o.stop(t+dur+.05); }); }
 function sweep(dur,f0,f1,q,peak,type,t0){ const f=noise(dur,f0,q,peak,type||'bandpass',null,t0); if(f) f.frequency.exponentialRampToValueAtTime(f1,(t0||ac.currentTime)+dur*.9); }
 function thump(peak,t0){ noise(0.12,140,0.9,peak,'lowpass',null,t0); }
+const _sw=[], _ht=[], _bg=[]; function lim(L,n,win){ const t=ac.currentTime; while(L.length&&t-L[0]>win) L.shift(); if(L.length>=n) return false; L.push(t); return true; }
 export const Sfx={
-  swing(){ if(!ac) return; sweep(0.17,700,3800,1.4,0.3); sweep(0.12,2500,6000,2,0.12,'bandpass',ac.currentTime+.03); },
-  hit(){ if(!ac) return; noise(0.05,3200,0.8,0.55,'highpass'); thump(0.7); ring([2100+Math.random()*500,3400,5200],0.22,0.16); },
-  big(){ if(!ac) return; noise(0.5,180,0.6,1.0,'lowpass'); noise(0.25,900,0.7,0.35,'bandpass'); sweep(0.6,2400,300,0.6,0.18,'bandpass',ac.currentTime+.05); },
+  // sword sounds ~11-13 dB quieter than before, random pitch, max 2 at once; v = distance factor for other units' fights (engine sv())
+  swing(v=1){ if(!ac||v<.04||!lim(_sw,2,.09)) return; const p=.86+Math.random()*.28; sweep(0.17,700*p,3800*p,1.4,0.085*v); sweep(0.12,2500*p,6000*p,2,0.03*v,'bandpass',ac.currentTime+.03); },
+  hit(v=1){ if(!ac||v<.04||!lim(_ht,2,.1)) return; const p=.86+Math.random()*.28; noise(0.05,3000*p,0.8,0.15*v,'highpass'); thump(0.24*v); ring([(1900+Math.random()*400)*p,3100*p,4600*p],0.13,0.035*v); },
+  big(){ if(!ac||!lim(_bg,2,.15)) return; noise(0.5,180,0.6,0.7,'lowpass'); noise(0.25,900,0.7,0.2,'bandpass'); sweep(0.6,2400,300,0.6,0.1,'bandpass',ac.currentTime+.05); },
   hurt(){ if(!ac) return; thump(0.8); noise(0.07,1500,1,0.35,'bandpass'); },
   arrow(){ if(!ac) return; sweep(0.2,3200,1100,4,0.25); noise(0.03,5000,1,0.2,'highpass'); },
   orb(){ if(!ac) return; sweep(0.4,500,2200,3,0.22); ring([620,930],0.35,0.1); },
