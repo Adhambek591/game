@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795211861';
-import { t, lang, L } from './i18n.js?v=1795211861';
-import { Sfx } from './audio.js?v=1795211861';
-import { MLIST } from './missions.js?v=1795211861';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795212043';
+import { t, lang, L } from './i18n.js?v=1795212043';
+import { Sfx } from './audio.js?v=1795212043';
+import { MLIST } from './missions.js?v=1795212043';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -62,6 +62,12 @@ const TX = {
   o_helm: ['Altın dubılǵanı shınjır menen julıp alıń — Surtaysha qasında ⚔ basıń', 'Tilla dubulg\'ani zanjir bilan yulib oling — Surtaysha yonida ⚔ ni bosing', 'Сорвите золотой шлем цепью — жмите ⚔ рядом с Суртайшой', 'Tear off the golden helmet with the chain — press ⚔ near Surtaysha'],
   o_totem: ['Qanlı totemlerdi buzıń — totem qasında ⚔ basıń', 'Qonli totemlarni buzing — totem yonida ⚔ ni bosing', 'Разбейте кровавые тотемы — жмите ⚔ у тотема', 'Smash the blood totems — press ⚔ next to a totem'],
   v3h_phal: ['Nayzagerlerdi aldınan buzıp bolmaydı — qaptalınan urıń yamasa ⚔ basıp turıp aylanıp soǵıń', 'Nayzachilarni old tomondan yorib bo\'lmaydi — yonidan uring yoki ⚔ ni bosib turib aylanib uring', 'Копейщиков не пробить в лоб — бейте с фланга или держите ⚔ для удара с разворота', 'Spearmen can\'t be broken from the front — strike their flank or hold ⚔ for the spinning strike'],
+  n_bash: ['Qalqan soqqısı', 'Qalqon zarbasi', 'Удар щитом', 'Shield Bash'],
+  n_cry: ['Uran', 'Jang chaqirig\'i', 'Боевой клич', 'War Cry'],
+  n_thrust: ['Nayza soqqısı', 'Nayza zarbasi', 'Удар копьём', 'Spear Thrust'],
+  n_sweep: ['Nayza aylanbası', 'Nayza aylanmasi', 'Круговой удар', 'Spear Sweep'],
+  n_javelin: ['Nayza ılaqtırıw', 'Nayza otish', 'Бросок копья', 'Javelin'],
+  n_cleave: ['Awır soqqı', 'Og\'ir zarba', 'Тяжёлый удар', 'Heavy Cleave'],
   w4_loading: ['Júklenip atır…', 'Yuklanmoqda…', 'Загрузка…', 'Loading…'],
   w4_n_siege: ['Qashal qamalı', 'Qashal qamali', 'Осада Кашала', 'Siege of Qashal'],
   w4o_siege: ['Qorǵandı qamań: diywaldaǵı sadaqshılardı atıń, dárwaza buzılǵan soń eki noqattı iyeleń', 'Qo\'rg\'onni qamal qiling: devordagi kamonchilarni oting, darvoza buzilgach ikki nuqtani egallang', 'Осадите крепость: сбейте лучников со стены, после пролома ворот захватите две точки', 'Besiege the fortress: shoot the archers off the wall, then take two points once the gate is breached'],
@@ -219,7 +225,7 @@ function threat(p) { let best = null, bd = 1e9;
 // bench #12 boss rules: three parries / dodges timed into the boss's wind-ups stagger him for 2.4 s (an opening); at 6 % HP he reels and the next hit is the finisher
 function bossEvade(p) { const b = G.boss; if (!b || b.dead || b.team !== 'enemy' || b.yield || G.time < (b.w4evT || 0)) return; const wind = b.state === 'windup' || (b.km && b.km.ph === 0); if (!wind || hyp(b.x - p.x, b.z - p.z) - (b.r || 1) > 7) return;
   b.w4evT = G.time + .9; b.w4ev = (b.w4ev || 0) + 1; if (b.w4ev < 3) { num(b, b.w4ev + '/3', 'c'); return; }
-  b.w4ev = 0; b.w4evT = G.time + 4; setTimeout(() => { try { if (b.dead || G.boss !== b) return; openBoss(b, 6); b.state = 'chase'; b.tm = 0; try { b.clearTele(); } catch (e) { } b.km = null; b.stagger = 2.4; b.play('Hit_A', { once: true, force: true }); num(b, '💫 ' + tt('w4_stag'), 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.6, 0xffd050); G.slow = Math.max(G.slow || 0, .25); G.stats.w4stag = (G.stats.w4stag || 0) + 1; } catch (e) { } }, 420); }
+  b.w4ev = 0; b.w4evT = G.time + 12; setTimeout(() => { try { if (b.dead || G.boss !== b) return; openBoss(b, 6); b.state = 'chase'; b.tm = 0; try { b.clearTele(); } catch (e) { } b.km = null; b.stagger = 2.4; b.play('Hit_A', { once: true, force: true }); num(b, '💫 ' + tt('w4_stag'), 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.6, 0xffd050); G.slow = Math.max(G.slow || 0, .25); G.stats.w4stag = (G.stats.w4stag || 0) + 1; } catch (e) { } }, 420); }
 // finisher: slow-mo + impact through the animation agent's feel system (G.feel.trauma / G.hitStop — no second shake table) + a 0.9 s camera push-in on the boss
 function finisherFx(b) { G.slow = Math.max(G.slow || 0, .9); flash(.35); try { Sfx.big(); Sfx.hit('heavy', { x: b.x, z: b.z }); Sfx.bark && Sfx.bark('maid', 'kill', { x: b.x, z: b.z }); } catch (e) { } try { if (G.feel) G.feel.trauma = Math.max(G.feel.trauma || 0, .85); else G.shake = Math.max(G.shake || 0, .5); G.hitStop = Math.max(G.hitStop || 0, .1); } catch (e) { }
   try { const prev = G.camFn, t0 = performance.now(), tx = b.x, tz = b.z, ty = (b.h || 2) * .6; G.camFn = (cam, dt) => { if (prev) { try { prev(cam, dt); } catch (e) { } } const u = (performance.now() - t0) / 900; if (u >= 1) { G.camFn = prev || null; return; } const k = Math.sin(Math.min(1, u) * Math.PI) * .32; cam.position.x += (tx - cam.position.x) * k; cam.position.z += (tz - cam.position.z) * k; cam.position.y += (ty + 3 - cam.position.y) * k * .6; cam.lookAt(tx, ty, tz); }; } catch (e) { } }
@@ -333,7 +339,11 @@ function entTick() { const M = G.mis; if (!M) return; const c = M.c || 0, tut = 
   for (const e of G.ents) { if (e.w4s || e.dead) continue; e.w4s = 1;
     if (e.team === 'enemy' && !tut && c > 0 && !e.prop && e.maxHp < 1e6) { const df = defi(c), hk = foeHpK(c) * (1 + .10 * df); e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.round(e.hp * hk); e.dmgMul = (e.dmgMul || 1) * foeDmK(c) * Math.min(2.6, 1 + .22 * df); }
     else if (e.team === 'ally' && e !== P() && (e.type === 'qiz') && !tut) { e.maxHp = Math.round(e.maxHp * armorK()); e.hp = Math.round(e.hp * armorK()); } }
-  { const b = G.boss; if (b && !b.dead && !b.w4b && c > 0 && b.team === 'enemy' && b.d && b.d.heavy && !/^(0-2|2-2|7-4)$/.test(M.id || '')) { b.w4b = 1; b.d = { ...b.d, cd: (b.d.cd || 2) * .7, windup: (b.d.windup || 1) * .9 }; if (!b.weak && !b.weakHint) { b.maxHp = Math.round(b.maxHp * 1.6); b.hp = Math.round(b.hp * 1.6); } } }
+  { const b = G.boss; if (b && !b.dead && !b.w4b && c > 0 && b.team === 'enemy' && b.d && b.d.heavy && !/^(0-2|2-2|7-4)$/.test(M.id || '')) { b.w4b = 1; b.d = { ...b.d, cd: (b.d.cd || 2) * .7, windup: (b.d.windup || 1) * .9 }; b.dmgMul = (b.dmgMul || 1) * 1.3; if (!b.weak && !b.weakHint) { b.maxHp = Math.round(b.maxHp * 1.6); b.hp = Math.round(b.hp * 1.6); } }
+    // QA pass 2: champions (duel) and captains are not stun-locked by ⚔ spam — elite hyper-armour (flinch only with broken poise), a poise bar, more HP (25–40 s fights)
+    const caps = (M.hunt || []).slice(); if (b && !b.dead && b.team === 'enemy' && b.d && !b.d.heavy && !/^(0-0|2-2)$/.test(M.id || '')) caps.push(b);
+    for (const h of caps) if (h && !h.dead && !h.w4cap && h.team === 'enemy' && !tut) { h.w4cap = 1; const k = h === b ? 2.6 : 1.5; h.maxHp = Math.round(h.maxHp * k); h.hp = Math.round(h.hp * k); h.d = { ...h.d, elite: true }; const pm = Math.max(h.poiseMax || 0, clamp(h.maxHp * .22, 160, 900)); h.poiseMax = pm; h.poise = pm; h.dmgMul = (h.dmgMul || 1) * 1.15; }
+    for (const e of G.ents) if (!e.w4h && e.rig && e.rig.proc === 'wolf') { e.w4h = 1; e.h = 1.5 * (e.d.vsK || 1); } }   /* quadruped wolf: HP bar height */
   for (const h of M.hunt || []) if (!h.w4p && !h.dead) { h.w4p = 1; const pm = (h.poiseMax || 80) * (1 + .2 * c); h.poiseMax = pm; h.poise = pm; }
   for (const e of RUN.bodies) if (e.dead && !e.w4dead) { e.w4dead = 1; RUN.lost += RUN.rep; } }
 // mission end (META hook): rescued warriors join, fallen ones are lost; a chapter boss pays the reward that opens the next cap

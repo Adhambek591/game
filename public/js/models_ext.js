@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795211861';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795212043';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);
@@ -290,7 +290,7 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   else if (d.name === 'w4_cav') lk = ['fur', [0, 2, 1][n % 3], { cloth: [0x7a1a14, 0x1e2a44, 0x3a3a1a][n % 3], fur: 0x2e2218, flaps: true }];
   if (ty === 'archer' && lk[0] !== 'fur') lk = ['fur', lk[1], { cloth: [0x4a3a22, 0x6a1a12, 0x22283a][n % 3], fur: 0x3a2a1c }];
   if (cap) lk = ['cone', 3, { gold: true, plume: 0xb01a10 }];
-  if (src && lk[1] >= 0) { const L = VARTEX[base]; varMap(L[Math.min(lk[1], L.length - 1)], src.material.map, src.material); }
+  if (src && lk[1] >= 0 && !(rig && rig.proc === 'wolf')) { const L = VARTEX[base];   /* wave4 (models agent idle): no wolf-man atlas on the quadruped R_bori4 */ varMap(L[Math.min(lk[1], L.length - 1)], src.material.map, src.material); }
   rig.body.scale.multiplyScalar(cap ? 1.06 : [1, .95, 1.04, .98][n % 4]);
   const f = headFit(rig, e.o || rig.root); if (!f) return;
   const qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f.side, f.up, f.fwd));

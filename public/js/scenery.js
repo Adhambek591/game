@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795211861';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795211861';
-import * as FX from './fx.js?v=1795211861';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795212043';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795212043';
+import * as FX from './fx.js?v=1795212043';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };
@@ -194,24 +194,24 @@ function seaMat(sdGLSL) {
         { vec4 w0 = modelMatrix * vec4(position, 1.); float s0 = SD(w0.xz); float am = smoothstep(-1., 8., s0);
           float h = WV(w0.xz, uT) * am + .08 * sin(s0 * 1.4 - uT * 1.6) * smoothstep(-.6, 1.4, s0) * (1. - smoothstep(3., 9., s0));
           transformed.y += h; vSd = s0; vH = h; vWp = w0.xyz + vec3(0., h, 0.); }`);
-    sh.fragmentShader = head + sh.fragmentShader
+    sh.fragmentShader = head + `float SD(vec2 p){ ${sdGLSL} }\n` + sh.fragmentShader
       .replace('vec4 diffuseColor = vec4( diffuse, opacity );', `
-        float dep = smoothstep(0., 14., vSd);
-        vec3 wc = mix(vec3(.16, .6, .62), vec3(.03, .2, .36), dep);
-        wc = mix(wc, vec3(.36, .44, .36), (1. - smoothstep(-.8, 1.4, vSd)) * .35);
+        float sdF = SD(vWp.xz); float dep = smoothstep(1., 16., sdF);
+        vec3 wc = mix(vec3(.24, .7, .7), vec3(.05, .27, .45), dep);
+        wc = mix(wc, vec3(.5, .62, .52), (1. - smoothstep(-.8, 1.4, sdF)) * .4);
         float fn = vno(vWp.xz * 1.1 + vec2(uT * .25, uT * .1)) * .6 + vno(vWp.xz * 3.3 - vec2(uT * .35, 0.)) * .4;
-        float band = sin(vSd * 1.4 - uT * 1.6) * .5 + .5;
-        float sf = (1. - smoothstep(0., 3.8, vSd)) * smoothstep(.4, .72, fn * .75 + band * .5) * .95;
-        float edge = (1. - smoothstep(-.5, .5, vSd)) * (.7 + .3 * band);
-        float cap = smoothstep(.26, .42, vH) * smoothstep(.55, .8, fn) * smoothstep(6., 16., vSd);
+        float band = sin(sdF * 1.4 - uT * 1.6) * .5 + .5;
+        float sf = (1. - smoothstep(0., 3.8, sdF)) * smoothstep(.4, .72, fn * .75 + band * .5) * .95;
+        float edge = (1. - smoothstep(-.5, .5, sdF)) * (.7 + .3 * band);
+        float cap = smoothstep(.26, .42, vH) * smoothstep(.55, .8, fn) * smoothstep(6., 16., sdF);
         float foam = clamp(max(max(sf, edge * .9), cap * .8), 0., 1.);
-        vec4 diffuseColor = vec4(mix(wc, vec3(.94, .96, .93), foam), clamp(mix(.66, .96, smoothstep(-.8, 4., vSd)) + foam * .4, 0., 1.));`)
+        vec4 diffuseColor = vec4(mix(wc, vec3(.94, .96, .93), foam), clamp(mix(.8, .97, smoothstep(-.8, 3., sdF)) + foam * .4, 0., 1.));`)
       .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(roughness, .8, foam);')
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         { vec2 q = vWp.xz; float a1 = q.x * 1.7 + uT * 1.9 + sin(q.y * .9), a2 = q.y * 2.1 - uT * 1.5 + sin(q.x * 1.1), a3 = q.x * 3.3 - q.y * 2.7 + uT * 3.1;
           vec3 rn = vec3(cos(a1) * .08 + cos(a3) * .045, 0., cos(a2) * .08 - cos(a3) * .04) * (1. - foam);
           normal = normalize(normal + (viewMatrix * vec4(rn, 0.)).xyz); }`); };
-  m.customProgramCacheKey = () => 'sea2' + sdGLSL; return m;
+  m.customProgramCacheKey = () => 'sea3' + sdGLSL; return m;
 }
 function riverMat() { if (mcache.river) return mcache.river;
   const m = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .44, metalness: 0, transparent: true, envMapIntensity: .15 });

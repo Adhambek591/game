@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795211861';
-import { t } from './i18n.js?v=1795211861';
-import { Sfx, setMusic } from './audio.js?v=1795211861';
-import { applyLight, LIGHTS, place } from './env.js?v=1795211861';
-import { makeHorse } from './horse.js?v=1795211861';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795212043';
+import { t } from './i18n.js?v=1795212043';
+import { Sfx, setMusic } from './audio.js?v=1795212043';
+import { applyLight, LIGHTS, place } from './env.js?v=1795212043';
+import { makeHorse } from './horse.js?v=1795212043';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -59,7 +59,7 @@ export function runMission(id) {
   return (id === '0-0' ? Promise.resolve() : w4Ensure()).then(() => RUN[id]());
 }
 // bench #1 lazy load: characters that the title and the tutorial do not need are fetched before the first other mission, with a progress line (sizes in KB)
-const W4DEF = { allayar: 1069, surtaysha: 1075, wolf: 593, mother: 568, archer: 616, mage: 622 }; let w4EnsP = null;
+const W4DEF = { allayar: 1069, surtaysha: 1075, wolf: 593, wolfman: 593, mother: 568, archer: 616, mage: 622 }; let w4EnsP = null;
 function w4Ensure() { if (w4EnsP) return w4EnsP; const ks = Object.keys(W4DEF).filter(k => !(A.real && A.real[k])); if (!ks.length || !A.real) return (w4EnsP = Promise.resolve());
   const tot = ks.reduce((q, k) => q + W4DEF[k], 0) / 1024; let got = 0; const el = document.createElement('div'); el.id = 'w4load'; el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;padding:10px 18px;border-radius:12px;background:rgba(12,14,34,.92);border:1px solid rgba(255,210,120,.6);color:#ffe7b8;font:700 14px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el);
   const show = () => { el.textContent = t('w4_loading') + ' ' + got.toFixed(1) + ' / ' + tot.toFixed(1) + ' MB'; }; show();
@@ -245,8 +245,8 @@ function wdTick(tm) { const dt = Math.min(.2, tm - wdL); wdL = tm; const M = G.m
     const post = e.custom === sleepAI && e.hz0 !== undefined && hyp(e.x - e.hx, e.z - e.hz0) < 5, far = (G.limitZ > -1e8 && e.z < G.limitZ + .4) || Math.abs(e.x) > G.W + .9;
     if (!far || post || (e.asleep && e.custom && e.custom !== sleepAI && !(Math.abs(e.x) > G.W + .9))) { e.wdT = 0; continue; }
     if (!e.wdT) { e.wdX = e.x; e.wdZ = e.z; } e.wdT = (e.wdT || 0) + dt; if (e.wdT < 8) continue; e.wdT = 0; if (hyp(e.x - e.wdX, e.z - e.wdZ) > 1.5 && e.custom) continue;   /* a scripted unit still travelling (boat landing, flanker walking in) is left alone */
-    const back = Math.min(11, P.z + 17); e.x = Math.max(-G.W + 2, Math.min(G.W - 2, e.x)); e.z = (back - P.z > 12) ? back : Math.max(G.limitZ > -1e8 ? G.limitZ + 1.6 : -1e9, e.z, P.z - 22);
-    if (G.limitZ > -1e8 && e.z < G.limitZ + 1.6) e.z = G.limitZ + 1.6; if (e.custom) e.custom = null; e.asleep = false; e.farT = 0; e.state = 'chase'; e.y = 0; e.o.visible = true; console.warn('[watchdog] enemy brought back', e.type); } }
+    // QA pass 2: bring him back just off-screen AHEAD of her (17–23 m up the road, never beyond the closed gate); only if the gate is closer than 15 m he comes from behind the camera
+    const lim = G.limitZ > -1e8 ? G.limitZ + 1.6 : -1e9, ahead = P.z - 17 - Math.random() * 6; e.x = Math.max(-G.W + 2, Math.min(G.W - 2, e.x)); e.z = ahead >= lim ? ahead : (P.z - lim >= 15 ? lim : Math.min(11, P.z + 16)); (M.wdN = (M.wdN || 0) + 1); if (e.custom) e.custom = null; e.asleep = false; e.farT = 0; e.state = 'chase'; e.y = 0; e.o.visible = true; console.warn('[watchdog] #' + M.wdN + ' ' + M.id + ' ' + e.type + ' -> ' + e.x.toFixed(0) + ',' + e.z.toFixed(0) + ' hero ' + P.z.toFixed(0) + ' gate ' + (G.limitZ > -1e8 ? G.limitZ : '-')); } }
 (function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; wdTick(tm); dirTick(); secTick(tm); cullTick(); needTick(tm); huntTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
 
 // safe practice moment (onboarding): a harmless telegraphed circle to dodge out of
@@ -308,7 +308,7 @@ async function duel(o) {
       if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
     for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
   await until(() => e.dead || e.yield || G.mis.force);
-  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null;
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { $('obj').textContent = t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays as the objective */
   if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
   const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
   Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));
@@ -1114,7 +1114,7 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795211861';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795212043';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
@@ -1124,7 +1124,7 @@ const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7:
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
 function w4Scene(k, c, CZ) {
   const W = G.W;
-  if (k === 'yurt') { for (const [x, z] of [[-8.4, CZ + 3], [8.6, CZ - 1], [-8.6, CZ - 12], [8.8, CZ - 14], [-8.8, CZ - 25], [9, CZ - 26]]) w4Yurt(x, z, false, true);
+  if (k === 'yurt') { for (const [x, z] of [[-12.6, CZ + 3], [12.8, CZ - 1], [-8.6, CZ - 12],   /* QA: the two front yurts stand outside the lane now — a roof next to the camera covered the lower-right play area */ [8.8, CZ - 14], [-8.8, CZ - 25], [9, CZ - 26]]) w4Yurt(x, z, false, true);
     for (const s of [-1, 1]) { if (!w4mx('tug', s * 4.6, CZ + 7)) { try { w4Banner(s * 4.6, CZ + 7, 0x1a1a1a); } catch (e) { } } w4mx('mantlet', s * 2.6, CZ + 8.2, 0); } decor('R_arava', -9.4, CZ - 5, .6); w4Crate(5.5, CZ + 5); w4Crate(-5, CZ - 15);
     if (w4mx('tent', -6.4, CZ - 19, .3)) G.colC.push({ x: -6.4, z: CZ - 19, r: 1.6 }); if (w4mx('tent', 6.6, CZ - 20, -.3)) G.colC.push({ x: 6.6, z: CZ - 20, r: 1.6 }); w4mx('weaponRack', 6.2, CZ - 7, -1.2); w4mx('weaponRack', -6.4, CZ + 1, 1.2); w4mx('arrowBasket', 5.2, CZ - 9.5, 0); w4mx('campfire', 0, CZ - 4, 0); }
   else if (k === 'tower') { w4Wall(-W - 3, -3.4, CZ + 6, 2.4, .8); w4Wall(3.4, W + 3, CZ + 6, 2.4, .8); for (const s of [-1, 1]) { try { w4Banner(s * 3.9, CZ + 6.4, 0x1a1a1a); } catch (e) { } }
@@ -1133,7 +1133,7 @@ function w4Scene(k, c, CZ) {
     w4Yurt(-8.6, CZ - 8, false, true); w4Yurt(8.8, CZ - 13, false, true); w4Yurt(-8.8, CZ - 22, false, true); decor('R_arava', 9.4, CZ - 2, 2.4);
     w4mx('fordStones', 0, CZ + 9, 0, 9); w4mx('fordStakes', -3.6, CZ + 9, Math.PI / 2, 8); w4mx('reeds', -9.5, CZ + 11.5, 0, 7); w4mx('reeds', 9.8, CZ + 6.6, 0, 6); w4mx('boat', 9.2, CZ + 10.5, .5); w4mx('tug', -4.5, CZ - 3, 0); w4mx('weaponRack', 5, CZ - 9, -1.2); w4mx('campfire', 0, CZ - 12, 0); }
 }
-async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62, REP = 3, B = Math.ceil(N / REP);
+async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62, REP = 2, B = Math.ceil(N / REP);   // QA pass 2: one body = 2 soldiers (60 soldiers were gone in a minute), three real waves with a pause
   const mood = H.moods[W4MOOD[c]] || H.moods.DAY, build = c === 1 ? H.buildMission : H.B[c];
   const p = await gu(c, mood, () => { build(); w4Scene(k, c, CZ); }, [], 3, c - 1, 5); G.curCh = c - 1; if (m.keep) { try { window.__W4.RUN.m = null; } catch (e) { } }   /* 7-1: our host joins now, on foot (it was skipped while she was mounted) */
   const pool = w4Pool(c), pick = i => { const q = pool[i % pool.length]; return q === 'manj' ? 'askar' : q; };
@@ -1145,16 +1145,21 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
   const capt = leader(gC, 0, CZ - 11, 'mb_cap'); capt.maxHp = capt.hp = Math.round(capt.maxHp * (1.2 + .1 * c));
   if (c >= 4) for (const e of gA.es.slice(0, 2)) if (window.__W4) window.__W4.cavalry(e);
   if (c >= 5 && window.__W4) for (const x of [-5.5, 5.5].slice(0, c >= 6 ? 2 : 1)) { const cat = window.__W4.catapult(x, CZ - 17); cat.grp = gC; cat.next = cat.custom; cat.custom = sleepAI; cat.pose = 'g'; cat.hx = cat.x; cat.hz0 = cat.z; cat.seed = 1; cat.rot = cat.rot0 = 0; cat.farT = -1e9; gC.es.push(cat); }
-  const all = [...gA.es, ...gB.es, ...gC.es]; let reserve = Math.max(0, B - all.length), waveT = 0, told = false; const R0 = reserve, wv = () => reserve >= R0 && R0 > 0 ? 1 : reserve > R0 / 2 ? 2 : 3; let wLast = 1;
+  const all = [...gA.es, ...gB.es, ...gC.es]; let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
+  const full = ['askar', 'qalqan', 'archer', 'qilich', 'nayza'], wpool = w => { const q = pool.filter(x => x !== 'manj' && x !== 'cav'); for (const x of full.slice(0, Math.min(full.length, c + w))) if (!q.includes(x)) q.push(x); return q; }, upN = () => all.filter(e => !e.dead && e !== capt && !e.w4cat).length;
   const exits = k === 'tower' ? [[-2, CZ - 23], [2, CZ - 23], [0, CZ - 25]] : k === 'ford' ? [[-3.5, CZ - 24], [3.5, CZ - 24], [0, CZ - 26]] : [[-3, CZ - 26], [3, CZ - 27], [0, CZ - 28]];
   live(); setMusic('calm'); if (!m.keep) await ban(3); mstart(); H.objective('w4o_camp'); G.mis.camp = { N, B };
   const left = () => Math.round((all.filter(e => !e.dead).length + reserve) * N / B);
   G.mis.aim = () => { const a = aimOf(all)(); return a; }; G.mis.need = all;
   let lp = ''; G.tick = dt => { const awake = [gA, gB, gC].some(g => g.awake);
-    if (awake && reserve > 0) { waveT -= dt; const up = all.filter(e => !e.dead).length; if (up < 14 && waveT <= 0) { waveT = 6; const n = Math.min(5, reserve); reserve -= n;
-        for (let i = 0; i < n; i++) { const [x, z] = exits[i % exits.length]; const e = sp(TY(pick(i + reserve)), x + rnd(-1, 1), z + rnd(-1, 1)); e.state = 'chase'; e.farT = 0; e.rot = 0; all.push(e); }
-        if (!told) { told = true; hintRaw('⛺ ' + t('w4_camp_out')); } try { Sfx.horn(); } catch (er) { } } }
-    const wn = wv(); if (wn !== wLast) { wLast = wn; hintRaw('⛺ ' + t('w4_wave', { n: wn, m: 3 })); try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } } const s = '⛺ ' + t(m.n) + ' — ' + t('w4_wave', { n: wn, m: 3 }) + ' · ' + t('w4_hud_camp', { n: left(), m: N }) + (capt.dead ? '' : '   🎯 ' + t('mb_cap')); if (s !== lp) { lp = s; $('obj').textContent = s; } };
+    // wave 1 = the posted camp; when it is nearly beaten: 5 s pause, horn, wave 2 (first half of the reserve, in batches of <= 5 while fewer than 12 are up); the same again for wave 3 with the next unit types
+    if (awake && reserve > 0) { const up = upN(), left = wave === 2 ? reserve - R3 : wave === 3 ? reserve : 0;
+      if (wave === 1 && up <= 3) { wave = 1.5; pause = 5; hintRaw('⛺ ' + t('w4_camp_out')); }
+      else if (wave === 2 && left <= 0 && up <= 3) { wave = 2.5; pause = 5; }
+      else if (wave === 1.5 || wave === 2.5) { pause -= dt; if (pause <= 0) { wave += .5; waveT = 0; } }
+      else if (left > 0) { waveT -= dt; if (up < 12 && waveT <= 0) { waveT = 5; const n = Math.min(5, left), wp = wpool(wave); reserve -= n;
+          for (let i = 0; i < n; i++) { const [x, z] = exits[i % exits.length]; const e = sp(TY(wp[(i + reserve) % wp.length]), x + rnd(-1, 1), z + rnd(-1, 1)); e.state = 'chase'; e.farT = 0; e.rot = 0; all.push(e); } try { Sfx.horn(); } catch (er) { } } } }
+    const wn = wv(); if (wn !== wLast) { wLast = wn; hintRaw('⛺ ' + t('w4_wave', { n: wn, m: 3 })); try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } } const s = '⛺ ' + t('w4_wave', { n: wn, m: 3 }) + ' · ' + t('w4_hud_camp', { n: left(), m: N }) + (capt.dead ? '' : '   🎯 ' + t('mb_cap')); if (s !== lp) { lp = s; $('obj').textContent = s; } };
   await until(() => (reserve <= 0 && all.every(e => e.dead)) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die();
   G.tick = null; G.mis.aim = null; G.mis.need = null; setMusic('off'); addGold(60 + 30 * c, G.player.x, G.player.z); if (m.keep) m.keep(); await H.bannerShow('', '⛺ ' + t('w4_camp_win'), '', 1.8); await H.victory(); return win(); }
 for (const m of MLIST) if (m.camp) RUN[m.id] = () => campRun(m);
@@ -1238,9 +1243,9 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795211861';
-import * as tuSCN from './scenery.js?v=1795211861';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795211861';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795212043';
+import * as tuSCN from './scenery.js?v=1795212043';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795212043';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1585,9 +1590,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795211861';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795211861';
-import * as f3SC from './scenery.js?v=1795211861';
+import * as F3X from './fx.js?v=1795212043';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795212043';
+import * as f3SC from './scenery.js?v=1795212043';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1754,7 +1759,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795211861';
+import { runArchery } from './archery.js?v=1795212043';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }

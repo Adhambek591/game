@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795211861';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795211861';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795211861';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795211861';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795211861';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795211861';
-import { t } from './i18n.js?v=1795211861';
-import { Sfx, initAudio } from './audio.js?v=1795211861';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795211861';
-import * as FX from './fx.js?v=1795211861';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795211861';
-import { GlbRig, PROPS } from './glbrig.js?v=1795211861';
-import { makeHorse, horseBase } from './horse.js?v=1795211861';
+import { Rig, TX } from './rig.js?v=1795212043';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795212043';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795212043';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795212043';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795212043';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795212043';
+import { t } from './i18n.js?v=1795212043';
+import { Sfx, initAudio } from './audio.js?v=1795212043';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795212043';
+import * as FX from './fx.js?v=1795212043';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795212043';
+import { GlbRig, PROPS } from './glbrig.js?v=1795212043';
+import { makeHorse, horseBase } from './horse.js?v=1795212043';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -81,7 +81,7 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
   pos.needsUpdate = true; sm.geometry.computeVertexNormals(); }
 const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
 const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'mother', 'archer', 'mage']);
-export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795211861').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795212043').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -89,9 +89,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const realL = Object.entries(REAL).filter(([t]) => !LAZY.has(t)), NT = 2 + PROPN.length + realL.length, BOOT_MB = 7.7; const step = () => { n++; const f = Math.min(1, n / NT); try { window.__LOAD = { mb: +(f * BOOT_MB).toFixed(1), total: BOOT_MB, done: n, files: NT }; } catch (e) { } onp(f); };   // window.__LOAD: the loading line can show "X / Y MB"
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795211861').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795211861').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795211861').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795212043').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795212043').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795212043').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
@@ -190,7 +190,7 @@ export class Ent {
     if (this.brokenT > 0) amt *= 1.5; else if (this.punT > G.time && src === P) { amt *= 1.35; op = { ...op, pz: (op.pz ?? 1) * 2 }; }
     if (me && P.act && P.act.kind === 'atk' && src && src.team === 'enemy') amt *= DK([1, 1.1, 1.3]);
     if (this.team === 'ally' && src && src.team === 'enemy') amt *= (me ? [.42, .65, 1.15] : [.55, 1, 1.5])[SET.diff] ?? 1; if (this.team === 'enemy' && src && src.team === 'ally') amt *= [1.8, 1, .85][SET.diff] ?? 1; amt = Math.round(amt); this.hp -= amt; this.flash = .12;
-    if (this.poiseMax && src && src.team !== this.team && !(this.brokenT > 0)) { this.poise -= amt * (op.pz ?? (op.crit ? 1.5 : 1)) * (blocked ? .5 : 1); this.poiseAt = G.time; if (this.poise <= 0 && this.hp > 0) breakPoise(this); }
+    if (this.poiseMax && src && src.team !== this.team && !(this.brokenT > 0) && G.time > (this.pzImm || 0)) { this.poise -= amt * (op.pz ?? (op.crit ? 1.5 : 1)) * (blocked ? .5 : 1); this.poiseAt = G.time; if (this.poise <= 0 && this.hp > 0) breakPoise(this); }
     if (me) { num(this, '-' + amt, 'p'); Sfx.hurt(); vib(45); G.shake = Math.max(G.shake, clamp(amt / 90, .2, .6)); const v = $('vig'); v.classList.add('hurt'); setTimeout(() => v.classList.remove('hurt'), 180); if (G.noDeath && this.hp < 1) this.hp = 1; }
     else { if (!op.nf || amt >= 5) num(this, op.crit ? amt + '!' : '-' + amt, (op.crit ? 'c' : (this.team === 'ally' ? 'p' : '')) + (src !== P ? ' o' : '')); this.showBar(); }
     // hit sparks coloured by the weapon that landed
@@ -543,12 +543,13 @@ function bossPhase(e, dt) {
       burst(e.x, e.h * .7, e.z, 0xff7a10, 2.5); } }
   return false;
 }
-const BRAIN = { wolf: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
+REAL.wolfman = ['R_bori', null, 0, .95]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman' }; NOFIST.add('wolfman'); LAZY.add('wolfman');   // animation agent: the potion brute stays a wolf-man
+const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
 function ai(e, dt) {
   const d = e.d; if (e.spawnT > 0) { e.spawnT -= dt; e.o.scale.setScalar((e.vs || d.scale || 1) * clamp(1 - e.spawnT / .45, .01, 1)); return; }
   if (e.team === 'npc' || e.air) { if (e.team === 'npc' && CIVT.has(e.type) && !e.duel) civAvoid(e, dt); return; }
   // QA: a closed gate blocks enemies both ways — an awake enemy on the far side neither fights nor shoots (the missions watchdog walks him back in)
-  if (e.team === 'enemy' && G.limitZ > -1e8 && e.z < G.limitZ - .2 && e !== G.boss && !e.custom && (e.farT || 0) > -1e8) { if (e.state !== 'chase') { e.state = 'chase'; e.clearTele(); } e.play('Idle'); return; }
+  if (e.team === 'enemy' && G.limitZ > -1e8 && e.z < G.limitZ - .2 && e !== G.boss && !e.custom && (e.farT || 0) > -1e8) { if (e.state !== 'chase') { e.state = 'chase'; e.clearTele(); } const P_ = G.player, tx_ = P_ ? Math.max(-G.W + 1.5, Math.min(G.W - 1.5, P_.x + (e.x - P_.x) * .5)) : e.x, sp_ = (e.speed || 3.5) * 1.15; e.x += Math.sign(tx_ - e.x) * Math.min(Math.abs(tx_ - e.x), sp_ * .5 * dt); e.z += sp_ * dt; e.rot = 0; e.play('Running_A'); return; }   /* walks in (reinforcements spawned beyond the gate used to stand there until the watchdog moved them) */
   if (e.downT > 0) { e.downT -= dt; if (e.downT <= 0) { e.curName = ''; e.inLoco = false; e.play('Idle_Combat', { force: true }); e.stagger = .2; } return; }
   if (e.stagger > 0) { e.stagger -= dt; return; }
   if (d.heavy && bossPhase(e, dt)) return;
@@ -722,9 +723,9 @@ function drinkPose(e) { const D = e.drink, rig = e.rig, B = rig.B; if (e.dead ||
   if (B.Head && k > .5) { B.Head.rotateX(-.35 * k); } const h2 = B.RightHand.getWorldPosition(_dv()); D.b.position.copy(h2).addScaledVector(F, .04 * e.vs); D.b.rotation.set(0, 0, 0); D.b.rotateOnWorldAxis(Sd, -1.6 * k); D.b.scale.setScalar(1.3 * e.vs / 1.18); }
 function drinkTick(e, dt) { const D = e.drink; D.t += dt; const P = G.player; if (P) e.face(P.x - e.x, P.z - e.z, dt * 4); if (!e.rig.aimBone && !D.anim) { D.anim = 1; e._play('Cheer', { force: true }); D.b.position.set(e.x, e.h * .8, e.z); }
   if (D.t > .45 && Math.random() < .35) burst(e.x + rnd(-.3, .3), e.h * rnd(.7, 1), e.z + rnd(-.3, .3), Math.random() < .6 ? 0x2a7a2a : 0x6a0a14, rnd(.6, 1.1), true);
-  if (D.t >= 1.5) { fxg.remove(D.b); e.rig.post = null; e.drink = null; transformEnt(e, 'wolf', 3.2, 1.3); } return true; }
+  if (D.t >= 1.5) { fxg.remove(D.b); e.rig.post = null; e.drink = null; transformEnt(e, (A.real && A.real.wolfman) ? 'wolfman' : 'wolf', 3.2, 1.3); } return true; }
 export function transformEnt(e, type, hpMul = 1, sMul = 1) { const x = e.x, z = e.z; burst(x, 1.4, z, 0x33ff55, 3.5); burst(x, 1.2, z, 0x550010, 3.2, true); burst(x, .8, z, 0x103010, 4, true); ringFx(x, z, 3, 0x66ff66); sparks(x, 1.4, z, 0x66ff66, 18, 7); G.shake = Math.max(G.shake, .35); Sfx.howl ? Sfx.howl() : Sfx.big();
-  const n = new Ent(type, x, z, e.team); actors.remove(e.o); if (e.rig.dispose) e.rig.dispose(); for (const k of ['d', 'type', 'rig', 'o', 'mats', 'mixer']) e[k] = n[k]; e.vs = n.vs * sMul; e.r = n.r * sMul; e.h = n.h * sMul; e.speed = n.speed; e.maxHp = e.hp = Math.round(n.maxHp * hpMul); e.curName = ''; e.inLoco = false; e.state = 'chase'; e.cd = .9; e.custom = null; e.brute = type === 'wolf' && e.team === 'enemy'; e.stagger = 0; e.spawnT = .45; e.o.scale.setScalar(.01); e.o.position.set(x, 0, z); e.o.rotation.y = e.rot; if (e.bar) { fxg.remove(e.bar); e.bar = null; } relSlot(e); e.poiseMax = 0; e.barPz = null; e.barW = 0; e.tg = null; e.cav = null; if (e.aura) { fxg.remove(e.aura); e.aura = null; } e.play('Idle_Combat'); if (type === 'wolf' && e.team === 'enemy') { plate(e, 'potwolf'); aura(e, 0x44ff66); } else e.showBar(); return e; }
+  const n = new Ent(type, x, z, e.team); actors.remove(e.o); if (e.rig.dispose) e.rig.dispose(); for (const k of ['d', 'type', 'rig', 'o', 'mats', 'mixer']) e[k] = n[k]; e.vs = n.vs * sMul; e.r = n.r * sMul; e.h = n.h * sMul; e.speed = n.speed; e.maxHp = e.hp = Math.round(n.maxHp * hpMul); e.curName = ''; e.inLoco = false; e.state = 'chase'; e.cd = .9; e.custom = null; e.brute = (type === 'wolf' || type === 'wolfman') && e.team === 'enemy'; e.stagger = 0; e.spawnT = .45; e.o.scale.setScalar(.01); e.o.position.set(x, 0, z); e.o.rotation.y = e.rot; if (e.bar) { fxg.remove(e.bar); e.bar = null; } relSlot(e); e.poiseMax = 0; e.barPz = null; e.barW = 0; e.tg = null; e.cav = null; if (e.aura) { fxg.remove(e.aura); e.aura = null; } e.play('Idle_Combat'); if (type === 'wolf' && e.team === 'enemy') { plate(e, 'potwolf'); aura(e, 0x44ff66); } else e.showBar(); return e; }
 
 // ---------- Boss soul flies into Gulayim's triangular amulet ----------
 const soulMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffd060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
@@ -893,7 +894,7 @@ function updatePlayer(p, dt) {
 // ---------- Combat feel: perfect dodge, poise break, elites, heavy attacks, wolf spirit, indicators ----------
 const canCancel = a => !a || a.kind === 'atk' || a.kind === 'block' || (a.kind === 'hvy' && a.hit) || (/^(spin|cast|chain|cleave|sweep|slamP|bash)$/.test(a.kind) && a.t > a.dur * .6);
 function perfectDodge(p, src) { if (G.time < (G.pdT || 0)) return; G.pdT = G.time + 1.2; G.slow = Math.max(G.slow || 0, .45); p.counterT = G.time + 1.8; p.counterTg = src; p.iframe = Math.max(p.iframe, .6); p.dodgeCd = 0; num(p, tx('perfect'), 'c'); ringFx(p.x, p.z, 2.6, 0x9fd8ff); burst(p.x, 1.2, p.z, 0x9fd8ff, 2); Sfx.power(); G.zk = Math.max(G.zk || 0, .12); G.ulti = Math.min(100, G.ulti + 8); vib(20); G.stats.pd = (G.stats.pd || 0) + 1; }
-function breakPoise(e) { w3KitCancel(e); const T0 = e.d.heavy ? 2.4 : 3; e.brokenT = T0; e.stagger = T0; e.poise = 0; e.state = 'chase'; e.clearTele(); if (e.yM) e.y = 0; e.castT = 0; e.castFn = null; e.play('Hit_A', { once: true, force: true, ts: .5 }); num(e, tx('brk'), 'c'); Sfx.big(); G.slow = Math.max(G.slow || 0, .3); G.shake = Math.max(G.shake, .5); G.zk = Math.max(G.zk || 0, .12); ringFx(e.x, e.z, e.r * 3 + 1.5, 0xffe070); sparks(e.x, e.h * .8, e.z, 0xffe070, 22, 8); G.stats.brk = (G.stats.brk || 0) + 1; }
+function breakPoise(e) { w3KitCancel(e); const T0 = e.d.heavy ? 2.4 : 3; e.pzImm = G.time + T0 + ((e.d.heavy || e.hunt || e.lead || e.duel || e === G.boss) ? 14 : 5); e.brokenT = T0; e.stagger = T0; e.poise = 0; e.state = 'chase'; e.clearTele(); if (e.yM) e.y = 0; e.castT = 0; e.castFn = null; e.play('Hit_A', { once: true, force: true, ts: .5 }); num(e, tx('brk'), 'c'); Sfx.big(); G.slow = Math.max(G.slow || 0, .3); G.shake = Math.max(G.shake, .5); G.zk = Math.max(G.zk || 0, .12); ringFx(e.x, e.z, e.r * 3 + 1.5, 0xffe070); sparks(e.x, e.h * .8, e.z, 0xffe070, 22, 8); G.stats.brk = (G.stats.brk || 0) + 1; }
 function plate(e, nameKey) { if (e.bar) fxg.remove(e.bar); let ro = 30; const g = new THREE.Group(), W = 2.0, mk = (c, w, h, y, z, op = 1) => { const m = new THREE.Mesh(barGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthTest: false, depthWrite: false, toneMapped: false, fog: false })); m.scale.set(w, h, 1); m.position.set(0, y, z); m.renderOrder = ro++; g.add(m); return m; };
   mk(0xffc23a, W + .16, .3, 0, 0); mk(0x161010, W + .05, .19, 0, .004); const lag = mk(0xffffff, W, .15, 0, .007), fg = mk(0xff2a1e, W, .15, 0, .01), pzb = mk(0x161010, W + .05, .08, -.25, .004), pz = mk(0xffb020, W, .05, -.25, .01);
   const c = document.createElement('canvas'); c.width = 384; c.height = 48; const x = c.getContext('2d'); x.font = '700 28px Georgia,serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.lineWidth = 6; x.strokeStyle = '#000'; x.strokeText(tx(nameKey), 192, 25); x.fillStyle = '#ffd76a'; x.fillText(tx(nameKey), 192, 25); const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true })); s.scale.set(4.0, .5, 1); s.position.y = .48; s.renderOrder = 40; g.add(s);
@@ -1266,7 +1267,7 @@ function w3Hud(p) { if (!stEl) stEl = $('sbar'); if (stEl) { stEl.firstChild.sty
   for (const id of ['bB', 'bJ']) { const b = $(id); if (b) b.style.display = p.mounted ? 'none' : ''; }
   if (cpEl) { const on = p.counterT > G.time && p.counterTg && !p.counterTg.dead; cpEl.style.display = on ? 'block' : 'none'; if (on && cpEl._k !== document.documentElement.lang) { cpEl._k = document.documentElement.lang; cpEl.textContent = '⚔ ' + tx('counter'); } } }
 addEventListener('keydown', e => { if (e.repeat) return; const c = e.code, p = G.player; if (!p) return;
-  if (c === 'KeyE' || c === 'KeyU') { w3Strong(p); e.preventDefault(); } else if (c === 'KeyQ' || c === 'KeyI') w3Guard(p, true); else if (c === 'KeyF') w3Jump(p); else if (c === 'KeyR') w3Dodge(p, true); else if (c === 'Tab' || c === 'KeyL') { w3Lock(p); e.preventDefault(); } else if (c === 'KeyX') w3Lock(p, true); });
+  if (c === 'KeyQ' || c === 'KeyI') w3Guard(p, true);   /* QA: KeyE / KeyU no longer do a strong strike — E is the amulet (wave4.js), strong = hold ⚔ / J / left mouse */ else if (c === 'KeyF') w3Jump(p); else if (c === 'KeyR') w3Dodge(p, true); else if (c === 'Tab' || c === 'KeyL') { w3Lock(p); e.preventDefault(); } else if (c === 'KeyX') w3Lock(p, true); });
 addEventListener('keyup', e => { if ((e.code === 'KeyQ' || e.code === 'KeyI') && G.player) w3Guard(G.player, false); });
 w3UI();
 G.w3 = { dodge: (r, d) => w3Dodge(G.player, r, d), guard: on => w3Guard(G.player, on), jump: () => w3Jump(G.player), strong: () => w3Strong(G.player), lock: r => w3Lock(G.player, r), kit: (e, k) => kmStart(e, G.player, k), W3K, KM };

@@ -3,11 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795211861';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795211861';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795211861';
-import { makeHorse } from './horse.js?v=1795211861';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795211861';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795212043';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795212043';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795212043';
+import { makeHorse } from './horse.js?v=1795212043';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795212043';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -383,7 +383,7 @@ function tuftTex(thorn) { return canvas(128, 128, (g, w, h) => { g.clearRect(0, 
   if (!thorn) for (let i = 0; i < 46; i++) { const x0 = w / 2 + rnd(-22, 22), a = rnd(-.55, .55), L = rnd(40, 110), dry = Math.random() < .55; g.strokeStyle = dry ? `rgb(${rnd(118, 150) | 0},${rnd(100, 122) | 0},${rnd(66, 84) | 0})` : `rgb(${rnd(84, 108) | 0},${rnd(92, 112) | 0},${rnd(58, 72) | 0})`; g.lineWidth = rnd(1.5, 3); g.beginPath(); g.moveTo(x0, h); g.quadraticCurveTo(x0 + Math.sin(a) * L * .4, h - L * .6, x0 + Math.sin(a) * L * .85, h - L * Math.cos(a * .6)); g.stroke(); }
   else { const br = (x, y, a, L, d) => { if (d > 4 || L < 4) return; const x1 = x + Math.sin(a) * L, y1 = y - Math.cos(a) * L; g.strokeStyle = d < 2 ? '#4a3622' : '#6a5030'; g.lineWidth = 4 - d * .7; g.beginPath(); g.moveTo(x, y); g.lineTo(x1, y1); g.stroke(); if (d > 1) { g.fillStyle = Math.random() < .5 ? '#7a8a3a' : '#5a6a2a'; g.fillRect(x1 - 2, y1 - 2, 4, 4); } br(x1, y1, a - rnd(.3, .7), L * .72, d + 1); br(x1, y1, a + rnd(.3, .7), L * .72, d + 1); };
     for (let i = 0; i < 5; i++) br(w / 2 + rnd(-6, 6), h, rnd(-.9, .9), rnd(22, 34), 0); } }); }
-function gdMat(map) { const m = new THREE.MeshStandardMaterial({ map, alphaTest: .45, side: THREE.DoubleSide, roughness: 1 }); m.onBeforeCompile = sh => { sh.uniforms.uT = U.t; sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n #ifdef USE_INSTANCING\n float ph = instanceMatrix[3].x * .7 + instanceMatrix[3].z * .5; transformed.x += sin(uT * 1.9 + ph) * .07 * position.y; transformed.z += cos(uT * 1.4 + ph) * .04 * position.y;\n #endif'); }; m.customProgramCacheKey = () => 'fxtuft'; return m; }
+function gdMat(map) { const m = new THREE.MeshStandardMaterial({ map, alphaTest: .45, side: THREE.DoubleSide, roughness: 1 }); m.onBeforeCompile = sh => { sh.uniforms.uT = U.t; sh.vertexShader = 'uniform float uT;\n' + sh.vertexShader.replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\n objectNormal = vec3(0., 1., 0.);').replace('#include <begin_vertex>', '#include <begin_vertex>\n #ifdef USE_INSTANCING\n float ph = instanceMatrix[3].x * .7 + instanceMatrix[3].z * .5; transformed.x += sin(uT * 1.9 + ph) * .07 * position.y; transformed.z += cos(uT * 1.4 + ph) * .04 * position.y;\n #endif'); sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>\n normal = normalize(vNormal);'); }; m.customProgramCacheKey = () => 'fxtuft2'; return m; }
 function buildGD() { const P = G.player; if (!P) return; const W = G.W || 11.5, q = Q(), z0 = P.z + 30, z1 = P.z - 330; const hf = G.groundH && (G.groundHT || 0) >= gdClr - 50 ? G.groundH : null, H = (x, z) => { try { return hf ? hf(x, z) : 0; } catch (e) { return 0; } };
   const g = new THREE.Group(); g.userData.fx = 1; const nT = [520, 1350, 2000][q] || 1350, nP = [320, 800, 1200][q] || 800, nD = [40, 90, 120][q] || 90;
   const crossed = merge([xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0), xf(new THREE.PlaneGeometry(1, 1), 0, .5, 0, 0, Math.PI / 2)]);
