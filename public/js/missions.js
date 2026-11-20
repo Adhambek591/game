@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera } from './engine.js?v=1795168917';
-import { t } from './i18n.js?v=1795168917';
-import { Sfx, setMusic } from './audio.js?v=1795168917';
-import { applyLight, LIGHTS, place } from './env.js?v=1795168917';
-import { makeHorse } from './horse.js?v=1795168917';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795179205';
+import { t } from './i18n.js?v=1795179205';
+import { Sfx, setMusic } from './audio.js?v=1795179205';
+import { applyLight, LIGHTS, place } from './env.js?v=1795179205';
+import { makeHorse } from './horse.js?v=1795179205';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -50,7 +50,7 @@ export function ruleLabel(m, r) { if (r === 'win') return t('s_win'); if (r === 
 let H = null;
 const qs = new URLSearchParams(location.search);
 const FAST = () => G.misFast || 1;
-export function initMissions(h) { H = h; window.__MS = { run: runMission, list: MLIST, auto, win: () => G.mis && (G.mis.force = true) }; }
+export function initMissions(h) { H = h; const v0 = h.victory; if (v0 && !v0.rf) { h.victory = async (...a) => { await resFinish(); return v0(...a); }; h.victory.rf = true; } window.__MS = { run: runMission, list: MLIST, auto, win: () => G.mis && (G.mis.force = true) }; }
 export function runMission(id) {
   const i = midx(id), m = MLIST[i]; if (!m) return runMission('0-1');
   try { resCleanup(); } catch (e) { }
@@ -58,18 +58,19 @@ export function runMission(id) {
   try { localStorage.setItem('qq_last', id); } catch (e) { }
   return RUN[id]();
 }
-const mstart = () => { G.mis.started = true; G.mis.t0 = G.time; G.mis.d0 = G.stats.deaths; G.mis.qz = G.ents.filter(e => e.type === 'qiz' && !e.dead); };
+const mstart = () => { G.mis.started = true; G.mis.t0 = G.time; G.mis.d0 = G.stats.deaths; G.mis.qz = G.ents.filter(e => e.type === 'qiz' && !e.dead); try { assignHunt(); } catch (e) { console.warn(e); } };
 function starsOf() { const M = G.mis, m = M.m, p = G.player;
   return m.s.map(r => r === 'win' ? true : r === 'nodeath' ? G.stats.deaths <= M.d0 : r === 'hp50' ? !!(p && !p.dead && p.hp > p.maxHp * .5) : r.startsWith('time:') ? (G.time - M.t0) <= +r.slice(5) : r === 'sec' ? !!(M.sec && M.sec.total && M.sec.list.filter(o => o.kind === 'page').every(o => o.got)) : r === 'most' ? starMost() : r === 'all' ? starAll() : r === 'flag' ? !!M.flag : r === 'flag2' ? !!M.flag2 : false); }
 // outcome stars: people saved (or, with nobody to rescue, maidens alive); 3rd = everyone saved and no maiden lost
-function starMost() { const S = resStats(), q = (G.mis.qz || []).length; const cv = G.mis.cv; if (cv && !S.total) return cv.pool > cv.max * .5; if (S.total) { const saved = S.total - S.lost - (G.mis.ridePeople ? 0 : 0); return saved >= Math.ceil(S.total * .6); } return maidLost() <= Math.floor(q / 2); }
-function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.total) return !cv.everFailed && cv.pool > cv.max * .7 && maidLost() === 0; return S.lost === 0 && maidLost() === 0; }
+function starMost() { const S = resStats(), q = (G.mis.qz || []).length; const cv = G.mis.cv; if (cv && !S.total) return cv.pool > cv.max * .5; if (S.total) { const saved = S.saved; /* people still locked in / held at the end are not saved */ return saved >= Math.ceil(S.total * .6); } return maidLost() <= Math.floor(q / 2); }
+function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.total) return !cv.everFailed && cv.pool > cv.max * .7 && maidLost() === 0; return S.saved === S.total && maidLost() === 0; }
 // mission complete → stars + end screen (boss missions also finish the chapter)
 async function win() {
+  await resFinish();
   if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
+  for (const g of (G.mis && G.mis.res) || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;  // freed and on their way = saved (before the stars are counted)
   const M = G.mis, m = M.m, st = starsOf(), k = st.filter(Boolean).length, i = midx(m.id), next = MLIST[i + 1];
   try { window.__META && window.__META.missionEnd(m.id, k); } catch (e) { }
-  for (const g of M.res || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;
   $('timer').style.display = 'none'; G.tick = null; M.aim = null; try { hpBar(null); } catch (e) { } try { resCleanup(); } catch (e) { }
   H.saveProg(m.boss ? m.c + 1 : Math.max(1, m.c));
   if (m.id === '7-4') { H.saveStars(m.id, k); return H.epilogue(st); }
@@ -77,10 +78,14 @@ async function win() {
   $('eh').textContent = (m.c ? t('ch' + m.c) : t('ch0')) + ' · ' + t(m.n); H.endStars(m.id, k, 3);
   $('stl').innerHTML = st.map((ok, j) => `<div class="${ok ? '' : 'no'}">${ok ? '★' : '☆'} ${ruleLabel(m, m.s[j])}</div>`).join('') + `<div>🪙 +${G.chGold || 0}${M.sec && M.sec.total ? '   📜 ' + M.sec.n + '/' + M.sec.total : ''}</div>` + (next ? `<div class="no">▸ ${TYICON[next.ty] || ''} ${t(next.n)}</div>` : '');
   $('etb').textContent = m.boss ? t('ch' + m.c) + ' — ' + t('done') : '';
-  $('ereplay').textContent = next ? t('ms_next') : t('replay');
+  const chEnd = !next || next.c !== m.c || !!m.boss, MP = window.__M; $('ereplay').textContent = chEnd && MP ? t('m_btn') + ' ▸' : next ? t('ms_next') : t('replay');
   const g0 = G.chGold || 0; $('eadx2').style.display = g0 > 0 ? 'block' : 'none'; $('eadx2').textContent = t('adX2') + ' (+' + g0 + ' 🪙)'; $('eadx2').onclick = async () => { if (await ADS.rewarded()) { addGold(g0); $('eadx2').style.display = 'none'; } };
   $('eshop').textContent = t('shopT'); $('eshop').onclick = () => H.openShop(); $('end').classList.add('on'); $('fade').classList.remove('in');
-  $('ereplay').onclick = () => { $('end').classList.remove('on'); runMission(next ? next.id : '0-1'); };
+  const em = $('emap'); if (em) em.style.display = chEnd && MP ? 'none' : '';
+  const toMap = () => { clearTimeout(win.autoT); if (!$('end').classList.contains('on')) return; try { MP.openMap('end'); } catch (e) { $('end').classList.remove('on'); runMission(next ? next.id : '0-1'); } };
+  $('ereplay').onclick = () => { clearTimeout(win.autoT); if (chEnd && MP) return toMap(); $('end').classList.remove('on'); runMission(next ? next.id : '0-1'); };
+  clearTimeout(win.autoT); if (chEnd && MP) win.autoT = setTimeout(toMap, 4200);
+  try { window.__META && window.__META.endUI && window.__META.endUI({ id: m.id, next: next ? next.id : null, chEnd: !!(chEnd && MP), gold: g0 }); } catch (e) { }   // ui (ui4): short ad label, layout class
 }
 async function fail() { $('timer').style.display = 'none'; G.tick = null; setMusic('off'); await H.bannerShow('', t('ms_fail'), '', 2.6); return runMission(G.mis.id); }
 
@@ -119,13 +124,14 @@ function post(list, o = {}) {
     e.grp = g; e.next = e.custom || null; e.pose = pose || 'g'; e.hx = x; e.hz0 = z; e.pd = i % 2 ? 1 : -1; e.parg = arg ?? 3; e.seed = rnd(0, 9); e.farT = -1e9;
     e.rot = 0; if (o.fire) e.rot = Math.atan2(o.fire[0] - x, o.fire[1] - z); else if (o.face !== undefined) e.rot = o.face; e.rot0 = e.rot;
     if (o.y && ty === 'archer') e.y = o.y; e.custom = sleepAI; g.es.push(e); });
+  g.zMin = Math.min(...g.es.map(e => e.z));
   g.x = g.es.reduce((s, e) => s + e.x, 0) / g.es.length; g.z = g.es.reduce((s, e) => s + e.z, 0) / g.es.length;
   if (!g.label) { let b = 'askar', bn = 0; for (const k in cnt) if (cnt[k] > bn) { bn = cnt[k]; b = k; } g.label = LBL[b] || 'e_horde'; }
   (G.mis.groups = G.mis.groups || []).push(g); return g; }
 function sleepAI(e, dt) { const g = e.grp;
   if (g.awake) { if ((e.wakeT = (e.wakeT ?? rnd(0, .45)) - dt) > 0) { e.play('Idle_Combat'); return true; } e.custom = e.next; e.farT = 0; e.y = 0; e.state = 'chase'; e.o.visible = true; return false; }
   e.farT = -1e9; const P = G.player, cv = G.mis && G.mis.cv;
-  if (!G.flying && (e.hp < e.maxHp || (P && !P.dead && hyp(P.x - e.x, P.z - e.z) < g.wakeR) || (cv && !g.o.noCv && hyp(cv.x - e.x, cv.z - e.z) < g.wakeR))) { wake(g); return true; }
+  if (!G.flying && (e.hp < e.maxHp || (P && !P.dead && !g.o.noPass && G.mis && G.mis.started && P.z < g.zMin - 6) || (P && !P.dead && hyp(P.x - e.x, P.z - e.z) < g.wakeR && e.z > G.limitZ - 1) || (cv && !g.o.noCv && hyp(cv.x - e.x, cv.z - e.z) < g.wakeR))) { wake(g); return true; }
   if (e.pose === 's') { e.rot = e.rot0; e.play('Sit_Floor_Idle'); }
   else if (e.pose === 'p' || e.pose === 'pz') { const ax = e.pose === 'p' ? 'x' : 'z', h0 = ax === 'x' ? e.hx : e.hz0; e.wp = (e.wp ?? rnd(0, 2)) - dt;
     if (e.wp > 0) { e.play('Idle'); } else { e[ax] += e.pd * dt * 1.25; if (Math.abs(e[ax] - h0) > e.parg) { e.pd *= -1; e[ax] = h0 + Math.sign(e[ax] - h0) * e.parg; e.wp = rnd(1.2, 3); } e.rot = ax === 'x' ? (e.pd > 0 ? Math.PI / 2 : -Math.PI / 2) : (e.pd > 0 ? 0 : Math.PI); e.play(e.type === 'wolf' ? 'Walking_A' : 'Walking_A', { ts: .8 }); } }
@@ -136,11 +142,17 @@ function wake(g, quiet) { if (g.awake) return; g.awake = true; for (const e of g
 const alive = g => g.es.filter(e => !e.dead);
 const near = (list, P = G.player) => { let b = null, bd = 1e9; for (const e of list) { if (e.dead || e.gone) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; b = e; } } return b; };
 // wait until the given groups are destroyed; the direction arrow points at the nearest survivor; a checkpoint is saved afterwards
-async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = () => near(all);
-  await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; cp(); }
+// the fight is won but people are still locked in / waiting: finish the rescues before the victory banner (their clocks keep running)
+const resPend = () => ((G.mis && G.mis.res) || []).filter(g => !g.done && !g.freed && g.kind !== 'walk' && g.kind !== 'ride' && g.ps.some(c => !c.dead && !c.lostP && !c.saved && !c.gone));
+async function resFinish() { const M = G.mis; if (!M || M.force || !resPend().length) return; for (const g of resPend()) g.on = true; M.need = resPend().flatMap(g => [...g.guards, ...g.hand]); const a0 = M.aim; M.aim = () => resAim(true) || (a0 && a0()); await until(() => !resPend().length || M.force || G.mis !== M); if (G.mis === M) { M.aim = a0; M.need = null; } }
+// people in danger with a running clock come first on the arrow: the door to break / the wounded to reach (nearest, ahead or beside, never far behind)
+function resAim(any) { const P = G.player; if (!P || !G.mis || !G.mis.res) return null; let b = null, bd = 1e9; for (const g of G.mis.res) { if (!g.on || g.freed || g.done) continue; const tgt = g.door && !g.door.dead ? { x: g.door.x - Math.sign(g.door.x || 1) * 1.2, z: g.door.z } : g.kind === 'wound' ? { x: g.x, z: g.z } : any ? near([...g.guards, ...g.hand]) : null; if (!tgt) continue; const d = hyp(tgt.x - P.x, tgt.z - P.z); if (!any && tgt.z > P.z + 25) continue; const sc = d + (g.T || 0) * .3; if (sc < bd) { bd = sc; b = tgt; } } return b; }
+const aimOf = all => () => { const r = resAim(); if (r) { const P = G.player, ne = near(all); if (!ne || hyp(ne.x - P.x, ne.z - P.z) > 6) return r; } const h = near(all.filter(e => e.hunt)), P = G.player; if (h && P && hyp(h.x - P.x, h.z - P.z) < 35) return h; return near(all); };
+async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = aimOf(all); G.mis.need = all;
+  await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
 // reinforcements (ambush / twist): pop in with the usual smoke, optional bark
 function rein(list, who, key) { const es = list.map(([ty, x, z]) => sp(TY(ty), x, z)); if (G.time - hornT > 3) { hornT = G.time; Sfx.horn(); } if (key) bark(who, key); return es; }
-async function dead(es) { G.mis.aim = () => near(es); await until(() => es.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of es) if (!e.dead) e.die(); G.mis.aim = null; cp(); }
+async function dead(es) { G.mis.aim = aimOf(es); G.mis.need = es; await until(() => es.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of es) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
 const cp = () => { const P = G.player; if (P && !P.dead) H.setCP(P.x, P.z); };
 const bark = (who, key) => hintRaw(t('n_' + who) + ': ' + t(key));
 const say = lines => H.dialog(lines);
@@ -173,14 +185,44 @@ let dirEl = null;
 function dirTick() { const P = G.player; if (!dirEl) { dirEl = document.createElement('div'); dirEl.id = 'dir'; dirEl.style.cssText = 'position:absolute;left:0;top:0;z-index:6;pointer-events:none;display:none;will-change:transform';
     dirEl.innerHTML = '<div class="da" style="width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:26px solid #ffd060;filter:drop-shadow(0 2px 4px #000)"></div><b style="position:absolute;left:50%;top:30px;transform:translateX(-50%);font:700 13px/1 system-ui,sans-serif;color:#ffe9a8;text-shadow:0 1px 3px #000,0 0 6px #000;white-space:nowrap"></b>'; ($('hud') || document.body).appendChild(dirEl); }
   let tg = null; const M0 = G.mis;
-  if (P && !P.dead && M0 && !G.paused && !G.flying && $('hud').classList.contains('on')) { if (M0.aim) tg = M0.aim(); if (!tg) { let bd = 1e9; for (const e of G.ents) { if (e.team !== 'enemy' || e.dead || e.bg || e.custom === sleepAI || e.asleep) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; tg = e; } } if (tg && bd < 9) tg = null; else if (tg && bd < 1e9) M0.aimEnemy = true; }
-    if (!tg && G.markers && G.markers.length) tg = G.markers[G.markers.length - 1]; }
-  if (!tg) { dirEl.style.display = 'none'; return; } const dx = tg.x - P.x, dz = tg.z - P.z, d = hyp(dx, dz); if (d < 7) { dirEl.style.display = 'none'; return; }
+  if (P && !P.dead && M0 && !G.paused && !G.flying && $('hud').classList.contains('on')) { if (M0.aim) tg = M0.aim(); if (!tg) { let bd = 1e9; for (const e of G.ents) { if (e.team !== 'enemy' || e.dead || e.bg || e.custom === sleepAI || e.asleep) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; tg = e; } } if (tg && bd < 9) tg = null; else if (tg && bd < 1e9) M0.aimEnemy = true; if (!tg && bd > 1e8 && M0.hunt && !M0.cv) { let hd = 1e9; for (const e of M0.hunt) { if (e.dead || e.gone) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < hd && d < 34 && !G.colB.some(c => !c.off && c.x2 - c.x1 > G.W * .9 && c.z2 > Math.min(P.z, e.z) && c.z1 < Math.max(P.z, e.z))) { hd = d; tg = e; } } } }
+    if (!tg) tg = resAim();
+    if (!tg && G.markers) for (let i = G.markers.length - 1; i >= 0; i--) { const m = G.markers[i]; if (m.opt || m.z > P.z + 8) continue; tg = m; break; } }  // optional side markers (hidden children) and markers left behind never drive the arrow
+  if (M0) M0.dirTg = tg; if (!tg) { dirEl.style.display = 'none'; return; } const dx = tg.x - P.x, dz = tg.z - P.z, d = hyp(dx, dz); if (d < 7) { dirEl.style.display = 'none'; return; }
   const ux = dx / d, uy = dz / d, W = innerWidth, Hh = innerHeight, k = Math.min(1, d / 26), cx = W / 2 + ux * W * (.2 + .16 * k), cy = Math.max(Hh * .2, Hh * .5 + uy * Hh * (.22 + .12 * k));
   dirEl.style.display = 'block'; dirEl.style.transform = `translate(${cx - 13}px,${cy - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
 // sleeping groups far from the camera focus are not drawn (phones: never more than one or two camps of skinned units on screen)
 function cullTick() { const cz = G.cam ? G.cam.z : 0; for (const e of G.ents) { if (e.custom === sleepAI || e.asleep) e.o.visible = Math.abs(e.z - cz + 6) < 46; else if (e.grp && !e.o.visible) e.o.visible = true; } }
-(function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; dirTick(); secTick(tm); cullTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
+// a group the mission waits on must never sit asleep far away: wake it (the engine then brings stragglers to the fight)
+let ntL = 0;
+function needTick(tm) { const dt = Math.min(.1, tm - ntL); ntL = tm; const M = G.mis, P = G.player; if (!M || !M.started || !M.need || !P || P.dead || G.flying || G.paused) return;
+  const rest = M.need.filter(e => !e.dead && !e.gone); for (const e of rest) { const g = e.grp; if (!g || g.awake || e.custom !== sleepAI) continue; const d = hyp(e.x - P.x, e.z - P.z); g.nT = (d > 22 || rest.length <= 3) ? (g.nT || 0) + dt : 0; if (g.nT > (rest.length <= 3 ? 5 : 12)) wake(g); } }
+// the hero's own targets: one named captain per posted group (gold ring + name plate), counter on the HUD, edge chips when off screen
+const HUNT_T = { nayza: 'nayza', shaman: 'shaman', mage: 'shaman', boribasi: 'boribasi' };
+// balance: with maidens/Sarbinaz fighting on their own a camp would melt in seconds — scale posted groups with the number of fighting allies
+// (HP +22% per ally up to ×2.2, +1 soldier for 2–3 allies / +2 for 4+, allies deal 50% damage); target: a camp takes ~60–90 s
+function balanceGroups() { const M = G.mis, P = G.player; const nA = G.ents.filter(e => e.team === 'ally' && e !== P && !e.dead && !e.vict && !e.cart && e.speed > 0).length; M.nA = nA; G.allyK = nA ? .5 : 1; if (!nA) return;
+  const hpK = Math.min(2.2, 1 + .22 * nA), extra = nA >= 4 ? 2 : nA >= 2 ? 1 : 0;
+  for (const g of M.groups || []) { if (g.wakeR === undefined || !g.es || g.o.noHunt || g.bal) continue; g.bal = true; const es = g.es.filter(e => !e.dead && e.team === 'enemy'); if (!es.length) continue;
+    for (const e of es) { e.maxHp = e.hp = Math.round(e.maxHp * hpK); }
+    if (es.length >= 3 && !g.awake) for (let i = 0; i < extra; i++) { const b = es[i % es.length], x = clamp(b.x + rnd(-2.2, 2.2), -G.W + 1, G.W - 1), z = b.z - rnd(1, 2.5); const e = sp(TY(i % 2 && es.some(o => o.type === 'archer') ? 'archer' : 'askar'), x, z); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1);
+      e.grp = g; e.next = e.custom || null; e.pose = 'g'; e.hx = x; e.hz0 = z; e.pd = 1; e.parg = 2; e.seed = rnd(0, 9); e.farT = -1e9; e.rot = e.rot0 = b.rot0 ?? 0; e.custom = sleepAI; e.maxHp = e.hp = Math.round(e.maxHp * hpK); e.o.visible = b.o.visible; g.es.push(e); } } }
+function assignHunt() { const M = G.mis; M.hunt = []; try { balanceGroups(); } catch (e) { console.warn(e); } for (const g of M.groups || []) { if (g.wakeR === undefined || !g.es || g.o.noHunt) continue; const es = g.es.filter(e => !e.dead && e.team === 'enemy'); if (!es.length) continue;
+    let h = g.boss && !g.boss.dead ? g.boss : es.find(e => e.d.elite) || es.find(e => HUNT_T[e.type]);
+    if (!h) { if (es.length < 3) continue; h = es.find(e => e.type === 'askar') || es.find(e => e.type === 'archer'); if (!h) continue; h.maxHp = h.hp = Math.round(h.maxHp * 2.2); h.vs = (h.vs || h.d.scale || 1) * 1.14; h.o.scale.setScalar(h.vs); h.dmgMul = (h.dmgMul || 1) * 1.3; markHunt(h, h.type === 'archer' ? 'v3c_arch' : 'mb_cap'); }
+    else { h.maxHp = h.hp = Math.round(h.maxHp * 1.3); markHunt(h, h.d.name || HUNT_T[h.type] || 'mb_cap'); }
+    const od = h.onDeath; h.onDeath = (...a) => { if (od) od(...a); try { if (G.mis === M) { const n = M.hunt.filter(o => o.dead).length; hintRaw('🎯 ' + n + '/' + M.hunt.length + ' ✓'); } } catch (e) { } };
+    M.hunt.push(h); } }
+let huEl = null; const huChips = [];
+function huntTick() { const M = G.mis, P = G.player; if (!huEl) { huEl = document.createElement('div'); huEl.id = 'huntcnt'; huEl.style.cssText = 'position:absolute;left:12px;top:140px;z-index:6;pointer-events:none;font:800 13px/1.2 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(0,0,0,.35);padding:3px 8px;border-radius:8px;display:none'; ($('hud') || document.body).appendChild(huEl); }
+  const on = M && M.started && M.hunt && M.hunt.length && P && !G.paused && !G.flying && $('hud').classList.contains('on'); huEl.style.display = on ? 'block' : 'none';
+  let k = 0; if (on) { huEl.textContent = '🎯 ' + M.hunt.filter(e => e.dead).length + '/' + M.hunt.length;
+    const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight;
+    for (const e of M.hunt) { if (e.dead || e.gone || k >= 3) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d > 28 || e.z < G.limitZ) continue; V3.set(e.x, (e.h || 2) + .6, e.z).project(camera); const back = V3.z > 1; if (back) { V3.x = -V3.x; V3.y = -1; }
+      if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
+      c.style.display = 'block'; c.style.left = ((clamp(V3.x, -.88, .88) + 1) / 2 * W) + 'px'; c.style.top = ((1 - clamp(V3.y, -.82, .8)) / 2 * Hh) + 'px'; c.textContent = '🎯 ' + Math.round(d) + ' m'; k++; } }
+  for (let i = k; i < huChips.length; i++) huChips[i].style.display = 'none'; }
+(function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; dirTick(); secTick(tm); cullTick(); needTick(tm); huntTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
 
 // safe practice moment (onboarding): a harmless telegraphed circle to dodge out of
 async function practiceDodge() { const p = G.player, x = p.x, z = p.z; H.hint('h_dodge', 6); telegraph(x, z, 3.2, 3); await wait(3); ringFx(x, z, 3.2, 0xff5522); Sfx.big(); if (hyp(p.x - x, p.z - z) > 3.2) { num(p, '✓', 'c'); Sfx.pick(); addGold(10, p.x, p.z); } else num(p, '✗', 'n'); }
@@ -378,7 +420,7 @@ function resTick(g, dt) {
 function victimAI(c, dt) { const g = c.vict; if (G.flying) { c.play(g.kind === 'fire' || g.kind === 'walk' ? 'Idle' : 'Sit_Floor_Idle'); return true; } if (g.lt !== G.time) { g.lt = G.time; resTick(g, dt); resHud(); } if (G.mis.hazard && G.mis.hzT !== G.time && !G.paused && !G.flying) { G.mis.hzT = G.time; G.mis.hazard(dt); } if (c.saved) { if ((c.ct = (c.ct ?? 0) - dt) <= 0) { c.ct = rnd(1.5, 3); c.play(Math.random() < .5 ? 'Cheer' : 'Idle', { force: true }); } return true; }
   const o = g.o, sp = (c.type === 'child' ? 4.2 : 3.2) * FAST();
   const go = (tx, tz, v, anim) => { const dx = tx - c.x, dz = tz - c.z, l = hyp(dx, dz); if (l < .3) return l; c.x += dx / l * Math.min(v * dt, l); c.z += dz / l * Math.min(v * dt, l); c.face(dx, dz, dt * 8); c.play(anim, { ts: v / 2.2 / FAST() }); return l; };
-  if (c.st === 'run') { const s = o.safe || G.mis.safe || { x: c.x, z: c.z + 30 }; const l = go(s.x + Math.sin(c.seed) * 2.5, s.z + Math.cos(c.seed) * 1.5, sp, c.type === 'child' || c.type === 'asir' ? 'Running_A' : 'Walking_A'); if (l < 1.2) { c.saved = true; c.st = 'safe'; c.rot = Math.PI; } return true; }
+  if (c.st === 'run') { const s = o.safe || G.mis.safe || { x: c.x, z: c.z + 30 }, sd = Math.sign(s.x || c.x || Math.sin(c.seed)) || 1; const l = go(sd * (G.W - 1.3 - Math.abs(Math.sin(c.seed * 3.1)) * 1.6), s.z + Math.cos(c.seed) * 2.5, sp, c.type === 'child' || c.type === 'asir' ? 'Running_A' : 'Walking_A'); if (l < 1.2) { c.saved = true; c.st = 'safe'; c.rot = Math.PI; } return true; }
   if (c.st === 'taken') { const ex = o.exit || { x: c.x > 0 ? G.W + 4 : -G.W - 4, z: c.z - 8 }; const l = go(ex.x + Math.sin(c.seed) * 1.2, ex.z, 1.35 * FAST(), 'Walking_A'); if (l < 1 || Math.abs(c.x) > G.W + 2) { c.lostP = true; c.o.visible = false; c.gone = true; } return true; }
   if (g.kind === 'drag') { const h = g.hand.find(e => !e.dead); if (h) { const i = g.ps.indexOf(c), bx = h.x - Math.sin(h.rot) * (1.6 + i * 1.1), bz = h.z - Math.cos(h.rot) * (1.6 + i * 1.1); if (go(bx, bz, 2.4 * FAST(), 'Walking_A') < .3) c.play('Idle'); return true; } }
   if (g.kind === 'walk') { const s = o.safe, i = g.ps.indexOf(c); if (go(s.x + ((i % 3) - 1) * 1.3, s.z + (i / 3 | 0) * 1.2, (g.halt ? 0 : (o.speed || 1)) * FAST() + 1e-4, 'Walking_A') < 1) { c.saved = true; c.st = 'safe'; } else if (g.halt) c.play('Idle'); return true; }
@@ -445,7 +487,7 @@ async function ch1Start(z, sk, mood) { const { DAY } = H.moods; await H.fadeTo(t
 // 1-1 teaches: attack (one lone looter = safe practice), skills 2-3, the ulti. Side objective: 3 hidden children.
 RUN['1-1'] = async () => {
   const p = await ch1Start(3, [1]); $('hud').classList.add('on'); G.paused = true; let kidsN = 0;
-  const kids = [[-9.5, -12], [9.5, -34], [-9.5, -62]].map(([x, z]) => ({ e: spawn('child', x, z, 'npc'), m: marker(x, z, 0x66ff88, 1), x, z, found: false })); kids.forEach(k => { k.e.rot = 0; k.e.play('Sit_Floor_Idle'); });
+  const kids = [[-9.5, -12], [9.5, -34], [-9.5, -62]].map(([x, z]) => ({ e: spawn('child', x, z, 'npc'), m: Object.assign(marker(x, z, 0x66ff88, 1), { opt: true }), x, z, found: false })); kids.forEach(k => { k.e.rot = 0; k.e.play('Sit_Floor_Idle'); });
   const mo = spawn('mother', 2, -23, 'npc'); mo.rot = 0; flyPt(2, -23, 'n_mo');
   const g0p = post([['askar', 4.5, -12, 'p', 2]], { nofly: true, wake: 7 });
   const gA = post([['askar', -2.2, -46.4, 's'], ['askar', 1.4, -47.2, 's'], ['askar', 5, -50, 'p', 2.5], ['archer', -8, -54], ['archer', 8, -54]], { fire: [-.5, -48.4] });
@@ -564,7 +606,7 @@ RUN['2-3'] = async () => { const { HOT } = H.moods;
     const bad = await U(() => cv.z <= -136); cv.extra = null; storm(false); cv.slow = 1; cv.creep = 0; if (bad) return; if (await U(() => es.every(e => e.dead))) return; });
   // 5) the blockade: break through (or leap over the stakes) and beat the captain
   await stage(async () => { cv.go(-146); if (await U(() => cv.z <= -145.6 || gB.awake)) return; wake(gB); H.hint('', 6, t('cv_block')); obj(t('cv_block')); setTimeout(() => { if (!bar.dead && G.mis.cv === cv) H.hint('', 6, t('h_leap')); }, 9000);
-    G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : bar.dead ? near(gB.es) : (near(gB.es.filter(e => e.z > bz + .5)) || { x: bx, z: bz + 1.5 });  // behind the stakes → point at the barricade first
+    G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : bar.dead ? near(gB.es) : (near(gB.es.filter(e => (e.z - bz) * (G.player.z - bz) > 0)) || { x: bx, z: G.player.z < bz ? bz - 1.5 : bz + 1.5 });  // from whichever side she is on: never sends her back over the stakes  // behind the stakes → point at the barricade first
     if (await U(() => alive(gB).length === 0 && bar.dead)) return; });
   if (G.mis.force && !bar.dead) bar.shatter(); st.open(); obj(t('mo_2_3')); G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : null; bark('gu', 'bk_done'); cv.go(-175); await U(() => cv.z <= -174.6);
   G.mis.flag = !cv.everFailed && cv.pool > cv.max * .5; G.tick = null; G.mis.aim = null; for (const e of cv.mem) if (!e.cart) e.custom = e2 => { e2.play('Cheer'); return true; };
@@ -858,7 +900,7 @@ RUN['0-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: 9 };
 // ---------- CHAPTER 1 ----------
 // 1-1 Burning village: roped villagers are dragged off; take them back, find mother, then the yuzbashi duel
 RUN['1-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 2, z: -18 };
-    dragGroup([['asir', -3, -41], ['mother', -4, -42], ['child', -2, -42.5]], [['askar', -2.5, -38.5]], { x: -G.W - 3, z: -60 }, { speed: 1.25, near: 24, label: 'r_drag' });
+    dragGroup([['asir', -3, -41], ['mother', -4, -42], ['child', -2, -42.5]], [['askar', -2.5, -38.5]], { x: -G.W - 3, z: -60 }, { speed: 1.25, near: 15, label: 'r_drag' });
     dragGroup([['asir', 4, -86], ['elder', 5, -87], ['asir', 3, -87.5]], [['askar', 4, -84], ['askar', 6, -84.5]], { x: G.W + 3, z: -98 }, { speed: 1.2, near: 26, label: 'r_drag', safe: { x: 0, z: -64 } }); };
   let A = null; const ol = G.mis.onLive; G.mis.onLive = () => { ol(); A = arenaOf('yuz', 0, -96, { crowd: crowdOf(5, 2) }); };
   G.mis.beforeWin = async () => { await champ('yuz', 0, -96, { arena: A, after: 'flee', intro: [['gu', 'v3d_yuz']] }); await wait(.8); await H.victory(); };
@@ -1022,9 +1064,332 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
     obj(t('v3o_7_3')); const mk = marker(0, z + 6); G.mis.aim = () => ({ x: 0, z: z + 6 }); await H.reach(0, z + 6, 4.5); mk.remove(); G.mis.aim = null;
     const r = await champ(k, 0, z, { arena: AR[k], after: k === 'w3' ? 'fight' : 'flee', intro: [['gu', 'v3d_' + k]] }); if (r.es && r.es.length) { setMusic('battle'); obj(t('v3o_7_3')); await dead(r.es); } p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .35); }
   setMusic('off'); await H.victory(); return win(); };
+// ---------- TUTORIAL 0-0 "Shınıǵıw maydanı" (training field, before the war) ----------
+// Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
+// Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
+// Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795179205';
+import * as tuSCN from './scenery.js?v=1795179205';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795179205';
+MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
+TYICON.train = '🎯';
+const TUT = (() => {
+  const rnd = (a, b) => a + Math.random() * (b - a), hyp = Math.hypot;
+  let S = null;                       // per-run state
+  const P = () => G.player;
+  // ---------------- feature detection (combat moveset / archery from parallel work) ----------------
+  const W = () => G.w3 || window.__COMBAT || null;                                // combat moveset API (engine.js "W3": G.w3 = { dodge, guard, jump, strong, lock })
+  const ARCH = () => window.__ARCH || window.__ARCHERY || G.archery || null;      // optional public API of the bow sniper mode (js/archery.js)
+  const btn = id => { const b = $(id); return b && b.isConnected ? b : null; };
+  const firstBtn = (...ids) => { for (const id of ids) if (btn(id)) return id; return null; };
+  const actK = () => { const p = P(); return (p && p.act && p.act.kind) || ''; };
+  const w3 = k => { const w = W(); return !!(w && w[k]); };
+  const TU_FEAT = {
+    strong: { has: () => w3('strong') && !!btn('bS'), btn: () => firstBtn('bS') || 'bA' },
+    roll: { has: () => w3('dodge'), btn: () => 'bD' },                                        // double tap ➤ (or R)
+    block: { has: () => w3('guard') && !!btn('bB'), btn: () => firstBtn('bB') },
+    parry: { has: () => w3('guard') && !!btn('bB'), btn: () => firstBtn('bB') },             // guard pressed < 0.3 s before the hit lands
+    jump: { has: () => w3('jump') && !!btn('bJ'), btn: () => firstBtn('bJ') },
+    lock: { has: () => w3('lock') && !!btn('bL'), btn: () => firstBtn('bL') },
+    bow: { has: () => !!ARCH(), btn: () => firstBtn('bBow', 'bArc', 'b2') },
+  };
+  const blocking = () => { const p = P(); if (!p) return false; return !!(p.guard || p.blocking || /block|guard/.test(actK())); };
+  const parried = () => +(G.stats && (G.stats.parry || G.stats.parries)) || 0;
+  const lockTarget = () => { const p = P(); return p && (p.hl || p.hardLock || p.lockOn) || null; };
+  const airborne = () => { const p = P(); return !!p && ((p.y || 0) > .35 || /jump|leap|air/.test(actK())); };
+
+  // ---------------- small world helpers ----------------
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .9, ...o });
+  const M_WOOD = mat(0x6b4524), M_WOOD2 = mat(0x8a5e34), M_STRAW = mat(0xd6b86a, { roughness: 1 }), M_SACK = mat(0xcbb48a, { roughness: 1 }), M_ROPE = mat(0x9a7a4a), M_IRON = mat(0x55524c, { metalness: .6, roughness: .45 }), M_RED = mat(0xb02a22), M_WHITE = mat(0xf2ead8), M_GOLD = new THREE.MeshStandardMaterial({ color: 0xffc94a, emissive: 0x6a4a08, metalness: .5, roughness: .35 });
+  const mesh = (geo, m, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o; };
+  const add = (g, o, rx = 0, rz = 0) => { o.rotation.x = rx; o.rotation.z = rz; g.add(o); return o; };
+  function dummyMesh(shield) { const g = new THREE.Group();
+    add(g, mesh(new THREE.CylinderGeometry(.09, .12, 2.3, 8), M_WOOD, 0, 1.15, 0));
+    add(g, mesh(new THREE.CylinderGeometry(.34, .3, .95, 10), M_STRAW, 0, 1.25, 0));
+    for (const y of [.92, 1.25, 1.58]) add(g, mesh(new THREE.TorusGeometry(.33, .025, 5, 14), M_ROPE, 0, y, 0), Math.PI / 2);
+    add(g, mesh(new THREE.SphereGeometry(.24, 10, 8), M_SACK, 0, 1.98, 0));
+    add(g, mesh(new THREE.CylinderGeometry(.05, .05, 1.5, 6), M_WOOD2, 0, 1.55, 0), 0, Math.PI / 2);
+    for (const s of [-1, 1]) add(g, mesh(new THREE.SphereGeometry(.09, 6, 5), M_STRAW, s * .75, 1.55, 0));
+    add(g, mesh(new THREE.CylinderGeometry(.45, .55, .14, 10), M_WOOD, 0, .07, 0));
+    if (shield) { const sh = new THREE.Group(); add(sh, mesh(new THREE.CylinderGeometry(.62, .62, .08, 20), M_WOOD2)); add(sh, mesh(new THREE.TorusGeometry(.6, .05, 6, 22), M_IRON), Math.PI / 2);
+      add(sh, mesh(new THREE.CylinderGeometry(.36, .36, .085, 16), M_RED)); add(sh, mesh(new THREE.SphereGeometry(.13, 8, 6), M_IRON, 0, .06, 0)); sh.rotation.x = Math.PI / 2; sh.position.set(0, 1.3, .42); g.add(sh); }
+    return g; }
+  function targetMesh(big) { const g = new THREE.Group(), R = big ? 1.0 : .72;
+    const face = new THREE.Group(); [[R, M_STRAW], [R * .78, M_WHITE], [R * .56, M_RED], [R * .34, M_WHITE], [R * .14, M_GOLD]].forEach(([r, m], i) => add(face, mesh(new THREE.CylinderGeometry(r, r, .16 + i * .012, 22), m)));
+    face.rotation.x = Math.PI / 2; face.position.y = 1.5; g.add(face);
+    for (const s of [-1, 1]) add(g, mesh(new THREE.CylinderGeometry(.05, .06, 1.9, 6), M_WOOD, s * .45, .85, -.25), .15, s * .22);
+    add(g, mesh(new THREE.CylinderGeometry(.05, .06, 1.7, 6), M_WOOD, 0, .8, -.6), -.45);
+    return g; }
+  function ringMesh() { const g = new THREE.Group(); const tor = new THREE.Mesh(new THREE.TorusGeometry(1.7, .13, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffd060, transparent: true, opacity: .9 })); tor.position.y = 2.0; g.add(tor);
+    const glow = new THREE.Mesh(new THREE.TorusGeometry(1.7, .34, 8, 32), new THREE.MeshBasicMaterial({ color: 0xffb030, transparent: true, opacity: .25, blending: THREE.AdditiveBlending, depthWrite: false })); glow.position.y = 2.0; g.add(glow); g.glow = glow; g.tor = tor;
+    for (const s of [-1, 1]) add(g, mesh(new THREE.CylinderGeometry(.08, .1, 3.8, 6), M_WOOD, s * 1.85, 1.9, 0)); return g; }
+  // a pinned prop that the game treats as an enemy (aim, lock, damage numbers, arrows) but never moves, never fights, never dies on its own
+  function prop(x, z, visual, o = {}) { const e = spawn('askar', x, z, 'enemy', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1);
+    e.o.traverse(m => { if (m.isMesh || m.isSkinnedMesh) m.visible = false; }); const k = 1 / (e.vs || e.d.scale || 1); visual.scale.setScalar(k); e.o.add(visual); e.vis = visual;
+    e.d = { ...e.d, block: 0, armor: 0, poise: 0, name: o.name || e.d.name, ranged: false }; e.poiseMax = 0; e.maxHp = e.hp = 5000; e.showBar = () => { }; e.px = x; e.pz = z; e.prot = o.rot ?? 0; e.rot = e.prot; e.prop = true; e.r = o.r || .55;
+    e.custom = () => true; e.farT = -1e9; const d0 = e.damage.bind(e);
+    e.damage = (a, s, op = {}) => { if (e.dead) return 0; if (o.gate && !o.gate(s, op)) { tuSparks(e.x, 1.3, e.z, 0xdfe8ff, 10, 6); e.wob = .18; Sfx.hit(); if (G.time > (e.nT || 0)) { e.nT = G.time + 1.2; num(e, t(o.gateKey || 'noeffect'), 'n'); if (o.onGate) o.onGate(); } return 0; }
+      const r = d0(a, s, op); e.hp = e.maxHp; if (r) { e.wob = .5; e.lastHit = G.time; if (o.onHit) o.onHit(s, op, a); } return r; };
+    S.props.push(e); return e; }
+  function breakProp(e) { if (!e || e.dead) return; const g = e.vis.clone(true); g.scale.setScalar(1); g.position.set(e.x, 0, e.z); g.rotation.y = e.rot; world.add(g); try { breakable({ mesh: g, x: e.x, z: e.z, hp: 1, chunks: 18, spark: 0xffd890, dust: 0xc8a070 }).shatter(); } catch (err) { console.warn(err); } e.dead = true; e.gone = true; try { e.remove(); } catch (err) { e.o.visible = false; } }
+  function dropProp(e) { if (!e || e.dead) return; e.dead = true; e.gone = true; burst(e.x, 1, e.z, 0xc8a070, 2, true); try { e.remove(); } catch (err) { e.o.visible = false; } }
+  function npc(type, x, z, rot = 0) { const e = spawn(type, x, z, 'npc', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = rot; e.seed = rnd(0, 9); S.npcs.push(e); return e; }
+  // ---------------- speech bubbles over heads (non-blocking banter) ----------------
+  function bubble(e, key, dur = 2.8, who) { if (!e || e.dead || !S) return; const el = document.createElement('div'); el.className = 'tubub'; const nm = who ? t('n_' + who) : ''; el.innerHTML = (nm ? '<b>' + nm + '</b>' : '') + t(key); ($('hud') || document.body).appendChild(el); const b = { e, el, until: G.time + dur }; for (const o of S.bubs) if (o.e === e) o.until = 0; S.bubs.push(b); return b; }
+  const V3b = new THREE.Vector3();
+  function bubTick() { const Wd = innerWidth, Hh = innerHeight; for (let i = S.bubs.length - 1; i >= 0; i--) { const b = S.bubs[i]; if (G.time > b.until || b.e.dead || b.e.gone) { b.el.remove(); S.bubs.splice(i, 1); continue; }
+      V3b.set(b.e.x, (b.e.h || 2) + .55 + (b.e.mounted ? 1 : 0), b.e.z).project(camera); const on = V3b.z < 1 && Math.abs(V3b.x) < .8 && V3b.y < .5 && V3b.y > -.75 && !G.paused; b.el.style.display = on ? 'block' : 'none'; if (on) { b.el.style.left = Math.min(Wd - 120, Math.max(120, (V3b.x + 1) / 2 * Wd)) + 'px'; b.el.style.top = Math.max(118, (1 - V3b.y) / 2 * Hh) + 'px'; } } }
+  // ---------------- HUD: step card, pulsing button + pointer, prize text, skip button ----------------
+  const CSS = `.tubub{position:absolute;z-index:7;pointer-events:none;transform:translate(-50%,-100%);max-width:220px;padding:5px 9px;border-radius:10px;background:rgba(255,248,232,.94);color:#2a1a0c;font:600 12px/1.25 var(--fu,system-ui),sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.35);text-align:center}
+.tubub b{display:block;font-size:10px;color:#9a5a10;letter-spacing:.04em;text-transform:uppercase}.tubub:after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-top-color:rgba(255,248,232,.94);border-bottom:0}
+#tuc{position:absolute;left:50%;bottom:62px;transform:translateX(-50%);z-index:7;pointer-events:none;display:none;align-items:center;gap:8px;max-width:56vw;padding:6px 14px 6px 7px;border-radius:18px;background:linear-gradient(180deg,rgba(28,20,40,.9),rgba(16,12,26,.9));border:1px solid rgba(255,206,110,.75);color:#fff3da;font:600 13px/1.25 var(--fu,system-ui),sans-serif;box-shadow:0 3px 14px rgba(0,0,0,.45)}
+#tuc .n{flex:none;min-width:36px;height:22px;border-radius:11px;background:#e2a93a;color:#2a1606;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center}#tuc .p{flex:none;color:#ffd77a;font-weight:800;margin-left:2px}
+#tuc.ok{border-color:#7fe08a;animation:tuok .45s}@keyframes tuok{0%{transform:translateX(-50%) scale(1.14)}100%{transform:translateX(-50%) scale(1)}}
+#tuptr{position:absolute;z-index:8;pointer-events:none;font-size:26px;display:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));animation:tuptr .8s ease-in-out infinite}@keyframes tuptr{0%,100%{margin-top:-6px}50%{margin-top:4px}}
+#tuskip{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);z-index:8;padding:5px 14px;border-radius:14px;border:1px solid rgba(255,220,150,.55);background:rgba(20,14,28,.62);color:#ffe7b8;font:700 12px var(--fu,system-ui),sans-serif;cursor:pointer;display:none}
+#btns .ab.tuhide{display:none!important}
+#tuprize{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:7;pointer-events:none;color:#ffe08a;font:800 15px var(--fu,system-ui),sans-serif;text-shadow:0 2px 4px #000;opacity:0;white-space:nowrap}`;
+  function hudOn() { if (!$('tucss')) { const s = document.createElement('style'); s.id = 'tucss'; s.textContent = CSS; document.head.appendChild(s); }
+    const host = $('hud') || document.body; for (const [id, tag] of [['tuc', 'div'], ['tuptr', 'div'], ['tuprize', 'div'], ['tuskip', 'button']]) { if (!$(id)) { const el = document.createElement(tag); el.id = id; host.appendChild(el); } }
+    $('tuptr').textContent = '👇'; $('tuskip').textContent = t('tu_skip'); $('tuskip').style.display = 'block'; $('tuskip').onpointerdown = e => { e.stopPropagation(); e.preventDefault(); skipAll(); }; }
+  function card(txt, prog) { const c = $('tuc'); if (!c) return; if (!txt) { c.style.display = 'none'; return; } c.classList.remove('ok'); c.style.display = 'flex'; c.innerHTML = `<span class="n">${S.k}/${S.total}</span><span>${txt}</span>` + (prog ? `<span class="p">${prog}</span>` : ''); }
+  function cardProg(prog) { const sp = $('tuc') && $('tuc').querySelector('.p'); if (sp) sp.textContent = prog; }
+  function cardOk() { const c = $('tuc'); if (c) { c.classList.add('ok'); const sp = c.querySelector('.p'); if (sp) sp.textContent = '✓'; else c.insertAdjacentHTML('beforeend', '<span class="p">✓</span>'); } }
+  function focus(ids) { document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); S.focus = (ids || []).filter(Boolean); for (const id of S.focus) { reveal(id); const b = $(id); if (b) b.classList.add('tutor'); } }
+  function ptrTick() { const el = $('tuptr'); if (!el) return; const id = S.focus && S.focus[0], b = id && $(id); if (!b || G.paused || S.over) { el.style.display = 'none'; return; } const r = b.getBoundingClientRect(); if (!r.width) { el.style.display = 'none'; return; } el.style.display = 'block'; el.style.left = (r.left + r.width / 2 - 13) + 'px'; el.style.top = (r.top - 34) + 'px'; }
+  function prize(txt) { const el = $('tuprize'); if (!el) return; el.textContent = txt; el.style.transition = 'none'; el.style.bottom = '84px'; el.style.opacity = 1; void el.offsetWidth; el.style.transition = 'opacity .5s ease .9s,bottom 1.4s'; el.style.bottom = '104px'; el.style.opacity = 0; }
+  // action buttons appear one by one as they are taught (Shadow Fight style); everything is restored on cleanup
+  const BTN_IDS = () => [...document.querySelectorAll('#btns .ab')].map(b => b.id).filter(Boolean);
+  function reveal(...ids) { if (!S || !S.shown) return; for (const id of ids) if (id) { S.shown.add(id); const b = $(id); if (b) b.classList.remove('tuhide'); } }
+  function btnTick() { if (!S.shown) return; for (const id of BTN_IDS()) { const b = $(id); if (b && !S.shown.has(id) && !b.classList.contains('tuhide')) b.classList.add('tuhide'); } }
+  function restoreBtns() { for (const b of document.querySelectorAll('#btns .ab')) b.classList.remove('tuhide', 'tutor'); if (S) S.shown = null; try { refreshSkills(); } catch (e) { } }
+  function hudOff() { for (const id of ['tuc', 'tuptr', 'tuprize', 'tuskip']) { const el = $(id); if (el) el.style.display = 'none'; } document.querySelectorAll('.tubub').forEach(e => e.remove()); document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); }
+  const joyId = () => (btn('jb') ? 'jb' : 'joy');
+  // ---------------- level: ch3 river scenery (no war props) + training camp ----------------
+  function rack(x, z, ry) { const g = new THREE.Group(); for (const s of [-1, 1]) add(g, mesh(new THREE.CylinderGeometry(.06, .07, 1.6, 6), M_WOOD, s * .9, .8, 0)); add(g, mesh(new THREE.CylinderGeometry(.05, .05, 2, 6), M_WOOD2, 0, 1.45, 0), 0, Math.PI / 2); add(g, mesh(new THREE.CylinderGeometry(.05, .05, 2, 6), M_WOOD2, 0, .55, 0), 0, Math.PI / 2);
+    for (let i = 0; i < 5; i++) { const sp = mesh(new THREE.CylinderGeometry(.025, .025, 1.9, 5), M_WOOD, -.7 + i * .35, 1.0, .08); sp.rotation.x = -.18; g.add(sp); const tip = mesh(new THREE.ConeGeometry(.05, .2, 5), M_IRON, -.7 + i * .35, 1.98, -.1); g.add(tip); }
+    g.position.set(x, 0, z); g.rotation.y = ry; world.add(g); return g; }
+  const M_HAY = new THREE.MeshStandardMaterial({ color: 0xa8843a, roughness: 1 });
+  function bale(x, z) { const b = mesh(new THREE.CylinderGeometry(.48, .48, .9, 12), M_HAY, x, .48, z); b.rotation.z = Math.PI / 2; b.rotation.y = rnd(-.4, .4); world.add(b); return b; }
+  function build() {
+    tuWall(-30, 30, -176, 4, 1.6); tuGround(14, -180, 'ground1'); tuWall(-30, 30, 13, 2.2, 1.2, false); tuWater(-G.W - 14, -80, 22, 220);
+    for (const z of [-6, -24, -44, -64, -96, -124, -150]) tuYurt(G.W + 6.5, z, false, false);
+    for (const [x, z] of [[-12.6, 6], [12.8, -14.5], [-13.2, -40]]) tuYurt(x, z, false, false);
+    for (const [x, z, c] of [[-10.6, 2, 0xb5452c], [10.6, 2, 0x2f6f8f], [-10.6, -18, 0x5d8a4a], [10.6, -32, 0xb5452c], [-10.6, -48, 0x2f6f8f], [10.6, -66, 0x5d8a4a], [-5.2, -74, 0xb5452c], [5.2, -74, 0x2f6f8f]]) { try { tuBanner(x, z, c); } catch (e) { } }
+    rack(10.2, -10, -Math.PI / 2); rack(-10.4, -22, Math.PI / 2); rack(10.4, -42, -Math.PI / 2);
+    for (const [x, z] of [[-10.4, -8], [-9.8, -9.1], [10.3, -27], [-10.5, -55], [10.2, -54], [9.6, -55.2]]) bale(x, z);
+    try { decor('R_horse', 10.6, -48, -1.4); decor('R_horse', 11.2, -52, -1.7); decor('R_arava', -11.2, -64, .6); } catch (e) { }
+    // the archery maidens' own targets (visual only)
+    for (const x of [-10.3, -8.7, -7.1]) { const tg = targetMesh(false); tg.position.set(x, 0, -50); tg.scale.setScalar(.9); world.add(tg); }
+    try { tuSCN.ch3(); } catch (e) { console.warn('tut scenery', e); }
+  }
+  // ---------------- ambient life: sparring pairs, archers, riders, banter ----------------
+  const ATK = ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Horizontal', '1H_Melee_Attack_Stab'];
+  function populate() { S.amb = [];
+    for (const [x, z] of [[-8.2, -1.5], [8.6, -5.5], [8.4, -19.5], [-8.7, -28.5]]) { const sx = x < 0 ? 1.35 : -1.35; const a = npc('qiz', x, z), b = npc('qiz', x + sx, z - 1.25); a.rot = Math.atan2(b.x - a.x, b.z - a.z); b.rot = Math.atan2(a.x - b.x, a.z - b.z); a.play('Idle_Combat'); b.play('Idle_Combat'); S.amb.push({ k: 'spar', a, b, t: rnd(.2, 1.6) }); }
+    for (const x of [-10.3, -8.7, -7.1]) { const e = npc('qiz', x, -36.5 - (x + 10.3) * .25, Math.PI); e.play('Idle'); S.amb.push({ k: 'arch', e, tx: x, tz: -50, t: rnd(.3, 2.8) }); }
+    for (const [z, dir] of [[-36, -1], [-60, 1]]) { const e = npc('qiz', 9.6, z, dir < 0 ? Math.PI : 0); try { toggleMount(e, true); } catch (er) { } S.amb.push({ k: 'ride', e, dir, sp: rnd(4.8, 6) }); }
+    for (const [x, z, r] of [[-5.5, 1.5, 2.6], [6.4, -12.5, -1.9], [-6.8, -14, 1.7]]) { const e = npc('qiz', x, z, r); e.play('Idle'); S.amb.push({ k: 'watch', e, t: rnd(1, 4) }); }
+    S.sa = npc('sarbinaz', 2.4, 3.2, Math.PI * .85); S.sa.play('Idle'); }
+  function arrowFx(x0, z0, x1, z1, y0 = 1.5, y1 = 1.5) { const g = new THREE.Group(); add(g, mesh(new THREE.CylinderGeometry(.018, .018, .9, 4), M_WOOD2), Math.PI / 2); const f = mesh(new THREE.ConeGeometry(.05, .14, 4), M_IRON, 0, 0, .5); f.rotation.x = Math.PI / 2; g.add(f); g.position.set(x0, y0, z0); g.lookAt(x1, y1, z1); world.add(g); S.arrows.push({ g, x0, z0, x1, z1, y0, y1, t: 0, dur: Math.max(.18, hyp(x1 - x0, z1 - z0) / 38) }); }
+  function arrowsTick(dt) { for (let i = S.arrows.length - 1; i >= 0; i--) { const a = S.arrows[i]; a.t += dt; const k = Math.min(1, a.t / a.dur); a.g.position.set(a.x0 + (a.x1 - a.x0) * k, a.y0 + (a.y1 - a.y0) * k + Math.sin(k * Math.PI) * .5, a.z0 + (a.z1 - a.z0) * k); if (k >= 1 && !a.hit) { a.hit = true; a.stay = 1.6; if (hyp(a.x1 - G.player.x, a.z1 - G.player.z) < 18) tuSparks(a.x1, a.y1, a.z1, 0xd8c08a, 4, 2); } if (a.hit) { a.stay -= dt; if (a.stay <= 0) { world.remove(a.g); S.arrows.splice(i, 1); } } } }
+  const V3a = new THREE.Vector3();
+  const AMB_LINES = ['tu_a1', 'tu_a2', 'tu_a3', 'tu_a4', 'tu_a5', 'tu_a6', 'tu_a7', 'tu_a8'];
+  function ambient(dt) { const p = P(); if (!S.amb) return;
+    for (const a of S.amb) {
+      if (a.k === 'spar') { if (a.a.dead || a.b.dead) continue; a.t -= dt; if (a.t <= 0) { const sw = Math.random() < .5, at = sw ? a.a : a.b, df = sw ? a.b : a.a; at.play(ATK[(Math.random() * 4) | 0], { once: true, force: true, ts: rnd(.85, 1.1) }); a.t = rnd(1.0, 1.9);
+          setTimeout(() => { if (!S || df.dead) return; df.play(Math.random() < .7 ? 'Block' : 'Hit_A', { once: true, force: true }); if (p && hyp(df.x - p.x, df.z - p.z) < 16) tuSparks((at.x + df.x) / 2, 1.3, (at.z + df.z) / 2, 0xffe6a8, 5, 4); }, 300); } }
+      else if (a.k === 'arch') { a.t -= dt; if (a.t <= 0) { a.t = rnd(2.2, 3.6); a.e.play('1H_Ranged_Shoot', { once: true, force: true }); const e = a.e; setTimeout(() => { if (S && !e.dead) arrowFx(e.x, e.z - .4, a.tx + rnd(-.25, .25), a.tz + .1, 1.55, 1.45 + rnd(-.25, .25)); }, 420); } }
+      else if (a.k === 'ride') { const e = a.e; if (e.dead) continue; e.z += a.dir * a.sp * dt; if (e.z < -72) a.dir = 1; else if (e.z > -26) a.dir = -1; const want = a.dir < 0 ? Math.PI : 0; let d = want - e.rot; while (d > Math.PI) d -= 6.283; while (d < -Math.PI) d += 6.283; e.rot += d * Math.min(1, dt * 2.5); e.x = 9.6 + Math.sin(e.z * .12) * .6; e.spd = a.sp; e.play('Idle_Combat'); }
+      else if (a.k === 'watch') { a.t -= dt; if (a.t <= 0) { a.t = rnd(2.5, 5); if (p) a.e.rot = Math.atan2(p.x - a.e.x, p.z - a.e.z); a.e.play(Math.random() < .35 ? 'Cheer' : 'Idle', { force: true }); } }
+    }
+    // walkers (partners stepping aside etc.)
+    for (let i = S.walkers.length - 1; i >= 0; i--) { const w = S.walkers[i], e = w.e; const dx = w.x - e.x, dz = w.z - e.z, l = hyp(dx, dz); if (l < .25 || e.dead) { e.play('Idle'); if (w.rot !== undefined) e.rot = w.rot; S.walkers.splice(i, 1); continue; } const s = Math.min(l, (w.sp || 3.2) * dt); e.x += dx / l * s; e.z += dz / l * s; e.rot = Math.atan2(dx, dz); e.play(w.sp > 4 ? 'Running_A' : 'Walking_A'); }
+    // banter: a nearby maiden says something now and then (only when no story bubble is up)
+    if (p && G.time > (S.banT || 0) && !S.bubs.length) { S.banT = G.time + rnd(6, 10); const near = S.npcs.filter(e => { if (e.dead || e.mounted || e === S.sa || hyp(e.x - p.x, e.z - p.z) > 13) return false; V3a.set(e.x, (e.h || 2) + .5, e.z).project(camera); return V3a.z < 1 && Math.abs(V3a.x) < .75 && V3a.y < .45 && V3a.y > -.7; }); if (near.length) bubble(near[(Math.random() * near.length) | 0], AMB_LINES[(S.banI = ((S.banI || 0) + 1)) % AMB_LINES.length], 2.6); } }
+  // ---------------- partners: real enemy AI (red wedge telegraph), harmless, never die ----------------
+  function partner(x, z, who, o = {}) { const e = spawn('qiz', x, z, 'enemy', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1);
+    e.d = { ...e.d, team: 'enemy', follow: false, windup: o.windup || 1.05, cd: o.cd || 2.1, rec: 1.05, dmg: [5, 8], string: 1, block: 0, range: 2.1, name: 'n_' + who, ranged: false };
+    e.maxHp = e.hp = 100000; e.speed = 3.8; e.farT = -1e9; e.who = who; e.home = { x, z }; e.rot = 0; e.showBar = () => { };
+    try { markHunt(e, 'n_' + who); } catch (er) { }
+    const d0 = e.damage.bind(e); e.damage = (a, s, op) => { const r = d0(a, s, op); if (e.hp < e.maxHp * .6) e.hp = e.maxHp; if (r && s === P()) { e.lastHitT = G.time; S.parHits = (S.parHits || 0) + 1; if (airborne()) S.airHit = G.time; } return r; };
+    e.custom = idleAI; S.partners.push(e); return e; }
+  function idleAI(e, dt) { const p = P(); const dx = e.home.x - e.x, dz = e.home.z - e.z, l = hyp(dx, dz); if (l > .4) { e.x += dx / l * Math.min(l, 3 * dt); e.z += dz / l * Math.min(l, 3 * dt); e.play('Walking_A'); e.rot = Math.atan2(dx, dz); } else { if (p) e.face(p.x - e.x, p.z - e.z, dt * 5); e.play('Idle_Combat'); } e.clearTele && e.clearTele(); e.state = 'chase'; return true; }
+  const engage = (e, on) => { if (!e || e.dead) return; e.custom = on ? null : idleAI; e.state = 'chase'; e.cd = on ? .8 : 1; };
+  const toCrowd = (e, x, z, rot) => { if (!e || e.dead) return; e.custom = idleAI; e.team = 'npc'; unplate(e); S.walkers.push({ e, x, z, rot, sp: 3.4 }); };
+  // ---------------- player: observe every hit taken (dodge / block / parry / shield outcomes) ----------------
+  function wrapPlayer(p) { const d0 = p.damage.bind(p); p.damage = (a, s, op) => { const hp0 = p.hp, ifr = p.iframe > 0, blk = blocking(), sh = (p.shield || 0) > 0; const r = d0(a, s, op); if (S && s) { const lost = hp0 - p.hp; S.ev.push({ src: s, t: G.time, r, lost, raw: a, ifr, blk: blk && lost < a * .6, shield: sh && lost < a * .5 }); } return r; }; }
+  // ---------------- per-frame logic (game time) ----------------
+  function tick(dt) { if (!S || S.over) return; const p = P(); if (!p) return;
+    for (const e of S.props) { if (e.dead) continue; if (e.mover) e.mover(e, dt); e.x = e.px; e.z = e.pz; e.kx = e.kz = 0; e.stagger = 0; e.downT = 0; e.air = false; e.y = 0; e.rot = e.prot; e.state = 'chase';
+      if (e.vis) { e.wob = Math.max(0, (e.wob || 0) - dt * 1.5); e.vis.rotation.x = Math.sin(G.time * 22) * e.wob * .22; e.vis.rotation.z = Math.cos(G.time * 17) * e.wob * .1; } }
+    const k = actK(); if (k !== S.lastK) { S.lastK = k; if (k) S.acts.push({ k, t: G.time }); if (/dodge|roll/.test(k)) { S.lastDodge = G.time; S.lastDodgeK = k; } if (S.acts.length > 30) S.acts.shift(); }
+    if (p.act && p.act.kind === 'dodge' && p.act.roll && S.lastDodgeK !== 'roll') { S.lastDodge = G.time; S.lastDodgeK = 'roll'; }
+    for (const e of S.props) e.farT = -1e9;   // scripted: exempt from the engine's straggler pull / auto-kill
+    for (const e of S.partners) { if (e.dead) continue; e.farT = -1e9; if (e.team === 'npc') unplate(e); const st = e.state; if (e.pst === 'windup' && st !== 'windup' && !e.custom) S.strikes.push({ e, t: G.time, dodgeT: S.lastDodge || -9, dodgeK: S.lastDodgeK || '' }); e.pst = st; }
+    for (let i = S.strikes.length - 1; i >= 0; i--) { const s = S.strikes[i]; if (G.time - s.t < .16) continue; S.strikes.splice(i, 1);
+      const evs = S.ev.filter(v => v.src === s.e && v.t >= s.t - .08 && v.t <= s.t + .2), hurt = evs.some(v => v.lost > 0 && !v.blk && !v.shield);
+      const res = { hurt, dodged: !hurt && (evs.some(v => v.ifr) || (s.t - s.dodgeT < .75 && s.t - s.dodgeT > -.05)), roll: /roll/.test(s.dodgeK), blocked: evs.some(v => v.blk), shield: evs.some(v => v.shield) };
+      if (S.onStrike) try { S.onStrike(res, s); } catch (err) { console.warn(err); } }
+    if (S.ev.length > 40) S.ev = S.ev.filter(v => G.time - v.t < 2);
+    if (G.stats && (G.stats.pd || 0) > S.pd0) { S.pd0 = G.stats.pd; bonus('pd'); }
+    ambient(dt); arrowsTick(dt); if (S.ringTick) S.ringTick(dt); if (S.rider) riderTick(dt);
+    if (S.cur && S.cur.tick) S.cur.tick(dt);
+    if (S.duelCard && G.time - S.duelCard > 6 && G.boss) { S.duelCard = 0; card(''); }
+    if (S.cur && S.cur.prog) { const pr = S.cur.prog(); if (pr !== S.lastProg) { S.lastProg = pr; cardProg(pr); } } }
+  function fx() { if (!S) return; try { bubTick(); ptrTick(); if (!S.over) btnTick(); } catch (e) { } }
+  // a partner who steps out of the drill loses her name plate + gold ring (the engine re-shows hidden plates every frame, so detach them)
+  function unplate(e) { for (const k of ['bar', 'aura']) { const o = e[k]; if (o) { if (o.parent) o.parent.remove(o); e[k] = null; } } e.barFg = null; e.hunt = false; }
+  function bonus(k) { if (!S || S.opt[k]) return; S.opt[k] = true; if (S.optHave.includes(k)) { prize('★ ' + t('tu_bonus_' + k)); Sfx.power && Sfx.power(); } }
+  const who2e = w => w === 'sa' ? S.sa : w === 'ays' ? S.ays : w === 'aqm' ? S.aqm : w === 'jup' ? S.jup : w === 'gu' ? P() : null;
+  function reward(n, praise) { const p = P(); if (n) addGold(n, p.x, p.z); Sfx.pick(); prize('+' + n + ' 🪙'); if (praise) bubble(who2e(praise[0]), praise[1], 2.6, praise[0]); }
+  function slowmo() { G.slow = Math.max(G.slow || 0, .65); G.zk = Math.max(G.zk || 0, .16); flash(.25); const p = P(); ringFx(p.x, p.z, 2.8, 0xbfe8ff); burst(p.x, 1.3, p.z, 0xbfe8ff, 2.2); Sfx.power && Sfx.power(); }
+  const alive = R => S === R && !R.over && G.mis === R.mis;
+  const goto = (e, x, z, rot, sp) => { if (e && !e.dead) { S.walkers = S.walkers.filter(w => w.e !== e); S.walkers.push({ e, x, z, rot, sp }); } };
+  async function step(R, o) {
+    if (!alive(R)) return false; if (o.need && !o.need()) { R.skipped.push(o.id); return false; }
+    R.k++; R.cur = null; const p = P(); if (p) p.hp = p.maxHp;
+    if (o.say) { await say(o.say); if (!alive(R)) return false; }
+    if (o.init) { await o.init(); if (!alive(R)) return false; }
+    if (o.bub) bubble(who2e(o.bub[0]), o.bub[1], 3, o.bub[0]);
+    obj('🎯 ' + t('tu_n')); card(t(o.tip), o.prog ? o.prog() : ''); focus(o.btn ? o.btn() : []); R.lastProg = null; R.cur = o; G.mis.aim = o.aim || null;
+    if (o.seg) { card(''); await o.seg(); if (!alive(R)) return false; }
+    await until(() => !alive(R) || G.mis.force || R.next || o.ok());
+    R.next = false; R.cur = null; if (!alive(R)) return false;
+    if (o.done) try { o.done(); } catch (err) { console.warn(err); }
+    cardOk(); focus([]); G.mis.aim = null; reward(o.gold ?? 15, o.praise); R.log.push(o.id + '@' + G.time.toFixed(1));
+    await wait(1.1); return alive(R); }
+  // ---------------- rings (mounted ride) ----------------
+  function rings(R, pts) { R.rings = pts.map(([x, z], i) => { const g = ringMesh(); g.position.set(x, 0, z); world.add(g); return { g, x, z, i, done: false, miss: false }; }); R.ringsN = 0;
+    S.ringTick = dt => { const p = P(); const cur = R.rings.find(r => !r.done); for (const r of R.rings) { if (r.done) continue; const on = r === cur; r.g.tor.material.opacity = on ? .95 : .45; r.g.glow.material.opacity = on ? .3 + Math.sin(G.time * 6) * .15 : .08; r.g.tor.rotation.y = Math.sin(G.time * 1.5 + r.i) * .15;
+        if (hyp(p.x - r.x, p.z - r.z) < 1.9) { r.done = true; R.ringsN++; Sfx.pick(); burst(r.x, 2, r.z, 0xffd060, 2.2); ringFx(r.x, r.z, 2.2, 0xffd060); r.g.tor.material.color.set(0x7fe08a); r.g.glow.material.opacity = 0; addGold(5, r.x, r.z); }
+        else if (!r.miss && p.z < r.z - 2.6) { r.miss = true; R.ringMiss = true; bubble(S.sa, 'tu_b_miss', 2.4, 'sa'); } } }; }
+  function riderTick(dt) { const r = S.rider, e = r.e; if (e.dead) return; if (e.z < r.tz) { const v = Math.min(10.5, (r.tz - e.z) * 1.6 + 1.5); e.z = Math.min(r.tz, e.z + v * dt); e.spd = v; e.rot = 0; e.play('Idle_Combat'); if (Math.random() < .3) burst(e.x + rnd(-.4, .4), .2, e.z - .8, 0xc8a070, 1.2, true); } else { e.spd = 0; r.arrived = true; } }
+  // ---------------- the mission ----------------
+  async function run() {
+    if (S) cleanup();
+    const R = S = { props: [], npcs: [], bubs: [], arrows: [], walkers: [], partners: [], ev: [], acts: [], strikes: [], opt: {}, optHave: ['pd', 'rings'], k: 0, total: 0, mis: G.mis, shown: new Set(), pow0: { ...(G.powers || {}) }, noVar0: G.noVar, skipped: [], log: [], dodges: 0, rolls: 0, blocks: 0, combo: 0, pd0: 0 };
+    await field(R, 'start'); if (!alive(R)) return; G.chGold = 0; G.stats.deaths = 0; R.pd0 = G.stats.pd || 0;
+    // stations: two straw dummies, a shield dummy, the sparring partner, the archery instructor
+    const lightHit = s => { const p = P(); if (s !== p || actK() !== 'atk' || p.act === R.lastAct) return; R.lastAct = p.act; const gap = G.time - (R.lastL ?? -9); R.chain = gap < 1.3 ? (R.chain || 0) + 1 : 1; R.lastL = G.time; R.combo = Math.max(R.combo, R.chain); };
+    R.d1 = prop(-2.3, -12, dummyMesh(false), { onHit: lightHit }); R.d2 = prop(2.3, -12, dummyMesh(false), { onHit: lightHit });
+    R.sd = prop(0, -17, dummyMesh(true), { r: .7, gate: (s) => s === P() && actK() === 'hvy', gateKey: 'tu_shieldblk', onGate: () => { if (R.cur && R.cur.id === 'heavy') bubble(S.sa, 'tu_b_hold', 2.4, 'sa'); }, onHit: () => { breakProp(R.sd); R.hvy = true; } });
+    S.ays = R.ays = partner(0, -26, 'ays'); S.aqm = R.aqm = npc('qiz', -3.4, -31.5, .6); R.aqm.play('Idle');
+    window.__TUT_R = R;
+    const F = TU_FEAT, bowOn = F.bow.has(); if (bowOn) R.optHave.push('bull');
+    const ST = [
+      { id: 'move', icon: '🕹', tip: 'tu_t_move', btn: () => [joyId()], aim: () => ({ x: 0, z: -9 }), init: () => { R.mk = marker(0, -8.5); goto(S.sa, 3.6, -7.5, -.6, 3.4); }, ok: () => P().z < -7, done: () => R.mk && R.mk.remove(), praise: ['sa', 'tu_p_move'], gold: 10 },
+      { id: 'light', icon: '⚔', tip: 'tu_t_light', btn: () => ['bA'], aim: () => R.d1, prog: () => Math.min(3, R.combo) + '/3', ok: () => R.combo >= 3, done: () => { for (const e of [R.d1, R.d2]) e.team = 'npc'; }, praise: ['sa', 'tu_p_light'] },
+      { id: 'heavy', icon: '💥', tip: F.strong.has() ? 'tu_t_heavyS' : 'tu_t_heavy', btn: () => [F.strong.btn()], init: () => reveal(F.strong.btn()), aim: () => R.sd.dead ? null : R.sd, ok: () => R.hvy, praise: ['sa', 'tu_p_heavy'], done: () => goto(S.sa, -4.2, -21, .5, 3.4) },
+      { id: 'dodge', icon: '➤', say: [['ays', 'tu_d_ays1'], ['gu', 'tu_d_gu1']], tip: 'tu_t_dodge', btn: () => ['bD'], aim: () => R.ays,
+        init: () => { reveal('bD'); engage(R.ays, true); S.onStrike = r => { if (r.dodged) R.dodges++; else if (r.hurt) bubble(R.ays, 'tu_b_hit', 2, 'ays'); }; }, prog: () => R.dodges + '/2', ok: () => R.dodges >= 2, done: () => { S.onStrike = null; engage(R.ays, false); }, praise: ['ays', 'tu_p_dodge'] },
+      { id: 'roll', need: F.roll.has, icon: '↻', tip: 'tu_t_roll', btn: () => [F.roll.btn()], aim: () => R.ays,
+        init: () => { reveal(F.roll.btn()); engage(R.ays, true); S.onStrike = r => { if (r.dodged && r.roll) R.rolls++; else if (r.hurt) bubble(R.ays, 'tu_b_hit', 2, 'ays'); }; }, prog: () => R.rolls + '/1', ok: () => R.rolls >= 1, done: () => { S.onStrike = null; engage(R.ays, false); }, praise: ['ays', 'tu_p_roll'] },
+      { id: 'block', need: F.block.has, icon: '🛡', tip: 'tu_t_block', btn: () => [F.block.btn()], aim: () => R.ays,
+        init: () => { reveal(F.block.btn()); engage(R.ays, true); S.onStrike = r => { if (r.blocked) R.blocks++; else if (r.hurt) bubble(R.ays, 'tu_b_hit', 2, 'ays'); }; }, prog: () => R.blocks + '/3', ok: () => R.blocks >= 3, done: () => { S.onStrike = null; engage(R.ays, false); }, praise: ['ays', 'tu_p_block'] },
+      { id: 'parry', need: F.parry.has, icon: '✨', tip: 'tu_t_parry', btn: () => [F.parry.btn()], aim: () => R.ays,
+        init: () => { R.par0 = parried(); R.ays.d = { ...R.ays.d, windup: 1.3 }; engage(R.ays, true); }, ok: () => parried() > R.par0, done: () => { slowmo(); engage(R.ays, false); R.ays.d = { ...R.ays.d, windup: 1.05 }; }, praise: ['ays', 'tu_p_parry'], gold: 25 },
+      { id: 'jump', need: F.jump.has, icon: '⤴', tip: 'tu_t_jump', btn: () => [F.jump.btn(), 'bA'],
+        init: () => { reveal(F.jump.btn()); R.jd = prop(-3.4, -21.5, dummyMesh(false), { onHit: () => { if (airborne() || /leap|jump|air/.test(actK())) R.jumpHit = true; } }); }, aim: () => R.jd, ok: () => R.jumpHit || (R.airHitOK = (S.airHit && S.airHit > (R.jt0 || 0))), done: () => breakProp(R.jd), praise: ['sa', 'tu_p_jump'] },
+      { id: 'lock', need: F.lock.has, icon: '🎯', tip: 'tu_t_lock', btn: () => [F.lock.btn()],
+        init: () => { reveal(F.lock.btn()); S.jup = R.jup = partner(3.4, -27, 'jup'); }, tick: () => { const l = lockTarget(); if (l === R.ays) R.la = true; if (l === R.jup) R.lj = true; if (l && R.lastLock && l !== R.lastLock) R.sw = true; if (l) R.lastLock = l; },
+        prog: () => (R.la ? 1 : 0) + (R.lj ? 1 : 0) + '/2', ok: () => R.la && R.lj && R.sw, praise: ['ays', 'tu_p_lock'] },
+      { id: 'amu', icon: '🔺', tip: 'tu_t_amu', btn: () => ['b8'], aim: () => R.ays, bub: ['sa', 'tu_b_amu'],
+        init: () => { G.powers = { ...(G.powers || {}), 8: true }; if (G.sk[8]) { G.sk[8].on = true; G.sk[8].max = 3; G.sk[8].cd = 0; } refreshSkills(); reveal('b8'); engage(R.ays, true); S.onStrike = r => { if (r.shield) R.shieldHit = true; else if (r.hurt && !(P().shield > 0)) bubble(R.ays, 'tu_b_hit', 2, 'ays'); }; },
+        ok: () => R.shieldHit, done: () => { S.onStrike = null; engage(R.ays, false); }, praise: ['ays', 'tu_p_amu'] },
+      { id: 'range', icon: '🏹', say: [['aqm', 'tu_d_aqm1']], tip: 'tu_t_range', btn: () => [joyId()], aim: () => ({ x: 0, z: -34 }),
+        init: () => { R.mk = marker(0, -34); for (const e of [R.ays, R.jup]) if (e) toCrowd(e, e === R.ays ? 6.4 : 7.6, -30.5, -1.7); goto(S.sa, 4, -36, -.9, 3.4); goto(R.aqm, -2.6, -35.5, Math.PI * .8, 3); R.tgs = [[-1.8, -44], [1.8, -44.6], [0, -46.6]].map(([x, z]) => prop(x, z, targetMesh(false), { onHit: (s) => { R.tgHit = R.tgHit || new Set(); R.tgHit.add(z); } })); },
+        ok: () => P().z < -32.6, done: () => R.mk && R.mk.remove(), gold: 5 },
+      ...bowSteps(R, bowOn),
+      { id: 'ride', icon: '🐎', say: [['sa', 'tu_d_sa2']], tip: 'tu_t_ride', btn: () => [joyId()],
+        init: () => { for (const e of R.tgs || []) dropProp(e); const p = P(); toggleMount(p, true); p.horseHp = p.horseMax = 1e9; burst(p.x, .8, p.z, 0xc8a070, 2.5, true); Sfx.neigh && Sfx.neigh(); rings(R, [[-3.6, -44], [3.6, -52.5], [-3.6, -61], [0.5, -70]]); goto(S.sa, -5.5, -40, 2.4, 3.4); },
+        aim: () => { const r = (R.rings || []).find(r => !r.done); return r ? { x: r.x, z: r.z } : null; }, prog: () => (R.ringsN || 0) + '/' + ((R.rings || []).length || 4), ok: () => R.rings && R.rings.every(r => r.done),
+        done: () => { S.ringTick = null; if (!R.ringMiss) bonus('rings'); toggleMount(P(), false); for (const r of R.rings) world.remove(r.g); }, praise: ['sa', 'tu_p_ride'], gold: 20 },
+    ];
+    R.total = ST.filter(o => !o.need || o.need()).length + 1;
+    setMusic('calm'); await ban(3); if (!alive(R)) return; mstart();
+    await say([['sa', 'tu_d_sa1'], ['gu', 'tu_d_gu0'], ['sa', 'tu_d_sa1b']]); if (!alive(R)) return;
+    for (const o of ST) { await step(R, o); if (!alive(R)) return; }
+    // ---- final: friendly duel with Sárbinaz (everything combined; she yields) ----
+    R.k++; reveal('bA', 'bD', 'b8', F.strong.btn(), F.block.btn(), F.roll.btn(), F.jump.btn(), F.lock.btn()); focus([]);
+    obj('⚔ ' + t('tu_t_duel')); card(t('tu_t_duel')); const p2 = P(); p2.hp = p2.maxHp; R.duelCard = G.time;
+    for (const e of S.props) if (!e.dead) e.team = 'npc';
+    if (S.sa) { S.sa.dead = true; S.sa.gone = true; try { S.sa.remove(); } catch (e) { S.sa.o.visible = false; } }
+    const DX = 0, DZ = -60, DR = 7.5;
+    for (const [e, x] of [[R.ays, -3.8], [R.jup, 3.8], [R.aqm, 0]]) if (e && !e.dead) { e.team = 'npc'; e.custom = idleAI; e.home = { x, z: DZ + DR + 2 }; e.x = x; e.z = DZ + DR + 2.2; unplate(e); }
+    const A = arena({ type: 'sarbinaz', x: DX, z: DZ, R: DR, name: 'n_sa', title: 'tu_duel_t', hp: 1100, dmg: .3, poise: 150, crowd: [['qiz', 8]] });
+    A.foe.d = { ...A.foe.d, windup: .72, cd: 1.5, rec: .7, string: 2, block: .25 }; S.sa = A.foe;
+    for (const c of A.ring.crowd) c.rot = Math.atan2(DX - c.x, DZ - c.z);
+    const res = await duel({ arena: A, x: DX, z: DZ, R: DR, name: 'n_sa', title: 'tu_duel_t', nonLethal: .3, after: 'stay', intro: [['sa', 'tu_d_sa3'], ['gu', 'tu_d_gu3'], ['sa', 'tu_d_sa4']] });
+    if (!alive(R)) return; G.tick = tick; R.duelCard = 0; R.duelClean = !!(res && res.clean); cardOk(); reward(40, null); card(''); obj('');
+    await say([['sa', 'tu_d_sa6']]); if (!alive(R)) return;
+    // ---- story hook: the alarm horn, a rider over the bridge, smoke over Sarkop ----
+    for (const c of A.ring.crowd) c.play('Cheer', { force: true }); await wait(1.4); if (!alive(R)) return;
+    Sfx.horn(); G.shake = .35; bubble(R.ays || A.foe, 'tu_b_horn', 2.8, R.ays ? 'ays' : 'sa'); setMusic('off');
+    for (const [x, z, s] of [[-15, -112, 3.6], [17, -121, 3.2], [-5, -134, 4.2], [27, -104, 2.8], [-26, -126, 3]]) { try { fire(x, z, s); } catch (e) { } }
+    const pz = P().z, rd = npc('son', 1.4, -104, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4 }; S.mes = rd; G.mis.aim = () => rd;
+    // short cinematic: the camera lifts and looks past the bridge — the rider and smoke columns over the far bank
+    const cv = { k: 0, on: true }, V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
+    tuCam((cam, dt) => { cv.k = Math.min(1, Math.max(0, cv.k + (cv.on ? 1 : -1) * Math.min(dt, .05) * .7)); if (cv.k <= 0 && !cv.on) { tuCam(null); return; } const s = cv.k * cv.k * (3 - 2 * cv.k), p = P(); if (!p) return;
+      V1.set(p.x + 3.4, 3.2, p.z + 5.2); V3.set(p.x, .8, p.z - .9); V2.set((p.x + rd.x) / 2, 2.4, Math.min(rd.z, p.z - 8) - 10); cam.position.lerp(V1, s); cam.lookAt(V3.lerp(V2, s)); });
+    const cine = on => { for (const id of ['btns', 'joy', 'tuskip']) { const el = $(id); if (el) el.style.visibility = on ? 'hidden' : ''; } }; cine(true);
+    R.camOff = () => { cv.on = false; cine(false); };
+    for (const c of [...A.ring.crowd, R.ays, R.jup, R.aqm]) if (c && !c.dead) { c.rot = Math.atan2(rd.x - c.x, -90 - c.z); c.play('Idle', { force: true }); }
+    const tR = G.time; await until(() => !alive(R) || G.mis.force || S.rider.arrived || G.time - tR > 9); if (!alive(R)) return;
+    bubble(rd, 'tu_b_ms', 2, 'ms'); await wait(1.1); if (!alive(R)) return;
+    await say([['ms', 'tu_d_ms1'], ['gu', 'tu_d_gu4'], ['sa', 'tu_d_sa5'], ['gu', 'tu_d_gu5']]); if (!alive(R)) return;
+    R.camOff(); G.mis.aim = null;
+    for (const c of [...A.ring.crowd, R.ays, R.jup, R.aqm]) if (c && !c.dead) c.play('Cheer', { force: true }); Sfx.horn(); setMusic('battle');
+    G.mis.flag = R.duelClean; G.mis.flag2 = R.optHave.every(k => R.opt[k]); R.log.push('end@' + G.time.toFixed(1) + ' clean=' + R.duelClean + ' opt=' + JSON.stringify(R.opt));
+    await H.bannerShow(t('tu_n'), t('tu_done'), '', 2.4); if (!alive(R)) return;
+    markDone(); cleanup(); return win(); }
+  // (re)build the training field: 'start' = the opening, 'after' = back from the sniper-bow range (ride, duel and the hook follow)
+  async function field(R, phase) { const { DAY } = H.moods, st = phase === 'start';
+    await H.fadeTo(true); await H.chapterStart({ ...DAY, emberA: 0, fog: [60, 170] }, build, ['sarbinaz', 'son']); if (!alive(R)) return;
+    G.curCh = 0; G.noVar = true; G.powers = st ? {} : { 8: true }; G.freeze = false;
+    const z0 = st ? 6 : -34, p = makePlayer('gulayim', 0, z0); H.setHero('gu'); H.setDeath(); H.setCP(0, z0); G.noDeath = true; setBoss(null); H.objective('');
+    if (!st && G.sk[8]) { G.sk[8].on = true; G.sk[8].max = 3; refreshSkills(); }
+    Object.assign(R, { props: [], npcs: [], partners: [], walkers: [], strikes: [], ev: [] }); for (const b of R.bubs) b.el.remove(); R.bubs = []; for (const a of R.arrows || []) world.remove(a.g); R.arrows = [];
+    wrapPlayer(p); hudOn(); btnTick(); populate();
+    if (!st) { S.sa.x = -5.5; S.sa.z = -40; S.sa.rot = 2.4; for (const [k, x, z, nm] of [['ays', 6.4, -30.5], ['jup', 7.6, -30.5], ['aqm', -2.6, -35.5]]) { const e = npc('qiz', x, z, -1.7); e.play('Idle'); S[k] = R[k] = e; } R.jup = TU_FEAT.lock.has() ? R.jup : null; }
+    G.tick = tick; G.mis.fx = fx; live(); }
+  // bow: the sniper-bow steps if the archery module is present, else the existing arrow-rain skill (button 2)
+  function bowSteps(R, on) {
+    const LV = (() => { try { return tuArchLv && tuArchLv['TU-S']; } catch (e) { return null; } })();
+    if (LV || window.__TUT_FAKEARCH) return [{ id: 'sniper', icon: '🏹', tip: 'tu_t_bow1', btn: () => [], seg: async () => { const res = LV ? await tuRunArch('TU-S', H).catch(e => { console.error('[tut archery]', e); return { ok: true }; }) : (await wait(.5), { ok: true, all: true });
+        if (!alive(R)) return; R.archRes = res || {}; if (res && res.all) bonus('bull'); await field(R, 'after'); }, ok: () => true, praise: ['aqm', 'tu_p_bow3'], gold: 30 }];
+    if (!on) return [{ id: 'rain', icon: '🏹', tip: 'tu_t_rain', btn: () => ['b2'], aim: () => (R.tgs || []).find(e => !e.dead),
+      init: () => { if (G.sk[2]) { G.sk[2].on = true; G.sk[2].cd = 0; G.sk[2].max = 3; } refreshSkills(); reveal('b2'); }, prog: () => Math.min(2, (R.tgHit && R.tgHit.size) || 0) + '/2', ok: () => R.tgHit && R.tgHit.size >= 2, praise: ['aqm', 'tu_p_rain'], gold: 20 }];
+    const A = ARCH(), bb = () => [F_bowBtn()]; const F_bowBtn = () => TU_FEAT.bow.btn();
+    const hitsOn = (e) => () => (e && e.tuHits) || 0;
+    const mk = (x, z, big, o = {}) => prop(x, z, targetMesh(big), { onHit: (s, op) => { const e = o.ref(); e.tuHits = (e.tuHits || 0) + 1; if (op && (op.bull || op.head || op.crit)) e.tuBull = true; } , r: big ? .9 : .7 });
+    return [
+      { id: 'bow1', icon: '🏹', tip: 'tu_t_bow1', btn: bb, init: () => { reveal(F_bowBtn()); try { A.enable && A.enable(true); } catch (e) { } let e1; e1 = R.b1 = mk(0, -45, false, { ref: () => e1 }); }, aim: () => R.b1, ok: () => hitsOn(R.b1)() > 0, done: () => dropProp(R.b1), praise: ['aqm', 'tu_p_bow1'] },
+      { id: 'bow2', icon: '🏹', tip: 'tu_t_bow2', btn: bb, init: () => { let e2; e2 = R.b2 = mk(0, -50, false, { ref: () => e2 }); e2.mover = (e, dt) => { e.px = Math.sin(G.time * 1.1) * 5.5; }; }, aim: () => R.b2, ok: () => hitsOn(R.b2)() > 0, done: () => dropProp(R.b2), praise: ['aqm', 'tu_p_bow2'] },
+      { id: 'bow3', icon: '🏹', tip: 'tu_t_bow3', btn: bb, init: () => { let e3; e3 = R.b3 = mk(1.5, -72, true, { ref: () => e3 }); }, aim: () => R.b3, ok: () => hitsOn(R.b3)() > 0, done: () => { if (R.b3.tuBull) bonus('bull'); dropProp(R.b3); try { A.enable && A.enable(false); } catch (e) { } }, praise: ['aqm', 'tu_p_bow3'], gold: 25 },
+    ]; }
+  function markDone() { try { localStorage.setItem('qq_tut', '1'); } catch (e) { } }
+  function cleanup() { if (!S) return; const R = S; R.over = true; try { hudOff(); restoreBtns(); } catch (e) { }
+    G.powers = R.pow0 || {}; G.noVar = R.noVar0; if (R.camOff) try { R.camOff(); tuCam(null); } catch (e) { } R.amb = null; R.cur = null; R.ringTick = null; try { for (const a of R.arrows) world.remove(a.g); } catch (e) { } R.arrows = []; if (G.tick === tick) G.tick = null; if (G.mis && G.mis.fx === fx) G.mis.fx = null;
+    try { refreshSkills(); } catch (e) { } }
+  function skipAll() { if (!S || S.over) return; markDone(); try { H.saveStars('0-0', 0); } catch (e) { } cleanup(); G.paused = true; runMission('0-1'); }
+  window.__TUT = { S: () => S, next: () => { if (S) S.next = true; }, skip: () => skipAll(), feat: () => Object.fromEntries(Object.entries(TU_FEAT).map(([k, f]) => [k, !!f.has()])) };
+  return { run, cleanup };
+})();
+RUN['0-0'] = () => TUT.run();
 // ---------- intro fly-over points: the real posted groups / bosses of the running mission (map.js flyFor) ----------
 export const INTRO_M = {};
 export function flyPoints() { const gs = ((G.mis && G.mis.groups) || []).filter(g => !g.o || !g.o.nofly); if (!gs.length) return null; gs.sort((a, b) => b.z - a.z);
   let pick = gs; if (gs.length > 5) { const keep = new Set(gs.filter(g => g.boss)); keep.add(gs[0]); keep.add(gs[gs.length - 1]); for (let i = 1; keep.size < 5 && i < gs.length - 1; i += Math.max(1, Math.round(gs.length / 4))) keep.add(gs[i]); pick = gs.filter(g => keep.has(g)); }
   return pick.map(g => { const b = g.boss; return { x: b ? b.x : g.x, z: b ? b.z : g.z, g, label: t(g.label), boss: !!b, name: b ? t(g.bossName || b.d.name || g.label) : '', img: g.img || null, chap: !!g.chapBoss, big: b && b.d.heavy }; }); }
 export const flyStart = on => { G.flying = !!on; };
+
+// ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
+// 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
+// Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
+import { runArchery } from './archery.js?v=1795179205';
+for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
+  if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
+async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }
+  if (!G.mis || G.mis.run !== run) return; G.freeze = false; if (!r || !r.ok) return fail();
+  G.mis.flag = !!r.noAlarm; G.mis.flag2 = !!r.all; setMusic('off'); await H.victory(); return win(); }

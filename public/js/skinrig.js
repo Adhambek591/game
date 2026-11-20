@@ -1,7 +1,7 @@
 // Realistic skinned character (Meshy rig) driven by mocap clips retargeted from a shared library
 import * as THREE from 'three';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795168917';
-import { PROPS } from './glbrig.js?v=1795168917';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795179205';
+import { PROPS } from './glbrig.js?v=1795179205';
 export const ANIM = { data: null };
 const PI = Math.PI;
 // game action name -> [clip, loop, default duration (s) or null = natural]
@@ -29,11 +29,17 @@ export class Ribbon {
     const pos = this.mesh.geometry.attributes.position; for (let i = 0; i < n; i++) { const w = (this.w0 + (this.w1 - this.w0) * i / (n - 1)) * .5 * k0; pos.setXYZ(i * 2, P[i].x - side.x * w, P[i].y, P[i].z - side.z * w); pos.setXYZ(i * 2 + 1, P[i].x + side.x * w, P[i].y, P[i].z + side.z * w); } pos.needsUpdate = true; this.mesh.geometry.computeVertexNormals(); }
   dispose() { RIBROOT.remove(this.mesh); this.mesh.geometry.dispose(); }
 }
+// Guloyim (the only rig created with o.amulet) wears a deep-blue / gold outfit so she stands out from the red-clad maidens:
+// her baked atlas is swapped for a recoloured copy (assets/env/tex/gulayim_blue.jpg — crimson cloth -> royal blue, skin/armour kept).
+let BLUE = null;
+function blueOutfit(m) { const src = m.map; if (!BLUE) BLUE = new THREE.TextureLoader().loadAsync('./assets/env/tex/gulayim_blue.jpg').catch(() => null);
+  BLUE.then(t => { if (!t) return; t.flipY = src.flipY; t.colorSpace = src.colorSpace; t.wrapS = src.wrapS; t.wrapT = src.wrapT; t.channel = src.channel; t.anisotropy = src.anisotropy; m.map = t; m.needsUpdate = true; }); }
 export class SkinRig {
   constructor(src, o = {}) {
     const scene = skClone(src); this.root = new THREE.Group(); this.body = new THREE.Group(); this.root.add(this.body); this.body.add(scene); this.scene = scene;
     this.mats = []; this.B = {}; this.sp = 1; this.kind = ''; this.var = .9 + Math.random() * .22;
     scene.traverse(k => { if (k.isMesh) { k.castShadow = true; k.frustumCulled = false; k.material = k.material.clone(); k.material.userData.em0 = k.material.emissive ? k.material.emissive.clone() : null; if (k.material.emissive) this.mats.push(k.material); } if (k.isBone) this.B[k.name] = k; });
+    if (o.amulet) scene.traverse(k => { if (k.isMesh && k.material.map) blueOutfit(k.material); });
     this.mixer = new THREE.AnimationMixer(scene); this.acts = {}; this.cur = null;
     const D = ANIM.data; const hips = this.B.Hips; const tgtY = hips ? hips.position.y : 100;
     if (D) for (const cn in D.clips) {

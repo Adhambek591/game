@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795168917';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795168917';
-import * as FX from './fx.js?v=1795168917';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795179205';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795179205';
+import * as FX from './fx.js?v=1795179205';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };
@@ -440,12 +440,13 @@ const outLane = (pad = 1.5) => x => Math.abs(x) > G.W + pad;
 // ---- crack texture for the salt flats (tileable voronoi) ----
 function saltTex() { return tex('salt', () => { const S = 256, n = 7, pts = []; for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) pts.push([(i + Math.random()) / n * S, (j + Math.random()) / n * S]); if (Math.random() < .35) pts.push([Math.random() * S, Math.random() * S]);
   return canvasTex(S, S, (g) => { const im = g.createImageData(S, S); for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { let d1 = 1e9, d2 = 1e9; for (const [px, py] of pts) for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const d = (x - px - ox) ** 2 + (y - py - oy) ** 2; if (d < d1) { d2 = d1; d1 = d; } else if (d < d2) d2 = d; }
-      const e = Math.sqrt(d2) - Math.sqrt(d1) + Math.sin(x * .21 + y * .13) * .7 + Math.sin(y * .37 - x * .09) * .5; const crack = e < .9 ? .74 : e < 2.6 ? 1.03 : .97; const nz = .93 + Math.random() * .07, k = (i => i)(y * S + x) * 4; const v = crack * nz;
+      const e = Math.sqrt(d2) - Math.sqrt(d1) + Math.sin(x * .21 + y * .13) * .7 + Math.sin(y * .37 - x * .09) * .5; const crack = e < .9 ? .6 : e < 2.6 ? 1.03 : .96; const nz = .93 + Math.random() * .07, k = (i => i)(y * S + x) * 4; const v = crack * nz;
       im.data[k] = Math.min(255, 214 * v); im.data[k + 1] = Math.min(255, 208 * v); im.data[k + 2] = Math.min(255, 198 * v); im.data[k + 3] = 255; } g.putImageData(im, 0, 0); }); }); }
 function saltFlat(z0, z1) { const W = 76, D = z0 - z1, g = new THREE.PlaneGeometry(W, D, 38, Math.ceil(D / 2)); g.rotateX(-Math.PI / 2); g.translate(0, 0, (z0 + z1) / 2);
   const p = g.attributes.position, cl = new Float32Array(p.count * 4); for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, heightAt(x, z) + .03); const a = sst(z0, z0 - 9, z) * sst(z1, z1 + 9, z) * sst(38, 30, Math.abs(x)) * (.75 + .25 * fbm(x * .1, z * .1, 2)); cl[i * 4] = cl[i * 4 + 1] = cl[i * 4 + 2] = 1; cl[i * 4 + 3] = Math.min(1, a * 1.3); }
   g.setAttribute('color', new THREE.BufferAttribute(cl, 4)); g.computeVertexNormals(); const t = saltTex(); t.repeat.set(W / 7, D / 7);
-  return addMesh(g, new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 1.1, roughness: .9, color: 0x9c968c, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }), { shadow: false }); }
+  const sm = new THREE.MeshStandardMaterial({ map: t, bumpMap: t, bumpScale: 1.1, roughness: .9, color: 0x8c9096, vertexColors: true, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }); roadify(sm, { ...(ROAD || {}), dark: .7, desat: .75 });
+  return addMesh(g, sm, { shadow: false }); }
 
 function _ch2() { begin(2, 'ch2');
   const SZ = z => sst(-86, -98, z) * (1 - sst(-160, -172, z));

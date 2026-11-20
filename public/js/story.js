@@ -1,21 +1,21 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795168917';
-import { t, setLang, lang, L } from './i18n.js?v=1795168917';
-import { place } from './env.js?v=1795168917';
-import * as SC from './scenery.js?v=1795168917';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle } from './audio.js?v=1795168917';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795168917';
-import { initMissions, runMission } from './missions.js?v=1795168917';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795179205';
+import { t, setLang, lang, L } from './i18n.js?v=1795179205';
+import { place } from './env.js?v=1795179205';
+import * as SC from './scenery.js?v=1795179205';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle } from './audio.js?v=1795179205';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795179205';
+import { initMissions, runMission } from './missions.js?v=1795179205';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
 const NIGHT = { bg: 0xd08a5a, fog: [40, 110], hemi: [0xffd2a8, 0x6a4630, 1.9], sun: [0xffb878, 4.2], sunDir: [-.8, .5, -.5], exp: 1.15, fireI: 20, ember: 0xffa040, emberA: .8, dawn: true };
 const DAY = { bg: 0xc9d8e0, fog: [50, 130], hemi: [0xf2ecd8, 0x6a5232, 1.9], sun: [0xffe6b8, 4.6], sunDir: [.6, 1, .45], exp: 1.05, fireI: 10, ember: 0x5a5550, emberA: .45, ash: true };
-const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay' };
+const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay', ays: 'md_aysuliw', aqm: 'md_aqmaral', jup: 'md_jupar', ms: 'keyart' };
 
 // ---------- UI helpers ----------
 const objective = (k, v) => { $('obj').textContent = k ? t(k, v) : ''; };
 let hintTo; function hint(k, dur = 5, raw) { { const m = { h_move: 'joy', h_attack: 'bA', h_dodge: 'bD', h_skill: 'b1', h_ulti: 'b2' }[k]; document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); if (m && $(m)) { $(m).classList.add('tutor'); setTimeout(() => $(m) && $(m).classList.remove('tutor'), dur * 1000); } } const h = $('hint'); h.textContent = (raw || t(k)).replace(TOUCH ? /\s*\([^)]*WASD\)/ : /$^/, ''); h.classList.add('show'); clearTimeout(hintTo); hintTo = setTimeout(() => h.classList.remove('show'), dur * 1000); }
-function bannerShow(a, b, c, dur = 3) { const fly = flyFor(a); if (fly) return fly.then(() => bannerShow(a, b, c, dur)); $('hint').classList.remove('show'); $('ban1').textContent = a || ''; $('ban2').textContent = b || ''; $('ban3').textContent = c || ''; const e = $('ban'); e.classList.add('show'); return new Promise(r => setTimeout(() => { e.classList.remove('show'); r(); }, dur * 1000)); }
+function bannerShow(a, b, c, dur = 3) { const fly = flyFor(a); if (fly) return fly.then(() => bannerShow(a, b, c, dur)); $('hint').classList.remove('show'); $('ban1').textContent = a || ''; $('ban2').textContent = b || ''; $('ban3').textContent = c || ''; const e = $('ban'); e.classList.add('show'); const hold = !!(G.mis && !G.mis.started && G.player); if (hold) G.freeze = true; return new Promise(r => setTimeout(() => { e.classList.remove('show'); if (hold) G.freeze = false; r(); }, dur * 1000)); }  /* start banner: nobody moves (the player cannot run past the first gate / wake a camp early) */
 function fadeTo(on) { const f = $('fade'); f.classList.toggle('in', on); return new Promise(r => setTimeout(r, 550)); }
 function setHero(k) { $('pport').style.backgroundImage = `url(./assets/img/${PORT[k]}.jpg)`; $('pname').textContent = t('n_' + k); }
 function dialog(lines) {
@@ -187,6 +187,8 @@ async function chapterEnd(n, stars, next) {
   const k = stars.filter(Boolean).length; $('eh').textContent = t('ch' + n) + ' — ' + t('done'); endStars(n, k, stars.length); $('etb').textContent = ''; $('stl').innerHTML = '';
   $('ereplay').textContent = next ? t('nextch') : t('replay'); const g0 = G.chGold || 0; $('eadx2').style.display = g0 > 0 ? 'block' : 'none'; $('eadx2').textContent = t('adX2') + ' (+' + g0 + ' 🪙)'; $('eadx2').onclick = async () => { if (await ADS.rewarded()) { addGold(g0); $('eadx2').style.display = 'none'; } }; $('eshop').textContent = t('shopT'); $('eshop').onclick = () => openShop(); $('end').classList.add('on'); $('fade').classList.remove('in');
   $('ereplay').onclick = () => { $('end').classList.remove('on'); (next || prolog)(); };
+  // chapter finished: the map is the next step (opens by itself; Map button = primary)
+  const MP = window.__M; if (MP) { const em = $('emap'); if (em) em.style.display = 'none'; $('ereplay').textContent = t('m_btn') + ' ▸'; const go = () => { clearTimeout(chapterEnd.autoT); if ($('end').classList.contains('on')) MP.openMap('end'); }; $('ereplay').onclick = go; clearTimeout(chapterEnd.autoT); chapterEnd.autoT = setTimeout(go, 4200); }
 }
 // generic boss brain: telegraphed slams, combos, summons, charges, ranged volleys
 function openUp(b, sec, key) { b.openT = sec; flash(.25); burst(b.x, 2.5, b.z, 0xffe080, 5); ringFx(b.x, b.z, 4, 0xffe080); Sfx.power(); if (key) hintRaw(t(key)); }
@@ -375,7 +377,7 @@ $('title').addEventListener('pointerdown', () => { initAudio(); playTitle(); }, 
 $('title').style.backgroundImage = 'url(./assets/img/keyart.jpg)'; texts();
 document.querySelectorAll('#langs button').forEach(b => b.onclick = () => { setLang(b.dataset.l); texts(); });
 function begin(fn) { initAudio(); try { const d = document.documentElement; if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && d.requestFullscreen) d.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape').catch(() => { })).catch(() => { }); } catch (e) { } $('title').classList.remove('on'); $('title').style.display = 'none'; fn(); }
-$('tplay').onclick = () => begin(() => runMission('0-1')); { const b = document.createElement('button'); b.className = 'btn alt'; b.id = 'tshop'; $('tcont').after(b); b.onclick = () => { initAudio(); openShop(); }; } let chSaved = 1; try { chSaved = Math.min(7, +localStorage.getItem('qq_ch') || 1); } catch (e) { }
+$('tplay').onclick = () => begin(() => runMission((() => { try { return localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); } catch (e) { return true; } })() ? '0-1' : '0-0')); { const b = document.createElement('button'); b.className = 'btn alt'; b.id = 'tshop'; $('tcont').after(b); b.onclick = () => { initAudio(); openShop(); }; } let chSaved = 1; try { chSaved = Math.min(7, +localStorage.getItem('qq_ch') || 1); } catch (e) { }
 $('tcont').onclick = () => begin(CHAP[chSaved] || CHAP[1]);
 // ---- missions (js/missions.js): story helpers handed over once ----
 initMissions({ objective, hint, bannerShow, fadeTo, setHero, dialog, cutscene, reach, goTo, victory, potionSoldier, wave, setDeath, setCP: (x, z) => { checkpoint = { x, z }; }, skirmish, buildProlog, buildMission, qashqirAI, heroSetup, saveProg, chapterIntro, lore, chapterStart, bossFight, gainPower, openUp, RES, weakWhile, bossBrain,
@@ -398,5 +400,5 @@ addEventListener('keydown', e => { if (e.code === 'Escape') { $('set').classList
 window.__T = { prolog, mission1, CHAP, ms: runMission, spawn, potion: potionSoldier, soul: soulToAmulet, mount: toggleMount, kill: () => enemies().forEach(e => { if (!e.invuln) e.damage(1e6); }) };
 loadAssets(f => { $('loadbar').firstChild.style.width = (f * 100) + '%'; }).then(() => {
   ready = true; $('loadbar').style.display = 'none'; $('tplay').style.display = 'block'; if (prog) $('tcont').style.display = 'block'; texts(); setMood(NIGHT); start();
-  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-[1-4]$/.test(s) ? () => runMission(s.replace(/^m/, '')) : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
+  const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-[0-4]$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
 }).catch(e => { $('loadtxt').textContent = 'Error: ' + e.message; console.error(e); });

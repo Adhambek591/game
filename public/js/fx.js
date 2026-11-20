@@ -3,10 +3,10 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795168917';
-import { G, SET, world, fxg, scene, camera, renderer, A } from './engine.js?v=1795168917';
-import { ENV, pbrMat, place, roadX } from './env.js?v=1795168917';
-import { makeHorse } from './horse.js?v=1795168917';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795179205';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795179205';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795179205';
+import { makeHorse } from './horse.js?v=1795179205';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -50,7 +50,7 @@ const TEAM = {
   ally: { rim: 0xffd9a0, k: 1.15, sat: 1.28, tint: [1.2, 1.12, 1.04], ring: 0 },
   enemy: { rim: 0x6fb4ff, k: 1.25, sat: .82, tint: [.74, .8, .98], ring: 0 },
   elite: { rim: 0xff4a30, k: 1.9, sat: .9, tint: [.82, .78, .9], ring: 0x8a1810 },
-  hero: { rim: 0xffd9a0, k: .55, sat: 1.15, tint: [1.05, 1.0, .95], ring: 0xffc64a },
+  hero: { rim: 0xffe0a0, k: .5, sat: 1.12, tint: [1.0, 1.0, 1.03], ring: 0xffc64a },
   npc: { rim: 0xfff0d0, k: .8, sat: 1.15, tint: [1.12, 1.1, 1.05], ring: 0 },
 };
 function unitMeshes() {
@@ -371,17 +371,137 @@ function buildGD() { const P = G.player; if (!P) return; const W = G.W || 11.5, 
   const put = (m, x, z, s, sy, c) => { const y = H(x, z); if (!ok(x, z, y)) return; _o.position.set(x, y - .02, z); _o.rotation.set(0, rnd(0, 6.28), 0); _o.scale.set(s, sy, s); _o.updateMatrix(); m.setMatrixAt(m.count, _o.matrix); if (c) m.setColorAt(m.count, _c.setRGB(c, c * rnd(.95, 1.02), c * rnd(.9, 1))); m.count++; };
   const paved = hf && G.gdPaved; const edgeX = () => { const sd = Math.random() < .5 ? -1 : 1, r = Math.random(); return paved ? sd * (W + rnd(.8, 6)) : r < .7 ? sd * (W + rnd(-3.2, 6)) : rnd(-W, W); };
   const clear = (x, z) => Math.abs(x - roadX(z)) > 2.4;
-  for (let i = 0; i < nT * 1.3 && tG.count < nT; i++) { const z = rnd(z1, z0), x = edgeX(); if (clear(x, z)) put(tG, x, z, rnd(.45, .85), rnd(.35, .7), rnd(.55, .8)); }
-  for (let i = 0; i < nT * .6 && tT.count < tT.instanceMatrix.count; i++) { const z = rnd(z1, z0), x = edgeX(); if (clear(x, z)) put(tT, x, z, rnd(.5, .9), rnd(.4, .7), rnd(.6, .85)); }
+  for (let i = 0; i < nT * 1.3 && tG.count < nT; i++) { const z = rnd(z1, z0), x = edgeX(); if (clear(x, z)) put(tG, x, z, rnd(.45, .85), rnd(.35, .7), rnd(.95, 1.25)); }
+  for (let i = 0; i < nT * .6 && tT.count < tT.instanceMatrix.count; i++) { const z = rnd(z1, z0), x = edgeX(); if (clear(x, z)) put(tT, x, z, rnd(.5, .9), rnd(.4, .7), rnd(1.0, 1.3)); }
   for (let i = 0; i < nP * 1.2 && pM.count < nP; i++) { const z = rnd(z1, z0), x = Math.random() < .5 && !paved ? rnd(-W - 4, W + 4) : edgeX(); put(pM, x, z, rnd(.7, 2.2), rnd(.6, 1.6)); }
   for (let i = 0; i < nD; i++) { const z = rnd(z1, z0), x = paved ? edgeX() : rnd(-W - 6, W + 6), s = rnd(1.8, 4.5); put(dM, x, z, s, 1); }
   for (const m of [tG, tT, pM, dM]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; } tG.castShadow = tT.castShadow = false; world.add(g); GD = { g }; }
 function tickGD() { const now = performance.now(); if (GD && !GD.g.parent) { GD = null; gdClr = now; gdT = now + 1200; } if (!GD && G.player && now > gdT && world.children.length > 3) { gdT = now + 3000; try { buildGD(); } catch (e) { console.warn('fx gd', e); } } }
 
+// =====================================================================================================================
+// 9. BURNT RUINS (session 4, author playtest: "burnt houses are black boxes — a burnt house isn't all black, the beams show").
+// The engine's yurt()/house() with burnt=true place the GLB with one flat 0x2a2420 material. scanBurnt() hides those clones and
+// puts a procedural ruin in their place (collision from the engine stays): yurt = charred kerege lattice arcs, scorched felt
+// remnants, door frame, roof poles leaning on a tilted/collapsed crown ring, collapsed felt heap, ash disc, pulsing embers,
+// thin smoke; house = sooty clay walls with broken tops and a breach, charred roof beams (spanning / snapped / fallen), roof
+// debris heap. 4 draws per ruin (timber, felt/heap, clay or ash decal, embers). Any other burnt GLB material gets charPatch():
+// map kept, brown char / coal / grey-ash variation in world space instead of a flat dark colour.
+// =====================================================================================================================
+const nz = (x, y, z) => (Math.sin(x * 1.9 + z * 2.7 + y * .7) + Math.sin(x * 4.3 - z * 3.1 + y * 2.3) * .5 + Math.sin(z * 7.7 + x * 6.1 - y * 5.3) * .25) / 3.5 + .5;
+const lerp3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+const CH = { coal: hx(0x141110), char: hx(0x2c221c), brown: hx(0x5e3e28), wood: hx(0x8a6640), ash: hx(0x9c968e), ashD: hx(0x5a5652), felt: hx(0xc4b498), feltS: hx(0x7c5e40), clay: hx(0xccb294), clayD: hx(0xa89076), brick: hx(0xb08466), soot: hx(0x1e1a18), paint: hx(0x8a3a20) };
+const charC = (x, y, z, top = 2) => { const n = nz(x * 1.3, y * 1.3, z * 1.3), k = Math.min(1, Math.max(0, y / top)); let c = lerp3(CH.brown, CH.char, Math.min(1, k * .7 + n * .4)); if (k > .8) c = lerp3(c, CH.coal, (k - .8) * 4); if (n > .7 && k < .6) c = lerp3(c, CH.wood, .6); else if (n < .22) c = lerp3(c, CH.ashD, .45); return c; };
+const ruinW = () => M.ruinW || (M.ruinW = (ENV.ok && pbrMat('brown_planks_09', .6, .6, { vertexColors: true, roughness: 1, color: 0xffffff })) || new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }));
+const ruinP = () => M.ruinP || (M.ruinP = new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0, vertexColors: true, side: THREE.DoubleSide }));
+const ruinC = () => M.ruinC || (M.ruinC = (ENV.ok && pbrMat('clay_block_wall', 1, 1, { vertexColors: true, color: 0xf0eee8 })) || new THREE.MeshStandardMaterial({ roughness: 1, vertexColors: true }));
+function emberM() { if (M.ember) return M.ember; const m = M.ember = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  m.onBeforeCompile = sh => { sh.uniforms.uT = U.t; sh.vertexShader = 'uniform float uT; varying float vEk;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n { vec4 ewp = modelMatrix * vec4(transformed, 1.); vEk = .5 + .5 * sin(uT * (2. + fract(ewp.x * 3.7 + ewp.z * 1.3) * 2.5) + ewp.x * 9. + ewp.z * 7.); }');
+    sh.fragmentShader = 'varying float vEk;\n' + sh.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb *= .45 + vEk * .75;'); }; m.customProgramCacheKey = () => 'fxember'; return m; }
+function ashM() { if (M.ash) return M.ash; const a = canvas(128, 128, (g, w) => { g.fillStyle = '#000'; g.fillRect(0, 0, w, w); for (let i = 0; i < 9; i++) { const x = w / 2 + rnd(-22, 22), y = w / 2 + rnd(-22, 22), r = rnd(26, 46), gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(255,255,255,.8)'); gr.addColorStop(.6, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); } }); a.colorSpace = THREE.NoColorSpace;
+  return M.ash = (ENV.ok && pbrMat('burned_ground_01', 1.4, 1.4, { transparent: true, alphaMap: a, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, color: 0xa8a29c })) || new THREE.MeshStandardMaterial({ color: 0x3a3430, transparent: true, alphaMap: a, depthWrite: false, roughness: 1 }); }
+const _ya = new THREE.Vector3(0, 1, 0), _qq = new THREE.Quaternion();
+function beamG(p0, p1, r, n = 6) { const d = new THREE.Vector3().subVectors(p1, p0), L = d.length(); const g = cyl(r * .85, r, L, n); g.translate(0, L / 2, 0); _qq.setFromUnitVectors(_ya, d.normalize()); g.applyQuaternion(_qq); g.translate(p0.x, p0.y, p0.z); return g; }
+function blobG(rx, ry, rz, seed) { let g = new THREE.IcosahedronGeometry(1, 2); const p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = .55 + nz(x * 2 + seed, y * 2, z * 2 - seed) * .5 + nz(x * 6 - seed, y * 6, z * 6 + seed) * .35; p.setXYZ(i, x * rx * k, Math.max(-.05, y) * ry * k, z * rz * k); } g.computeVertexNormals(); return g; }
+const emb = (E, x, y, z, s = 1) => { const g = new THREE.IcosahedronGeometry(rnd(.035, .08) * s, 0); g.translate(x, y, z); const k = rnd(.8, 1.5); colF(g, () => [1 * k, rnd(.28, .5) * k, .06 * k]); E.push(g); };
+// pile of burnt stuff: low lumpy mound + small lumps + charred sticks lying on top + embers
+function heapG(P, W, E, cx, cz, rx, rz, hh) { const g = blobG(rx, hh * .75, rz, rnd(0, 9)); g.rotateY(rnd(0, 6)); g.translate(cx, 0, cz); heapColor(g, hh); P.push(g);
+  for (let i = 0; i < 6; i++) { const a = rnd(0, 6.28), r = Math.sqrt(Math.random()), s = rnd(.25, .55), q = blobG(s, s * rnd(.6, 1.1), s * rnd(.8, 1.3), rnd(0, 9)); q.translate(cx + Math.cos(a) * rx * r * .8, rnd(0, hh * .5), cz + Math.sin(a) * rz * r * .8); heapColor(q, hh); P.push(q); }
+  for (let i = 0; i < 7; i++) { const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * .8, x = cx + Math.cos(a) * rx * r, z = cz + Math.sin(a) * rz * r, y = hh * rnd(.35, .85), b = rnd(0, 6.28), L = rnd(.6, 1.5); const st = beamG(new THREE.Vector3(x - Math.cos(b) * L / 2, y + rnd(-.15, .15), z - Math.sin(b) * L / 2), new THREE.Vector3(x + Math.cos(b) * L / 2, y + rnd(-.25, .1), z + Math.sin(b) * L / 2), rnd(.035, .06), 5); colF(st, (px, py, pz) => charC(px, py + .4, pz, 1.2)); W.push(st); }
+  for (let i = 0; i < 14; i++) { const a = rnd(0, 6.28), r = Math.sqrt(Math.random()) * .85; emb(E, cx + Math.cos(a) * rx * r, rnd(.04, hh * .7), cz + Math.sin(a) * rz * r); } }
+function heapColor(g, top) { return colF(g, (x, y, z) => { const n = nz(x * 1.7, y * 2, z * 1.7), m = nz(z * 3.1 + 5, y * 3, x * 3.1); let c = lerp3(CH.char, CH.brown, n * .7); if (m > .5) c = lerp3(c, CH.ashD, Math.min(1, (m - .5) * 3)); if (m > .66 && y > top * .3) c = lerp3(c, CH.ash, Math.min(.85, (m - .66) * 4)); if (n > .8 && y < top * .35) c = lerp3(c, CH.feltS, .7); if (n < .2) c = lerp3(c, CH.coal, .7); return c; }); }
+function yurtRuinG() { const R = 3.1, W = [], P = [], E = [], smk = [], door = rnd(0, 6.28);
+  // wall arcs (surviving lattice) — 13 segments, ~60% survive, smooth burnt height
+  const NS = 13, seg = []; for (let i = 0; i < NS; i++) { const a0 = door + i / NS * 6.283; const keep = i === 0 || i === NS - 1 ? true : Math.random() < .5; seg.push({ a0, a1: a0 + 6.283 / NS, keep, h: keep ? rnd(.75, 1.5) : 0, lean: rnd(-.1, .14) }); }
+  for (const s of seg) { if (!s.keep) continue; for (let a = s.a0 + .08; a < s.a1; a += .21) for (const sd of [-1, 1]) { const L = s.h / Math.cos(.62) * rnd(.5, 1.05), b = bbox(.075, L, .045, .01); b.rotateZ(sd * .62); b.translate(0, L / 2 * Math.cos(.62), 0); b.rotateX(s.lean); b.translate(0, 0, R); b.rotateY(a); colF(b, (x, y, z) => charC(x, y, z, s.h)); W.push(b); }
+    if (Math.random() < .55) { const t = new THREE.TorusGeometry(R, .035, 4, 6, s.a1 - s.a0); t.rotateX(Math.PI / 2); t.rotateY(s.a0 - Math.PI / 2 + (s.a1 - s.a0)); t.translate(0, s.h * .96, 0); colF(t, () => CH.coal); W.push(t); } }
+  // scorched felt remnants on 2-3 surviving segments (jagged burnt top edge)
+  const ks = seg.filter((s, i) => s.keep && i > 0 && i < NS - 1); for (let i = 0; i < Math.min(3, ks.length); i++) { const s = ks[Math.floor(Math.random() * ks.length)], fh = s.h * rnd(.6, .95);
+    const g = new THREE.CylinderGeometry(R + .06, R + .06, fh, 7, 3, true, s.a0, (s.a1 - s.a0) * rnd(.7, 1)); const p = g.attributes.position; for (let j = 0; j < p.count; j++) { const y = p.getY(j); if (y > -fh / 2 + .01) p.setY(j, y - rnd(0, fh * (y > fh / 2 - .01 ? .7 : .25))); } g.translate(0, fh / 2, 0); g.computeVertexNormals();
+    colF(g, (x, y, z) => { const n = nz(x * 2.2, y * 3, z * 2.2), k = y / fh + n * .35 - .15; return k < .45 ? lerp3(CH.felt, CH.feltS, Math.max(0, k) / .45) : lerp3(CH.feltS, CH.soot, Math.min(1, (k - .45) / .35)); }); P.push(g); }
+  // door frame (painted remnant low on the posts)
+  for (const sd of [-1, 1]) { const b = bbox(.15, 1.65, .12, .015); b.translate(0, .82, 0); b.rotateY(-door); const a = door + sd * .17; b.translate(Math.sin(a) * R, 0, Math.cos(a) * R); colF(b, (x, y, z) => y < .6 ? lerp3(CH.paint, CH.brown, y / .6) : charC(x, y, z, 1.7)); W.push(b); }
+  { const b = bbox(1.15, .13, .12, .015), up = Math.random() < .5; if (up) { b.translate(0, 1.66, 0); } else { b.rotateZ(rnd(.6, 1)); b.translate(.3, .5, .3); } b.rotateY(door); b.translate(Math.sin(door) * R, 0, Math.cos(door) * R); colF(b, (x, y, z) => charC(x, y, z, 1.2)); W.push(b); }
+  // collapsed felt / roof heap
+  const hx0 = rnd(-.7, .7), hz0 = rnd(-.7, .7), hh = rnd(.4, .6); heapG(P, W, E, hx0, hz0, R * .5, R * .42, hh);
+  // crown ring (shangaraq) — held up by a few poles, or fallen onto the heap
+  const up = Math.random() < .6, C = new THREE.Vector3(hx0 * .6 + rnd(-.3, .3), up ? rnd(1.2, 1.9) : hh + .15, hz0 * .6 + rnd(-.3, .3)), tilt = up ? rnd(.25, .55) : rnd(.1, .3), ta = rnd(0, 6);
+  { const t = new THREE.TorusGeometry(.55, .065, 5, 14); t.rotateX(Math.PI / 2 + tilt); t.rotateY(ta); t.translate(C.x, C.y, C.z); colF(t, () => lerp3(CH.char, CH.brown, Math.random() * .5)); W.push(t);
+    for (let i = 0; i < 3; i++) { const q = cyl(.03, .03, 1.1, 5); q.rotateZ(Math.PI / 2); q.rotateY(i * 1.05); q.rotateX(tilt); q.rotateY(ta); q.translate(C.x, C.y, C.z); colF(q, () => CH.coal); W.push(q); } }
+  // roof poles (uuk): standing to the crown, snapped with glowing tips, or fallen on the floor
+  for (const s of seg) { const n = s.keep ? (Math.random() < .5 ? 2 : 1) : (Math.random() < .35 ? 1 : 0); for (let k = 0; k < n; k++) { const a = s.a0 + (k + .5) / n * (s.a1 - s.a0), p0 = new THREE.Vector3(Math.sin(a) * R, s.keep ? s.h * .9 : .05, Math.cos(a) * R), r = Math.random();
+    if (s.keep && up && r < .22) { const p1 = new THREE.Vector3(C.x + Math.sin(a) * .5, C.y, C.z + Math.cos(a) * .5); const g = beamG(p0, p1, .045); colF(g, (x, y, z) => charC(x, y, z, 1.6)); W.push(g); }
+    else if (s.keep && r < .55) { const p1 = new THREE.Vector3(C.x, up ? C.y : 2.2, C.z), pe = p0.clone().lerp(p1, rnd(.3, .6)); const g = beamG(p0, pe, .045); colF(g, (x, y, z) => charC(x, y + .6, z, 1.6)); W.push(g); emb(E, pe.x, pe.y, pe.z, .9); }
+    else { const p1 = new THREE.Vector3(Math.sin(a) * R * rnd(-.2, .3) + rnd(-.4, .4), .06, Math.cos(a) * R * rnd(-.2, .3) + rnd(-.4, .4)); p0.y = s.keep ? rnd(.3, s.h) : .06; const g = beamG(p0, p1, .045); colF(g, (x, y, z) => charC(x, y + .8, z, 1.4)); W.push(g); } } }
+  smk.push([hx0, hh * .7, hz0, rnd(.7, 1.1)]);
+  return { W, P, E, smk, ash: R * 2.7 }; }
+function worldUV(g, s) { const p = g.attributes.position, n = g.attributes.normal, uv = new Float32Array(p.count * 2); for (let i = 0; i < p.count; i++) { const ax = Math.abs(n.getX(i)), ay = Math.abs(n.getY(i)), az = Math.abs(n.getZ(i)); let u, v; if (ay > ax && ay > az) { u = p.getX(i); v = p.getZ(i); } else if (ax > az) { u = p.getZ(i); v = p.getY(i); } else { u = p.getX(i); v = p.getY(i); } uv[i * 2] = u * s; uv[i * 2 + 1] = v * s; } g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); return g; }
+function houseRuinG() { const Wd = 6.5, D = 5, H = 3.3, T = .34, W = [], P = [], C = [], E = [], smk = [];
+  const walls = [[Wd / 2, 0, D, 1], [-Wd / 2, 0, D, 1], [0, D / 2, Wd, 0], [0, -D / 2, Wd, 0]]; const tops = [];
+  walls.forEach(([cx, cz, L, alongZ], wi) => { const front = wi === 0, br = rnd(-L / 2 + 1, L / 2 - 1), bw = rnd(.8, 1.8), bh = rnd(.4, 1.2), NS = Math.round(L / .5), sw = L / NS, ph = rnd(0, 9), top = [];
+    for (let i = 0; i < NS; i++) { const u = -L / 2 + sw * (i + .5); let ht = H * (.46 + .46 * nz(u * .32 + ph, 0, wi)) + rnd(-.07, .07); if (!front) ht = Math.min(ht, bh + Math.max(0, Math.abs(u - br) - bw * .3) * 1.4); if (Math.abs(u) > L / 2 - .4) ht = Math.max(ht, H * rnd(.7, .9)); top.push(ht);
+      const door = front && Math.abs(u - .2) < .62, pcs = door ? (ht > 2.35 ? [[2.15, ht]] : []) : [[0, Math.min(ht, 1.35)], [1.35, ht]];
+      for (const [y0, y1] of pcs) { if (y1 - y0 < .05) continue; const b = new THREE.BoxGeometry(alongZ ? T : sw + .01, y1 - y0, alongZ ? sw + .01 : T); b.translate(alongZ ? cx : cx + u, (y0 + y1) / 2, alongZ ? cz + u : cz);
+        const nr = b.attributes.normal; let vi = 0; colF(b, (x, y, z) => { const up = nr.getY(vi++) > .5, n = nz(x * .9, y * .9, z * .9); let c = lerp3(CH.clay, CH.clayD, n * .7); if (up) return lerp3(c, CH.brick, .35 + n * .3);
+          const s = Math.min(1, Math.max(0, (y - (ht - .9)) / .9) * .62 + (front && Math.abs(u - .2) < 1.2 && y > 1.5 ? .35 * Math.min(1, (y - 1.5) / .8) : 0)); return lerp3(c, CH.soot, s * (.7 + n * .4)); }); C.push(b); } }
+    tops.push(top); });
+  // lintel over the door, charred
+  { const b = bbox(T + .1, .16, 1.6, .02); b.translate(Wd / 2, 2.1, .2); colF(b, (x, y, z) => charC(x, y, z, 2)); W.push(b); }
+  // roof beams across the short side: spanning, snapped and sagging, or fallen into the room
+  const minTop = (wi, x) => { const L = Wd, NS = tops[wi].length, i = Math.max(0, Math.min(NS - 1, Math.floor((x + L / 2) / (L / NS)))); return tops[wi][i]; };
+  for (let x = -Wd / 2 + .7; x < Wd / 2 - .4; x += rnd(.9, 1.3)) { const ha = minTop(2, x), hb = minTop(3, x), r = Math.random();
+    if (ha > 2.5 && hb > 2.5 && r < .4) { const y = Math.min(ha, hb) - .05, g = beamG(new THREE.Vector3(x, y, D / 2 + .1), new THREE.Vector3(x + rnd(-.2, .2), y, -D / 2 - .1), .1); colF(g, (px, py, pz) => charC(px, py - y + 1.4, pz, 2)); W.push(g); }
+    else if (r < .7 && (ha > 1.8 || hb > 1.8)) { const sd = ha > hb ? 1 : -1, y = Math.max(ha, hb) - .05, g = beamG(new THREE.Vector3(x, y, sd * (D / 2 + .1)), new THREE.Vector3(x + rnd(-.3, .3), rnd(.3, .9), -sd * rnd(-.4, .8)), .1); colF(g, (px, py, pz) => charC(px, py + .5, pz, 2.4)); W.push(g); emb(E, x, rnd(.3, .6), 0, 1.2); }
+    else if (r < .88) { const g = beamG(new THREE.Vector3(x + rnd(-.3, .3), .1, rnd(1.2, 2.2)), new THREE.Vector3(x + rnd(-.6, .6), .12, rnd(-2.2, -1.2)), .1); colF(g, (px, py, pz) => charC(px, py + 1, pz, 2)); W.push(g); } }
+  // collapsed roof (reed + earth) heap, reed mat fragments, embers, smoke
+  const hh = rnd(.5, .75); heapG(P, W, E, rnd(-.6, .6), rnd(-.4, .4), Wd * .3, D * .27, hh);
+  for (let i = 0; i < 4; i++) { const b = bbox(rnd(.9, 1.6), .06, rnd(.6, 1.1), .01); b.rotateX(rnd(-.4, .4)); b.rotateZ(rnd(-.4, .4)); b.rotateY(rnd(0, 6)); b.translate(rnd(-Wd * .3, Wd * .3), rnd(.2, hh), rnd(-D * .28, D * .28)); colF(b, () => lerp3(hx(0x4a3a26), CH.coal, Math.random() * .7)); P.push(b); }
+  smk.push([rnd(-1, 1), hh, rnd(-.6, .6), rnd(.8, 1.2)]);
+  return { W, P, C, E, smk, ash: Math.max(Wd, D) * 1.05 }; }
+function smokeAt(x, y, z, size) { const S = fireSys(), n = Math.min(3, S.SM); for (let k = 0; k < n; k++) { if (S.ns >= MAXF * S.SM) return; const i = S.ns++; S.sa.iP.setXYZW(i, x + rnd(-.2, .2) * size, y, z + rnd(-.2, .2) * size, size * rnd(.8, 1.15)); S.sa.iS.setXYZW(i, (k + Math.random() * .6) / n, rnd(.08, .12), rnd(0, 6.28), rnd(-1, 1)); } S.sa.iP.needsUpdate = S.sa.iS.needsUpdate = true; S.smoke.geometry.instanceCount = S.ns; }
+function buildRuin(o, kind) { const R = kind === 'yurt' ? yurtRuinG() : houseRuinG(), g = new THREE.Group(); g.userData.fx = 1; g.userData.ruin = kind; g.position.copy(o.position); g.rotation.y = o.rotation.y;
+  if (kind === 'yurt') g.scale.setScalar(o.scale.x); else g.scale.copy(o.scale); const sh = Q() > 0;
+  const put = (L, m, cast, wuv) => { if (!L || !L.length) return; const geo = merge(L); if (wuv) worldUV(geo, .45); const me = new THREE.Mesh(geo, m); me.castShadow = cast && sh; me.receiveShadow = true; g.add(me); };
+  put(R.W, ruinW(), true); put(R.P, ruinP(), true); if (R.C) put(R.C, ruinC(), true, true); put(R.E, emberM(), false);
+  const d = new THREE.Mesh(new THREE.PlaneGeometry(R.ash, R.ash * (kind === 'yurt' ? 1 : .8)), ashM()); d.rotation.x = -Math.PI / 2; d.rotation.z = rnd(-.3, .3); d.position.y = .03; d.receiveShadow = true; d.renderOrder = 1; g.add(d);
+  (o.parent || world).add(g); o.visible = false; g.updateMatrixWorld(true);
+  for (const [x, y, z, s] of R.smk) { const v = new THREE.Vector3(x, y, z).applyMatrix4(g.matrixWorld); smokeAt(v.x, v.y, v.z, s * o.scale.x); }
+  return g; }
+function charPatch(m) { if (m.userData.fxChar) return; m.userData.fxChar = 1; m.color.set(0x9a8474); const prev = m.onBeforeCompile, pk = prev ? String(prev).length : 0;
+  m.onBeforeCompile = (sh, r) => { if (prev) prev.call(m, sh, r); sh.vertexShader = 'varying vec3 vChW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vChW = (modelMatrix * vec4(transformed, 1.)).xyz;');
+    sh.fragmentShader = 'varying vec3 vChW;\n' + sh.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+    { vec3 p = vChW * 1.6; float n = sin(p.x * 1.3 + p.z * 1.7 + p.y * .9) * .5 + sin(p.x * 3.1 - p.z * 2.3 + p.y * 2.7) * .3 + sin(p.z * 6.7 + p.x * 5.3 - p.y * 4.1) * .2; n = n * .5 + .5;
+      vec3 br = diffuseColor.rgb * vec3(.62, .46, .34); vec3 c = mix(br, vec3(.03, .026, .024), smoothstep(.32, .66, n + vChW.y * .06)); c = mix(c, vec3(.3, .29, .28), smoothstep(.8, .96, n) * .7); diffuseColor.rgb = c; }`); };
+  m.customProgramCacheKey = () => 'fxchar' + pk; m.needsUpdate = true; }
+const DARK = 0x2a2420;
+function scanBurnt() { const Y = A.props && A.props.B_yurt, H = A.props && A.props.B_house, P = G.player, todo = [];
+  for (const o of world.children) { if (o.userData.fxB) continue; if (o.userData.fx || !o.visible) { o.userData.fxB = 1; continue; } let m0 = null; o.traverse(k => { if (!m0 && k.isMesh) m0 = k.material; }); if (!m0 || !m0.color || m0.color.getHex() !== DARK) { o.userData.fxB = 1; continue; } todo.push(o); }
+  if (P) todo.sort((a, b) => ((a.position.x - P.x) ** 2 + (a.position.z - P.z) ** 2) - ((b.position.x - P.x) ** 2 + (b.position.z - P.z) ** 2));
+  let n = 0; for (const o of todo) { if (n >= 6) return true; o.userData.fxB = 1;
+    try { if (Y && (o.name === 'B_yurt' || o.getObjectByName('B_yurt'))) { buildRuin(o, 'yurt'); n++; continue; } if (H && (o.name === 'B_house' || o.getObjectByName('B_house'))) { buildRuin(o, 'house'); n++; continue; }
+      o.traverse(k => { if (k.isMesh && k.material && k.material.color && k.material.color.getHex() === DARK) charPatch(k.material); }); } catch (e) { console.warn('fx ruin', e); } } return false; }
+// ---------- player outline (session 4): hull expanded in clip space (constant ~1.5 px gold line) and pushed slightly back in depth
+// (the Meshy models have mixed winding, so a BackSide hull alone drew over the body), hero only ----------
+const UO = { res: { value: new THREE.Vector2(844, 390) }, w: { value: 1.6 } };
+function outlineHero(e) { if (!e || e._fxOL) return; let sm = null; e.o.traverse(o => { if (o.isSkinnedMesh && !sm && !o.userData.fxOL) sm = o; }); if (!sm || !sm.parent) return; e._fxOL = 1;
+  const m = new THREE.MeshBasicMaterial({ color: 0xffd76e, side: THREE.DoubleSide, fog: false, toneMapped: false, transparent: true, opacity: .85, depthWrite: false });
+  m.onBeforeCompile = sh => { sh.uniforms.uORes = UO.res; sh.uniforms.uOW = UO.w; sh.vertexShader = 'uniform vec2 uORes; uniform float uOW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
+    { vec4 cn = projectionMatrix * vec4(normalize(transformedNormal), 0.); vec2 d = cn.xy; float l = length(d); if (l > 1e-4) gl_Position.xy += d / l * uOW * 2. / uORes * gl_Position.w; gl_Position.z += .0007 * gl_Position.w; }`); };
+  m.customProgramCacheKey = () => 'fxoutline';
+  const ol = new THREE.SkinnedMesh(sm.geometry, m); ol.bind(sm.skeleton, sm.bindMatrix); ol.bindMode = sm.bindMode; ol.userData.fxOL = 1; ol.frustumCulled = false; ol.castShadow = false; ol.renderOrder = 1;
+  ol.position.copy(sm.position); ol.quaternion.copy(sm.quaternion); ol.scale.copy(sm.scale); sm.parent.add(ol); e._fxOLm = ol; }
+// ---------- moods without a scenery preset (prologue / chapter 1 missions use only engine setMood): apply 'pro' / 'ch1' ----------
+let lastFog = null;
+// IBL strength per preset (scene.environmentIntensity is not in this three build): envMapIntensity on non-metal standard materials
+let envSeen = 0; function scanEnv() { if (G.envI === undefined) return; const k = G.envI, t = G.envT; scene.traverse(o => { const m = o.material; if (!m || !m.isMeshStandardMaterial || m.userData.fxE === t) return; m.userData.fxE = t; if (m.metalness > .5) return; m.envMapIntensity = k; }); }
+function tickMood() { const f = scene.fog; if (!f || f === lastFog) return; lastFog = f;
+  // daytime falling ash (engine mood ember 0x5a5550) read as black ink specks under the new grade -> light grey ash
+  scene.traverse(o => { const m = o.isPoints && o.material; if (m && m.isPointsMaterial && m.color.getHex() === 0x5a5550) { m.color.set(0xb4aca4); m.opacity = Math.min(m.opacity, .38); } }); if (f.userData && f.userData.fxL) return;
+  try { applyLight(G.night ? 'pro' : 'ch1', { scene, renderer, grade: gradePass, G }); lastFog = scene.fog; } catch (e) { console.warn('fx mood', e); } }
+
 // ---------- per-frame driver (scene.onBeforeRender: runs after the engine's update, before the draw) ----------
 let lastT = 0, inst = false, err = 0;
 function tick() { const now = performance.now() / 1000, dt = Math.min(.05, now - lastT); if (dt < .002) return; lastT = now; U.t.value = now % 3600;
-  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); if (now - scanT > 1.5) { scanT = now; scanBoxes(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
+  try { const v = renderer.getDrawingBufferSize(_v2); U.px.value = v.y; U.glow.value = THREE.MathUtils.clamp(.62 - (sunL ? sunL.intensity : 1) * .13, .04, .55) * ((G.fireI || 60) > 30 ? 1 : .5); tickUnits(now); tickHorses(dt); tickConvoys(dt); tickHeroLight(); tickHud(now); tickGD(); tickMood(); if (G.player) { outlineHero(G.player); renderer.getDrawingBufferSize(UO.res.value); UO.w.value = Math.max(1.4, UO.res.value.y / 300); } if (now - scanT > 1.5) { scanT = now; scanBoxes(); if (scanBurnt()) scanT = now - 1.3; scanEnv(); } } catch (e) { if (err++ < 3) console.warn('fx tick', e); } }
 const _v2 = new THREE.Vector2();
 // the engine's hero point light (22 cd, 9 m) is tuned for night; in daylight it doubles the sun on the ground around the hero and the
 // bloom turns the lane white — keep it as a soft fill by day (no engine edit: found once in the scene graph)

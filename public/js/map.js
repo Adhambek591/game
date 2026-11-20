@@ -1,9 +1,9 @@
 // Qirq qiz — chapter map (title / chapter end) + mission intro fly-over camera
 import * as THREE from 'three';
-import { G, $, camera, camOverride, world } from './engine.js?v=1795168917';
-import { t } from './i18n.js?v=1795168917';
-import { Sfx, setMusic, playTitle } from './audio.js?v=1795168917';
-import { MLIST, byCh, midx, TYICON, INTRO_M, flyPoints, flyStart } from './missions.js?v=1795168917';
+import { G, $, camera, camOverride, world } from './engine.js?v=1795179205';
+import { t } from './i18n.js?v=1795179205';
+import { Sfx, setMusic, playTitle } from './audio.js?v=1795179205';
+import { MLIST, byCh, midx, TYICON, INTRO_M, flyPoints, flyStart } from './missions.js?v=1795179205';
 
 const qs = new URLSearchParams(location.search);
 const BOSS = { 0: ['p_ca', 'n_ca'], 1: ['p_qa', 'n_qa'], 2: ['p_qd', 'n_qd'], 3: ['p_ja', 'n_ja'], 4: ['p_ay', 'n_ay'], 5: ['p_qu', 'n_qu'], 6: ['p_qg', 'n_qg'], 7: ['p_su', 'n_su'] };
@@ -20,7 +20,7 @@ function done(n) { return byCh(n).every(m => mdone(m.id)) || n in getStars(); }
 function current() { const m = curMission(); return m ? m.c : 7; }
 // ---- missions: "c-k" keys in qq_stars; a chapter finished before missions existed (qq_ch / old numeric star key) unlocks all of its missions
 function legacyCh(c) { const s = getStars(); return (c in s) || (!!ls('qq_prog', null) && maxCh() > c); }
-export function mdone(id) { return id in getStars(); }
+export function mdone(id) { return id in getStars() || (id === '0-0' && (!!ls('qq_prog', null) || !!ls('qq_tut', null))); }
 export function munlocked(id) { const i = midx(id); if (i <= 0) return true; const m = MLIST[i], pv = MLIST[i - 1]; return mdone(pv.id) || legacyCh(m.c) || (pv.c !== m.c && !!ls('qq_prog', null) && m.c <= maxCh()); }
 function curMission() { return MLIST.find(m => munlocked(m.id) && !mdone(m.id)) || null; }
 function chStars(c) { const S = getStars(); let k = 0; for (const m of byCh(c)) k += +S[m.id] || 0; return [k, byCh(c).length * 3]; }

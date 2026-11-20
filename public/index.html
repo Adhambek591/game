@@ -9,7 +9,7 @@
 <meta property="og:image" content="/assets/img/keyart.jpg" />
 <meta name="theme-color" content="#10142b" />
 <script>window.qqErr=function(m){try{var e=document.getElementById('loadtxt');if(e){e.textContent='Xato: '+m;e.style.color='#f88';}}catch(_){}};addEventListener('error',function(e){qqErr((e.message||'')+' '+((e.filename||'').split('/').pop())+':'+(e.lineno||''))},true);addEventListener('unhandledrejection',function(e){qqErr(String(e.reason&&e.reason.message||e.reason))});</script>
-<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js?v=1795168917"}}</script>
+<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js?v=1795179205"}}</script>
 <style>
 /* ===== Qirq qiz UI — design tokens ===== */
 @font-face{font-family:Forum;src:url(assets/fonts/forum.woff2) format("woff2");font-display:swap}
@@ -371,9 +371,127 @@ html .mt-book>div:last-child:before{display:none}
 html .mt-book h3{font:400 21px/1.1 var(--fd);color:#7a1512;letter-spacing:.06em;text-align:center;margin:-8px 0 8px}
 html .mt-book p{font:400 16px/1.5 var(--fd);color:var(--sepia)}
 @media (max-width:700px){html .mt-tabs{width:52px}html .mt-tab span{display:none}html .mt-tab{justify-content:center;padding:0}}
+/* ===== ui4 (2026-11-20): fit the VISIBLE viewport (mobile browser toolbars), simple camp / title / end ===== */
+/* --apph/--appt come from window.visualViewport (skin script); 100dvh is the fallback */
+html,body{height:100%;height:100dvh;height:var(--apph,100dvh)}
+.layer,#set,#lore,#rot,#map,#cred,#fly{top:var(--appt,0px)!important;bottom:auto!important;height:var(--apph,100dvh)!important}
+.ov .in{max-height:calc(var(--apph,100dvh) - var(--st) - var(--sb) - 8px);overflow-y:auto;overflow-x:hidden;touch-action:pan-y;overscroll-behavior:contain;box-sizing:border-box}
+#shl{max-height:calc(var(--apph,100dvh) - 150px)}
+#set>div{max-height:calc(var(--apph,100dvh) - 10px)}
+#lore>div{max-height:calc(var(--apph,100dvh) - 12px)}
+html #map .card .ml{max-height:calc(var(--apph,100dvh) - 110px)}
+#joy{height:56%}
+/* full screen: title icon + iOS hint + settings row */
+#tfs{position:fixed;z-index:51;top:calc(var(--appt,0px) + var(--apph,100dvh) - var(--sb) - 56px);left:calc(var(--sl) + 12px);width:44px;height:44px;padding:9px;margin:0;border:2px solid transparent;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2b3570,#0e1126) padding-box,var(--rim) border-box;color:#ffe9ad;box-shadow:0 3px 8px rgba(0,0,0,.6);cursor:pointer;display:none}
+#tfs svg{width:100%;height:100%;display:block}
+#title.on~#tfs,#title[style*="block"]~#tfs{display:block}
+html.isfs #tfs,html.isapp #tfs,html.isfs #setfs,html.isapp #setfs{display:none!important}
+#fshint{position:fixed;z-index:120;left:50%;bottom:calc(var(--sb) + 14px);transform:translateX(-50%);width:min(520px,calc(100vw - 24px));padding:12px 16px;border-radius:14px;background:rgba(10,12,30,.96);box-shadow:0 0 0 1.5px #e8bd62,0 6px 20px rgba(0,0,0,.7);color:var(--text);font:700 14px/1.35 var(--fu);text-align:center;display:none;cursor:pointer}
+#fshint.on{display:block;animation:dpop .4s ease-out}
+#fshint b{display:block;color:var(--gold-l);font:400 18px/1.2 var(--fd);margin-bottom:4px}
+#set .x{position:absolute;left:30px;right:30px;top:16px;display:flex;justify-content:space-between;gap:10px;margin:0;pointer-events:none}
+#set .x button{pointer-events:auto;flex:0 1 auto;max-width:34%;height:32px;padding:0 12px;overflow:hidden;text-overflow:ellipsis;border:0;border-radius:20px;background:rgba(5,6,16,.7);box-shadow:0 0 0 1px rgba(232,189,98,.45);color:var(--parch);font:700 13.5px/1 var(--fu);cursor:pointer;white-space:nowrap}
+#set .x button:empty{visibility:hidden}
+#set .x #setfs{order:2}
+@media (max-height:400px){#set .x{top:12px}}
+/* title: one big Play/Continue + at most 3 small tiles (Camp, Shop, Book). Map = Continue, credits live in Settings */
+#tbox>#tmap,#tbox>#tcred{display:none!important}
+#tbox:has(#tcont[style*="block"]) #tplay{display:none!important}
+#tbox:has(#tcont[style*="block"]):after{display:none}
+#tbox:has(#tcont[style*="block"]) #tcont{order:3;flex:0 0 100%;height:54px;border-width:0 30px;border-image:url(assets/img/ui/btn_red.webp) 0 70 fill/0 30px stretch;font-size:clamp(20px,2.7vw,25px);text-shadow:0 2px 2px rgba(30,0,0,.85);animation:cta 2.4s ease-in-out infinite}
+#tplay{height:54px;font-size:clamp(20px,2.7vw,25px)}
+#tbox>#tshop,#tbox>#tbook,#tbox>#tcamp{min-height:50px;font-size:12px}
+#tbox>#tcamp{order:6}#tbox>#tshop{order:7}#tbox>#tbook{order:8}
+#tbox>#tshop .ic{display:none}
+/* end screen: one big "Next mission ▸"; small Map + small ad; shop is off this screen */
+#end .in{width:min(720px,calc(100vw - var(--sl) - var(--sr) - 16px));padding:14px 26px 16px;align-content:flex-start}
+#end .in:after{top:0;height:200px}
+#end #eshop{display:none!important}
+#end #mt-end{order:5}
+#end .btn{min-width:0;margin:6px 0 0}
+#end #emap,#end #eadx2{order:10;flex:0 1 128px;height:42px;font:400 clamp(13px,1.6vw,15px)/1.05 var(--fd);letter-spacing:.02em;border-width:0 18px;border-image-width:0 18px}
+#end #eadx2{order:12;flex:0 0 auto;padding:0 2px;font:700 clamp(12px,1.5vw,13.5px)/1.1 var(--fu);flex-wrap:nowrap;white-space:nowrap}#end #eadx2 .ic{width:16px;height:16px}
+#end #ereplay{order:11;flex:1 1 250px;max-width:340px;height:56px;border-width:0 30px;border-image-width:0 30px;font-size:clamp(19px,2.6vw,24px);animation:cta 2.4s ease-in-out infinite}
+html #mt-end .mt-endbtn{height:32px;min-width:0;font-size:13.5px}
+html #mt-end .mt-endbtn.warn{filter:drop-shadow(0 0 6px rgba(255,90,60,.8))}
+#mt-end .mt-ew{font:700 12px/1 var(--fu);color:#ffb09a}
+#stl{display:grid;grid-template-columns:1fr 1fr;gap:3px 6px}#stl>div:last-child:nth-child(odd){grid-column:1/-1}
+@media (max-width:560px){#stl{grid-template-columns:1fr}}
+/* compact end screen keyed on the VISIBLE height (classes set by fit() from visualViewport) */
+html.vh430 #stars{height:52px}html.vh430 #stars .s{width:42px;height:42px}html.vh430 #stars .s:nth-child(2){width:52px;height:52px}html.vh430 #stl>div{padding:3px 10px}html.vh430 #end .in{padding:12px 24px 14px}
+html.vh380 #end .in{padding:10px 22px 12px;gap:4px 8px}
+html.vh380 #end h2{font-size:19px}
+html.vh380 #stars{height:44px}html.vh380 #stars .s{width:38px;height:38px}html.vh380 #stars .s:nth-child(2){width:46px;height:46px}
+html.vh380 #stl{font-size:12.5px}html.vh380 #stl>div{padding:2px 8px}
+html.vh380 #end #ereplay{height:50px}html.vh380 #end #emap,html.vh380 #end #eadx2{height:40px}
+html.vh380 #mt-end{margin:0}
+/* ===== simple Camp: tabs in the top bar, upgrade cards ===== */
+html .mt-top{height:54px;gap:8px}
+html .mt-top .mt-tabs{flex:1 1 auto;display:flex;flex-direction:row;justify-content:center;gap:6px;width:auto;min-width:0}
+html .mt-top .mt-tab{flex:0 1 200px;min-width:0;min-height:44px;max-height:46px;justify-content:center;padding:0 10px;font:700 13.5px/1.08 var(--fu);text-align:center}
+html .mt-top .mt-tab span{display:block!important;white-space:normal;overflow:hidden;max-height:2.2em}
+html .mt-top .mt-tab b{width:28px;height:28px}html .mt-top .mt-tab b .ic{width:28px;height:28px}
+html .mt-body{display:flex}
+html .mt-pane{padding:2px 4px 10px 2px}
+html .mt-pane>.mt-h{margin:12px 0 6px}
+.mt-hs{display:grid;grid-template-columns:64px minmax(120px,1fr) auto auto;align-items:center;gap:6px 14px}
+html .mt-hs .mt-port{width:64px;height:64px}
+.mt-hsi h3{margin:0;font:400 20px/1.1 var(--fd);color:var(--gold-l)}.mt-hsi h3 small{font:700 13px/1 var(--fu);color:var(--parch);margin-left:6px}
+html .mt-hsi .mt-bar{display:block;width:100%;height:9px;margin:6px 0 2px}
+.mt-hsi .mt-note{margin:0}
+.mt-hst{text-align:center;min-width:76px;padding:4px 8px;border-radius:10px;background:rgba(5,6,16,.5);box-shadow:inset 0 0 0 1px rgba(232,189,98,.25)}
+.mt-hst span{display:block;font:700 11px/1.2 var(--fu);color:var(--mute)}.mt-hst b{display:block;font:700 22px/1.1 var(--fu);color:var(--gold-l)}
+.mt-sum{grid-column:1/-1;padding:7px 12px;border-radius:10px;font:700 13.5px/1.25 var(--fu)}
+.mt-sum.w{background:rgba(160,30,20,.35);box-shadow:inset 0 0 0 1.5px #e0523a;color:#ffd2c4}
+.mt-sum.g{background:rgba(40,110,40,.3);box-shadow:inset 0 0 0 1.5px #6fbf62;color:#d4ffc4}
+.mt-ups{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:8px}
+.mt-up{position:relative;display:flex;flex-direction:column;gap:6px;padding:8px 10px 10px 13px;border-radius:12px;background:linear-gradient(180deg,rgba(33,42,96,.9),rgba(12,14,34,.94));box-shadow:inset 0 0 0 1px rgba(232,189,98,.3),0 3px 8px rgba(0,0,0,.4);overflow:hidden}
+.mt-up:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:#6a6f8a}
+.mt-up.w:before{background:#e0412f}.mt-up.g:before{background:#5fbf52}.mt-up.m:before{background:#e8bd62}
+.mt-up.w{box-shadow:inset 0 0 0 1.5px rgba(224,65,47,.75),0 0 12px rgba(224,65,47,.25)}
+.mt-uph{display:flex;align-items:center;gap:8px;min-width:0}
+html .mt-uph .mt-ic{width:36px;height:36px;flex:none}
+.mt-upn{flex:1;min-width:0;font:700 13.5px/1.15 var(--fu);color:var(--text)}
+.mt-upn .mt-pips{display:block;font-size:9px;letter-spacing:1px;margin-top:2px}
+.mt-pill{flex:none;padding:3px 8px;border-radius:10px;font:700 11px/1.1 var(--fu);font-style:normal;letter-spacing:.03em;color:#fff;text-transform:uppercase}
+.mt-up.w .mt-pill{background:#c62f20}.mt-up.g .mt-pill{background:#3f8f3a}.mt-up.m .mt-pill{background:#a8842a}
+.mt-upv{display:flex;align-items:baseline;flex-wrap:wrap;gap:2px 7px;font:700 14px/1.2 var(--fu);color:var(--mute)}
+.mt-upv span{flex:0 0 100%;font-size:12px}
+.mt-upv s{text-decoration:none;color:var(--parch);font-size:18px}
+.mt-upv u{text-decoration:none;color:var(--gold);font-size:16px}
+.mt-upv b{color:#9ff08a;font-size:22px;font-weight:700}
+.mt-up.m .mt-upv b{color:var(--gold-l)}
+.mt-upb{margin-top:auto;width:100%;height:44px;padding:0 4px;border-style:solid;border-color:transparent;border-width:0 18px;border-image:url(assets/img/ui/btn_red.webp) 0 70 fill/0 18px stretch;background:none;color:#fff4d8;font:700 15px/1 var(--fu);text-shadow:0 1px 2px rgba(30,0,0,.9);cursor:pointer;white-space:nowrap;display:flex;align-items:center;justify-content:center;gap:2px}
+.mt-upb .ic{width:20px;height:20px;margin:0 2px}
+.mt-upb:active{transform:scale(.97)}
+.mt-upb.poor{border-image-source:url(assets/img/ui/btn_blue.webp);color:var(--mute);font-size:13.5px;filter:grayscale(.5)}
+.mt-upb.done{border-image-source:url(assets/img/ui/btn_blue.webp);color:var(--gold-l);opacity:.8}
+.mt-eqr{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mt-eqs{display:flex;align-items:center;gap:8px;min-height:62px;padding:6px 8px;border:0;border-radius:12px;background:rgba(8,9,22,.75);box-shadow:inset 0 0 0 1px rgba(232,189,98,.25);text-align:left;color:var(--text)}
+.mt-eqs.on{background:linear-gradient(180deg,rgba(33,42,96,.9),rgba(12,14,34,.94));box-shadow:inset 0 0 0 1.5px rgba(255,224,138,.7)}
+.mt-eqs[disabled]{cursor:default}
+.mt-eqi{flex:none;width:28px;height:28px;color:var(--gold)}.mt-eqi svg{width:100%;height:100%}
+.mt-eqs b{display:block;font:700 13px/1.15 var(--fu);color:var(--gold-l)}.mt-eqs:not(.on) b{color:var(--mute)}
+.mt-eqs small{display:block;font:400 11.5px/1.2 var(--fu);color:var(--parch)}
+.mt-eqs em{display:block;font:700 10.5px/1.2 var(--fu);font-style:normal;color:#9fc8ff;margin-top:2px}
+@media (max-width:760px){.mt-eqr{grid-template-columns:repeat(2,1fr)}html .mt-top .mt-tab{padding:0 6px;font-size:12.5px}html .mt-top .mt-tab b{display:none}}
+@media (max-width:700px){html .mt-top .mt-tabs{width:auto}}
+/* camp on short visible heights (browser toolbar): compact hero summary + cards */
+html.vh380 .mt-top{height:48px}html.vh380 .mt-top .mt-tab{min-height:40px}
+html.vh380 .mt-hs{grid-template-columns:44px minmax(120px,1fr) auto auto;gap:4px 10px;padding:6px 10px}
+html.vh380 .mt-hs .mt-port{width:44px;height:44px}
+html.vh380 .mt-hsi h3{font-size:17px}html.vh380 .mt-hsi .mt-note{display:none}html.vh380 .mt-hsi .mt-bar{margin:4px 0 0;height:7px}
+html.vh380 .mt-hst{padding:2px 8px;min-width:64px}html.vh380 .mt-hst b{font-size:18px}
+html.vh380 .mt-sum{padding:4px 10px;font-size:12.5px}
+html.vh380 .mt-pane>.mt-h{margin:8px 0 4px;padding-bottom:3px}
+html.vh380 .mt-up{gap:4px;padding:6px 8px 8px 12px}html.vh380 .mt-uph .mt-ic{width:30px;height:30px}
+html.vh380 .mt-upv s{font-size:16px}html.vh380 .mt-upv b{font-size:19px}html.vh380 .mt-upb{height:40px}
+html.vh380 #set>div{padding:10px 26px 10px}html.vh380 #set h3{font-size:22px}html.vh380 #set h3:after{height:12px;margin:0 auto}
+html.vh380 #set .row{min-height:36px}html.vh380 #set .seg button{height:32px}html.vh380 #set .acts{margin-top:6px}html.vh380 #set .acts button{height:40px}
+html.vh380 #set .x{top:10px}html.vh380 #set .x button{height:28px}
 </style>
 <link rel="preload" href="assets/fonts/forum.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="assets/img/ui/key.webp" as="image"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/img/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
-<script>if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=1795168917').catch(()=>{}));</script>
+<script>if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=1795179205').catch(()=>{}));</script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -432,9 +550,43 @@ function watch(el){if(el&&!el._sk){el._sk=1;deco(el);obs.observe(el,{childList:t
 function scan(){['title','hud','end','dead','shop','set','dmg','map','adov','qte','lore','mt-camp','mt-toasts','mt-lvup'].forEach(function(id){watch(document.getElementById(id));});}
 scan();new MutationObserver(scan).observe(document.body,{childList:true});
 setInterval(skills,350);skills();
+/* ui4: size every layer to the VISIBLE viewport (mobile browser toolbars), full-screen button, title/settings tidy-up */
+var R=document.documentElement;
+function fit(){var vv=window.visualViewport,h=Math.round(vv?vv.height:innerHeight),w=Math.round(vv?vv.width:innerWidth),t=vv?Math.max(0,Math.round(vv.offsetTop)):0;if(h<120)return;R.style.setProperty('--apph',h+'px');R.style.setProperty('--appw',w+'px');R.style.setProperty('--appt',t+'px');R.classList.toggle('short',h<340);R.classList.toggle('vh430',h<=430);R.classList.toggle('vh380',h<=380);if(window.scrollY||window.scrollX)window.scrollTo(0,0);}
+fit();addEventListener('resize',fit);addEventListener('orientationchange',function(){fit();setTimeout(fit,250);setTimeout(fit,700);});if(window.visualViewport){visualViewport.addEventListener('resize',fit);visualViewport.addEventListener('scroll',fit);}
+addEventListener('scroll',function(){if(window.scrollY)window.scrollTo(0,0);},{passive:true});
+var TX={fs:{uz:"To'liq ekran",qq:'Tolıq ekran',ru:'Полный экран',en:'Full screen'},
+ ios:{uz:"Safari'da pastdagi ⬆ («Ulashish») tugmasini bosing va «Add to Home Screen» / «На экран „Домой“» ni tanlang. O'yin belgidan to'liq ekranda ochiladi.",
+  qq:"Safari'de ⬆ («Bólisiw») túymesin basıp, «Add to Home Screen» / «На экран „Домой“» tańlań. Oyın belgisheden tolıq ekranda ashıladı.",
+  ru:"В Safari нажмите ⬆ («Поделиться») и выберите «На экран „Домой“». Игра будет открываться с иконки на весь экран.",
+  en:"In Safari tap ⬆ (Share) and choose “Add to Home Screen”. The game then opens full screen from its icon."},
+ cr:{uz:'🎬 Mualliflar',qq:'🎬 Avtorlar',ru:'🎬 Авторы',en:'🎬 Credits'}};
+function LG(){var b=document.querySelector('#langs button.sel');if(b)return b.getAttribute('data-l');try{return localStorage.getItem('qq_lang')||'qq';}catch(e){return 'qq';}}
+function tx(k){var o=TX[k];return o[LG()]||o.qq;}
+var D=document,RQ=R.requestFullscreen||R.webkitRequestFullscreen;
+function isApp(){try{return matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches||navigator.standalone===true;}catch(e){return false;}}
+function isFs(){return !!(D.fullscreenElement||D.webkitFullscreenElement);}
+function fsState(){R.classList.toggle('isfs',isFs());R.classList.toggle('isapp',isApp());setTimeout(fit,120);}
+D.addEventListener('fullscreenchange',fsState);D.addEventListener('webkitfullscreenchange',fsState);
+function lockLand(){try{screen.orientation&&screen.orientation.lock&&screen.orientation.lock('landscape').catch(function(){});}catch(e){}}
+function hint(){var h=D.getElementById('fshint');if(!h){h=D.createElement('div');h.id='fshint';h.onclick=function(){h.classList.remove('on');};D.body.appendChild(h);}h.innerHTML='<b>'+tx('fs')+'</b>'+tx('ios');h.classList.add('on');clearTimeout(h._t);h._t=setTimeout(function(){h.classList.remove('on');},9000);}
+function goFs(){if(isFs()||isApp())return;if(RQ){try{var p=RQ.call(R,{navigationUI:'hide'});if(p&&p.then)p.then(lockLand).catch(function(){});else lockLand();}catch(e){}}else hint();}
+window.qqFullscreen=goFs;
+// auto: first tap anywhere asks for full screen where the browser allows it (Android Chrome etc.; iPhone has no API -> hint only via the button)
+var coarse=false;try{coarse=matchMedia('(pointer: coarse)').matches;}catch(e){}
+if(coarse&&RQ){var once=function(){D.removeEventListener('pointerup',once,true);D.removeEventListener('touchend',once,true);goFs();};D.addEventListener('pointerup',once,true);D.addEventListener('touchend',once,true);}
+var FSI='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+function ui(){var ti=D.getElementById('title');if(!ti)return;
+ var b=D.getElementById('tfs');if(!b){b=D.createElement('button');b.id='tfs';b.innerHTML=FSI;b.onclick=function(e){e.stopPropagation();goFs();};D.body.appendChild(b);}
+ var tv=getComputedStyle(ti).display!=='none';b.style.display=tv&&!isFs()&&!isApp()?'block':'none';b.setAttribute('aria-label',tx('fs'));b.title=tx('fs');
+ var sd=D.querySelector('#set>div'),acts=sd&&sd.querySelector('.acts');if(sd&&acts){var x=sd.querySelector('.x');if(!x){x=D.createElement('div');x.className='x';x.innerHTML='<button id="setfs"></button><button id="setcred"></button>';sd.insertBefore(x,acts);
+   x.querySelector('#setfs').onclick=function(){goFs();};x.querySelector('#setcred').onclick=function(){var s=D.getElementById('set'),c=D.getElementById('tcred');if(s)s.classList.remove('on');if(c)c.click();};}
+  x.querySelector('#setfs').textContent=tx('fs');x.querySelector('#setcred').textContent=tv&&D.getElementById('tcred')?tx('cr'):'';}
+}
+fsState();ui();setInterval(ui,500);
 })();
 </script>
-<script type="module" src="./js/story.js?v=1795168917"></script>
-<script type="module" src="./js/meta.js?v=1795168917"></script>
+<script type="module" src="./js/story.js?v=1795179205"></script>
+<script type="module" src="./js/meta.js?v=1795179205"></script>
 </body>
 </html>

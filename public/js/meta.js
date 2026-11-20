@@ -2,10 +2,10 @@
 // Systems: hero level/XP · skill upgrade tiers · equipment · maidens roster · daily/weekly quests · achievements · star chests · Camp screen.
 // Public API: window.__META (see bottom). Combat code may read __META.mul('spin.dmg') etc. — every key defaults to 1 (add() to 0).
 // Rules kept on purpose: one currency (the game's coins), no timers/energy, nothing sold for real money, every bonus is small and capped.
-import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash } from './engine.js?v=1795168917';
-import { t, lang } from './i18n.js?v=1795168917';
-import { Sfx } from './audio.js?v=1795168917';
-import { MLIST } from './missions.js?v=1795168917';
+import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795179205';
+import { t, lang } from './i18n.js?v=1795179205';
+import { Sfx } from './audio.js?v=1795179205';
+import { MLIST } from './missions.js?v=1795179205';
 
 const KEY = 'qq_meta', VER = 2, MAXLV = 30, TEAM = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -127,6 +127,33 @@ const S = {
   endcamp: ['⛺ Qarorgoh', '⛺ Qos', '⛺ Стан', '⛺ Camp'],
   bookempty: ['Hali sahifa ochilmagan', 'Ele bet ashılmaǵan', 'Страницы ещё не открыты', 'No pages unlocked yet'],
   placeholder: ['Tez orada', 'Jaqında', 'Скоро', 'Coming soon'],
+  // ui4: simple camp
+  t_hs: ['Botir va mahorat', 'Batır hám sheberlik', 'Герой и умения', 'Hero & Skills'],
+  t_md: ['Qizlar', 'Qızlar', 'Девушки', 'Maidens'],
+  up_h: ['Kuchaytirish', 'Kúsheytiw', 'Улучшения', 'Upgrades'],
+  up_btn: ['Kuchaytirish · {c} 🪙', 'Kúsheytiw · {c} 🪙', 'Улучшить · {c} 🪙', 'Upgrade · {c} 🪙'],
+  up_need: ['Yana {c} 🪙 kerak', 'Jáne {c} 🪙 kerek', 'Нужно ещё {c} 🪙', 'Need {c} more 🪙'],
+  weak: ['Zaif', 'Álsiz', 'Слабо', 'Weak'],
+  good: ['Yaxshi', 'Jaqsı', 'Хорошо', 'Good'],
+  legend: ['Yashil — yaxshi, qizil — zaif', 'Jasıl — jaqsı, qızıl — álsiz', 'Зелёный — хорошо, красный — слабо', 'Green = good, red = weak'],
+  s_weak: ['Zaif joyingiz: {x}. Avval shuni kuchaytiring.', 'Álsiz jerińiz: {x}. Aldın sonı kúsheytiń.', 'Слабое место: {x}. Улучшите это первым.', 'Your weak spot: {x}. Upgrade this first.'],
+  s_ok: ['Hammasi yaxshi! Keyingi topshiriqqa tayyorsiz.', 'Hámmesi jaqsı! Keyingi tapsırmaǵa tayınsız.', 'Всё хорошо! Вы готовы к следующему заданию.', 'All good! You are ready for the next mission.'],
+  h_sk: ['{x} mahoratlari', '{x} sheberlikleri', 'Умения: {x}', '{x} — skills'],
+  st_mstr: ['Qizlar kuchi', 'Qızlar kúshi', 'Сила девушек', 'Maidens\' strength'],
+  st_mx: ['Qo\'shimcha qizlar', 'Qosımsha qızlar', 'Доп. девушки', 'Extra maidens'],
+  st_horse: ['Otning chidamliligi', 'Attıń shıdamlılıǵı', 'Прочность коня', 'Horse toughness'],
+  st_cd: ['Tayyorlanish vaqti', 'Tayarlanıw waqtı', 'Перезарядка', 'Cooldown'],
+  st_area: ['Ta\'sir doirasi', 'Tásir sheńberi', 'Радиус', 'Area'],
+  st_hit: ['Qo\'shimcha zarba', 'Qosımsha soqqı', 'Доп. удар', 'Extra hit'],
+  st_wave: ['To\'lqin zarbasi', 'Tolqın soqqısı', 'Ударная волна', 'Shockwave'],
+  st_volley: ['Qo\'shimcha o\'qlar', 'Qosımsha oqlar', 'Доп. залпы', 'Extra volleys'],
+  st_charge: ['Chaqiriq tezligi', 'Shaqırıq tezligi', 'Скорость призыва', 'Call charge speed'],
+  st_heal: ['Qo\'llaganda jon', 'Qollanǵanda jan', 'Лечение', 'Heal on use'],
+  sec: ['s', 's', 'с', 's'],
+  eq_tap: ['Almashtirish uchun bosing', 'Almastırıw ushın basıń', 'Нажмите, чтобы сменить', 'Tap to switch'],
+  eq_none: ['Hali yo\'q', 'Ele joq', 'Пока нет', 'None yet'],
+  ad_s: ['📺 Reklama: +{n} 🪙', '📺 Reklama: +{n} 🪙', '📺 Реклама: +{n} 🪙', '📺 Ad: +{n} 🪙'],
+  e_weak: ['{x} zaif', '{x} álsiz', '{x}: слабо', '{x} is weak'],
 };
 const LI = () => ({ uz: 0, qq: 1, ru: 2, en: 3 })[lang] ?? 0;
 function tt(k, v) { const a = S[k]; let s = a ? (a[LI()] ?? a[0]) : k; if (v) for (const x in v) s = s.split('{' + x + '}').join(v[x]); return s; }
@@ -164,7 +191,7 @@ const CHESTS = [[6, 100, 'sab1'], [15, 150, 'arm1'], [27, 200, 'amu2'], [40, 250
 // maidens: [uz, qq, ru, en] names; perk [stat, value]; unlock {start} | {m: mission} | {s: stars}. Only Sarbinaz is from the game's script — the rest are placeholder names for the author to replace.
 const MAIDS = {
   sarbinaz: { n: ['Sarbinaz', 'Sárbinaz', 'Сарбиназ', 'Sarbinaz'], p: ['dmg', 8], u: { start: 1 }, img: 'p_sa', c: '#b5452c' },
-  aysuliw: { n: ['Aysuluv', 'Aysulıw', 'Айсулыу', 'Aysuliw'], p: ['hp', 10], u: { m: '1-2' }, img: 'md_aysuliw', c: '#2f6f8f' },
+  aysuliw: { n: ['Aysuluv', 'Aysulıw', 'Айсулыу', 'Aysuliw'], p: ['hp', 10], u: { m: '1-2', m0: '0-0' }, img: 'md_aysuliw', c: '#2f6f8f' },
   gulzar: { n: ['Gulzor', 'Gúlzar', 'Гулзар', 'Gulzar'], p: ['gold', 12], u: { s: 8 }, img: 'md_gulzar', c: '#a8842a' },
   aqmaral: { n: ['Oqmaral', 'Aqmaral', 'Акмарал', 'Aqmaral'], p: ['killheal', 2], u: { m: '1-4' }, img: 'md_aqmaral', c: '#5d8a4a' },
   jupar: { n: ['Jupar', 'Jupar', 'Жупар', 'Jupar'], p: ['cd', 8], u: { m: '2-4' }, img: 'md_jupar', c: '#7a4a8f' },
@@ -215,7 +242,7 @@ function owned(id) { const it = ITEMS[id]; return !!it && (it.src.m ? !!D.done[i
 function refresh() {
   const SM = starMap(); D.stars = totalStars(SM); D.done = {}; for (const m of MLIST) if (mdone(m.id, SM)) D.done[m.id] = 1;
   D.items = {}; for (const id in ITEMS) if (owned(id)) D.items[id] = 1;
-  D.maids = {}; for (const id in MAIDS) { const u = MAIDS[id].u; if (u.start || (u.m && D.done[u.m]) || (u.s && D.stars >= u.s)) D.maids[id] = 1; }
+  D.maids = {}; for (const id in MAIDS) { const u = MAIDS[id].u; if (u.start || (u.m && D.done[u.m]) || (u.m0 && +SM[u.m0] > 0) || (u.s && D.stars >= u.s)) D.maids[id] = 1; }
   D.lv = lvInfo(M.xp).lv; M.team = M.team.filter(id => D.maids[id]).slice(0, TEAM);
   // a fresh unlock goes straight into an empty slot / free squad place (or replaces a weaker saber/bow/armour), so rewards are felt without menu work
   for (const id in D.items) if (!M.auto[id]) { M.auto[id] = 1; dirty = true; const sl = ITEMS[id].s, cur = M.eq[sl], ord = Object.keys(ITEMS).filter(k => ITEMS[k].s === sl);
@@ -270,7 +297,7 @@ export function pdMul(kk) {
   return mul('hero.dmg') * k * (B.boss && G.boss && !G.boss.dead ? 1 + B.boss / 100 : 1) * (B.laststand && p.hp < p.maxHp * .35 ? 1 + B.laststand / 100 : 1);
 }
 // if engine.js carries the pdMul hook, the dmgBoost emulation is switched off (self-healing: if the hook disappears, emulation stays on)
-try { fetch(new URL('./engine.js?v=1795168917', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
+try { fetch(new URL('./engine.js?v=1795179205', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
 
 // ---------------------------------------------------------------- rewards
 let goldSeen = SAVE.gold;
@@ -548,7 +575,8 @@ const ICON = {
   armor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M8 3l4 2 4-2 5 4-3 4v10H6V11L3 7z"/><path d="M9 12h6M9 15h6M9 18h6" stroke-width="1"/></svg>',
   amulet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M3 5h18L12 21z"/><path d="M8 8h8l-4 7z" stroke-width="1.1"/><path d="M7 5l-2-3M17 5l2-3" stroke-width="1.1"/></svg>',
 };
-const TABS = [['hero', '⚔', 't_hero'], ['skills', '🌀', 't_skills'], ['equip', '🛡', 't_equip'], ['maids', '👥', 't_maids'], ['quests', '📜', 't_quests'], ['book', '📖', 't_book']];
+const TABS = [['hero', '⚔', 't_hs'], ['maids', '👥', 't_md'], ['quests', '📜', 't_quests']];   // ui4: one Camp, three tabs (skills + equipment live inside Hero; book/shop are on the title)
+const TAB_ALIAS = { skills: 'hero', equip: 'hero', book: 'hero' };
 let tab = 'hero', skHero = 'gulayim', bookI = 0, campEl = null, curLang = lang, campFrom = '';
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const mname = id => { const n = MAIDS[id].n; return n[LI()] ?? n[0]; };
@@ -562,7 +590,7 @@ function dot(n) { return n > 0 ? `<i class="mt-dot">${n}</i>` : ''; }
 function build() {
   if (campEl) return; const st = document.createElement('style'); st.id = 'mt-css'; st.textContent = CSS; document.head.appendChild(st);
   campEl = document.createElement('div'); campEl.id = 'mt-camp'; campEl.className = 'layer mt';
-  campEl.innerHTML = `<div class="mt-top"><button class="mt-back" data-a="close"></button><h2 class="mt-title"></h2><div class="mt-lvl"><b class="mt-lvn"></b><span class="mt-bar"><i></i></span><small></small></div><div class="mt-gold"></div></div><div class="mt-body"><div class="mt-tabs"></div><div class="mt-pane"></div></div>`;
+  campEl.innerHTML = `<div class="mt-top"><button class="mt-back" data-a="close"></button><div class="mt-tabs"></div><div class="mt-gold"></div></div><div class="mt-body"><div class="mt-pane"></div></div>`;
   document.body.appendChild(campEl);
   campEl.addEventListener('click', onClick);
   const ts = document.createElement('div'); ts.id = 'mt-toasts'; ts.className = 'mt'; document.body.appendChild(ts);
@@ -573,23 +601,64 @@ function build() {
   labels(); hudXp();
 }
 function labels() {
-  const c = claimables(), nw = newCount(), n = c.all + nw.items + nw.maids;
+  const c = claimables(), nw = newCount(), wk = weakList(), n = c.all + nw.items + nw.maids + (wk.some(w => w.can) ? 1 : 0);
   const b = $('tcamp'); if (b) b.innerHTML = '⛺ ' + esc(tt('camp')) + dot(n);
-  const mb = document.querySelector('.mt-mapbtn'); if (mb) mb.innerHTML = '⛺ ' + esc(tt('camp')) + dot(c.quests + nw.items + nw.maids);
-  const eb = document.querySelector('.mt-endbtn'); if (eb) eb.innerHTML = esc(tt('endcamp')) + dot(n);
+  const mb = document.querySelector('.mt-mapbtn'); if (mb) mb.innerHTML = '⛺ ' + esc(tt('camp')) + dot(c.quests + nw.items + nw.maids + (wk.some(w => w.can) ? 1 : 0));
+  const eb = document.querySelector('.mt-endbtn'); if (eb) { const w = wk.find(x => x.can); eb.innerHTML = esc(tt('endcamp')) + (w ? ` <span class="mt-ew">⚠ ${esc(tt('e_weak', { x: w.name }))}</span>` : '') + dot(n); eb.classList.toggle('warn', !!w); }
 }
 function head() {
-  const L = lvInfo(M.xp); campEl.querySelector('.mt-back').textContent = tt('back'); campEl.querySelector('.mt-title').textContent = tt('camp');
-  campEl.querySelector('.mt-lvn').textContent = L.lv; campEl.querySelector('.mt-lvl .mt-bar i').style.width = (L.need ? L.cur / L.need * 100 : 100) + '%';
-  campEl.querySelector('.mt-lvl small').textContent = L.need ? tt('xp') + ' ' + L.cur + '/' + L.need : tt('lvmax');
+  campEl.querySelector('.mt-back').textContent = tt('back');
   campEl.querySelector('.mt-gold').textContent = '🪙 ' + SAVE.gold;
-  const c = claimables(), nw = newCount(), dots = { quests: c.all, equip: nw.items, maids: nw.maids };
+  const c = claimables(), nw = newCount(), dots = { quests: c.all, hero: nw.items + (weakList().some(w => w.can) ? 1 : 0), maids: nw.maids };
   campEl.querySelector('.mt-tabs').innerHTML = TABS.map(([id, ic, k]) => `<button class="mt-tab${id === tab ? ' sel' : ''}" data-a="tab" data-v="${id}"><b>${ic}</b><span>${esc(tt(k))}</span>${dot(dots[id] || 0)}</button>`).join('');
 }
 function render() { if (!campEl) return; ensureQuests(); refresh(); head(); const pane = campEl.querySelector('.mt-pane'); const sc = pane.scrollTop; pane.innerHTML = PANE[tab](); pane.scrollTop = sc; labels();
   if (tab === 'equip') { for (const id in D.items) if (!M.seen[id]) { M.seen[id] = 1; dirty = true; } } if (tab === 'maids') { for (const id in D.maids) if (!M.seen[id]) { M.seen[id] = 1; dirty = true; } } }
+// ---- ui4: plain-words upgrade cards. Each card: what it does now -> after the upgrade, one big button, red/green = weak/good
+const fmt = v => (Math.round(v * 10) / 10).toString().replace('.', LI() === 3 ? '.' : ',');
+const doneN = () => Object.keys(D.done).length;
+const TRAIN = [['sword', '⚔', 4], ['life', '🛡', 4], ['maid', '🏹', 5], ['squad', '👥', 8], ['horse', '🐴', 10]];   // [key, icon, missions per recommended level]
+function heroBase() { const d = (TD && TD.gulayim) || { hp: 500, dmg: [20, 30] }; return { hp: d.hp, att: (d.dmg[0] + d.dmg[1]) / 2 }; }
+function trainVal(k, lv) { const b = heroBase();
+  switch (k) { case 'sword': return [tt('dmg'), Math.round(b.att * (1 + .12 * lv) * mul('hero.dmg'))]; case 'life': return [tt('hp'), Math.round(b.hp * (1 + .15 * lv) * mul('hero.hp'))];
+    case 'maid': return [tt('st_mstr'), (100 + 15 * lv) + '%']; case 'squad': return [tt('st_mx'), '+' + lv]; case 'horse': return [tt('st_horse'), 260 + 80 * lv]; } return ['', lv]; }
+function effAt(tr, e, n) { const T = TRACKS[tr]; let v = 0, has = false; for (let i = 0; i < n; i++) if (T.tiers[i][0] === e) { v += T.tiers[i][1] || 0; has = true; } return has ? (v || 1) : 0; }
+function baseCd(tr) { const T = TRACKS[tr], k = T.kinds[0]; for (const h in HERO0) for (const s in HERO0[h]) if (HERO_SK[h][s][0] === k) return HERO0[h][s]; const SL = { spin: 5, rain: 8, dash: 6, leap: 7, ulti: 0 }; return SL[k] || 0; }
+function skillVal(tr, e, n) { const v = effAt(tr, e, n), yes = v ? '✓' : '✗';
+  switch (e) { case 'dmg': return [tt('dmg'), (100 + v) + '%']; case 'area': return [tt('st_area'), (100 + v) + '%']; case 'charge': return [tt('st_charge'), (100 + v) + '%'];
+    case 'heal': return [tt('st_heal'), '+' + v + '%']; case 'hit': return [tt('st_hit'), yes]; case 'wave': return [tt('st_wave'), yes]; case 'volley': return [tt('st_volley'), yes];
+    case 'cd': { const b = baseCd(tr); return b ? [tt('st_cd'), fmt(b * (1 - v / 100)) + ' ' + tt('sec')] : [tt('st_cd'), '−' + v + '%']; } } return ['', v]; }
+// recommended level grows with finished missions; below it = weak (red)
+function weakList() { const n = doneN(), out = [];
+  for (const [k, ic, per] of TRAIN) { const U = UPG[k]; if (!U) continue; const lv = SAVE.up[k] | 0, rec = Math.min(U.max, Math.floor(n / per)); if (lv < rec) out.push({ id: k, name: t('u_' + k), can: SAVE.gold >= U.cost(lv) }); }
+  for (const k in TRACKS) if (TRACKS[k].hero === 'gulayim') { const lv = tier(k), rec = Math.min(3, Math.floor(n / 9)); if (lv < rec) out.push({ id: k, name: TRACKS[k].nm(), can: SAVE.gold >= COST[lv] }); }
+  return out; }
+function upCard(o) {   // o: {act, v, ic, name, lv, max, cost, now:[label,val], next:[label,val], weak}
+  const mx = o.lv >= o.max, poor = !mx && SAVE.gold < o.cost, st = mx ? 'm' : o.weak === null ? 'n' : o.weak ? 'w' : 'g';
+  const pill = mx ? `<i class="mt-pill">${esc(tt('max'))}</i>` : st === 'n' ? '' : `<i class="mt-pill">${esc(tt(st === 'w' ? 'weak' : 'good'))}</i>`;
+  const val = mx ? `<b>${esc(o.now[1])}</b>` : `<s>${esc(o.now[1])}</s><u>→</u><b>${esc(o.next[1])}</b>`;
+  const pips = o.max <= 8 ? `<span class="mt-pips">${'●'.repeat(Math.min(o.lv, o.max))}${'○'.repeat(Math.max(0, o.max - o.lv))}</span>` : '';
+  return `<div class="mt-up ${st}"><div class="mt-uph"><div class="mt-ic">${o.ic}</div><div class="mt-upn">${esc(o.name)}${pips}</div>${pill}</div><div class="mt-upv"><span>${esc(o.now[0])}</span>${val}</div>`
+    + `<button class="mt-upb${poor ? ' poor' : ''}${mx ? ' done' : ''}" data-a="${o.act}" data-v="${o.v}"${mx ? ' disabled' : ''}>${mx ? esc(tt('max')) : esc(poor ? tt('up_need', { c: o.cost - SAVE.gold }) : tt('up_btn', { c: o.cost }))}</button></div>`; }
 const PANE = {
   hero() {
+    const L = lvInfo(M.xp), b = heroBase(), n = doneN(), wk = weakList();
+    const msg = wk.length ? `<div class="mt-sum w">⚠ ${esc(tt('s_weak', { x: wk.slice(0, 2).map(w => w.name).join(', ') }))}</div>` : `<div class="mt-sum g">✓ ${esc(tt('s_ok'))}</div>`;
+    const top = `<div class="mt-card mt-hs"><div class="mt-port" style="background-image:url(./assets/img/p_gu.jpg)"></div><div class="mt-hsi"><h3>${esc(t('n_gu'))} <small>${esc(tt('lv', { n: L.lv }))}</small></h3><span class="mt-bar"><i style="width:${L.need ? L.cur / L.need * 100 : 100}%"></i></span><small class="mt-note">${L.need ? esc(tt('xp')) + ' ' + L.cur + '/' + L.need : esc(tt('lvmax'))}</small></div>`
+      + `<div class="mt-hst"><span>${esc(tt('hp'))}</span><b>${Math.round(b.hp * (1 + .15 * (SAVE.up.life | 0)) * mul('hero.hp'))}</b></div><div class="mt-hst"><span>${esc(tt('dmg'))}</span><b>${Math.round(b.att * (1 + .12 * (SAVE.up.sword | 0)) * mul('hero.dmg'))}</b></div>${msg}</div>`;
+    const tr = TRAIN.map(([k, ic, per]) => { const U = UPG[k]; if (!U) return ''; const lv = SAVE.up[k] | 0; return upCard({ act: 'train', v: k, ic, name: t('u_' + k), lv, max: U.max, cost: U.cost(lv), now: trainVal(k, lv), next: trainVal(k, lv + 1), weak: lv < Math.min(U.max, Math.floor(n / per)) }); }).join('');
+    const heroes = [['gulayim', 'n_gu'], ['allayar', 'n_al'], ['sarbinaz', 'n_sa']];
+    const seg = `<div class="mt-seg">${heroes.map(([h, k]) => `<button class="${h === skHero ? 'sel' : ''}" data-a="skhero" data-v="${h}">${esc(t(k))}</button>`).join('')}</div>`;
+    const sk = Object.keys(TRACKS).filter(k => TRACKS[k].hero === skHero).map(k => { const T = TRACKS[k], lv = tier(k), e = T.tiers[Math.min(lv, 2)][0];
+      return upCard({ act: 'skill', v: k, ic: T.ic, name: T.nm(), lv, max: 3, cost: COST[Math.min(lv, 2)], now: skillVal(k, e, lv), next: skillVal(k, e, lv + 1), weak: skHero === 'gulayim' ? lv < Math.min(3, Math.floor(n / 9)) : null }); }).join('');
+    const eq = SLOTS.map(s => { const own = Object.keys(ITEMS).filter(id => ITEMS[id].s === s && D.items[id]), cur = M.eq[s], it = ITEMS[cur], first = Object.keys(ITEMS).find(id => ITEMS[id].s === s);
+      return `<button class="mt-eqs${cur ? ' on' : ''}" data-a="eqcyc" data-v="${s}"${own.length > 1 ? '' : ' disabled'}><span class="mt-eqi">${ICON[s]}</span><span class="mt-g"><b>${esc(cur ? tt('i_' + cur) : tt('sl_' + s))}${cur && !M.seen[cur] ? `<span class="mt-new">${tt('isnew')}</span>` : ''}</b><small>${cur ? it.b.map(bonusTxt).map(esc).join(' · ') : '🔒 ' + esc(srcTxt(ITEMS[first]))}</small>${own.length > 1 ? `<em>⇄ ${esc(tt('eq_tap'))}</em>` : ''}</span></button>`; }).join('');
+    for (const id in D.items) if (!M.seen[id] && Object.values(M.eq).includes(id)) { M.seen[id] = 1; dirty = true; }
+    return top + `<h4 class="mt-h">${esc(tt('up_h'))}<small>${esc(tt('legend'))}</small></h4><div class="mt-ups">${tr}</div>`
+      + `<h4 class="mt-h">${esc(tt('h_sk', { x: t(heroes.find(h => h[0] === skHero)[1]) }))}</h4>${seg}<div class="mt-ups">${sk}</div>`
+      + `<h4 class="mt-h">${esc(tt('t_equip'))}</h4><div class="mt-eqr">${eq}</div>`;
+  },
+  hero_old() {
     const L = lvInfo(M.xp), bl = BK.filter(k => B[k]).map(k => `<span class="mt-chip">${esc(bonusTxt([k, B[k]]))}</span>`).join('');
     const tr = ['sword', 'life', 'maid', 'squad', 'horse'].map(k => { const lv = SAVE.up[k] | 0, U = UPG[k]; if (!U) return ''; const c = U.cost(lv), mx = lv >= U.max;
       return `<div class="mt-row"><div class="mt-g">${esc(t('u_' + k))} <span class="mt-pips">${'●'.repeat(lv)}${'○'.repeat(Math.max(0, U.max - lv))}</span><small>${esc(t('u_' + k + 'd'))}</small></div><button class="mt-btn${mx ? ' done' : SAVE.gold < c ? ' poor' : ''}" data-a="train" data-v="${k}"${mx ? ' disabled' : ''}>${mx ? tt('max') : '🪙 ' + c}</button></div>`; }).join('');
@@ -644,6 +713,7 @@ function onClick(e) {
   else if (a === 'book') bookI = +v;
   else if (a === 'train') { const U = UPG[v], lv = SAVE.up[v] | 0; if (!U || lv >= U.max || !spend(U.cost(lv))) return; SAVE.up[v] = lv + 1; saveGame(); sfx('power'); }
   else if (a === 'skill') { const lv = tier(v); if (!TRACKS[v] || lv >= 3 || !spend(COST[lv])) return; M.sk[v] = lv + 1; save(); applyCd(); sfx('power'); }
+  else if (a === 'eqcyc') { const own = Object.keys(ITEMS).filter(id => ITEMS[id].s === v && D.items[id]); if (own.length < 2) return; const i = own.indexOf(M.eq[v]); M.eq[v] = own[(i + 1) % own.length]; M.seen[M.eq[v]] = 1; save(); sfx('pick'); }
   else if (a === 'equip') { const it = ITEMS[v]; if (!it || !D.items[v]) return; M.seen[v] = 1; if (M.eq[it.s] === v) delete M.eq[it.s]; else M.eq[it.s] = v; save(); sfx('pick'); }
   else if (a === 'maid') { if (!D.maids[v]) return; M.seen[v] = 1; const i = M.team.indexOf(v); if (i >= 0) M.team.splice(i, 1); else if (M.team.length >= TEAM) { toast(tt('teamfull')); save(); render(); return; } else M.team.push(v); save(); sfx('pick'); }
   else if (a === 'qd') { const f = qdef(DQ, v); if (!f || q.dd[v] || (q.dc[f[1]] || 0) < f[2]) return; q.dd[v] = 1; save(); grant(f[3]); sfx('pick'); }
@@ -657,15 +727,20 @@ function claimChest(n) {
   refresh(); const c = CHESTS.find(x => x[0] === n); if (!c || M.chest[n] || D.stars < n) return false; M.chest[n] = 1; save(); refresh(); grant(c[1]); if (c[2]) toast('🎁 ' + tt('newitem', { x: tt('i_' + c[2]) })); sfx('power');
   if (campEl && campEl.classList.contains('open')) render(); mapBits(); labels(); return true;
 }
-export function openCamp(tb, from) { build(); if (tb && PANE[tb]) tab = tb; campFrom = from || ''; render(); campEl.classList.add('open'); }
+export function openCamp(tb, from) { build(); tb = TAB_ALIAS[tb] || tb; if (tb && PANE[tb] && TABS.some(x => x[0] === tb)) tab = tb; if (!TABS.some(x => x[0] === tab)) tab = 'hero'; campFrom = from || ''; render(); campEl.classList.add('open'); }
 function closeCamp() { if (!campEl) return; campEl.classList.remove('open'); if (dirty) save(); labels(); mapBits(); try { hudGold(); } catch (e) { } }
 function toast(s) { const c = $('mt-toasts'); if (!c) return; const el = document.createElement('div'); el.className = 'mt-toast'; el.textContent = s; c.appendChild(el); while (c.children.length > 4) c.firstChild.remove(); setTimeout(() => el.remove(), 2900); }
 function lvBanner(l, coins) { const el = $('mt-lvup'); if (!el) return; el.querySelector('span').textContent = tt('lvup'); el.querySelector('b').textContent = l; el.querySelector('small').textContent = tt('b_hp', { n: '1,5' }) + ' · ' + tt('b_dmg', { n: 1 }) + ' · +' + coins + ' 🪙'; el.classList.remove('open'); void el.offsetWidth; el.classList.add('open'); setTimeout(() => el.classList.remove('open'), 2500); }
 function hudXp(pop) { const el = $('mt-xp'); if (!el) return; const L = lvInfo(M.xp); el.querySelector('b').textContent = L.lv; el.querySelector('i').style.width = (L.need ? L.cur / L.need * 100 : 100) + '%'; if (pop) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } }
 // end screen row: XP earned, new unlocks, Camp shortcut
 function endRow(r) {
-  const box = document.querySelector('#end .in'); if (!box) return; let el = $('mt-end'); if (!el) { el = document.createElement('div'); el.id = 'mt-end'; el.className = 'mt'; const ref = $('eadx2'); if (ref && ref.parentNode === box) box.insertBefore(el, ref); else box.appendChild(el); el.addEventListener('click', e => { if (e.target.closest('.mt-endbtn')) openCamp(claimables().quests ? 'quests' : 'skills', 'end'); }); }
+  const box = document.querySelector('#end .in'); if (!box) return; let el = $('mt-end'); if (!el) { el = document.createElement('div'); el.id = 'mt-end'; el.className = 'mt'; const ref = $('eadx2'); if (ref && ref.parentNode === box) box.insertBefore(el, ref); else box.appendChild(el); el.addEventListener('click', e => { if (e.target.closest('.mt-endbtn')) openCamp(weakList().some(w => w.can) ? 'hero' : claimables().quests ? 'quests' : 'hero', 'end'); }); }
   const L = lvInfo(M.xp); el.innerHTML = (r ? `<span class="mt-x">✦ ${esc(tt('xpn', { n: r.xp }))}</span>` : '') + `<span>${esc(tt('lv', { n: L.lv }))}${r && r.lvUp ? ' ▲' : ''}</span><button class="mt-endbtn"></button>` + (r && r.got.length ? `<span class="mt-got">🎁 ${r.got.map(esc).join(' · ')}</span>` : ''); labels();
+}
+// ui4: end screen layout hook — called from missions.js win() after it filled the buttons. o = {id, next, chEnd, gold}
+export function endUI(o) {
+  try { const ad = $('eadx2'); if (ad && o && o.gold > 0) ad.textContent = tt('ad_s', { n: o.gold });
+    const em = $('emap'); if (em) em.style.display = o && o.chEnd ? 'none' : ''; const en = $('end'); if (en) en.classList.toggle('chend', !!(o && o.chEnd)); } catch (e) { }
 }
 // map: Camp button in the header + star-chest strip
 function mapBits() {
@@ -690,7 +765,7 @@ build(); ensureQuests(); requestAnimationFrame(frame);
 setInterval(() => { if (!M.fin && !ST.pend) { const SM = starMap(); if ('7-4' in SM) { M.fin = 1; dirty = true; if (G.mis && G.mis.id === '7-4' && !G.mis._mtDone) { ST.pend = { id: '7-4', k: +SM['7-4'] || 1 }; finalize(); } } } }, 3000);
 
 window.__META = {
-  ver: VER, mul, add, pdMul, native: k => { NATIVE[k] = 1; }, isNative: k => !!NATIVE[k],  missionEnd, openCamp, closeCamp, claimChest,
+  ver: VER, mul, add, pdMul, native: k => { NATIVE[k] = 1; }, isNative: k => !!NATIVE[k],  missionEnd, openCamp, closeCamp, claimChest, endUI, tt,
   state: M, derived: D, bonus: B, level: () => lvInfo(M.xp), addXp, refresh: () => { refresh(); applyCd(); if (campEl && campEl.classList.contains('open')) render(); labels(); },
   tracks: TRACKS, items: ITEMS, maids: MAIDS, strings: S, save,
   // test helpers
