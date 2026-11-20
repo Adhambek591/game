@@ -1,0 +1,12 @@
+{
+  // Qırq qız — static browser game served at https://test.zagara.app
+  "name": "qirq-qiz",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [
+    { "pattern": "test.zagara.app", "custom_domain": true }
+  ]
+}

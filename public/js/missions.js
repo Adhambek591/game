@@ -1,0 +1,1030 @@
+// Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
+// the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera } from './engine.js?v=1795168917';
+import { t } from './i18n.js?v=1795168917';
+import { Sfx, setMusic } from './audio.js?v=1795168917';
+import { applyLight, LIGHTS, place } from './env.js?v=1795168917';
+import { makeHorse } from './horse.js?v=1795168917';
+
+// ---------- mission table ----------
+// id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
+// rules: win | nodeath | hp50 (HP > 50% at the end) | time:N (finished within N s of game time) | flag / flag2 (mission-specific)
+export const MLIST = [
+  { id: '0-1', c: 0, ty: 'defend', n: 'v3n_0_1', o: 'v3o_0_1', s: ['win', 'most', 'all'] },
+  { id: '0-2', c: 0, ty: 'duel', n: 'mn_0_2', o: 'o_duel', s: ['win', 'flag', 'flag2'], fl: 's_hold', fl2: 's_resist' },
+  { id: '1-1', c: 1, ty: 'rescue', n: 'v3n_1_1', o: 'v3o_1_1', s: ['win', 'most', 'all'] },
+  { id: '1-2', c: 1, ty: 'rescue', n: 'v3n_1_2', o: 'v3o_1_2', s: ['win', 'most', 'all'] },
+  { id: '1-3', c: 1, ty: 'rescue', n: 'v3n_1_3', o: 'v3o_1_3', s: ['win', 'most', 'all'] },
+  { id: '1-4', c: 1, ty: 'boss', n: 'n_qa', o: 'o_boss', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '2-1', c: 2, ty: 'ride', n: 'v3n_2_1', o: 'v3o_2_1', s: ['win', 'most', 'all'] },
+  { id: '2-2', c: 2, ty: 'duel', n: 'v3n_2_2', o: 'v3o_2_2', s: ['win', 'most', 'all'] },
+  { id: '2-3', c: 2, ty: 'escort', n: 'v3n_2_3', o: 'v3o_2_3', s: ['win', 'most', 'all'] },
+  { id: '2-4', c: 2, ty: 'boss', n: 'n_qd', o: 'o_salt', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '3-1', c: 3, ty: 'stealth', n: 'v3n_3_1', o: 'v3o_3_1', s: ['win', 'most', 'all'] },
+  { id: '3-2', c: 3, ty: 'rescue', n: 'v3n_3_2', o: 'v3o_3_2', s: ['win', 'most', 'all'] },
+  { id: '3-3', c: 3, ty: 'guard', n: 'v3n_3_3', o: 'v3o_3_3', s: ['win', 'most', 'all'] },
+  { id: '3-4', c: 3, ty: 'boss', n: 'n_ja', o: 'o_otbasqan', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '4-1', c: 4, ty: 'ride', n: 'v3n_4_1', o: 'v3o_4_1', s: ['win', 'most', 'all'] },
+  { id: '4-2', c: 4, ty: 'duel', n: 'v3n_4_2', o: 'v3o_4_2', s: ['win', 'most', 'all'] },
+  { id: '4-3', c: 4, ty: 'mini', n: 'v3n_4_3', o: 'v3o_4_3', s: ['win', 'most', 'all'] },
+  { id: '4-4', c: 4, ty: 'boss', n: 'n_ay', o: 'o_dragon', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '5-1', c: 5, ty: 'rescue', n: 'v3n_5_1', o: 'v3o_5_1', s: ['win', 'most', 'all'] },
+  { id: '5-2', c: 5, ty: 'duel', n: 'v3n_5_2', o: 'v3o_5_2', s: ['win', 'most', 'all'] },
+  { id: '5-3', c: 5, ty: 'rescue', n: 'v3n_5_3', o: 'v3o_5_3', s: ['win', 'most', 'all'] },
+  { id: '5-4', c: 5, ty: 'boss', n: 'n_qu', o: 'o_qunqar', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '6-1', c: 6, ty: 'rescue', n: 'v3n_6_1', o: 'v3o_6_1', s: ['win', 'most', 'all'] },
+  { id: '6-2', c: 6, ty: 'gate', n: 'v3n_6_2', o: 'v3o_6_2', s: ['win', 'most', 'all'] },
+  { id: '6-3', c: 6, ty: 'rescue', n: 'v3n_6_3', o: 'v3o_6_3', s: ['win', 'most', 'all'] },
+  { id: '6-4', c: 6, ty: 'boss', n: 'n_qg', o: 'o_king', s: ['win', 'most', 'all'], boss: 1 },
+  { id: '7-1', c: 7, ty: 'ride', n: 'mn_7_1', o: 'o_ride7', s: ['win', 'most', 'all'] },
+  { id: '7-2', c: 7, ty: 'totem', n: 'v3n_7_2', o: 'v3o_7_2', s: ['win', 'most', 'all'] },
+  { id: '7-3', c: 7, ty: 'duel', n: 'v3n_7_3', o: 'v3o_7_3', s: ['win', 'most', 'all'] },
+  { id: '7-4', c: 7, ty: 'boss', n: 'n_su', o: 'o_final', s: ['win', 'most', 'all'], boss: 1 },
+];
+export const TYICON = { defend: '⚔', duel: '⚔', story: '🏠', rescue: '⛓', survive: '⏳', boss: '💀', ride: '🐎', escort: '🛡', stealth: '🌙', mini: '🐺', archer: '🏹', guard: '🛡', gate: '🪓', totem: '🪓' };
+export const midx = id => MLIST.findIndex(m => m.id === id);
+export const byCh = c => MLIST.filter(m => m.c === c);
+export function ruleLabel(m, r) { if (r === 'win') return t('s_win'); if (r === 'nodeath') return t('s_nodeath'); if (r === 'hp50') return t('s_hp50');
+  if (r.startsWith('time:')) { const n = +r.slice(5); return t('s_time', { t: Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0') }); } if (r === 'sec') return t('s_sec'); const q = G.mis && G.mis.m === m && !resStats().total && !G.mis.cv; if (r === 'most') return t(q ? 's_mostq' : 's_most'); if (r === 'all') return t(q ? 's_allq' : 's_all'); if (r === 'flag') return t(m.fl); if (r === 'flag2') return t(m.fl2); return r; }
+
+let H = null;
+const qs = new URLSearchParams(location.search);
+const FAST = () => G.misFast || 1;
+export function initMissions(h) { H = h; window.__MS = { run: runMission, list: MLIST, auto, win: () => G.mis && (G.mis.force = true) }; }
+export function runMission(id) {
+  const i = midx(id), m = MLIST[i]; if (!m) return runMission('0-1');
+  try { resCleanup(); } catch (e) { }
+  G.mis = { id, m, c: m.c, t0: G.time, d0: 0, flag: false, flag2: false, run: (G.misRun = (G.misRun || 0) + 1) }; G.flying = false; try { hpBar(null); if (stEl) stEl.style.opacity = 0; storm.sv = storm.to = null; $('timer').style.display = 'none'; } catch (e) { }
+  try { localStorage.setItem('qq_last', id); } catch (e) { }
+  return RUN[id]();
+}
+const mstart = () => { G.mis.started = true; G.mis.t0 = G.time; G.mis.d0 = G.stats.deaths; G.mis.qz = G.ents.filter(e => e.type === 'qiz' && !e.dead); };
+function starsOf() { const M = G.mis, m = M.m, p = G.player;
+  return m.s.map(r => r === 'win' ? true : r === 'nodeath' ? G.stats.deaths <= M.d0 : r === 'hp50' ? !!(p && !p.dead && p.hp > p.maxHp * .5) : r.startsWith('time:') ? (G.time - M.t0) <= +r.slice(5) : r === 'sec' ? !!(M.sec && M.sec.total && M.sec.list.filter(o => o.kind === 'page').every(o => o.got)) : r === 'most' ? starMost() : r === 'all' ? starAll() : r === 'flag' ? !!M.flag : r === 'flag2' ? !!M.flag2 : false); }
+// outcome stars: people saved (or, with nobody to rescue, maidens alive); 3rd = everyone saved and no maiden lost
+function starMost() { const S = resStats(), q = (G.mis.qz || []).length; const cv = G.mis.cv; if (cv && !S.total) return cv.pool > cv.max * .5; if (S.total) { const saved = S.total - S.lost - (G.mis.ridePeople ? 0 : 0); return saved >= Math.ceil(S.total * .6); } return maidLost() <= Math.floor(q / 2); }
+function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.total) return !cv.everFailed && cv.pool > cv.max * .7 && maidLost() === 0; return S.lost === 0 && maidLost() === 0; }
+// mission complete → stars + end screen (boss missions also finish the chapter)
+async function win() {
+  if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
+  const M = G.mis, m = M.m, st = starsOf(), k = st.filter(Boolean).length, i = midx(m.id), next = MLIST[i + 1];
+  try { window.__META && window.__META.missionEnd(m.id, k); } catch (e) { }
+  for (const g of M.res || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;
+  $('timer').style.display = 'none'; G.tick = null; M.aim = null; try { hpBar(null); } catch (e) { } try { resCleanup(); } catch (e) { }
+  H.saveProg(m.boss ? m.c + 1 : Math.max(1, m.c));
+  if (m.id === '7-4') { H.saveStars(m.id, k); return H.epilogue(st); }
+  await H.fadeTo(true); G.paused = true; $('hud').classList.remove('on');
+  $('eh').textContent = (m.c ? t('ch' + m.c) : t('ch0')) + ' · ' + t(m.n); H.endStars(m.id, k, 3);
+  $('stl').innerHTML = st.map((ok, j) => `<div class="${ok ? '' : 'no'}">${ok ? '★' : '☆'} ${ruleLabel(m, m.s[j])}</div>`).join('') + `<div>🪙 +${G.chGold || 0}${M.sec && M.sec.total ? '   📜 ' + M.sec.n + '/' + M.sec.total : ''}</div>` + (next ? `<div class="no">▸ ${TYICON[next.ty] || ''} ${t(next.n)}</div>` : '');
+  $('etb').textContent = m.boss ? t('ch' + m.c) + ' — ' + t('done') : '';
+  $('ereplay').textContent = next ? t('ms_next') : t('replay');
+  const g0 = G.chGold || 0; $('eadx2').style.display = g0 > 0 ? 'block' : 'none'; $('eadx2').textContent = t('adX2') + ' (+' + g0 + ' 🪙)'; $('eadx2').onclick = async () => { if (await ADS.rewarded()) { addGold(g0); $('eadx2').style.display = 'none'; } };
+  $('eshop').textContent = t('shopT'); $('eshop').onclick = () => H.openShop(); $('end').classList.add('on'); $('fade').classList.remove('in');
+  $('ereplay').onclick = () => { $('end').classList.remove('on'); runMission(next ? next.id : '0-1'); };
+}
+async function fail() { $('timer').style.display = 'none'; G.tick = null; setMusic('off'); await H.bannerShow('', t('ms_fail'), '', 2.6); return runMission(G.mis.id); }
+
+// ---------- shared setup ----------
+const M = () => G.mis.m;
+const sq = (n, z, x0 = 0) => { for (let i = 0; i < n + SAVE.up.squad; i++) spawn('qiz', x0 + (i % 2 ? 1 : -1) * (1.5 + (i >> 1) * 1.6), z + 2 + (i >> 1) * 1.2); };
+const sp = (ty, x, z) => ty === 'potion' ? H.potionSoldier(x, z) : spawn(ty, x, z);
+function live() { $('hud').classList.add('on'); $('fade').classList.remove('in'); G.paused = false; G.freeze = false; const f = G.mis && G.mis.onLive; if (f) { G.mis.onLive = null; try { f(); } catch (e) { console.warn(e); } } }
+const ban = (dur = 3) => H.bannerShow(t(M().c ? 'ch' + M().c : 'ch0'), t(M().n), t(M().o), dur);
+async function gu(c, mood, build, need, z, chap, n = 5, opt = {}) { await H.fadeTo(true); await H.chapterStart(mood, build, need); if (opt.tod) tod(opt.tod); const p = H.heroSetup('gulayim', 0, z, chap); for (const a of opt.allies || []) spawn(a[0], a[1], z + a[2]); sq(n, z); H.setHero('gu'); live(); return p; }
+async function sar(mood, build, need, z, n = 5, opt = {}) { await H.fadeTo(true); await H.chapterStart(mood, build, ['sarbinaz', ...need]); if (opt.tod) tod(opt.tod); const p = H.heroSetup('sarbinaz', 0, z, 4); p.maxHp = p.hp = 700; p.d = { ...T.sarbinaz, dmg: [24, 34] }; sq(n, z); H.setHero('sa'); live(); return p; }
+// time of day: re-light the chapter scenery (env.js presets) and recolour its sky dome; no new art
+const TOD = {
+  night: { sun: [0x9fb4e8, 1.1], dir: [-.35, .62, -.7], hemi: [0x5a6c9c, 0x14141e, .8], fog: [0x1a2234, 26, 92], exp: .82, sat: .9, warm: -.03, con: .38, shc: [0, .05, .22], hic: [.3, .36, .52], dust: 0x8090c0, sky: { top: 0x080c1c, hor: 0x2c3854, cloud: 0x3a4664, sun: 0xd0dcff } },
+  dusk: { sun: [0xff7a42, 3.5], dir: [.75, .28, -.6], hemi: [0xffa478, 0x3a2222, 1.25], fog: [0xb85e3e, 36, 112], exp: .95, sat: 1.42, warm: .07, con: .38, shc: [0, .08, .3], hic: [1, .5, .15], dust: 0xffa070, sky: { top: 0x3a3c7a, hor: 0xff9254, cloud: 0xffb890, sun: 0xff9a48 } },
+};
+function tod(k) { const L = TOD[k]; if (!L) return; LIGHTS['m_' + k] = L; try { applyLight('m_' + k, { scene, renderer, grade: gradePass, G }); } catch (e) { }
+  const S = L.sky; world.traverse(o => { const u = o.material && o.material.uniforms; if (u && u.top && u.hor && u.sunc) { u.top.value.set(S.top); u.hor.value.set(S.hor); if (u.cl) u.cl.value.set(S.cloud); u.sunc.value.set(S.sun); if (u.sd) u.sd.value.set(...L.dir).normalize(); } }); }
+
+// ======================================================================
+// ENCOUNTER KIT (v2): enemies are placed in the level BEFORE the intro fly-over (standing guard, patrolling, sitting by a fire),
+// and wake up when the hero comes close, when one of them is hit, or on script. Reinforcements still pop in (ambush / twist).
+// ======================================================================
+const rnd = (a, b) => a + Math.random() * (b - a), hyp = Math.hypot;
+// role aliases → the combat agent's unit types when they exist (nayza = heavy spearman, boribasi = alpha wolf), else safe fallbacks
+const ALIAS = { heavy: ['nayza', 'potion'], alpha: ['boribasi', 'wolf'], elite: ['elite', 'potion'] };
+const TY = k => (k === 'potion' || T[k]) ? k : ALIAS[k] ? (ALIAS[k].find(a => a === 'potion' || T[a]) || 'askar') : 'askar';
+const LBL = { askar: 'e_horde', potion: 'e_horde', wolf: 'e_wolf', boribasi: 'e_wolf', archer: 'e_arch', mage: 'e_mage', shaman: 'e_mage' };
+// post(list, o): list = [type, x, z, pose?, arg?]; pose: 'g' guard (default), 'p' patrol (arg = half-width, along x), 'pz' patrol along z, 's' sit (by the fire)
+// o: { fire:[x,z], label:'i18n key', wake: radius, nofly:true, y: height for 'g' poses (ridge) }
+function post(list, o = {}) {
+  const g = { es: [], awake: false, o, x: 0, z: 0, wakeR: o.wake ?? 12, label: o.label, boss: null };
+  if (o.fire) fire(o.fire[0], o.fire[1], 1.05);
+  const cnt = {};
+  list.forEach(([ty, x, z, pose, arg], i) => { ty = TY(ty); const e = sp(ty, x, z); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); cnt[ty] = (cnt[ty] || 0) + 1;
+    e.grp = g; e.next = e.custom || null; e.pose = pose || 'g'; e.hx = x; e.hz0 = z; e.pd = i % 2 ? 1 : -1; e.parg = arg ?? 3; e.seed = rnd(0, 9); e.farT = -1e9;
+    e.rot = 0; if (o.fire) e.rot = Math.atan2(o.fire[0] - x, o.fire[1] - z); else if (o.face !== undefined) e.rot = o.face; e.rot0 = e.rot;
+    if (o.y && ty === 'archer') e.y = o.y; e.custom = sleepAI; g.es.push(e); });
+  g.x = g.es.reduce((s, e) => s + e.x, 0) / g.es.length; g.z = g.es.reduce((s, e) => s + e.z, 0) / g.es.length;
+  if (!g.label) { let b = 'askar', bn = 0; for (const k in cnt) if (cnt[k] > bn) { bn = cnt[k]; b = k; } g.label = LBL[b] || 'e_horde'; }
+  (G.mis.groups = G.mis.groups || []).push(g); return g; }
+function sleepAI(e, dt) { const g = e.grp;
+  if (g.awake) { if ((e.wakeT = (e.wakeT ?? rnd(0, .45)) - dt) > 0) { e.play('Idle_Combat'); return true; } e.custom = e.next; e.farT = 0; e.y = 0; e.state = 'chase'; e.o.visible = true; return false; }
+  e.farT = -1e9; const P = G.player, cv = G.mis && G.mis.cv;
+  if (!G.flying && (e.hp < e.maxHp || (P && !P.dead && hyp(P.x - e.x, P.z - e.z) < g.wakeR) || (cv && !g.o.noCv && hyp(cv.x - e.x, cv.z - e.z) < g.wakeR))) { wake(g); return true; }
+  if (e.pose === 's') { e.rot = e.rot0; e.play('Sit_Floor_Idle'); }
+  else if (e.pose === 'p' || e.pose === 'pz') { const ax = e.pose === 'p' ? 'x' : 'z', h0 = ax === 'x' ? e.hx : e.hz0; e.wp = (e.wp ?? rnd(0, 2)) - dt;
+    if (e.wp > 0) { e.play('Idle'); } else { e[ax] += e.pd * dt * 1.25; if (Math.abs(e[ax] - h0) > e.parg) { e.pd *= -1; e[ax] = h0 + Math.sign(e[ax] - h0) * e.parg; e.wp = rnd(1.2, 3); } e.rot = ax === 'x' ? (e.pd > 0 ? Math.PI / 2 : -Math.PI / 2) : (e.pd > 0 ? 0 : Math.PI); e.play(e.type === 'wolf' ? 'Walking_A' : 'Walking_A', { ts: .8 }); } }
+  else { e.rot = e.rot0 + Math.sin(G.time * .45 + e.seed) * .55; e.play('Idle'); }
+  return true; }
+let hornT = 0;
+function wake(g, quiet) { if (g.awake) return; g.awake = true; for (const e of g.es) if (!e.dead) num(e, '!', 'c'); if (!quiet && G.time - hornT > 4) { hornT = G.time; Sfx.horn(); } if (!G.boss) setMusic('battle'); if (g.o.onWake) g.o.onWake(g); }
+const alive = g => g.es.filter(e => !e.dead);
+const near = (list, P = G.player) => { let b = null, bd = 1e9; for (const e of list) { if (e.dead || e.gone) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; b = e; } } return b; };
+// wait until the given groups are destroyed; the direction arrow points at the nearest survivor; a checkpoint is saved afterwards
+async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = () => near(all);
+  await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; cp(); }
+// reinforcements (ambush / twist): pop in with the usual smoke, optional bark
+function rein(list, who, key) { const es = list.map(([ty, x, z]) => sp(TY(ty), x, z)); if (G.time - hornT > 3) { hornT = G.time; Sfx.horn(); } if (key) bark(who, key); return es; }
+async function dead(es) { G.mis.aim = () => near(es); await until(() => es.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of es) if (!e.dead) e.die(); G.mis.aim = null; cp(); }
+const cp = () => { const P = G.player; if (P && !P.dead) H.setCP(P.x, P.z); };
+const bark = (who, key) => hintRaw(t('n_' + who) + ': ' + t(key));
+const say = lines => H.dialog(lines);
+// elite leader: a big captain; when he falls the rest of his group falters (stagger + morale damage)
+function leader(g, x, z, nameKey = 'mb_cap') { const ty = T.elite ? 'elite' : 'askar'; const e = spawn(ty, x, z); e.spawnT = 0; if (ty === 'askar') { e.vs *= 1.38; e.r *= 1.3; e.h *= 1.38; e.maxHp = e.hp = Math.round(420 * (1 + .25 * (G.mis.c || 0))); e.dmgMul = 1.7; e.speed *= .92; e.d = { ...e.d, name: nameKey, windup: .7 }; for (const m of e.mats || []) if (m.color) m.color.offsetHSL(.02, .1, -.08); }
+  e.o.scale.setScalar(e.vs || 1); e.grp = g; e.next = null; e.pose = 'g'; e.hx = x; e.hz0 = z; e.seed = 1; e.rot = e.rot0 = 0; e.farT = -1e9; e.custom = sleepAI; e.lead = true; g.es.push(e); g.boss = e; g.bossName = nameKey;
+  e.onDeath = () => { Sfx.big(); flash(.25); bark('gu', 'bk_leader'); for (const o of g.es) if (!o.dead && o !== e) { o.stagger = 1.6; o.hp = Math.max(1, o.hp - o.maxHp * .35); o.showBar && o.showBar(); o.play('Hit_A', { once: true, force: true }); } };
+  return e; }
+// chapter boss standing in its arena from the start (idle); bossFight() adopts it
+function preBoss(type, x, z, label, img) { const b = spawn(type, x, z); b.rot = 0; b.spawnT = 0; b.o.scale.setScalar(b.vs || T[type].scale); b.custom = e => { e.play('Idle'); e.farT = -1e9; return true; }; b.asleep = true; G.mis.preBoss = b;
+  (G.mis.groups = G.mis.groups || []).push({ es: [b], awake: false, o: {}, x, z, boss: b, chapBoss: !label, bossName: label || b.d.name, label: label || b.d.name, img }); return b; }
+
+// ---------- secrets: pages of the "Dástan kitabı" (feed the 'sec' star) and treasure chests (gold) ----------
+function page(x, z) { const g = new THREE.Group(); const m = new THREE.Mesh(new THREE.CylinderGeometry(.11, .11, .62, 10), new THREE.MeshStandardMaterial({ color: 0xe8d8a8, roughness: .9, emissive: 0x6a5020, emissiveIntensity: .6 })); m.rotation.z = Math.PI / 2; m.position.y = .95;
+  const r1 = new THREE.Mesh(new THREE.TorusGeometry(.115, .025, 6, 12), new THREE.MeshStandardMaterial({ color: 0x9a1c18 })); r1.rotation.y = Math.PI / 2; r1.position.y = .95; g.add(m, r1); g.position.set(x, 0, z); world.add(g);
+  const S = G.mis.sec = G.mis.sec || { n: 0, total: 0, list: [] }; S.total++; S.list.push({ g, x, z, kind: 'page' }); }
+function chest(x, z, gold = 60) { const g = new THREE.Group(), wd = new THREE.MeshStandardMaterial({ color: 0x6a4420, roughness: .85 }), go = new THREE.MeshStandardMaterial({ color: 0xd8a83a, metalness: .7, roughness: .35 });
+  const b = new THREE.Mesh(new THREE.BoxGeometry(.95, .5, .6), wd); b.position.y = .25; const lid = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, .95, 12, 1, false, 0, Math.PI), wd); lid.rotation.z = Math.PI / 2; lid.rotation.y = Math.PI / 2; lid.position.y = .5;
+  for (const sx of [-.3, .3]) { const s = new THREE.Mesh(new THREE.TorusGeometry(.31, .03, 6, 14, Math.PI), go); s.rotation.y = Math.PI / 2; s.position.set(sx, .5, 0); g.add(s); } const lk = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 6), go); lk.position.set(0, .42, .31);
+  g.add(b, lid, lk); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); g.position.set(x, 0, z); g.rotation.y = rnd(-.5, .5); world.add(g); G.colC.push({ x, z, r: .55 });
+  const S = G.mis.sec = G.mis.sec || { n: 0, total: 0, list: [] }; S.list.push({ g, x, z, kind: 'chest', gold }); }
+function secTick(tm) { const S = G.mis && G.mis.sec, P = G.player; if (!S || !P) return; for (const o of S.list) { if (o.got) continue; if (o.kind === 'page') { o.g.rotation.y = tm * 1.6; o.g.position.y = Math.sin(tm * 2.4 + o.x) * .1; }
+    if (G.paused || P.dead) continue; const d = hyp(P.x - o.x, P.z - o.z); if (Math.random() < .03 && d < 22) burst(o.x + rnd(-.3, .3), 1 + rnd(0, .6), o.z, o.kind === 'page' ? 0xfff0b0 : 0xffd060, .5);
+    if (d < (o.kind === 'page' ? 1.5 : 1.9)) { o.got = true; Sfx.pick(); burst(o.x, 1, o.z, 0xffe9a0, 3); ringFx(o.x, o.z, 2, 0xffe080);
+      if (o.kind === 'page') { world.remove(o.g); S.n++; addGold(25, o.x, o.z); hintRaw('📜 ' + t('sec_found') + ' ' + S.n + '/' + S.total); try { const k = JSON.parse(localStorage.getItem('qq_pages') || '{}'); k[G.mis.id] = 1; localStorage.setItem('qq_pages', JSON.stringify(k)); } catch (e) { } }
+      else { addGold(o.gold, o.x, o.z); o.g.children[1].rotation.x = -.9; o.g.children[1].position.set(0, .62, -.28); } } } }
+
+// ---------- on-screen direction arrow: explicit target (G.mis.aim) → nearest awake enemy → last marker ----------
+let dirEl = null;
+function dirTick() { const P = G.player; if (!dirEl) { dirEl = document.createElement('div'); dirEl.id = 'dir'; dirEl.style.cssText = 'position:absolute;left:0;top:0;z-index:6;pointer-events:none;display:none;will-change:transform';
+    dirEl.innerHTML = '<div class="da" style="width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-bottom:26px solid #ffd060;filter:drop-shadow(0 2px 4px #000)"></div><b style="position:absolute;left:50%;top:30px;transform:translateX(-50%);font:700 13px/1 system-ui,sans-serif;color:#ffe9a8;text-shadow:0 1px 3px #000,0 0 6px #000;white-space:nowrap"></b>'; ($('hud') || document.body).appendChild(dirEl); }
+  let tg = null; const M0 = G.mis;
+  if (P && !P.dead && M0 && !G.paused && !G.flying && $('hud').classList.contains('on')) { if (M0.aim) tg = M0.aim(); if (!tg) { let bd = 1e9; for (const e of G.ents) { if (e.team !== 'enemy' || e.dead || e.bg || e.custom === sleepAI || e.asleep) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; tg = e; } } if (tg && bd < 9) tg = null; else if (tg && bd < 1e9) M0.aimEnemy = true; }
+    if (!tg && G.markers && G.markers.length) tg = G.markers[G.markers.length - 1]; }
+  if (!tg) { dirEl.style.display = 'none'; return; } const dx = tg.x - P.x, dz = tg.z - P.z, d = hyp(dx, dz); if (d < 7) { dirEl.style.display = 'none'; return; }
+  const ux = dx / d, uy = dz / d, W = innerWidth, Hh = innerHeight, k = Math.min(1, d / 26), cx = W / 2 + ux * W * (.2 + .16 * k), cy = Math.max(Hh * .2, Hh * .5 + uy * Hh * (.22 + .12 * k));
+  dirEl.style.display = 'block'; dirEl.style.transform = `translate(${cx - 13}px,${cy - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
+// sleeping groups far from the camera focus are not drawn (phones: never more than one or two camps of skinned units on screen)
+function cullTick() { const cz = G.cam ? G.cam.z : 0; for (const e of G.ents) { if (e.custom === sleepAI || e.asleep) e.o.visible = Math.abs(e.z - cz + 6) < 46; else if (e.grp && !e.o.visible) e.o.visible = true; } }
+(function loop() { requestAnimationFrame(loop); try { const tm = performance.now() / 1000; dirTick(); secTick(tm); cullTick(); if (G.mis && G.mis.fx) G.mis.fx(tm); } catch (e) { } })();
+
+// safe practice moment (onboarding): a harmless telegraphed circle to dodge out of
+async function practiceDodge() { const p = G.player, x = p.x, z = p.z; H.hint('h_dodge', 6); telegraph(x, z, 3.2, 3); await wait(3); ringFx(x, z, 3.2, 0xff5522); Sfx.big(); if (hyp(p.x - x, p.z - z) > 3.2) { num(p, '✓', 'c'); Sfx.pick(); addGold(10, p.x, p.z); } else num(p, '✗', 'n'); }
+// low barricade of sharpened stakes across the road: blocks walking, the wolf leap (5) clears it; an optional breakable gap in the middle
+function stakes(z, x1 = -G.W, x2 = G.W, gap) { const wd = new THREE.MeshStandardMaterial({ color: 0x5a3c20, roughness: 1 }), g = new THREE.Group(); const geo = new THREE.CylinderGeometry(.03, .11, 1.9, 6);
+  for (let x = x1 + .3; x < x2; x += .55) { if (gap && Math.abs(x - gap[0]) < gap[1]) continue; const m = new THREE.Mesh(geo, wd); m.position.set(x, .8, z + rnd(-.15, .15)); m.rotation.x = .55 + rnd(-.12, .12); m.rotation.z = rnd(-.15, .15); m.castShadow = true; g.add(m); }
+  const rail = new THREE.Mesh(new THREE.CylinderGeometry(.07, .07, x2 - x1, 6), wd); rail.rotation.z = Math.PI / 2; rail.position.set((x1 + x2) / 2, .55, z - .2); if (!gap) g.add(rail); world.add(g);
+  const cols = []; if (gap) { cols.push({ x1, x2: gap[0] - gap[1], z1: z - .5, z2: z + .5, low: true }, { x1: gap[0] + gap[1], x2, z1: z - .5, z2: z + .5, low: true }); } else cols.push({ x1, x2, z1: z - .5, z2: z + .5, low: true }); for (const c of cols) G.colB.push(c);
+  return { g, cols, open() { for (const c of cols) c.off = true; world.remove(g); } }; }
+
+// ---------- DUEL (v3): a ring of onlookers, an opponent name card, nobody else interferes ----------
+// duel(o): o = { type, x, z, R, name (i18n), title (i18n), hp, scale, dmg, poise, brain (H.bossBrain opts), intro (dialog lines),
+//                nonLethal (stop at this HP fraction), crowd: [[type, n], ...] (opponent's side), after: 'flee' | 'fight' | 'stay', mounted }
+// resolves { clean: never hit, time } ; mission stars read G.mis.duelClean (false once any duel took a hit)
+const CHEER = ['Cheer', 'Idle_Combat', 'Idle'];
+function duelRing(x, z, R, o = {}) {
+  const ring = { x, z, R, crowd: [], keep: [], props: [] }, n = Math.round(R * 2.2);
+  for (let i = 0; i < n; i++) { const a = i / n * 6.283 + .1; const h = place(world, 'boulder_01', x + Math.cos(a) * (R + .7), z + Math.sin(a) * (R + .7), .28 + (i % 3) * .07); if (h) ring.props.push(h); }
+  const ringM = new THREE.Mesh(new THREE.RingGeometry(R - .12, R + .12, 64), new THREE.MeshBasicMaterial({ color: 0x8a5a2a, transparent: true, opacity: .55, depthWrite: false })); ringM.rotation.x = -Math.PI / 2; ringM.position.set(x, .05, z); world.add(ringM); ring.props.push(ringM);
+  fire(x + R + 1.6, z - 1, .8); fire(x - R - 1.6, z - 1, .8);
+  // the opponent's men stand on the far half (team npc: they watch and cheer, never fight)
+  const L = o.crowd || [['askar', 6], ['archer', 2]]; let k = 0, tot = L.reduce((s, c) => s + c[1], 0);
+  for (const [ty, cnt] of L) for (let i = 0; i < cnt; i++, k++) { const a = Math.PI * (1.12 + .76 * (k + .5) / tot), rr = R + 1.8 + (k % 2) * 1.1; const e = spawn(ty, x + Math.cos(a) * rr, z + Math.sin(a) * rr, 'npc', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.atan2(x - e.x, z - e.z); e.seed = rnd(0, 9); ring.crowd.push(e); }
+  return ring; }
+function ringStart(ring) { const { x, z, R } = ring;
+  // our own people (allies) step back to the near half and watch
+  let j = 0; const al = G.ents.filter(e => e.team === 'ally' && e !== G.player && !e.dead && !e.gone && !e.cart && !e.vict);
+  for (const e of al) { const a = Math.PI * (.14 + .72 * (j + .5) / Math.max(1, al.length)), rr = R + 1.6 + (j % 2); e.x = x + Math.cos(a) * rr; e.z = z + Math.sin(a) * rr; e.rot = Math.atan2(x - e.x, z - e.z); e.team = 'npc'; e.seed = rnd(0, 9); ring.keep.push(e); j++; if (e.mounted) toggleMount(e, false); }
+  // any other enemy still standing holds still too
+  for (const e of G.ents) if (e.team === 'enemy' && !e.dead && !e.duel) { e.team = 'npc'; ring.keep.push(Object.assign(e, { wasEnemy: true })); }
+  return ring; }
+function duelEnd(ring, after) {
+  for (const e of ring.keep) { if (e.dead) continue; e.team = e.wasEnemy ? 'enemy' : 'ally'; e.wasEnemy = false; }
+  if (after === 'fight') { const es = []; for (const c of ring.crowd) { if (c.dead) continue; const e = sp(c.type, c.x, c.z); es.push(e); c.o.visible = false; c.gone = true; c.dead = true; } return es; }
+  if (after !== 'stay') for (const c of ring.crowd) { c.flee = 1; }
+  return []; }
+// arena(o): ring + watching crowd + the opponent standing idle (built before the fly-over; shows as a boss card)
+function arena(o) { const R = o.R || 8, ring = duelRing(o.x, o.z, R, o);
+  const e = spawn(o.type, o.x, o.z - R * .45, 'npc', true); e.spawnT = 0; if (o.scale) e.vs = (e.vs || e.d.scale || 1) * o.scale; e.o.scale.setScalar(e.vs || e.d.scale || 1);
+  e.maxHp = e.hp = Math.round(o.hp * ([.8, 1, 1.2][SET.diff] ?? 1)); if (o.dmg) e.dmgMul = o.dmg; e.d = { ...e.d, name: o.name, poise: o.poise || e.d.poise || 160, heavy: o.heavy ?? e.d.heavy }; e.farT = -1e9; e.rot = 0;
+  (G.mis.groups = G.mis.groups || []).push({ es: [e, ...ring.crowd], awake: false, o: {}, x: o.x, z: o.z - R * .45, boss: e, chapBoss: false, bossName: o.name, label: o.name, img: null });
+  const tk = () => { if (e.team !== 'npc' || e.dead || !G.ents.includes(e)) return; if ((e.cT = (e.cT ?? 0) - .016) <= 0) { e.cT = 3; e.play(Math.random() < .3 ? 'Cheer' : 'Idle_Combat', { force: true }); } for (const c of ring.crowd) if (!c.dead && (c.cT = (c.cT ?? Math.random() * 3) - .016) <= 0) { c.cT = 2 + Math.random() * 3; c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } requestAnimationFrame(tk); }; requestAnimationFrame(tk);
+  return { ring, foe: e, o }; }
+async function duel(o) {
+  const P = G.player, R = o.R || 8, M = G.mis; M.duels = (M.duels || 0) + 1;
+  const A = o.arena || arena(o), ring = A.ring, e = A.foe; ringStart(ring); e.team = 'enemy'; e.custom = null; e.duel = true;
+  if (o.brain) e.custom = H.bossBrain(o.brain); if (o.mounted) toggleMount(e, true);
+  if (o.nonLethal) { const d0 = e.damage.bind(e); e.damage = (a, s, f) => { if (e.yield) return 0; const r = d0(a, s, f); if (e.hp < e.maxHp * o.nonLethal) { e.hp = Math.max(1, Math.round(e.maxHp * o.nonLethal)); e.yield = true; } return r; }; }
+  P.x = o.x; P.z = o.z + R * .45; P.act = null; P.face(e.x - P.x, e.z - P.z); e.rot = Math.atan2(P.x - e.x, P.z - e.z); if (G.cam) { G.cam.x = P.x; G.cam.z = P.z; }
+  H.setCP(P.x, P.z); G.freeze = true; P.play('Idle'); e.play(o.mounted ? 'Idle' : 'Cheer', { once: true, force: true }); Sfx.horn();
+  await H.bannerShow(t('duelT'), t(o.name), t(o.title || ''), 2.6); if (o.intro) await say(o.intro);
+  G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
+  let last = P.hp, hit = false, d0 = G.stats.deaths; const t0 = G.time, prev = G.tick;
+  G.mis.aim = () => e.dead ? null : e;
+  G.tick = dt => { if (prev) prev(dt); if (P.hp < last - .5 || G.stats.deaths > d0) hit = true; last = P.hp;
+    for (const u of [P, e]) { if (!u || u.dead) continue; const dx = u.x - o.x, dz = u.z - o.z, l = hyp(dx, dz); if (l > R - .4) { u.x = o.x + dx / l * (R - .4); u.z = o.z + dz / l * (R - .4); } }
+    for (const c of ring.crowd) { if (c.dead) continue; if (c.flee) { c.x += Math.sin(c.rot + Math.PI) * 4.5 * dt; c.z += Math.cos(c.rot + Math.PI) * 4.5 * dt; c.play('Running_A'); if (hyp(c.x - o.x, c.z - o.z) > R + 22) { c.o.visible = false; c.dead = c.gone = true; } continue; }
+      if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
+    for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
+  await until(() => e.dead || e.yield || G.mis.force);
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null;
+  if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
+  const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
+  Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));
+  for (const c of ring.keep) if (!c.wasEnemy && !c.dead) c.play('Cheer', { force: true });
+  await wait(1.4); const es = duelEnd(ring, o.after); G.tick = (G.tick === prev || !ring.crowd.some(c => c.flee && !c.dead)) ? prev : G.tick;
+  if (o.after !== 'fight' && ring.crowd.some(c => c.flee)) { const tk = G.tick; await wait(3); if (G.tick === tk) G.tick = prev; }
+  else G.tick = prev;
+  setMusic(es.length ? 'battle' : 'calm'); cp(); return { clean, time: G.time - t0, foe: e, es }; }
+const hint = (k, d = 6) => hintRaw(t(k));
+// stealth sentry: idles/patrols, sees ~7 m in front (2.6 m all around); a hit before the alarm is a silent takedown
+function sentry(ty, x, z, patrol = 0) { const e = spawn(ty, x, z); e.rot = 0; e.px = x; e.pd = Math.random() < .5 ? 1 : -1; e.seeT = 0;
+  e.custom = (e, dt) => { e.farT = -1e9; const S = G.mis.st; if (S.alarm) { e.custom = null; e.farT = 0; return false; } const P = G.player; if (!P || P.dead) return true;
+    if (e.hp < e.maxHp) { e.damage(1e6, P, { silent: true }); return true; }
+    if (patrol) { e.x += e.pd * dt * 1.3; if (Math.abs(e.x - e.px) > patrol) e.pd *= -1; e.rot = e.pd > 0 ? Math.PI / 2 : -Math.PI / 2; e.play('Walking_A'); } else { e.rot += Math.sin(G.time * .6 + x) * dt * .5; e.play('Idle'); }
+    const dx = P.x - e.x, dz = P.z - e.z, d = Math.hypot(dx, dz), dot = (dx * Math.sin(e.rot) + dz * Math.cos(e.rot)) / (d || 1);
+    if (d < 2.6 || (d < 7.5 && dot > .45)) { e.seeT += dt; if (e.seeT > .7) alarm(); } else e.seeT = Math.max(0, e.seeT - dt);
+    return true; }; return e; }
+function alarm() { const S = G.mis.st; if (S.alarm) return; S.alarm = true; G.mis.flag = false; Sfx.horn(); flash(.3); hint('ms_alarm', 5); const P = G.player; for (const [ty, x, dz] of [['wolf', -6, -9], ['wolf', 6, -9], ['askar', -3, -12], ['askar', 3, -12], ['archer', 0, -15]]) spawn(ty, x, P.z + dz); setMusic('battle'); }
+// raiders go for the captives unless the hero is right next to them
+function raidAI(caps) { return (e, dt) => { e.raider = true; const P = G.player; if (P && !P.dead && Math.hypot(P.x - e.x, P.z - e.z) < 6) return false; let tg = null, bd = 1e9; for (const c of caps) { if (c.dead) continue; const d = Math.hypot(c.x - e.x, c.z - e.z); if (d < bd) { bd = d; tg = c; } } if (!tg) return false;
+  const dx = tg.x - e.x, dz = tg.z - e.z; e.face(dx, dz, dt * 8); if (bd > 1.7) { e.x += dx / bd * e.speed * dt; e.z += dz / bd * e.speed * dt; e.play(e.d.run || 'Running_A'); } else { e.cd2 = (e.cd2 ?? .8) - dt; if (e.cd2 <= 0) { e.cd2 = 1.4; e.play('E_Attack', { once: true, force: true }); tg.damage(e.type === 'wolf' ? 26 : 22, e); } } return true; }; }
+// big potion soldier that turns into a giant wolf (mini-boss)
+function potionBoss(x, z) { const e = H.potionSoldier(x, z); e.maxHp = e.hp = 500; e.d = { ...e.d, name: 'mb_pot' }; e.vs *= 1.25; setBoss(e); e.onDeath = () => setBoss(null);
+  const w = { done: false }; const old = G.tick; G.tick = dt => { if (old) old(dt); if (!w.done && e.type === 'wolf') { w.done = true; e.maxHp = e.hp = 1600; e.vs *= 1.6; e.r *= 1.5; e.dmgMul = 2; e.speed *= 1.1; setBoss(e); $('bname').textContent = t('mb_pot'); } }; return e; }
+
+// ======================================================================
+// CONVOY (2-3): two arbas pulled by harnessed, rigged horses (js/horse.js) with drivers, freed people on foot (varied gaits),
+// a visible caravan trail, one shared HP pool (bar on screen), stage checkpoints.
+// ======================================================================
+const TR = z => Math.sin(z * .045) * 2.4 + Math.sin(z * .017 + 1) * 1.1;
+function trailMesh(z0, z1) { const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, 'rgba(96,66,38,0)'); gr.addColorStop(.18, 'rgba(96,66,38,.55)'); gr.addColorStop(.82, 'rgba(96,66,38,.55)'); gr.addColorStop(1, 'rgba(96,66,38,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
+  for (const u of [34, 94]) { const r = g.createLinearGradient(u - 9, 0, u + 9, 0); r.addColorStop(0, 'rgba(48,30,16,0)'); r.addColorStop(.5, 'rgba(48,30,16,.85)'); r.addColorStop(1, 'rgba(48,30,16,0)'); g.fillStyle = r; g.fillRect(u - 9, 0, 18, 256); }
+  g.fillStyle = 'rgba(40,26,14,.5)'; for (let i = 0; i < 26; i++) { g.beginPath(); g.ellipse(50 + Math.random() * 28, Math.random() * 256, 3.2, 4.2, Math.random(), 0, 6.3); g.fill(); }
+  const tx = new THREE.CanvasTexture(c); tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 4;
+  const pos = [], uv = [], idx = []; let n = 0; for (let z = z0; z >= z1; z -= 1.5) { const x = TR(z), dx = TR(z - .5) - TR(z + .5), l = Math.hypot(dx, 1), nx = 1 / l, nz = dx / l; pos.push(x - nx * 1.9, .045, z + nz * 1.9, x + nx * 1.9, .045, z - nz * 1.9); uv.push(0, -z / 5, 1, -z / 5); if (n) { const a = (n - 1) * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } n++; }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(idx); geo.computeVertexNormals();
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: tx, transparent: true, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, side: THREE.DoubleSide })); m.receiveShadow = true; m.renderOrder = 1; world.add(m); return m; }
+function aravaInfo() { if (aravaInfo.c) return aravaInfo.c; const src = A.props.R_arava; if (!src) return null; let m = null; src.traverse(o => { if (o.isMesh && !m) m = o; }); src.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(src), P = m.geometry.attributes.position, v = new THREE.Vector3();
+  const zm = Math.max(Math.abs(bb.min.z), Math.abs(bb.max.z)), lx = bb.max.x - bb.min.x, cx = (bb.max.x + bb.min.x) / 2; let wx = 0, wn = 0, wy = 0, np = 0, nn = 0;
+  for (let i = 0; i < P.count; i += 3) { v.fromBufferAttribute(P, i).applyMatrix4(m.matrixWorld); if (Math.abs(v.z) > zm * .9) { wx += v.x; wn++; wy = Math.max(wy, v.y); } if (v.x - cx > lx * .3) np++; else if (v.x - cx < -lx * .3) nn++; }
+  return aravaInfo.c = { wx: wx / Math.max(1, wn), wr: wy / 2, zm, front: np < nn ? 1 : -1, x0: bb.min.x, x1: bb.max.x, top: bb.max.y }; }
+function wheelTex() { if (wheelTex.c) return wheelTex.c; const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128);
+  g.fillStyle = 'rgba(22,14,8,.93)'; g.beginPath(); g.arc(0, 0, 118, 0, 6.3); g.fill(); g.strokeStyle = '#6a4a2a'; g.lineWidth = 9; for (let i = 0; i < 12; i++) { g.rotate(Math.PI / 6); g.beginPath(); g.moveTo(0, 14); g.lineTo(0, 108); g.stroke(); }
+  g.strokeStyle = '#5a3c20'; g.lineWidth = 20; g.beginPath(); g.arc(0, 0, 112, 0, 6.3); g.stroke(); g.strokeStyle = '#6e3a2a'; g.lineWidth = 5; g.beginPath(); g.arc(0, 0, 123, 0, 6.3); g.stroke(); g.fillStyle = '#4a3018'; g.beginPath(); g.arc(0, 0, 22, 0, 6.3); g.fill(); g.fillStyle = '#2a1c10'; g.beginPath(); g.arc(0, 0, 8, 0, 6.3); g.fill();
+  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; return wheelTex.c = tx; }
+// one arba + harnessed horse; group origin on the ground under the axle, forward = +z
+function mkCart(coat) { const I = aravaInfo(), S = 2.1, g = new THREE.Group(); if (!I) return null;
+  const R = I.wr * S, ax = I.front * I.wx * S, tipD = (I.front > 0 ? I.x1 : -I.x0) * S - ax;      // model x → group z
+  const tilt = new THREE.Group(); tilt.position.set(0, R, 0); g.add(tilt); const body = A.props.R_arava.clone(true); body.scale.setScalar(S); body.rotation.y = I.front > 0 ? -Math.PI / 2 : Math.PI / 2; body.position.set(0, -R, -ax); body.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); tilt.add(body);
+  const tipY = .98, a = Math.atan2(tipY - R, tipD) + Math.atan2(R, tipD); tilt.rotation.x = -a; g.userData.tilt = tilt; g.userData.a = a;
+  const wm = new THREE.MeshStandardMaterial({ map: wheelTex(), transparent: true, roughness: 1, side: THREE.DoubleSide }), wheels = [];
+  for (const s of [-1, 1]) { const w = new THREE.Group(); w.position.set(s * (I.zm * S + .04), R, 0); const d = new THREE.Mesh(new THREE.CircleGeometry(R * 1.04, 28), wm); d.rotation.y = Math.PI / 2; d.castShadow = true; w.add(d); g.add(w); wheels.push(w); }
+  const hz = makeHorse(A.props.R_horse_lo || A.props.R_horse, { coat, far: A.props.R_horse_far }); const hg = hz ? hz.group : new THREE.Group(); hg.scale.setScalar(1.75); const hzc = tipD - .75; hg.position.set(0, 0, hzc); g.add(hg);
+  // harness: wooden arch over the withers between the shaft tips, breast collar, reins to the driver
+  const wd = new THREE.MeshStandardMaterial({ color: 0x6a4420, roughness: .9 }), lt = new THREE.MeshStandardMaterial({ color: 0x2c1a0e, roughness: .8 }); const sw = I.zm * S * .62;
+  const arch = new THREE.Mesh(new THREE.TorusGeometry(sw, .055, 6, 18, Math.PI), wd); arch.position.set(0, tipY - .05, tipD - .12); arch.scale.y = 1.25; arch.castShadow = true; g.add(arch);
+  const rope = (x0, y0, z0, x1, y1, z1, r = .022, mat = lt) => { const A0 = new THREE.Vector3(x0, y0, z0), B0 = new THREE.Vector3(x1, y1, z1), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, A0.distanceTo(B0), 5), mat); m.position.copy(A0).add(B0).multiplyScalar(.5); m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B0.clone().sub(A0).normalize()); g.add(m); return m; };
+  for (const s of [-1, 1]) { rope(s * sw, tipY - .05, tipD - .12, s * .34, 1.38, hzc + .7, .035); rope(s * .2, 1.75, .15 * tipD, s * .18, 2.0, hzc + 1.25); rope(s * sw * .98, tipY - .1, tipD - .9, s * .36, 1.2, hzc - .6, .03); }
+  return { g, wheels, hz, R, tipD, seatZ: tipD * .1, seatY: R + .42 + Math.sin(a) * tipD * .1, spin: 0 }; }
+const WALK = [["asir", 1], ["mother", .9], ["child", 1.25], ["elder", .78], ["asir", 1.05], ["bayimbet", .95], ["child", 1.3], ["mother", .88]];
+function convoyBuild(z0, hpMax) {
+  const cv = { s: 0, z0, x: TR(z0), z: z0, v: 0, sp: 2.5, halt: false, slow: 1, pool: hpMax, max: hpMax, failed: false, everFailed: false, carts: [], mem: [], cpS: 0, cpPool: hpMax, dead: false, hitT: 0, threat: false };
+  const at = s => { const z = z0 - s; return { x: TR(z), z, yaw: Math.atan2(TR(z - .6) - TR(z + .6), -1.2) }; }; cv.at = at;
+  const hurt = e => { e.damage = (amt, src) => { if (cv.failed || G.mis.force) return 0; amt = Math.max(1, Math.round(Math.min(amt, 28) * .38 * ([.6, 1, 1.3][SET.diff] ?? 1))); cv.pool = Math.max(0, cv.pool - amt); cv.hitT = .5; num(e, '-' + amt, 'p'); e.flash = .12; burst(e.x, 1.2, e.z, 0xff5040, .8); if (!e.cart && e.curName !== 'Hit_A') e.play('Hit_A', { once: true, force: true }); return amt; }; e.hp = e.maxHp = 1e9; };
+  [['bay', 0], ['dun', 7.5]].forEach(([coat, back], i) => { const c = mkCart(coat); if (!c) return; world.add(c.g); c.back = back; c.tiltZ = 0; const col = { x: 0, z: 0, r: 1.5 }; G.colC.push(col); c.col = col;
+    const d = spawn(i ? 'elder' : 'asir', 0, z0 + back, 'ally'); d.cart = c; d.r = 1.5; d.d = { ...d.d, follow: false }; hurt(d); d.custom = e => { e.play('Sit_Floor_Idle'); return true; }; c.driver = d; cv.carts.push(c); cv.mem.push(d); });
+  WALK.forEach(([ty, gait], i) => { const side = i % 2 ? 1 : -1, back = 2.5 + (i >> 1) * 2.6 + (i % 3) * .5, lat = side * (2.3 + (i % 3) * .55); const p0 = at(Math.max(0, -back)); const e = spawn(ty, TR(z0 + back) + lat, z0 + back, 'ally'); e.d = { ...e.d, follow: false }; hurt(e); e.gait = gait; e.back = back; e.lat = lat; e.seed = rnd(0, 9); e.rot = Math.PI;
+    e.custom = (e, dt) => { const q = at(cv.s - e.back), huddle = cv.threat ? .45 : 1; const tx = q.x + Math.cos(q.yaw) * e.lat * huddle + Math.sin(G.time * .31 + e.seed) * .45, tz = q.z + Math.sin(G.time * .23 + e.seed * 2) * .6 + (cv.threat ? (e.back > 5 ? -1.5 : 1) : 0); const dx = tx - e.x, dz = tz - e.z, l = hyp(dx, dz);
+      const vmax = (e.type === 'child' ? 4.2 : 3) * e.gait * FAST(); if (l > (e.mv ? .25 : .9)) { e.mv = 1; const v = Math.min(vmax, l * 2.2); e.x += dx / l * v * dt; e.z += dz / l * v * dt; e.face(dx, dz, dt * 7); e.play(e.type === 'child' && v > 2.6 ? 'Running_A' : 'Walking_A', { ts: Math.max(.55, v / 1.7 / FAST()) * (.9 + e.gait * .1) }); }
+      else { e.mv = 0; if (cv.threat) { if (e.seed > 4.5) e.play('Sit_Floor_Idle'); else { e.play('Idle'); const f = near(enemies(), e); if (f) e.face(f.x - e.x, f.z - e.z, dt * 3); } } else e.play('Idle'); } return true; }; cv.mem.push(e); });
+  cv.place = () => { const q = at(cv.s); cv.x = q.x; cv.z = q.z; for (const c of cv.carts) { const k = at(cv.s - c.back); c.g.position.set(k.x, 0, k.z); c.g.rotation.y = k.yaw + Math.PI; c.g.rotation.z = c.tiltZ; c.col.x = k.x; c.col.z = k.z; const d = c.driver, fx = Math.sin(k.yaw + Math.PI), fz = Math.cos(k.yaw + Math.PI); d.x = k.x + fx * c.seatZ; d.z = k.z + fz * c.seatZ; d.y = c.seatY; d.rot = k.yaw + Math.PI; } };
+  cv.snap = () => { cv.place(); for (const e of cv.mem) if (!e.cart) { const q = at(cv.s - e.back); e.x = q.x + Math.cos(q.yaw) * e.lat; e.z = q.z; } };
+  cv.tick = dt => { const P = G.player; if (!P) return; const es = enemies().filter(e => e.custom !== sleepAI); cv.threat = es.some(e => cv.mem.some(m => hyp(e.x - m.x, e.z - m.z) < 8.5)); const nearP = !P.dead && hyp(P.x - cv.x, P.z - (cv.z + 5)) < 19; cv.far = !nearP;
+    const want = (!cv.halt && (!cv.threat || cv.creep) && nearP && !cv.failed && cv.s < cv.goalS) ? cv.sp * cv.slow * FAST() * (cv.threat ? cv.creep : 1) : 0; cv.v += (want - cv.v) * Math.min(1, dt * 1.8); if (cv.v < .02 && !want) cv.v = 0; cv.s += cv.v * dt; cv.place();
+    for (const c of cv.carts) { c.spin += cv.v * dt / c.R; for (const w of c.wheels) if (!w.userData.off) w.rotation.x = c.spin; if (c.hz) c.hz.update(dt, cv.v / FAST(), 1.75); c.g.userData.tilt.rotation.x = -c.g.userData.a + Math.sin(c.spin * 2.3) * .012 * Math.min(1, cv.v); }
+    if (cv.hitT > 0) cv.hitT -= dt; if (!es.length && !cv.failed && cv.hitT <= 0 && cv.pool < cv.max) cv.pool = Math.min(cv.max, cv.pool + cv.max * .006 * dt); if (cv.pool <= 0 && !cv.failed && !G.mis.force) { cv.failed = cv.everFailed = true; } hpBar(cv); };
+  cv.goalS = 1e9; cv.snap(); G.mis.cv = cv; G.mis.esc = cv; return cv; }
+let cvEl = null;
+function hpBar(cv) { if (!cvEl) { cvEl = document.createElement('div'); cvEl.id = 'cvbar'; cvEl.style.cssText = 'position:absolute;left:50%;top:44px;transform:translateX(-50%);z-index:6;pointer-events:none;display:none;align-items:center;gap:7px;font:700 12px/1 system-ui,sans-serif;color:#ffe9a8;text-shadow:0 1px 3px #000';
+    cvEl.innerHTML = '<span></span><div style="width:170px;height:11px;border:1.5px solid #d8a83a;border-radius:6px;background:rgba(0,0,0,.55);overflow:hidden"><i style="display:block;height:100%;width:100%;background:linear-gradient(#7fd66a,#3c9a3a);transition:width .25s"></i></div><em style="font-style:normal"></em>'; ($('hud') || document.body).appendChild(cvEl); }
+  if (!cv) { cvEl.style.display = 'none'; return; } const k = cv.pool / cv.max; cvEl.style.display = 'flex'; cvEl.firstChild.textContent = '🛒 ' + t('cv_hp'); const bar = cvEl.children[1].firstChild; bar.style.width = (k * 100) + '%'; bar.style.background = k > .5 ? 'linear-gradient(#7fd66a,#3c9a3a)' : k > .25 ? 'linear-gradient(#f0c040,#c08a20)' : 'linear-gradient(#f06a4a,#b02a1a)'; cvEl.lastChild.textContent = Math.ceil(k * 100) + '%'; cvEl.children[1].style.boxShadow = cv.hitT > 0 ? '0 0 10px #ff4020' : 'none'; }
+// sandstorm look: close fog + sand overlay + drifting dust
+let stEl = null;
+function storm(on) { if (!stEl) { stEl = document.createElement('div'); stEl.style.cssText = 'position:absolute;inset:0;z-index:4;pointer-events:none;opacity:0;transition:opacity 2.5s;background:radial-gradient(ellipse at 50% 55%,rgba(214,170,110,.18) 0%,rgba(190,140,80,.62) 55%,rgba(150,104,56,.9) 100%)'; ($('hud') || document.body).appendChild(stEl); }
+  stEl.style.opacity = on ? 1 : 0; const f = scene.fog; if (!f) return; if (on) { storm.sv = storm.sv || { n: f.near, f: f.far, c: f.color.getHex() }; storm.to = { n: 5, f: 30, c: 0xc89a5e }; } else if (storm.sv) { storm.to = storm.sv; }
+  G.mis.fx = () => { const f2 = scene.fog, T0 = storm.to; if (!f2 || !T0) return; f2.near += (T0.n - f2.near) * .03; f2.far += (T0.f - f2.far) * .03; f2.color.lerp(new THREE.Color(T0.c), .03); const P = G.player; if (on && P && !G.paused && Math.random() < .35) burst(P.x + rnd(-12, 12), rnd(.3, 3), P.z + rnd(-12, 6), 0xd8b070, rnd(1.5, 4), false); if (!on && Math.abs(f2.far - T0.f) < 1) { storm.sv = null; storm.to = null; G.mis.fx = null; } }; }
+// ======================================================================
+// RESCUE kit (v3): people in danger — roped and dragged off, trapped in burning yurts/stables, caged, bound for sacrifice.
+// Every group has its own visible countdown above it; when it runs out they burn / are carried away. Enemies go for them.
+// Freed people run to safety. Stars: 1 = done, 2 = most people (≥60%) saved, 3 = all saved and no maiden lost.
+// ======================================================================
+// people(list, o): list = [[type, x, z], ...]; o = { kind: 'bound'|'drag'|'fire'|'cage'|'altar'|'wound', T: seconds, guards: post-group or [es],
+//   door: breakable, handlers: [es] (drag), exit: {x,z}, safe: {x,z}, raid: n (guards that hunt the people), auto: start the clock at once, near: start radius, label }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const RES_ICON = { walk: '🧍', ride: '⛓', bound: '⛓', drag: '⛓', fire: '🔥', cage: '⛓', altar: '🩸', wound: '✚' };
+let resEl = null;
+function resHud() { if (!resEl) { resEl = document.createElement('div'); resEl.id = 'rescnt'; resEl.style.cssText = 'position:absolute;left:12px;top:116px;z-index:6;pointer-events:none;font:800 13px/1.2 system-ui,sans-serif;color:#ffe9a8;text-shadow:0 1px 3px #000;background:rgba(0,0,0,.35);padding:3px 8px;border-radius:8px;display:none'; ($('hud') || document.body).appendChild(resEl); }
+  const S = resStats(); if (!S.total || !G.mis || G.mis.noResHud) { resEl.style.display = 'none'; return; } resEl.style.display = 'block'; resEl.textContent = '🧍 ' + S.saved + '/' + S.total + (S.lost ? '   ✖ ' + S.lost : ''); }
+function resStats() { const L = (G.mis && G.mis.res) || []; let total = 0, saved = 0, lost = 0; for (const g of L) for (const c of g.ps) { total++; if (c.saved) saved++; else if (c.dead || c.lostP) lost++; } return { total, saved, lost }; }
+function people(list, o = {}) {
+  const g = { ps: [], o, kind: o.kind || 'bound', T: o.T ?? 40, on: false, freed: false, done: false, guards: o.guards ? (o.guards.es || o.guards) : [], hand: o.handlers || [], door: o.door || null, lt: -1, ropes: [] };
+  for (const [ty, x, z] of list) { const c = spawn(ty || 'asir', x, z, 'ally', true); c.maxHp = c.hp = o.hp || 260; c.spawnT = 0; c.o.scale.setScalar(c.vs || c.d.scale || 1); c.d = { ...c.d, follow: false, name: '' }; c.vict = g; c.st = 'held'; c.rot = o.face ?? 0; c.seed = rnd(0, 9); c.custom = victimAI; c.r = .45; const d0 = c.damage.bind(c); c.damage = (a, s2, f) => d0((c.st === 'held' || c.st === 'safe') && !(s2 && s2.raider) ? a * .25 : a, s2, f); g.ps.push(c); }
+  g.x = g.ps.reduce((s, c) => s + c.x, 0) / g.ps.length; g.z = g.ps.reduce((s, c) => s + c.z, 0) / g.ps.length;
+  if (g.kind === 'drag') for (const c of g.ps) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1, 4), new THREE.MeshStandardMaterial({ color: 0x7a5a32, roughness: 1 })); world.add(m); g.ropes.push(m); }
+  if (o.raid) { let k = 0; for (const e of g.guards) if (k < o.raid && !e.dead) { const r = raidAI(g.ps.filter(c => c.st === 'held')); if (e.grp) e.next = r; else e.custom = r; k++; } }
+  const el = document.createElement('div'); el.style.cssText = 'position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;background:rgba(120,20,10,.55);border:1px solid rgba(255,200,120,.6);padding:3px 7px;border-radius:9px;white-space:nowrap;display:none'; ($('hud') || document.body).appendChild(el); g.el = el;
+  (G.mis.res = G.mis.res || []).push(g); (G.mis.groups = G.mis.groups || []).push({ es: g.ps, awake: true, o: {}, x: g.x, z: g.z, label: o.label || 'r_' + g.kind });
+  return g; }
+const V3 = new THREE.Vector3();
+function resTick(g, dt) {
+  if (g.done || !G.mis.started) return; const P = G.player, o = g.o, alive = g.ps.filter(c => !c.dead && !c.lostP && !c.saved);
+  if (!g.on && (o.auto || (P && hyp(P.x - g.x, P.z - g.z) < (o.near || 30)))) { g.on = true; if (o.guardR) g.guards = enemies().filter(e => hyp(e.x - g.x, e.z - g.z) < o.guardR); if (o.onStart) o.onStart(g); }
+  if (g.guards.some(e => e.escaped)) { for (const c of alive) { c.lostP = true; c.o.visible = false; c.gone = true; } g.done = true; g.el.style.display = 'none'; return; }
+  // freed?
+  if (g.kind === 'walk') { g.T = alive.length ? Math.max(...alive.map(c => hyp(c.x - o.safe.x, c.z - o.safe.z))) / (o.speed || 1) : 0; }
+  if (g.on && !g.freed && g.kind !== 'walk' && g.guards.every(e => e.dead) && g.hand.every(e => e.dead) && (!g.door || g.door.dead) && (g.kind !== 'wound' || (P && alive.some(c => hyp(P.x - c.x, P.z - c.z) < 2.6)))) {
+    g.freed = true; for (const c of alive) { c.st = g.kind === 'ride' ? 'safe' : 'run'; if (g.kind === 'ride') { c.saved = true; c.y = 0; } c.play('Cheer', { force: true }); burst(c.x, 1.4, c.z, 0xffe0a0, 1.2); } if (alive.length) { Sfx.pick(); hintRaw(t('r_freed', { n: alive.length })); addGold(12 * alive.length, g.x, g.z); } for (const r of g.ropes) r.visible = false; }
+  // the clock
+  if (g.on && !g.freed && g.T > 0 && g.kind !== 'drag') { g.T -= dt * FAST(); if (g.T <= 0) { g.T = 0;
+    if (g.kind === 'fire' || g.kind === 'altar') { for (const c of alive) { burst(c.x, 1, c.z, g.kind === 'fire' ? 0xff6a20 : 0xaa1020, 2.5); c.hp = 0; c.die && c.die(); } Sfx.big(); hintRaw(t('r_lost_' + g.kind)); }
+    else { for (const c of alive) c.st = 'taken'; hintRaw(t('r_taken')); } } }
+  // drag: handlers walk the rope line to the exit
+  if (g.kind === 'drag') { const h = g.hand.filter(e => !e.dead); if (h.length && g.on && !g.freed) { const lead = h[0], ex = o.exit; const d = hyp(ex.x - lead.x, ex.z - lead.z); g.T = d / (o.speed || 1.5); if (d < 1.5) { for (const c of alive) { c.lostP = true; c.o.visible = false; } for (const e of h) { e.o.visible = false; e.dead = e.gone = true; } for (const r of g.ropes) r.visible = false; hintRaw(t('r_taken')); } }
+    g.ps.forEach((c, i) => { const r = g.ropes[i]; if (!r || !r.visible) return; const a = h[0]; if (!a || c.dead || c.st !== 'held') { r.visible = false; return; } const A0 = V3.set(a.x, 1.0, a.z), B = new THREE.Vector3(c.x, 1.0, c.z); r.position.copy(A0).add(B).multiplyScalar(.5); r.scale.y = Math.max(.1, A0.distanceTo(B)); r.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), B.clone().sub(A0).normalize()); }); }
+  if (!alive.length) { g.done = true; g.el.style.display = 'none'; return; }
+  // label
+  const show = g.on && !g.freed && alive.some(c => c.st === 'held' || c.st === 'taken');
+  if (show) { let x = 0, z = 0; for (const c of alive) { x += c.x; z += c.z; } V3.set(x / alive.length, 2.6, z / alive.length).project(camera); if (V3.z > 1) { V3.x = -V3.x; V3.y = -1; }
+    const off = Math.abs(V3.x) > .82 || V3.y > .68 || V3.y < -.8; V3.x = clamp(V3.x, -.82, .82); V3.y = clamp(V3.y, -.8, .68);
+    g.el.style.display = 'block'; { const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight; g.el.style.left = ((V3.x + 1) / 2 * W) + 'px'; g.el.style.top = ((1 - V3.y) / 2 * Hh + 14) + 'px'; } g.el.style.opacity = off ? .85 : 1;
+    const s = Math.ceil(g.T); g.el.textContent = (RES_ICON[g.kind] || '⛓') + ' ' + alive.length + '  ⏳ ' + s; g.el.style.background = s <= 10 ? 'rgba(200,20,10,.75)' : 'rgba(120,20,10,.55)'; }
+  else g.el.style.display = 'none'; }
+function victimAI(c, dt) { const g = c.vict; if (G.flying) { c.play(g.kind === 'fire' || g.kind === 'walk' ? 'Idle' : 'Sit_Floor_Idle'); return true; } if (g.lt !== G.time) { g.lt = G.time; resTick(g, dt); resHud(); } if (G.mis.hazard && G.mis.hzT !== G.time && !G.paused && !G.flying) { G.mis.hzT = G.time; G.mis.hazard(dt); } if (c.saved) { if ((c.ct = (c.ct ?? 0) - dt) <= 0) { c.ct = rnd(1.5, 3); c.play(Math.random() < .5 ? 'Cheer' : 'Idle', { force: true }); } return true; }
+  const o = g.o, sp = (c.type === 'child' ? 4.2 : 3.2) * FAST();
+  const go = (tx, tz, v, anim) => { const dx = tx - c.x, dz = tz - c.z, l = hyp(dx, dz); if (l < .3) return l; c.x += dx / l * Math.min(v * dt, l); c.z += dz / l * Math.min(v * dt, l); c.face(dx, dz, dt * 8); c.play(anim, { ts: v / 2.2 / FAST() }); return l; };
+  if (c.st === 'run') { const s = o.safe || G.mis.safe || { x: c.x, z: c.z + 30 }; const l = go(s.x + Math.sin(c.seed) * 2.5, s.z + Math.cos(c.seed) * 1.5, sp, c.type === 'child' || c.type === 'asir' ? 'Running_A' : 'Walking_A'); if (l < 1.2) { c.saved = true; c.st = 'safe'; c.rot = Math.PI; } return true; }
+  if (c.st === 'taken') { const ex = o.exit || { x: c.x > 0 ? G.W + 4 : -G.W - 4, z: c.z - 8 }; const l = go(ex.x + Math.sin(c.seed) * 1.2, ex.z, 1.35 * FAST(), 'Walking_A'); if (l < 1 || Math.abs(c.x) > G.W + 2) { c.lostP = true; c.o.visible = false; c.gone = true; } return true; }
+  if (g.kind === 'drag') { const h = g.hand.find(e => !e.dead); if (h) { const i = g.ps.indexOf(c), bx = h.x - Math.sin(h.rot) * (1.6 + i * 1.1), bz = h.z - Math.cos(h.rot) * (1.6 + i * 1.1); if (go(bx, bz, 2.4 * FAST(), 'Walking_A') < .3) c.play('Idle'); return true; } }
+  if (g.kind === 'walk') { const s = o.safe, i = g.ps.indexOf(c); if (go(s.x + ((i % 3) - 1) * 1.3, s.z + (i / 3 | 0) * 1.2, (g.halt ? 0 : (o.speed || 1)) * FAST() + 1e-4, 'Walking_A') < 1) { c.saved = true; c.st = 'safe'; } else if (g.halt) c.play('Idle'); return true; }
+  if (g.kind === 'ride') { const f = g.guards[0]; if (f && !f.dead) { c.x = f.x - Math.sin(f.rot) * .75; c.z = f.z - Math.cos(f.rot) * .75; c.y = 1.15; c.rot = f.rot; } c.play('Sit_Floor_Idle'); return true; }
+  if (g.kind === 'fire') { if ((c.ct = (c.ct ?? 0) - dt) <= 0) { c.ct = rnd(.8, 2); c.play(Math.random() < .5 ? 'Idle' : 'Cheer', { force: true }); } return true; }
+  c.play('Sit_Floor_Idle'); return true; }
+// handler AI: walks the roped line to the exit; turns to fight when the hero is close or he is hit
+function dragAI(g) { return (e, dt) => { const P = G.player; e.farT = -1e9; if (e.hp < e.maxHp || (P && !P.dead && hyp(P.x - e.x, P.z - e.z) < 6.5)) { e.custom = null; e.asleep = false; e.farT = 0; return false; } if (!g.on) { e.asleep = true; e.play('Idle'); return true; } e.asleep = false;
+  const ex = g.o.exit, dx = ex.x - e.x, dz = ex.z - e.z, l = hyp(dx, dz) || 1, v = (g.o.speed || 1.5) * FAST(); e.x += dx / l * v * dt; e.z += dz / l * v * dt; e.face(dx, dz, dt * 5); e.play('Walking_A', { ts: .75 }); e.farT = -1e9; return true; }; }
+function dragGroup(caps, hands, exit, o = {}) { const hs = hands.map(([ty, x, z]) => { const e = sp(TY(ty), x, z); e.spawnT = 0; e.o.scale.setScalar(e.vs || 1); e.farT = -1e9; return e; }); const g = people(caps, { ...o, kind: 'drag', handlers: hs, exit }); for (const e of hs) e.custom = dragAI(g); return g; }
+// maidens at the start of the mission (losses count against the 3rd star)
+function maidLost() { const L = (G.mis && G.mis.qz) || []; return L.filter(e => e.dead).length; }
+function resCleanup() { for (const g of (G.mis && G.mis.res) || []) { if (g.el) g.el.remove(); for (const r of g.ropes) r.visible = false; } if (resEl) resEl.style.display = 'none'; }
+// hazard: telegraphed strikes around the hero (rockfall / arrow rain / fire rain)
+function rain(every, kind) { let t0 = 2; const col = kind === 'rock' ? 0xb08a60 : kind === 'fire' ? 0xff6a20 : 0xd8d0b0;
+  return dt => { t0 -= dt * FAST(); if (t0 > 0) return; t0 = every; const P = G.player; if (!P || P.dead) return; const pts = []; for (let i = 0; i < 3; i++) { const x = clamp(P.x + rnd(-5, 5), -G.W, G.W), z = P.z + rnd(-6, 4); pts.push([x, z]); telegraph(x, z, 2.2, 1.2, kind === 'rock' ? 0xaa7744 : 0xff4422); }
+    G.waits.push({ t: 1.2, r: () => { for (const [x, z] of pts) { burst(x, kind === 'rock' ? 2.5 : .6, z, col, 2.6, kind === 'rock'); ringFx(x, z, 2.2, col); for (const e of G.ents) if (!e.dead && e.team !== 'enemy' && e.team !== 'npc' && hyp(e.x - x, e.z - z) < 2.4) e.damage(kind === 'rock' ? 38 : 26, { x, z, y: 0, team: 'enemy', d: {}, type: 'rock', dead: false }, { kb: 4 }); } G.shake = .3; Sfx.big(); } }); }; }
+// ---------- runners ----------
+const RUN = {};
+const flyPt = (x, z, label, es = []) => (G.mis.groups = G.mis.groups || []).push({ es, awake: true, o: {}, x, z, label });
+// freed villagers cheer, then run home (back down the road) and leave the level
+function freeRun(es) { for (const c of es) { c.play('Cheer', { force: true }); burst(c.x, 1.5, c.z, 0xffe0a0, 1.5); } Sfx.pick(); setTimeout(() => { for (const c of es) { if (c.dead || c.gone) continue; c.team = 'ally'; c.d = { ...c.d, team: 'ally', follow: false }; c.hp = c.maxHp = 1e9; const z1 = c.z + 26; c.custom = (e, dt) => { e.z += 5 * dt; e.x += (Math.sign(e.x || 1) * 8 - e.x) * dt * .5; e.rot = 0; e.play('Running_A'); if (e.z > z1 || e.z > 8) { e.dead = true; e.remove(); } return true; }; } }, 1500); }
+const obj = s => { H.objective(''); $('obj').textContent = s; };
+// ===== PROLOGUE (Allayar) — teaches: move, attack, dodge (safe practice), skills =====
+RUN['0-1'] = async () => { const { NIGHT } = H.moods;
+  await H.fadeTo(true); await H.lore('lore0'); clearLevel(); setMood(NIGHT); G.emberDown = false; H.buildProlog(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; setBoss(null); G.chGold = 0;
+  const p = makePlayer('allayar', 0, 3); G.sk[1].on = true; G.sk[2].on = true; G.sk[3].on = true; refreshSkills(); H.setHero('al'); H.setDeath(); H.setCP(0, 3); H.objective('');
+  $('hud').classList.add('on'); G.paused = true;
+  spawn('son', -2.8, 1); spawn('son', 2.8, 1); H.skirmish(-9, -8); H.skirmish(9, -24); H.skirmish(-9.5, -44); H.skirmish(9, -66);
+  const g1 = post([['askar', -1.6, -29.6, 's'], ['askar', -5.4, -30.4, 's'], ['askar', 4, -26, 'p', 2.5], ['askar', 0, -33]], { fire: [-3.5, -30.6] });
+  const cam = preBoss('camel', 0, -64, 'n_ca'); const g3 = post([['askar', -6, -66], ['askar', 6, -66], ['archer', -9, -72], ['archer', 9, -72]], { nofly: true, wake: 0 }); chest(9.3, -17, 50);
+  await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
+  await wait(.6); await say([['al', 'd_al1']]);
+  H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
+  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7); wake(g1);
+  await clear(g1); await practiceDodge(); await wait(.8);
+  H.hint('h_skill', 7); await dead(rein([['askar', -6, -30], ['askar', 6, -30], ['wolf', 0, -35], ['wolf', -9, -27], ['wolf', 9, -27], ['askar', 2, -37]]));
+  g1g.open(); H.setCP(0, -34); p.hp = Math.min(p.maxHp, p.hp + 250); H.objective('o_square'); const g2 = gate(-78);
+  await H.goTo(-50); H.objective('o_camel'); H.hint('h_dodge', 9); setMusic('boss'); Sfx.horn(); cam.custom = null; cam.asleep = false; setBoss(cam); wake(g3, true);
+  await until(() => (cam.dead && enemies().length === 0) || G.mis.force); setBoss(null); setMusic('off'); g2.open(); await wait(1); await H.victory(); return win(); };
+RUN['0-2'] = async () => { const { NIGHT } = H.moods;
+  await H.fadeTo(true); clearLevel(); setMood(NIGHT); G.emberDown = false; H.buildProlog(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; setBoss(null); G.chGold = 0;
+  const p = makePlayer('allayar', 0, -70); G.sk[1].on = G.sk[2].on = G.sk[3].on = true; refreshSkills(); H.setHero('al'); H.setDeath(); H.setCP(0, -70); H.objective('');
+  spawn('son', -2.8, -68); spawn('son', 2.8, -68); H.skirmish(-9, -80); H.skirmish(9, -86);
+  const gg = post([['askar', -3, -84], ['askar', 3, -84], ['askar', 0, -86.5, 'p', 3], ['archer', -6, -89], ['archer', 6, -89]]);
+  const su = preBoss('surtaysha', 0, -103, 'n_su', 'p_su'); su.invuln = true;
+  live(); setMusic('battle'); await ban(3); mstart();
+  H.objective('o_square'); await clear(gg); const mk2 = marker(0, -94); await H.reach(0, -94, 4.5); mk2.remove();
+  su.custom = null; su.asleep = false; su.invuln = T.surtaysha.invuln; su.rot = 0; setBoss(su); G.noDeath = true; setMusic('boss'); Sfx.horn();
+  await wait(.8); await say([['su', 'd_su1'], ['al', 'd_al2']]); H.objective('o_duel');
+  const t0 = G.time; await until(() => G.time - t0 > 20 || p.hp < p.maxHp * .3 || G.mis.force); G.mis.flag = G.time - t0 > 20;
+  await say([['su', 'd_su2']]); H.objective('o_resist');
+  for (const e of G.ents) if (e.team === 'ally' && e !== p) e.die(); G.tele.forEach(o => o.dead = true);
+  G.freeze = true; su.x = p.x; su.z = p.z - 3.4; su.rot = 0; p.rot = Math.PI; p.act = null; p.y = 0; p.play('Block', { force: true }); su.play('2H_Melee_Idle', { force: true });
+  let lv = 50; G.tick = () => { if (G.qte) lv = Math.min(lv, G.qte.v); }; await qte(qs.get('fast') ? 1 : 6.5, 36, 5.5); G.tick = null; G.mis.flag2 = lv > 0;
+  flash(.9); Sfx.big(); G.shake = 1; p.play('Death_A', { once: true, force: true }); await wait(1.3);
+  G.freeze = false; await say([['al', 'd_al3']]);
+  await H.fadeTo(true); setBoss(null); $('hud').classList.remove('on'); setMusic('off'); G.paused = true;
+  await H.cutscene('v2', 'nar2'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
+
+// ===== CHAPTER 1 =====
+async function ch1Start(z, sk, mood) { const { DAY } = H.moods; await H.fadeTo(true); await ensureReal(['qashqir', 'sarbinaz']); clearLevel(); setMood(mood || DAY); G.emberDown = true; H.buildMission(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; G.chGold = 0;
+  const p = makePlayer('gulayim', 0, z); for (let i = 0; i < 5 + SAVE.up.squad; i++) spawn('qiz', (i % 2 ? 1 : -1) * (1.5 + (i >> 1) * 1.6), z + 2 + (i >> 1) * 1.2); for (const k of sk) G.sk[k].on = true; refreshSkills(); H.setHero('gu'); H.setDeath(); H.setCP(0, z); H.objective(''); setBoss(null); return p; }
+// 1-1 teaches: attack (one lone looter = safe practice), skills 2-3, the ulti. Side objective: 3 hidden children.
+RUN['1-1'] = async () => {
+  const p = await ch1Start(3, [1]); $('hud').classList.add('on'); G.paused = true; let kidsN = 0;
+  const kids = [[-9.5, -12], [9.5, -34], [-9.5, -62]].map(([x, z]) => ({ e: spawn('child', x, z, 'npc'), m: marker(x, z, 0x66ff88, 1), x, z, found: false })); kids.forEach(k => { k.e.rot = 0; k.e.play('Sit_Floor_Idle'); });
+  const mo = spawn('mother', 2, -23, 'npc'); mo.rot = 0; flyPt(2, -23, 'n_mo');
+  const g0p = post([['askar', 4.5, -12, 'p', 2]], { nofly: true, wake: 7 });
+  const gA = post([['askar', -2.2, -46.4, 's'], ['askar', 1.4, -47.2, 's'], ['askar', 5, -50, 'p', 2.5], ['archer', -8, -54], ['archer', 8, -54]], { fire: [-.5, -48.4] });
+  const gC = post([['askar', -6, -74], ['askar', 6, -74], ['askar', -3, -79, 'p', 2], ['askar', 3, -79], ['askar', 0, -82], ['wolf', -9, -72, 'pz', 2], ['wolf', 9, -72, 'pz', 2], ['archer', -8, -83], ['archer', 8, -83]]);
+  await H.lore('lore1'); await H.cutscene('v3', 'nar3'); live(); setMusic('calm'); await ban(3); mstart();
+  G.tick = () => { for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
+  H.objective('o_mother'); H.hint('h_attack', 6); const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
+  await H.reach(2, -23, 3.6); mm.remove(); mo.face(p.x - mo.x, p.z - mo.z); p.act = null; p.play('Idle');
+  await say([['mo', 'd_mo1'], ['gu', 'd_gu1'], ['mo', 'd_mo2'], ['mo', 'd_mo3'], ['gu', 'd_gu2']]); Sfx.power(); flash(.3);
+  g0.open(); H.setCP(0, -26); H.objective('o_guards'); const g1 = gate(-60); setMusic('battle');
+  await clear(gA, g0p);
+  G.sk[2].on = G.sk[3].on = G.sk[5].on = true; refreshSkills(); H.hint('', 9, t('h_skill5'));
+  await dead(rein([['askar', -6, -48], ['askar', 6, -48], ['askar', 0, -54], ['wolf', -9, -44], ['wolf', 9, -44], ['archer', 0, -57]]));
+  g1.open(); H.setCP(0, -52); p.hp = Math.min(p.maxHp, p.hp + 200); H.objective('o_go'); setMusic('calm'); const ms = marker(0, -64);
+  await H.reach(0, -64, 4); ms.remove(); const sa = spawn('sarbinaz', 5, -58, 'ally'); sa.rot = Math.PI;
+  await wait(.5); await say([['sa', 'd_sa1'], ['gu', 'd_gu3']]);
+  G.sk[4].on = true; G.ulti = 100; refreshSkills(); H.hint('h_ulti', 9); H.objective('o_horde'); const g2 = gate(-88); setMusic('battle'); wake(gC);
+  await until(() => alive(gC).length <= 4 || G.mis.force); rein([['wolf', -8, p.z + 9], ['wolf', 8, p.z + 9], ['askar', 0, p.z + 11]], 'sa', 'bk_back');
+  await clear(gC); await until(() => enemies().length === 0 || G.mis.force);
+  g2.open(); G.tick = null; G.mis.flag = kidsN >= 3; setMusic('off'); await H.victory(); return win(); };
+// 1-2 the stable: kill the sorcerer, then break the door before the timer; twist: wolves from behind while the door burns
+RUN['1-2'] = async () => {
+  const p = await ch1Start(-84, [1, 2, 3, 4, 5]); const sa = spawn('sarbinaz', 3, -82, 'ally');
+  const gS = post([['mage', 4, -104], ['askar', 0, -100, 'p', 2.5], ['askar', -4, -103], ['askar', 6, -96], ['wolf', -8, -98, 'pz', 2]], { label: 'e_mage' }); flyPt(7.8, -100, 'e_cap'); chest(-9.3, -93, 60);
+  live(); setMusic('calm'); await ban(3); mstart();
+  let door = null, doorT = 0, bk = null, tw = false;
+  G.tick = dt => { if (door) { doorT -= dt * FAST(); $('timer').textContent = Math.max(0, Math.ceil(doorT)); if (doorT < 26 && !tw) { tw = true; rein([['wolf', -7, p.z + 9], ['wolf', 0, p.z + 11], ['wolf', 7, p.z + 9]], 'sa', 'bk_back'); } } };
+  H.objective('o_stable'); const g3 = gate(-112); setMusic('battle'); await clear(gS);
+  door = new THREE.Mesh(new THREE.BoxGeometry(.35, 2.6, 2.2), new THREE.MeshStandardMaterial({ color: 0x5a3a1c, roughness: 1 })); door.position.set(7.8, 1.3, -100); door.castShadow = true; world.add(door); bk = breakable({ mesh: door, x: 7.8, z: -100, hp: 420, dmg: { slam: 120, any: 60 }, barY: 3.4, rad: 1.4, showNum: true, dust: 0x6a4a2a, spark: 0xffcc88, chunks: 16 }); const dm = marker(6.4, -100, 0xff8844, 1.5);
+  doorT = 45; H.objective('o_door'); $('timer').style.display = 'block'; Sfx.horn(); G.mis.aim = () => ({ x: 6.4, z: -100 });
+  spawn('askar', -6, -108); spawn('askar', 6, -108); spawn('wolf', 0, -110);
+  await until(() => bk.dead || doorT <= 0 || G.mis.force); G.mis.aim = null; G.mis.flag = bk.dead; $('timer').style.display = 'none'; if (!bk.dead) bk.shatter(); dm.remove(); door = null; burst(7.8, 1.5, -100, 0xffcc88, 4);
+  [[5.6, -99], [5.2, -101], [4.4, -100]].forEach(([x, z], i) => { const c = spawn(i ? 'child' : 'mother', x, z, 'npc'); c.rot = -Math.PI / 2; c.play('Cheer'); });
+  Sfx.pick(); await H.bannerShow('', t(G.mis.flag ? 'saved' : 'savedLate'), '', 2.4); await until(() => enemies().length === 0 || G.mis.force); g3.open(); G.tick = null; setMusic('off'); return win(); };
+// 1-3 NEW "Free the village": three guard camps hold the villagers; twist: a counter-attack from behind; climax: the captain's camp
+RUN['1-3'] = async () => { const { DUSK } = H.moods;
+  const p = await ch1Start(3, [1, 2, 3, 4, 5], DUSK); tod('dusk'); spawn('sarbinaz', 3, 5, 'ally');
+  const C1 = await H.captives([[-6.5, -33.5], [-5, -35], [-7.5, -35.5]]), C2 = await H.captives([[6, -66], [7.5, -67.5], [5, -68]]), C3 = await H.captives([[-2, -103], [0, -104.5], [2, -103], [0, -101.5]]);
+  const g1 = post([['askar', -.4, -30.2, 's'], ['askar', -3.6, -29.6, 's'], ['askar', 3, -33, 'p', 3], ['archer', -8.5, -30]], { fire: [-2, -31.6] });
+  const st = stakes(-58.5, -G.W, G.W, [-7, 2.4]);
+  const g2 = post([['askar', -7, -56, 'p', 1.6], ['askar', 2, -62], ['askar', -2, -64, 'p', 3], ['wolf', 8, -61, 'pz', 2], ['archer', 3, -66], ['archer', 9, -64.5]], { label: 'e_arch' });
+  const g3 = post([['askar', -4.6, -95.6, 's'], ['askar', 3.2, -96.4, 's'], ['askar', -7, -99, 'p', 2], ['askar', 7, -99, 'p', 2], ['archer', -8, -104], ['archer', 5, -106.5], ['shaman', -4, -106.5]], { fire: [-.6, -97.4], label: 'mb_cap' }); leader(g3, 0, -99.5);
+  page(9.6, -47); chest(-9.6, -81, 70);
+  live(); setMusic('calm'); await ban(3); mstart(); await say([['sa', 'f13a'], ['gu', 'f13b']]);
+  let n = 0; const O = () => obj(t('mo_1_3') + '  ⛓ ' + n + '/3'); O(); setMusic('battle'); const gt = gate(-112);
+  G.mis.aim = () => near(g1.es) || C1[0]; await clear(g1); freeRun(C1); n = 1; O(); p.hp = Math.min(p.maxHp, p.hp + 150);
+  g2.o.onWake = () => H.hint('', 6, t('h_leap')); await wait(1.2); await clear(g2); freeRun(C2); n = 2; O(); p.hp = Math.min(p.maxHp, p.hp + 150);
+  await wait(1); await dead(rein([['wolf', -8, p.z + 10], ['wolf', 8, p.z + 10], ['wolf', 0, p.z + 12], ['askar', -4, p.z + 12], ['askar', 4, p.z + 12]], 'sa', 'bk_back'));
+  g3.o.onWake = () => bark('sa', 'f13c'); await clear(g3); await until(() => enemies().length === 0 || G.mis.force); freeRun(C3); n = 3; O(); gt.open();
+  setMusic('off'); await wait(1.4); await say([['gu', 'f13d']]); await H.victory(); return win(); };
+// 1-4 boss Qashqir (visible in his arena from the start, with his pack); then the wolf-leap tutorial over the ravine
+RUN['1-4'] = async () => {
+  const p = await ch1Start(-116, [1, 2, 3, 4, 5]); spawn('sarbinaz', 3, -114, 'ally');
+  const q = preBoss('qashqir', 0, -140); const gw = post([['wolf', -5, -134, 'p', 2], ['wolf', 5, -135, 'p', 2], ['wolf', 0, -131, 'pz', 1.5]], { nofly: true, wake: 0 });
+  live(); setMusic('calm'); await ban(3); mstart();
+  H.objective('o_boss'); const g4 = gate(-150); await H.goTo(-123);
+  q.custom = H.qashqirAI; q.asleep = false; G.freeze = true; p.act = null; p.play('Idle'); await wait(.6);
+  await say([['qa', 'd_qa1'], ['gu', 'd_gu4']]); G.freeze = false; setBoss(q); setMusic('boss'); Sfx.howl(); wake(gw, true); H.setCP(0, -124); const d0 = G.stats.deaths;
+  await until(() => q.dead || G.mis.force); if (!q.dead) q.die(); H.soul(q); G.mis.flag = G.stats.deaths === d0; for (const e of enemies()) e.die(); setMusic('off'); await wait(1.2); await H.victory();
+  await H.fadeTo(true); G.paused = true; await H.cutscene('v4', 'nar4'); G.paused = false; setBoss(null);
+  G.sk[5].on = true; refreshSkills(); Sfx.power(); flash(.5); setMusic('calm'); await H.bannerShow('', t('wolf'), t('wolfDesc'), 3.6);
+  g4.open(); H.setCP(0, -146); H.objective('o_gap'); H.hint('o_gap', 9); G.ravineAhead = true; const mf = marker(0, -180, 0xbfe3ff, 2);
+  await until(() => (p.z < -169 && !p.leaping) || G.mis.force); G.ravineAhead = false; H.objective('o_trail'); await until(() => p.z < -175.5 || G.mis.force); mf.remove();
+  await H.fadeTo(true); G.paused = true; $('hud').classList.remove('on'); await H.cutscene(null, 'nar5', 'ruins'); return win(); };
+
+// ===== CHAPTER 2 =====
+RUN['2-1'] = async () => { const { HOT } = H.moods; await H.chapterIntro(2, 'nar6', 'ruins'); G.curCh = 1; mstart();
+  G.mis.flag = await H.rideLevel('gulayim', HOT, 'o_ride2', [['askar', -4, -16], ['askar', 4, -20], ['archer', 0, -26], ['askar', -6, -32], ['archer', 6, -36], ['askar', 0, -42]], 'flee'); return win(); };
+// 2-2 Bayimbet's trap: hook = the traitor, twist = wolves spring the ambush around you, climax = the raiders' camp behind stakes (wolf leap shortcut)
+RUN['2-2'] = async () => { const { HOT } = H.moods;
+  const p = await gu(2, HOT, H.B[2], [], 3, 1); const ba = spawn('bayimbet', 6, -30, 'npc'); ba.rot = 0; flyPt(6, -30, 'n_ba');
+  const st = stakes(-71, -G.W, G.W, [8.5, 2.2]);
+  const gA = post([['askar', -2.2, -62.6, 's'], ['askar', 1.6, -63.4, 's'], ['heavy', 5, -66], ['wolf', -7, -64, 'pz', 2], ['askar', -5, -67, 'p', 2]], { fire: [-.4, -64.4] });
+  const gB = post([['archer', -6, -75], ['archer', 0, -76], ['archer', 6, -75], ['shaman', 0, -79]], { label: 'e_arch', wake: 0, face: 0 }); leader(gA, 0, -67);
+  page(-9.6, -46); chest(9.4, -84, 80);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'x2a'], ['gu', 'x2b']]);
+  H.objective('o_trail2'); const g0 = gate(-40); const mb = marker(6, -30);
+  await H.reach(6, -30, 3.4); mb.remove(); ba.face(p.x - ba.x, p.z - ba.z); p.face(ba.x - p.x, ba.z - p.z); p.act = null; p.play('Idle'); await say([['ba', 'd_ba1'], ['gu', 'd_gu5'], ['ba', 'd_ba2'], ['gu', 'd_gu6']]);
+  H.objective('o_ambush'); setMusic('battle'); await dead(rein([['wolf', p.x - 7, p.z - 3], ['wolf', p.x + 4, p.z - 7], ['wolf', p.x - 5, p.z + 6], ['wolf', p.x + 6, p.z + 5], ['askar', 0, p.z - 9]], 'sa', 'bk_amb')); g0.open();
+  const g1 = gate(-90); gA.o.onWake = () => { wake(gB, true); H.hint('', 6, t('h_leap')); }; await clear(gA, gB);
+  await dead(rein([['heavy', -4, p.z - 9], ['wolf', -9, p.z + 2], ['wolf', 9, p.z + 2], ['askar', -3, p.z - 12], ['askar', 3, p.z - 12]], 'sa', 'bk_rein')); g1.open(); setMusic('off'); await H.victory(); return win(); };
+// 2-3 the convoy
+async function cvRetry(cv) { $('timer').style.display = 'none'; storm(false); await H.bannerShow('', t('ms_fail'), '', 2.4); for (const e of G.ents) if (e.rf && !e.dead) { e.dead = true; e.remove(); }
+  cv.s = cv.cpS; cv.pool = Math.max(cv.cpPool, cv.max * .6); cv.failed = false; cv.halt = false; cv.slow = 1; cv.creep = 0; cv.v = 0; cv.extra = null; for (const c of cv.carts) { c.tiltZ = 0; for (const w of c.wheels) if (w.userData.off) w.userData.fix(); } cv.snap(); const P = G.player; P.x = cv.x + 3; P.z = cv.z - 2; P.hp = P.maxHp; H.setCP(P.x, P.z); }
+RUN['2-3'] = async () => { const { HOT } = H.moods;
+  const p = await gu(2, HOT, H.B[2], [], -13, 1, 3); trailMesh(12, -184); const cv = convoyBuild(-10, 1600); p.x = cv.x + 3.5; H.setCP(p.x, p.z); cv.go = z => { cv.goalS = cv.z0 - z; }; cv.go(-10);
+  const R = l => { const es = rein(l); for (const e of es) e.rf = true; return es; }, U = async c => { await until(() => c() || cv.failed || G.mis.force); return cv.failed && !G.mis.force; };
+  let si = 0; const SKIP = +(new URLSearchParams(location.search).get('cvs') || 0), S0 = [-10, -40, -84, -84, -136];  // ?cvs=N: test only, start at stage N
+  const stage = async fn => { if (si < SKIP) { if (si === 0) for (const e of gW.es) e.die(); if (si === 1) for (const e of gR.es) e.die(); si++; if (si === SKIP) { cv.s = cv.z0 - S0[si]; cv.snap(); p.x = cv.x + 3; p.z = cv.z - 2; } return; } si++; for (;;) { cv.cpS = cv.s; cv.cpPool = cv.pool; cp(); await fn(); if (!cv.failed || G.mis.force) return; await cvRetry(cv); } };
+  // posted before the fly-over: wolves on the trail, archers on the ridge, the blockade
+  const gW = post([['wolf', TR(-32) - 2, -32, 'p', 3], ['wolf', TR(-35) + 3, -35, 'p', 2], ['wolf', TR(-38), -38, 'pz', 2]], { wake: 11 });
+  const dune = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 12), new THREE.MeshStandardMaterial({ color: 0xb89a6a, roughness: 1 })); dune.scale.set(3.6, 1.45, 8.5); dune.position.set(10.2, -.05, -66); dune.receiveShadow = true; world.add(dune); for (const [x, z, s] of [[8.2, -59.5, 1.3], [8, -72.5, 1.5], [11, -66, 2.4]]) place(world, 'boulder_01', x, z, s);
+  const gR = post([['archer', 9, -61.5], ['archer', 9.6, -64.5], ['archer', 9.2, -67.5], ['archer', 9.7, -70.5], ['askar', 6.2, -63, 'pz', 2], ['askar', 6, -69, 'pz', 2]], { y: 1.3, label: 'e_arch', wake: 0, noCv: true, face: -Math.PI / 2 });
+  const bz = -161, bx = TR(bz); const st = stakes(bz, -G.W, G.W, [bx, 2.3]);
+  const bm = new THREE.Group(), wdm = new THREE.MeshStandardMaterial({ color: 0x5a3c20, roughness: 1 }); for (const y of [.35, .85, 1.35]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(.16, .18, 4.6, 8), wdm); l.rotation.z = Math.PI / 2; l.position.set(0, y, (y - .85) * .25); l.castShadow = true; bm.add(l); } for (const sx of [-1.7, 0, 1.7]) for (const k of [-1, 1]) { const s = new THREE.Mesh(new THREE.CylinderGeometry(.09, .11, 2.3, 6), wdm); s.position.set(sx, .95, 0); s.rotation.x = k * .5; s.castShadow = true; bm.add(s); } bm.position.set(bx, 0, bz);
+  const bar = breakable({ mesh: bm, x: bx, z: bz, w: 4.6, d: 1, hp: 380, dmg: { slam: 130, any: 45 }, barY: 2.5, rad: 2.6, showNum: true, dust: 0x6a4a2a, spark: 0xffcc88, chunks: 14 });
+  const gB = post([['askar', bx - 3, bz + 7.2, 's'], ['askar', bx + 3, bz + 6.6, 's'], ['askar', bx - 6.5, bz + 5, 'p', 2], ['heavy', bx + 6, bz + 4], ['archer', bx - 4.5, bz - 3.5], ['archer', bx + 4.5, bz - 3.5], ['shaman', bx, bz - 5.5]], { fire: [bx, bz + 8.6], label: 'mb_cap', wake: 13, noCv: true }); leader(gB, bx, bz + 4.5);
+  chest(-9.6, -96, 80);
+  setMusic('calm'); G.tick = dt => { cv.tick(dt); if (cv.extra) cv.extra(dt); }; await ban(3); mstart(); await say([['sa', 'cv_d1'], ['gu', 'cv_d2']]); obj(t('mo_2_3')); setMusic('battle'); H.hint('', 7, t('cv_start'));
+  G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : null; let farT = 0;
+  // 1) wolves on the trail, then raiders burst out of the dunes
+  await stage(async () => { cv.go(-40); if (await U(() => cv.z <= -39.6 && alive(gW).length === 0)) return; const cz = cv.z;
+    for (const s of [-1, 1]) for (let i = 0; i < 4; i++) burst(s * 10.5, .6, cz + rnd(-6, 6), 0xd8b070, 3);
+    const a = R([['askar', -10.5, cz - 3], ['askar', -10.5, cz + 2], ['askar', -10, cz + 7], ['askar', 10.5, cz - 1], ['askar', 10.5, cz + 5], ['potion', 10, cz - 6]]); bark('sa', 'bk_amb'); if (await U(() => a.every(e => e.dead))) return; });
+  // 2) archers on the ridge shoot the caravan while it keeps rolling
+  await stage(async () => { cv.go(-84); if (await U(() => cv.z <= -50 || gR.awake)) return; wake(gR); H.hint('', 6, t('cv_arch')); if (await U(() => alive(gR).length === 0 && cv.z <= -83.6)) return; });
+  // 3) a wheel breaks: hold the ground until it is repaired
+  await stage(async () => { const c = cv.carts[0], w = c.wheels[0]; cv.halt = true; c.tiltZ = .11; w.userData.off = true; const wp = w.position.clone(); w.userData.fix = () => { w.userData.off = false; w.position.copy(wp); w.rotation.set(0, 0, 0); c.tiltZ = 0; }; w.position.set(wp.x - 1.1, .12, wp.z - .6); w.rotation.set(0, 0, Math.PI / 2 - .12);
+    Sfx.big(); G.shake = .5; burst(cv.x, .5, cv.z, 0xd8b070, 4); bark('sa', 'cv_wheel1'); H.hint('', 6, t('cv_wheel')); const tm = $('timer'); tm.style.display = 'block'; let T0 = 36, k = 0, es = []; const cz = cv.z;
+    const W = [[36, [['askar', -4, cz - 15], ['askar', 4, cz - 16], ['askar', 0, cz - 18], ['archer', -7, cz - 20], ['archer', 7, cz - 20]]], [24, [['wolf', -8, cz + 17], ['wolf', 8, cz + 17], ['wolf', -3, cz + 19], ['wolf', 3, cz + 19]], 'bk_back'], [12, [['heavy', -9, cz - 10], ['shaman', -10, cz - 14], ['askar', 9, cz - 8], ['askar', 9.5, cz - 12]], 'bk_rein']];
+    cv.extra = dt => { T0 -= dt * FAST(); tm.textContent = '🔧 ' + Math.max(0, Math.ceil(T0)); if (k < W.length && T0 <= W[k][0]) { es = es.concat(R(W[k][1])); if (W[k][2]) bark('sa', W[k][2]); k++; } };
+    const bad = await U(() => T0 <= 0 && es.every(e => e.dead)); cv.extra = null; tm.style.display = 'none'; if (bad) return; w.userData.fix(); cv.halt = false; cv.pool = Math.min(cv.max, cv.pool + cv.max * .25); Sfx.pick(); H.hint('', 5, t('cv_fixed')); });
+  // 4) sandstorm: wolves come out of the dust in pairs while the caravan crawls on
+  await stage(async () => { storm(true); cv.slow = .72; cv.creep = .45; cv.go(-146); H.hint('', 6, t('cv_storm')); let nw = 3, hv = false, es = [];
+    cv.extra = dt => { nw -= dt * FAST(); if (nw <= 0 && cv.z > -128 && es.filter(e => !e.dead).length < 4) { nw = 10; const s = Math.random() < .5 ? -1 : 1; es = es.concat(R([['wolf', s * 10.5, cv.z - 4], ['wolf', -s * 10.5, cv.z + 6]])); } if (!hv && cv.z < -116) { hv = true; es = es.concat(R([['heavy', 0, cv.z - 14], ['askar', -3, cv.z - 15], ['askar', 3, cv.z - 15]])); bark('sa', 'bk_rein'); } };
+    const bad = await U(() => cv.z <= -136); cv.extra = null; storm(false); cv.slow = 1; cv.creep = 0; if (bad) return; if (await U(() => es.every(e => e.dead))) return; });
+  // 5) the blockade: break through (or leap over the stakes) and beat the captain
+  await stage(async () => { cv.go(-146); if (await U(() => cv.z <= -145.6 || gB.awake)) return; wake(gB); H.hint('', 6, t('cv_block')); obj(t('cv_block')); setTimeout(() => { if (!bar.dead && G.mis.cv === cv) H.hint('', 6, t('h_leap')); }, 9000);
+    G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : bar.dead ? near(gB.es) : (near(gB.es.filter(e => e.z > bz + .5)) || { x: bx, z: bz + 1.5 });  // behind the stakes → point at the barricade first
+    if (await U(() => alive(gB).length === 0 && bar.dead)) return; });
+  if (G.mis.force && !bar.dead) bar.shatter(); st.open(); obj(t('mo_2_3')); G.mis.aim = () => cv.far ? { x: cv.x, z: cv.z + 4 } : null; bark('gu', 'bk_done'); cv.go(-175); await U(() => cv.z <= -174.6);
+  G.mis.flag = !cv.everFailed && cv.pool > cv.max * .5; G.tick = null; G.mis.aim = null; for (const e of cv.mem) if (!e.cart) e.custom = e2 => { e2.play('Cheer'); return true; };
+  setMusic('off'); await wait(.8); await say([['gu', 'cv_d3']]); hpBar(null); await H.victory(); return win(); };
+RUN['2-4'] = async () => { const { HOT } = H.moods;
+  const p = await gu(2, HOT, H.B[2], ['qumdev'], -84, 1); const b0 = preBoss('qumdev', 0, -132);
+  const gO = post([['wolf', -5, -100, 'p', 2.5], ['wolf', 5, -101, 'p', 2.5], ['askar', -2, -104], ['askar', 2, -104], ['archer', 0, -107]]); chest(9.4, -156, 90);
+  setMusic('calm'); await ban(3); mstart(); bark('sa', 'bk_wolf');
+  H.objective('o_salt'); const g2 = gate(-150); setMusic('battle'); await clear(gO); await H.goTo(-112); H.hint('', 4, t('h_sand'));
+  G.onBoss = b => { H.weakWhile(b, () => b.openT > 0, 'w_qd'); b.onLeap = () => H.openUp(b, 7, 'w_open'); };
+  G.mis.flag = await H.bossFight('qumdev', 0, -132, [['qd', 'd_qd1'], ['gu', 'd_gu7']], H.bossBrain({ dmg: 44, every: 3.2, moves: ['quake', 'quake', 'summon', 'charge'], summon: [['wolf', 2]], col: 0xd8b070, phases: [[[1, .55], e => { e.spdMul = 1.2; }], [[2, .25], e => { e.dmgMul = 1.25; }]] }));
+  await H.gainPower(6, 'pw6', 'pw6d'); g2.open(); H.objective('o_go'); await H.goTo(-158); return win(); };
+
+// ===== CHAPTER 3 =====
+RUN['3-1'] = async () => { const { DAY } = H.moods; await H.chapterIntro(3, 'nar7', 'ruins');
+  const p = await gu(3, DAY, H.B[3], [], 3, 2);
+  const gA = post([['askar', -1.8, -35.4, 's'], ['askar', 1.8, -36.2, 's'], ['potion', 4, -40], ['askar', -6, -38, 'p', 2], ['archer', -8, -46], ['archer', 8, -46]], { fire: [0, -37.4] });
+  const c1 = await H.captives([[-5, -62], [-3, -63], [3, -63], [5, -62]]);
+  const gB = post([['wolf', -6, -56, 'p', 2.5], ['wolf', 6, -57, 'p', 2.5], ['shaman', 0, -60], ['askar', -2, -57], ['askar', 2, -57]], { label: 'e_cap' }); leader(gB, 0, -55.5);
+  page(9.6, -26); chest(-9.4, -50, 70);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'x3a'], ['gu', 'x3b']]);
+  H.objective('o_camp'); setMusic('battle'); const g0 = gate(-70);
+  await clear(gA); gB.o.onWake = () => bark('sa', 'f13c'); await clear(gB);
+  await dead(rein([['askar', -10, p.z + 2], ['askar', -10, p.z - 3], ['wolf', -9, p.z + 6], ['archer', -10, p.z - 7], ['heavy', 9, p.z - 4]], 'sa', 'bk_rein'));
+  await H.freeCaptives(c1); g0.open(); setMusic('off'); await wait(1.6); await H.victory(); return win(); };
+RUN['3-2'] = async () => { const { DUSK } = H.moods; G.curCh = 2; mstart();
+  await H.rideLevel('gulayim', DUSK, 'mo_3_2', [['askar', -4, -30], ['askar', 4, -32], ['archer', 0, -38], ['askar', -6, -50], ['askar', 6, -52], ['archer', -3, -60], ['archer', 3, -60], ['askar', 0, -72], ['askar', -5, -84], ['askar', 5, -86], ['archer', 0, -94]], 'fight'); return win(); };
+RUN['3-3'] = async () => { const { NIGHT } = H.moods;
+  const p = await gu(3, NIGHT, H.B[3], [], 3, 2, -99, { tod: 'night' }); G.mis.st = { alarm: false }; G.mis.flag = true;
+  const S = [['askar', -4, -28, 4], ['askar', 6, -36, 0], ['archer', -7, -50, 0], ['askar', 2, -58, 5], ['askar', -6, -74, 0], ['archer', 6, -80, 3], ['askar', 0, -96, 6], ['askar', -7, -112, 0], ['askar', 7, -114, 0], ['archer', 0, -126, 5], ['askar', -4, -138, 0], ['askar', 4, -140, 0]].map(([ty, x, z, pt]) => sentry(ty, x, z, pt));
+  for (const e of S) { e.spawnT = 0; e.o.scale.setScalar(e.vs || 1); } fire(-8.5, -74, 1); fire(8.5, -113, 1); flyPt(0, -32, 'e_horde'); flyPt(0, -96, 'e_horde'); flyPt(0, -152, 'e_cap'); chest(9.5, -66, 80); chest(-9.5, -120, 80);
+  const cs = await H.captives([[-4, -150], [-1.5, -152], [1.5, -152], [4, -150], [0, -155]]);
+  setMusic('calm'); await ban(3); mstart(); H.objective('mo_3_3'); hint('ms_sneak', 8); const mk = marker(0, -148, 0x66ff88, 2);
+  G.tick = () => { if (p.z < -70 && !G.mis.st.cp1) { G.mis.st.cp1 = 1; cp(); } if (p.z < -110 && !G.mis.st.cp2) { G.mis.st.cp2 = 1; cp(); } };
+  await H.reach(0, -148, 3.5); mk.remove(); G.tick = null; if (G.mis.st.alarm) await until(() => enemies().length === 0 || G.mis.force); if (G.mis.force) for (const e of enemies()) e.die();
+  await H.freeCaptives(cs); setMusic('off'); await wait(1.6); await H.victory(); return win(); };
+RUN['3-4'] = async () => { const { DAY } = H.moods;
+  const p = await gu(3, DAY, H.B[3], ['jallod', 'otbasqan'], -66, 2); const b0 = preBoss('jallod', 0, -108);
+  const gG = post([['askar', -3, -80], ['askar', 3, -80], ['archer', -7, -84], ['archer', 7, -84], ['wolf', 0, -83, 'p', 3]]);
+  const c2 = await H.captives([[-5, -150], [-2, -152], [2, -152], [5, -150], [0, -155]]);
+  const gC = post([['heavy', 0, -146], ['askar', -6, -140, 'p', 2], ['askar', 6, -140, 'p', 2], ['wolf', -3, -144], ['wolf', 3, -144], ['archer', 0, -160], ['shaman', -7, -158]], { label: 'e_cap', wake: 0 });
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('o_otbasqan'); const g1 = gate(-125); setMusic('battle'); await clear(gG); await H.goTo(-88); H.hint('', 5, t('h_chain'));
+  G.onBoss = b => { H.weakWhile(b, () => b.openT > 0, 'w_ja'); b.onSlam = () => { H.openUp(b, 6, 'w_open'); b.stagger = 1.5; }; };
+  G.mis.flag = await H.bossFight('jallod', 0, -108, [['ja', 'd_ja1'], ['gu', 'd_gu8']], H.bossBrain({ dmg: 40, every: 2.8, moves: ['charge', 'quake', 'summon', 'charge'], summon: [['askar', 2]], col: 0xaa3322, phases: [[[1, .5], e => { e.spdMul = 1.25; }]] }));
+  await H.gainPower(7, 'pw7', 'pw7d'); const ob = spawn('otbasqan', 0, -118, 'ally'); ob.rot = 0; await say([['ot', 'd_ot1'], ['gu', 'd_gu9'], ['ot', 'd_ot2']]); g1.open(); H.setCP(0, -120);
+  H.objective('o_free'); setMusic('battle'); gC.wakeR = 13; await clear(gC); await H.freeCaptives(c2);
+  setMusic('off'); await H.goTo(-158); return win(); };
+// ===== CHAPTER 4 =====
+RUN['4-1'] = async () => { const { DAY } = H.moods; await H.chapterIntro(4, 'nar8', 'ruins'); G.curCh = 3; mstart();
+  G.mis.flag = await H.rideLevel('gulayim', DAY, 'o_ride4', [['askar', -4, -18], ['archer', 4, -24], ['askar', 0, -30], ['archer', -6, -38], ['askar', 6, -44], ['archer', 0, -50], ['askar', -3, -56]], 'flee'); return win(); };
+// 4-2 the ships: shore camp → archers behind stakes (leap shortcut) → twist: a landing party from the water → the captain
+RUN['4-2'] = async () => { const { DAY } = H.moods;
+  const p = await gu(4, DAY, H.B[4], ['otbasqan'], 3, 3, 4, { allies: [['otbasqan', 2.6, 2]] });
+  const gA = post([['askar', -2, -39.4, 's'], ['askar', 1.8, -40.2, 's'], ['heavy', 0, -45], ['askar', -6, -42, 'p', 2], ['archer', -8, -50], ['archer', 8, -50]], { fire: [0, -41.4] });
+  const st = stakes(-66, -G.W, G.W, [-8.5, 2.2]); const gS = post([['archer', -3, -70], ['archer', 3, -70], ['archer', 0, -72], ['shaman', 6, -72]], { label: 'e_arch', face: 0 });
+  const gB = post([['wolf', -6, -80, 'p', 2.5], ['wolf', 6, -81, 'p', 2.5], ['askar', -4, -86], ['askar', 4, -86], ['heavy', -2, -88], ['archer', 0, -93]], { label: 'mb_cap' }); leader(gB, 0, -85);
+  page(9.6, -58); chest(-9.5, -96, 90);
+  setMusic('calm'); await ban(3); mstart(); await say([['ot', 'x4a'], ['gu', 'x4b']]);
+  H.objective('o_ships'); setMusic('battle'); const g0 = gate(-110);
+  await clear(gA); H.hint('', 6, t('h_leap')); await clear(gS);
+  await dead(rein([['askar', 10, p.z - 2], ['askar', 10, p.z + 3], ['wolf', 10, p.z - 6], ['wolf', -10, p.z + 5], ['archer', 10, p.z - 9]], 'ot', 'bk_rein'));
+  gB.o.onWake = () => bark('ot', 'f13c'); await clear(gB); g0.open(); setMusic('off'); await H.victory(); return win(); };
+// 4-3 the wolf chieftain: prowling packs, then the giant wolf (visible on his rock from the start)
+RUN['4-3'] = async () => { const { DUSK } = H.moods;
+  const p = await gu(4, DUSK, H.B[4], ['qashqir', 'otbasqan'], 3, 3, 4, { allies: [['otbasqan', 2.6, 2]], tod: 'dusk' });
+  const g1 = post([['wolf', -6, -38, 'p', 3], ['wolf', 6, -40, 'p', 3], ['wolf', 0, -45, 'pz', 2], ['wolf', -9, -31, 'pz', 2], ['wolf', 9, -31, 'pz', 2]]);
+  const g2 = post([['potion', 0, -58], ['wolf', -7, -55, 'p', 2], ['wolf', 7, -55, 'p', 2], ['askar', -3, -60], ['askar', 3, -60], ['archer', 0, -65]], { label: 'e_horde' });
+  const g3 = post([['wolf', -8, -94, 'p', 2], ['wolf', 8, -94, 'p', 2], ['wolf', -4, -99], ['wolf', 4, -99], ['alpha', 0, -102]]);
+  const b0 = preBoss('qashqir', 0, -113, 'mb_wolf', 'p_qa'); chest(9.5, -74, 90);
+  setMusic('calm'); await ban(3); mstart(); bark('ot', 'bk_wolf');
+  H.objective('mo_4_3'); setMusic('battle'); const g0 = gate(-70);
+  await clear(g1); await clear(g2); await dead(rein([['wolf', -8, p.z + 9], ['wolf', 8, p.z + 9], ['wolf', 0, p.z + 11]], 'ot', 'bk_back')); g0.open(); H.setCP(0, -64);
+  const gx = gate(-130); await clear(g3); await H.goTo(-97);
+  G.onBoss = b => { b.d = { ...b.d, name: 'mb_wolf' }; b.maxHp = b.hp = 2600; for (const m of b.mats || []) if (m.color) m.color.multiplyScalar(.8); };
+  G.mis.flag = await H.bossFight('qashqir', 0, -113, [['ot', 'mb_ot1'], ['gu', 'mb_gu1']], H.qashqirAI); gx.open(); return win(); };
+RUN['4-4'] = async () => { const { DAY } = H.moods;
+  const p = await gu(4, DAY, H.B[4], ['aydarho', 'otbasqan'], -104, 3, 4, { allies: [['otbasqan', 2.6, 2]] }); const b0 = preBoss('aydarho', 0, -170.5);
+  const gG = post([['askar', -4, -120], ['askar', 4, -120], ['archer', -8, -126], ['archer', 8, -126], ['shaman', 0, -128]]); chest(-9.5, -140, 100);
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('o_dragon'); setMusic('battle'); await clear(gG); await H.goTo(-134);
+  const gD = gate(-163); G.onBoss = b => { b.maxHp = b.hp = 4500; b.weakHint = 'w_ay'; b.weak = () => (b.ashore > 0 ? 1.6 : H.RES()); b.onChain = () => { if (b.sub) return; b.ashore = 6; b.z = -165.5; H.openUp(b, 6, 'w_open'); }; };
+  G.mis.flag = await H.bossFight('aydarho', 0, -170.5, [['ay', 'd_ay1'], ['gu', 'd_gu10']], H.dragonAI);
+  await H.gainPower(8, 'pw8', 'pw8d'); return win(); };
+
+// ===== CHAPTER 5 (Sarbinaz) =====
+RUN['5-1'] = async () => { const { DUSK } = H.moods; await H.chapterIntro(5, 'nar9', 'ruins');
+  const p = await sar(DUSK, H.B[5], [], 3);
+  const gA = post([['askar', -1.8, -33.4, 's'], ['askar', 1.8, -34.2, 's'], ['heavy', 0, -38], ['wolf', 5, -40, 'p', 2], ['archer', -7, -46], ['archer', 7, -46]], { fire: [0, -35.4] });
+  const gB = post([['heavy', 3, -64], ['wolf', -6, -60, 'p', 2], ['wolf', 6, -60, 'p', 2], ['shaman', 0, -72], ['askar', -4, -66], ['askar', 4, -66]], { label: 'mb_cap' }); leader(gB, 0, -68);
+  page(-9.6, -52); chest(9.5, -84, 100);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'x5a']]);
+  H.objective('o_pass'); setMusic('battle'); const g0 = gate(-100);
+  await clear(gA); await dead(rein([['wolf', -8, p.z + 9], ['wolf', 8, p.z + 9], ['wolf', 0, p.z - 12], ['askar', -4, p.z - 13], ['askar', 4, p.z - 13]], 'sa', 'bk_back'));
+  await clear(gB); await dead(rein([['wolf', -7, p.z - 10], ['wolf', 7, p.z - 10], ['archer', 0, p.z - 14]])); g0.open(); setMusic('off'); await H.victory(); return win(); };
+// 5-2 archer duel: four firing lines seen from the start; rush them between volleys; twist: sorcerers join the last line
+RUN['5-2'] = async () => { const { DUSK } = H.moods;
+  const p = await sar(DUSK, H.B[5], [], 3, 3);
+  const g1 = post([['archer', -6, -34], ['archer', 6, -34], ['archer', 0, -40], ['askar', -3, -29, 'p', 2], ['askar', 3, -29, 'p', 2]], { label: 'e_arch' });
+  const s1 = stakes(-47, -G.W, G.W, [7.5, 2.4]); const g2 = post([['archer', -9, -51], ['archer', -4, -52], ['archer', 1, -52], ['archer', 6, -51], ['mage', -2, -56]], { label: 'e_arch', face: 0 });
+  const g3 = post([['archer', -8, -88], ['archer', 8, -88], ['archer', -3, -94], ['archer', 3, -94], ['wolf', -6, -82, 'p', 2], ['wolf', 6, -82, 'p', 2]], { label: 'e_arch' });
+  const s2 = stakes(-100, -G.W, G.W, [-7.5, 2.4]); const g4 = post([['archer', -9, -104], ['archer', 9, -104], ['archer', 0, -110], ['heavy', 0, -103.5], ['archer', 4, -106]], { label: 'e_arch', face: 0 });
+  chest(-9.5, -64, 90);
+  setMusic('calm'); await ban(3); mstart(); H.objective('mo_5_2'); setMusic('battle'); hint('ms_archint', 7);
+  const g0 = gate(-60); await clear(g1); await clear(g2); g0.open(); H.setCP(0, -56);
+  const gx = gate(-120); await clear(g3); rein([['mage', -6, -107], ['mage', 6, -107]], 'sa', 'bk_rein'); await clear(g4); await until(() => enemies().length === 0 || G.mis.force); gx.open();
+  setMusic('off'); await H.victory(); return win(); };
+// 5-3 the wounded maiden rides (faster than walking); ambushes are checkpoints, never a full restart
+async function escortRide(z0, zGoal, hp, ambush, hintKey, objKey) {
+  const e = spawn('qiz', 0, z0, 'ally'); e.maxHp = e.hp = hp; e.d = { ...e.d, follow: false }; e.rot = Math.PI; toggleMount(e, true); e.horseHp = e.horseMax = 1e9; G.mis.esc = e; let failed = false, ever = false, cpZ = z0, wt = 0, ev = 0;
+  const d0 = e.damage.bind(e); e.damage = (a, s, o) => { if (failed || G.mis.force) return 0; const r = d0(a, s, o); if (e.hp <= 0 || e.dead) { e.dead = false; e.hp = 1; failed = ever = true; } return r; }; e.die = () => { failed = ever = true; e.hp = 1; };
+  const amb = ambush.map(a => ({ ...a, done: false }));
+  e.custom = (e, dt) => { const P = G.player, thr = enemies().some(f => f.custom !== sleepAI && hyp(f.x - e.x, f.z - e.z) < 8), nearP = P && !P.dead && hyp(P.x - e.x, P.z - e.z) < 14; e.far = !nearP;
+    const want = (!thr && nearP && e.z > zGoal && !failed) ? 3.3 * FAST() : 0; ev += (want - ev) * Math.min(1, dt * 2); e.z -= ev * dt; e.x += (0 - e.x) * Math.min(1, dt * .6); e.rot = Math.PI; e.play('Idle');
+    for (const a of amb) if (!a.done && e.z < a.z) { a.done = true; cpZ = e.z; cp(); const es = rein(a.w.map(([ty, x, dz]) => [ty, x, e.z + dz]), 'sa', a.bark); for (const f of es) f.rf = true; }
+    return true; };
+  hint(hintKey, 7); G.mis.aim = () => e.far ? e : null;
+  G.tick = dt => { wt -= dt; if (wt <= 0) { wt = .5; obj(t(objKey) + '  ❤ ' + Math.max(0, Math.round(e.hp / e.maxHp * 100)) + '%'); } };
+  for (;;) { await until(() => failed || e.z <= zGoal || G.mis.force); if (!failed || G.mis.force) break;
+    await H.bannerShow('', t('ms_fail'), '', 2.4); for (const f of G.ents) if (f.rf && !f.dead) { f.dead = true; f.remove(); } e.z = cpZ + 3; e.hp = e.maxHp * .6; for (const a of amb) if (a.z <= cpZ + 3.5) a.done = false; const P = G.player; P.x = 2.5; P.z = e.z; P.hp = P.maxHp; failed = false; }
+  G.tick = null; G.mis.aim = null; G.mis.flag = !ever && e.hp > e.maxHp * .5; e.custom = e2 => { e2.play('Idle'); return true; }; await until(() => enemies().filter(f => f.custom !== sleepAI).length === 0 || G.mis.force); return true; }
+RUN['5-3'] = async () => { const { NIGHT } = H.moods;
+  const p = await sar(NIGHT, H.B[5], [], 3, 3, { tod: 'night' });
+  const gF = post([['askar', -2, -139.4, 's'], ['askar', 1.8, -140.2, 's'], ['archer', -7, -144], ['archer', 7, -144], ['heavy', 0, -145]], { fire: [0, -141.4], label: 'mb_cap', wake: 14 }); leader(gF, 0, -143.5); chest(9.5, -62, 90);
+  setMusic('calm'); await ban(3); mstart(); H.objective('mo_5_3'); setMusic('battle');
+  await escortRide(-1, -128, 800, [
+    { z: -14, w: [['wolf', -7, -14], ['wolf', 7, -14], ['wolf', 0, -18]], bark: 'bk_wolf' },
+    { z: -40, w: [['askar', -5, -14], ['askar', 5, -14], ['archer', -8, -20], ['archer', 8, -20]], bark: 'bk_arch' },
+    { z: -66, w: [['wolf', -9, 9], ['wolf', 9, 9], ['heavy', 0, -14], ['askar', -4, -12]], bark: 'bk_back' },
+    { z: -96, w: [['shaman', 0, -20], ['askar', -6, -12], ['askar', 6, -12], ['wolf', -3, -16], ['wolf', 3, -16]], bark: 'bk_rein' }], 'ms_eschint2', 'mo_5_3');
+  obj(t('o_horde')); await clear(gF); await until(() => enemies().length === 0 || G.mis.force); setMusic('off'); await H.victory(); return win(); };
+RUN['5-4'] = async () => { const { DUSK } = H.moods;
+  const p = await sar(DUSK, H.B[5], ['qunqar'], -96); const b0 = preBoss('qunqar', 0, -136);
+  const gG = post([['askar', -4, -108], ['askar', 4, -108], ['wolf', -7, -111, 'p', 2], ['wolf', 7, -111, 'p', 2], ['archer', 0, -114]]);
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('o_qunqar'); setMusic('battle'); await clear(gG); await H.goTo(-116);
+  G.onBoss = b => H.weakWhile(b, () => G.player.shield > 0, 'w_qu');
+  G.mis.flag = await H.bossFight('qunqar', 0, -136, [['qu', 'd_qu1'], ['sa', 'd_sa2']], H.bossBrain({ dmg: 52, every: 2.9, moves: ['quake', 'charge', 'charge', 'summon'], summon: [['wolf', 2], ['askar', 1]], col: 0xff4422, phases: [[[1, .6], e => { e.spdMul = 1.15; }], [[2, .3], e => { e.dmgMul = 1.3; e.spdMul = 1.3; }]] }));
+  await H.gainPower(9, 'pw9', 'pw9d'); return win(); };
+
+// ===== CHAPTER 6 =====
+const SAR6 = { allies: [['sarbinaz', 2.6, 2]] };
+RUN['6-1'] = async () => { const { DAY } = H.moods; await H.chapterIntro(6, 'nar10', 'ruins');
+  const p = await gu(6, DAY, H.B[6], ['sarbinaz'], 3, 5, 4, SAR6);
+  const gA = post([['potion', 3, -38], ['askar', -6, -34, 'p', 2], ['askar', 6, -34, 'p', 2], ['askar', 0, -40], ['archer', -8, -46], ['archer', 8, -46], ['shaman', 0, -50]]);
+  const gB = post([['heavy', -3, -82], ['wolf', -6, -72, 'p', 2], ['wolf', 6, -72, 'p', 2], ['askar', -3, -86], ['askar', 3, -86], ['archer', -8, -96], ['archer', 8, -96], ['shaman', 0, -100]], { label: 'mb_cap' }); leader(gB, 0, -84);
+  page(9.4, -62); chest(-9.4, -24, 100);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'x6a'], ['gu', 'x6b']]);
+  H.objective('o_city'); setMusic('battle'); const g0 = gate(-60);
+  await clear(gA); g0.open(); const g1 = gate(-112); await dead(rein([['askar', -10, p.z - 4], ['askar', 10, p.z - 4], ['wolf', -10, p.z + 4], ['wolf', 10, p.z + 4], ['archer', 0, p.z - 14]], 'sa', 'bk_amb'));
+  gB.o.onWake = () => bark('sa', 'f13c'); await clear(gB);
+  setMusic('off'); await H.victory(); return win(); };
+RUN['6-2'] = async () => { const { DAY } = H.moods;
+  const p = await gu(6, DAY, H.B[6], ['sarbinaz'], -70, 5, 4, { ...SAR6, tod: 'dusk' });
+  const caps = [[-3, -88], [0, -89], [3, -88], [-1.5, -91.5], [1.5, -91.5]].map(([x, z]) => { const c = spawn('asir', x, z, 'ally'); c.maxHp = c.hp = 620; c.rot = 0; c.custom = c2 => { c2.play('Sit_Floor_Idle'); return true; }; return c; }); flyPt(0, -89, 'e_cap');
+  const gW = post([['askar', -6, -106], ['askar', 6, -106], ['wolf', 0, -108, 'p', 3], ['archer', -8, -110]], { wake: 0 });
+  setMusic('calm'); await ban(3); mstart(); bark('sa', 'bk_rein');
+  G.mis.flag = true; let lost = 0, wt = 0; G.tick = dt => { const n = caps.filter(c => c.dead).length; if (n > lost) { lost = n; G.mis.flag = false; hintRaw(t('s_nocap') + ' ✗'); } wt -= dt; if (wt <= 0) { wt = .5; $('obj').textContent = t('mo_6_2') + '  ⛓ ' + (caps.length - lost) + '/' + caps.length; } };
+  const g0 = gate(-112); setMusic('battle'); hint('ms_defhint', 6); const raid = raidAI(caps); H.setCP(0, -84);
+  const W = async (list, es0) => { const es = es0 || list.map(([ty, x, z]) => { const e = sp(TY(ty), x, z); if (!e.potion) e.custom = raid; return e; }); G.mis.aim = () => near(es); await until(() => es.every(e => e.dead) || caps.every(c => c.dead) || G.mis.force); G.mis.aim = null; };
+  wake(gW); for (const e of gW.es) e.next = raid; await W(null, gW.es);
+  const WV = [[[['wolf', -9, -74], ['wolf', 9, -74], ['askar', -4, -70], ['askar', 4, -70]], 'bk_back'], [[['askar', -7, -106], ['askar', 7, -106], ['heavy', 0, -104], ['wolf', -3, -110], ['wolf', 3, -110], ['shaman', 0, -111]], 'bk_rein'], [[['wolf', -9, -96], ['wolf', 9, -96], ['askar', -9, -80], ['askar', 9, -80], ['archer', 0, -110]], 'bk_amb']];
+  for (const [w, bk] of WV) { if (caps.every(c => c.dead)) break; await wait(1.5); bark('sa', bk); await W(w); }
+  if (caps.every(c => c.dead) && !G.mis.force) return fail();
+  const b = potionBoss(0, -104); for (const [ty, x, z] of [['askar', -6, -104], ['askar', 6, -104]]) { const e = spawn(ty, x, z); e.custom = raid; }
+  await until(() => (b.dead && enemies().length === 0) || caps.every(c => c.dead) || G.mis.force); if (caps.every(c => c.dead) && !G.mis.force) return fail();
+  setBoss(null); G.tick = null; g0.open(); for (const c of caps) if (!c.dead) c.play('Cheer', { force: true }); setMusic('off'); await H.victory(); return win(); };
+RUN['6-3'] = async () => { const { DAY } = H.moods;
+  const p = await gu(6, DAY, H.B[6], ['sarbinaz'], -100, 5, 4, SAR6); const gt = H.gateDoor(0, -120); flyPt(0, -120, 'e_gate');
+  const c = await H.captives([[-8, -132], [-6, -134], [6, -134], [8, -132]]);
+  const gI = post([['askar', -5, -140, 'p', 2], ['askar', 5, -140, 'p', 2], ['shaman', 0, -146], ['wolf', -3, -136], ['wolf', 3, -136], ['archer', -7, -150], ['archer', 7, -150]], { label: 'mb_cap', wake: 0 }); leader(gI, 0, -142);
+  const gO = post([['askar', -4, -112], ['askar', 4, -112], ['askar', 0, -110, 'p', 3]], { nofly: true }); chest(9.4, -156, 110);
+  setMusic('battle'); await ban(3); mstart();
+  H.objective('o_gate'); H.hint('', 6, t('h_gate')); let nw = 9, k = 0; G.mis.aim = () => near(alive(gO)) || { x: 0, z: -118 };
+  G.tick = dt => { nw -= dt; if (nw <= 0 && !gt.dead) { nw = 13; if (enemies().filter(e => e.custom !== sleepAI).length < 6) { k++; rein(k % 2 ? [['askar', -9, p.z + 9], ['askar', 9, p.z + 9], ['archer', 0, p.z + 12]] : [['wolf', -9, p.z + 8], ['wolf', 9, p.z + 8], ['askar', 0, p.z + 11]], 'sa', k === 1 ? 'bk_back' : null); } } };
+  await until(() => gt.dead || G.mis.force); G.tick = null; G.mis.aim = null; if (!gt.dead) gt.shatter(); H.setCP(0, -124); gI.wakeR = 14; wake(gI);
+  await clear(gI); await until(() => enemies().length === 0 || G.mis.force); await H.freeCaptives(c);
+  setMusic('off'); await wait(1.4); await H.victory(); return win(); };
+RUN['6-4'] = async () => { const { DAY } = H.moods;
+  const p = await gu(6, DAY, H.B[6], ['qargashiq', 'sarbinaz'], -126, 5, 4, SAR6); const b0 = preBoss('qargashiq', 0, -160);
+  const gG = post([['askar', -4, -140], ['askar', 4, -140], ['archer', -8, -144], ['archer', 8, -144]]);
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('o_king'); setMusic('battle'); await clear(gG); await H.goTo(-143);
+  G.onBoss = b => H.weakWhile(b, () => G.player.giant > 0, 'w_qg');
+  G.mis.flag = await H.bossFight('qargashiq', 0, -160, [['qg', 'd_qg1'], ['gu', 'd_gu11']], H.bossBrain({ dmg: 56, every: 2.6, moves: ['charge', 'quake', 'summon', 'charge', 'volley'], summon: [['askar', 2], ['archer', 1]], col: 0x221111, phases: [[[1, .5], e => { for (let i = 0; i < 2; i++) { const s = i ? 1 : -1; H.ghostEnemyRider(e.x + s * 6, e.z + 10); } }], [[2, .2], e => { e.dmgMul = 1.3; }]] }));
+  await H.gainPower(0, 'pw0', 'pw0d'); return win(); };
+
+// ===== CHAPTER 7 =====
+const ALL7 = { allies: [['sarbinaz', -2.6, 2], ['otbasqan', 2.6, 2]] };
+RUN['7-1'] = async () => { const { DUSK } = H.moods; await H.chapterIntro(7, 'nar11', 'ruins'); G.curCh = 6; mstart();
+  await H.rideLevel('gulayim', DUSK, 'o_ride7', [['askar', -5, -40], ['askar', 5, -42], ['askar', 0, -46], ['archer', -7, -52], ['archer', 7, -52], ['askar', -3, -58], ['askar', 3, -60], ['askar', 0, -66]], 'fight'); return win(); };
+RUN['7-2'] = async () => { const { DUSK } = H.moods;
+  const p = await gu(7, DUSK, H.B[7], ['qashqir', 'sarbinaz', 'otbasqan'], 3, 6, 3, ALL7);
+  const gA = post([['heavy', 0, -38], ['askar', -2.2, -33.4, 's'], ['askar', 2, -34.2, 's'], ['wolf', -6, -40, 'p', 2], ['wolf', 6, -40, 'p', 2], ['archer', -8, -48], ['archer', 8, -48], ['shaman', 0, -52]], { fire: [0, -35.4] });
+  const st = stakes(-66, -G.W, G.W, [8.5, 2.2]);
+  const gB = post([['heavy', -2, -76], ['potion', 2, -76], ['wolf', -6, -72, 'p', 2], ['wolf', 6, -72, 'p', 2], ['askar', -4, -80], ['askar', 4, -80], ['archer', -7, -70], ['archer', 0, -69.5]], { label: 'n_qa' });
+  const qa = preBoss('qashqir', 0, -88, 'n_qa', 'p_qa'); page(-9.6, -58); chest(9.5, -98, 120);
+  setMusic('calm'); await ban(3); mstart(); await say([['gu', 'x7a'], ['sa', 'x7b'], ['ot', 'x7c']]);
+  H.objective('o_horde'); setMusic('battle'); const g0 = gate(-110);
+  await clear(gA); H.hint('', 6, t('h_leap')); await dead(rein([['wolf', -8, p.z + 9], ['wolf', 8, p.z + 9], ['askar', -9, p.z - 3], ['askar', 9, p.z - 3]], 'sa', 'bk_back'));
+  gB.o.onWake = () => { qa.custom = H.qashqirAI; qa.asleep = false; qa.maxHp = qa.hp = 1800; setBoss(qa); bark('ot', 'f13c'); }; await clear(gB); await until(() => qa.dead || G.mis.force); if (!qa.dead) qa.die(); setBoss(null); await until(() => enemies().length === 0 || G.mis.force);
+  g0.open(); setMusic('off'); await H.victory(); return win(); };
+RUN['7-3'] = async () => { const { NIGHT } = H.moods;
+  const p = await gu(7, NIGHT, H.B[7], ['sarbinaz', 'otbasqan'], 3, 6, 3, { ...ALL7, tod: 'night' });
+  const TP = [[-7, -40], [7, -58], [-7, -80], [7, -98]], tt = TP.map(([x, z]) => H.totem(x, z)); TP.forEach(([x, z], i) => { const s = x > 0 ? -1 : 1; const g = post([['askar', x + s * 2.5, z + 1.5], ['archer', x + s * 1, z - 2.5], [i % 2 ? 'shaman' : 'wolf', x + s * 4, z - 1, i % 2 ? 'g' : 'p', 2]], { label: 'mn_7_3', nofly: i === 1 || i === 2, wake: 10 }); });
+  chest(9.5, -30, 120);
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('mo_7_3'); setMusic('battle'); const g0 = gate(-112); H.hint('', 6, t('h_totem')); let nw = 8, tw = false;
+  G.mis.aim = () => near(tt.filter(o => !o.dead).map(o => ({ x: o.x, z: o.z })));
+  G.tick = dt => { nw -= dt; const up = tt.filter(o => !o.dead); if (!tw && up.length <= 2) { tw = true; rein([['heavy', -3, p.z + 10], ['heavy', 3, p.z + 10], ['wolf', 0, p.z + 12]], 'sa', 'bk_back'); cp(); }
+    if (nw <= 0) { nw = 11; if (enemies().filter(e => e.custom !== sleepAI).length < 7) for (const o of up.filter(o => Math.abs(o.z - p.z) < 26).slice(0, 2)) { spawn(Math.random() < .5 ? 'askar' : 'wolf', o.x + (o.x > 0 ? -2 : 2), o.z + 1.5); burst(o.x, 2, o.z, 0xff2010, 2); } } };
+  await until(() => tt.every(o => o.dead) || G.mis.force); G.tick = null; G.mis.aim = null; for (const o of tt) if (!o.dead) o.shatter(); for (const g of G.mis.groups) if (g.es.length && !g.awake && g.o) wake(g, true);
+  await dead(rein([['heavy', -3, p.z - 12], ['heavy', 3, p.z - 12], ['shaman', 0, p.z - 18], ['askar', -6, p.z - 10], ['askar', 6, p.z - 10]], 'ot', 'bk_rein')); await until(() => enemies().length === 0 || G.mis.force); g0.open();
+  setMusic('off'); await H.victory(); return win(); };
+RUN['7-4'] = async () => { const { DUSK } = H.moods;
+  const p = await gu(7, DUSK, H.B[7], ['surtaysha', 'sarbinaz', 'otbasqan'], -112, 6, 3, ALL7);
+  const s = preBoss('surtaysha', 0, -150); s.invuln = true; s.helm = 3; s.maxHp = s.hp = 9000;
+  setMusic('calm'); await ban(3); mstart();
+  H.objective('o_final'); await H.goTo(-122);
+  G.freeze = true; p.act = null; p.play('Idle'); await wait(.5);
+  await say([['su', 'd_su5'], ['gu', 'd_gu12'], ['su', 'd_su6']]); G.freeze = false; s.asleep = false; setBoss(s); setMusic('boss'); const d0 = G.stats.deaths; H.setCP(0, -124);
+  H.objective('o_helm'); H.hint('', 6, t('h_helm')); s.onChain = () => { if (s.helm > 0) { s.helm--; burst(s.x, 4, s.z, 0xffd060, 3); num(s, t('helm') + ' ' + (3 - s.helm) + '/3', 'c'); Sfx.big(); } };
+  s.custom = H.bossBrain({ dmg: 50, every: 2.6, moves: ['quake', 'volley', 'charge', 'summon'], summon: [['wolf', 2]], col: 0xaa0010 });
+  await until(() => s.helm <= 0); s.invuln = false; flash(.5); await H.bannerShow('', t('helmOff'), '', 2);
+  H.objective('o_totem'); H.hint('', 6, t('h_totem')); const tt = [H.totem(-8, -140), H.totem(8, -140), H.totem(-8, -162), H.totem(8, -162)];
+  G.tick = dt => { if (s.dead) return; if (tt.some(o => !o.dead)) { s.hp = Math.min(s.maxHp, s.hp + dt * 40 * ([.35, 1, 1.2][SET.diff] ?? 1)); } };
+  await until(() => tt.every(o => o.dead) && s.hp < s.maxHp * .35); G.tick = null;
+  G.freeze = true; s.invuln = true; await say([['su', 'd_su7'], ['gu', 'd_gu13']]); H.objective('o_wrestle'); await qte(9, 14, 9); G.freeze = false; s.invuln = false; s.damage(s.hp + 10, p, { crit: true }); H.soul(s);
+  G.mis.flag = G.stats.deaths === d0; await wait(1.4); setMusic('off'); await H.victory(); return win(); };
+
+// ---------- test helper (never used in normal play) ----------
+// auto(on, fast, steps, ts, soft): god-mode auto-play. soft = bot mode: the hero walks toward the arrow target and fights at a human-like pace (for pacing checks)
+function auto(on = true, fast = 8, steps = 4, ts = 2, soft = false) { clearInterval(auto.iv); if (!on) { G.steps = 1; G.ts = 1; G.misFast = 1; return; } G.misFast = fast; G.steps = steps; G.ts = ts; let lt = G.time;
+  auto.iv = setInterval(() => { try { const dT = Math.min(3, G.time - lt); lt = G.time;
+    if (G.onEnter && !$('end').classList.contains('on')) G.onEnter();
+    if ($('lore') && $('lore').classList.contains('on')) $('lore').querySelector('button').click();
+    if ($('dead') && $('dead').classList.contains('on')) $('dretry').click();
+    if (G.qte) G.qte.v = 100;
+    const p = G.player; if (!p || G.paused || G.flying) return; p.hp = p.maxHp; if (p.horseHp !== undefined) p.horseHp = 999;
+    const b = G.boss;
+    if (soft) { let n = 0; for (const e of G.ents) if (e.team === 'enemy' && !e.dead && !e.bg && !e.invuln && e.spawnT <= 0 && e !== b && e.custom !== sleepAI && !e.asleep && Math.hypot(e.x - p.x, e.z - p.z) < 5 && n++ < 3) e.damage(45 * dT, p);
+      if (b && !b.dead) { if (b.helm > 0 && b.onChain) b.onChain(); else if (!b.invuln && !b.asleep && Math.hypot(b.x - p.x, b.z - p.z) < 7) b.damage(120 * dT, p); }
+      for (const o of G.breakables || []) if (!o.dead && Math.hypot(o.x - p.x, o.z - p.z) < 4) o.hit(o.only || 'slam');
+      let tg = G.mis && G.mis.aim && G.mis.aim(); if (!tg) { let bd = 1e9; for (const e of G.ents) { if (e.team !== 'enemy' || e.dead || e.bg || e.custom === sleepAI || e.asleep) continue; const d = Math.hypot(e.x - p.x, e.z - p.z); if (d < bd) { bd = d; tg = e; } } } if (!tg && G.markers && G.markers.length) tg = G.markers[G.markers.length - 1]; if (!tg && G.ravineAhead) tg = { x: 0, z: -176 };
+      if (!tg && G.mis && G.mis.cv) tg = { x: G.mis.cv.x + 3, z: G.mis.cv.z - 3 }; if (!tg && G.mis && G.mis.esc) tg = { x: G.mis.esc.x + 2, z: G.mis.esc.z - 2 };
+      if (tg) { const dx = tg.x - p.x, dz = tg.z - p.z, d = Math.hypot(dx, dz); if (d > 2.2) { const st = Math.min(d - 1.8, 6.5 * dT); p.x += dx / d * st; p.z += dz / d * st; if (G.ravineAhead && p.z < -158 && p.z > -170) p.z = -171; } } return; }
+    for (const e of G.ents) if (e.team === 'enemy' && !e.dead && !e.bg && !e.invuln && e.spawnT <= 0 && e !== b && !e.asleep) e.damage(1e6, p);
+    if (b && !b.dead) { if (b.helm > 0 && b.onChain) b.onChain(); else if (!b.invuln && !b.asleep && b.spawnT <= 0) b.damage(Math.max(400, b.maxHp * .2), p); }
+    for (const o of G.breakables || []) if (!o.dead) o.hit(o.only || 'slam');
+    const tg = G.mis && G.mis.aim && G.mis.aim();
+    if (G.mis && G.mis.esc && !G.mis.esc.dead) { p.x = G.mis.esc.x + 2.5; p.z = G.mis.esc.z - 1; }
+    else if (tg) { p.x = tg.x + 1; p.z = tg.z + 1.5; }
+    else if (G.markers && G.markers.length) { const m = G.markers[G.markers.length - 1]; p.x = m.x; p.z = m.z + .5; }
+    else if (G.ravineAhead) { p.z = -172; }
+  } catch (e) { console.warn('[auto]', e.message); } }, 600); }
+// ======================================================================
+// MISSIONS v3 (author's list, Nov 20): rescue battles + duels. Earlier mission code is reused where the beat survives (OLD[...]),
+// new beats are added through hooks: G.mis.onLive (level built), G.mis.onRide (riders spawned), G.mis.beforeWin (final duel).
+// ======================================================================
+const OLD = { ...RUN };
+const SAFE_BACK = z => ({ x: 0, z });
+function yurt(x, z, s = 1) { const g = new THREE.Group(), fm = new THREE.MeshStandardMaterial({ color: 0xcdb48a, roughness: 1 }), dk = new THREE.MeshStandardMaterial({ color: 0x5a3c20, roughness: 1 });
+  const w = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 1.7, 18, 1, true), fm); w.position.y = .85; const r = new THREE.Mesh(new THREE.ConeGeometry(2.6, 1.3, 18), fm); r.position.y = 2.3; const d = new THREE.Mesh(new THREE.PlaneGeometry(1, 1.4), dk); d.position.set(0, .7, 2.41);
+  for (const m of [w, r]) { m.castShadow = m.receiveShadow = true; m.material.side = THREE.DoubleSide; } g.add(w, r, d); g.position.set(x, 0, z); g.scale.setScalar(s); world.add(g); return g; }
+function doorAt(x, z, ry = 0, hp = 300) { const m = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.6, .35), new THREE.MeshStandardMaterial({ color: 0x5a3a1c, roughness: 1 })); m.position.set(x, 1.3, z); m.rotation.y = ry; m.castShadow = true; world.add(m);
+  return breakable({ mesh: m, x, z, hp, dmg: { slam: 120, any: 60 }, barY: 3.3, rad: 1.4, showNum: true, dust: 0x6a4a2a, spark: 0xffcc88, chunks: 14 }); }
+function cageAt(x, z) { const g = new THREE.Group(), im = new THREE.MeshStandardMaterial({ color: 0x3a3430, metalness: .6, roughness: .5 }); for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, b = new THREE.Mesh(new THREE.CylinderGeometry(.04, .04, 2.2, 5), im); b.position.set(Math.cos(a) * 1.6, 1.1, Math.sin(a) * 1.6); g.add(b); }
+  const top = new THREE.Mesh(new THREE.TorusGeometry(1.6, .06, 6, 24), im); top.rotation.x = Math.PI / 2; top.position.y = 2.2; g.add(top); g.position.set(x, 0, z); world.add(g); return g; }
+const crowdOf = (a, b, c) => [['askar', a], ['archer', b || 0], ['wolf', c || 0]].filter(x => x[1]);
+// duel opponents ("champions"): a base unit scaled up, with a boss move set (telegraphed charge / quake / volley)
+const CH = {
+  yuz: { type: 'askar', scale: 1.42, hp: 900, name: 'v3c_yuz', title: 'v3t_yuz', brain: { dmg: 30, every: 3.4, moves: ['charge', 'quake'] } },
+  bay: { type: 'bayimbet', scale: 1.05, hp: 800, name: 'n_ba', title: 'v3t_bay', nonLethal: .3, brain: { dmg: 24, every: 3.2, moves: ['charge'] } },
+  cap: { type: 'askar', scale: 1.5, hp: 1500, name: 'v3c_kap', title: 'v3t_kap', brain: { dmg: 34, every: 3, moves: ['charge', 'quake', 'charge'] } },
+  ch1: { type: 'nayza', scale: 1.3, hp: 1100, name: 'v3c_ch1', title: 'v3t_ch1', brain: { dmg: 34, every: 3.2, moves: ['charge'] } },
+  ch2: { type: 'askar', scale: 1.55, hp: 1400, name: 'v3c_ch2', title: 'v3t_ch2', brain: { dmg: 34, every: 2.8, moves: ['charge', 'quake'] } },
+  ch3: { type: 'jallod', scale: .68, hp: 1900, name: 'v3c_ch3', title: 'v3t_ch3', heavy: true, brain: { dmg: 36, every: 2.6, moves: ['quake', 'charge', 'volley'], col: 0xaa3322 } },
+  w1: { type: 'boribasi', scale: 1.1, hp: 1500, name: 'v3c_w1', title: 'v3t_w', brain: { dmg: 30, every: 3, moves: ['charge'] } },
+  w2: { type: 'boribasi', scale: 1.2, hp: 1900, name: 'v3c_w2', title: 'v3t_w', brain: { dmg: 32, every: 2.7, moves: ['charge', 'quake'] } },
+  w3: { type: 'boribasi', scale: 1.32, hp: 2400, name: 'v3c_w3', title: 'v3t_w', brain: { dmg: 36, every: 2.4, moves: ['charge', 'quake', 'charge'], col: 0x8822aa } },
+};
+const champ = (k, x, z, o = {}) => duel({ ...CH[k], x, z, R: 7.5, ...o });
+const arenaOf = (k, x, z, o = {}) => arena({ ...CH[k], x, z, R: 7.5, ...o });
+
+// ---------- PROLOGUE ----------
+// 0-1 Sarkop gate: townsfolk flee inside while Allayar holds the square
+RUN['0-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: 9 };
+    people([['mother', -8, -27], ['child', -7, -28.5], ['elder', -9, -29]], { kind: 'bound', T: 55, guardR: 11, near: 26, label: 'r_town' });
+    people([['asir', 7, -50], ['mother', 8.5, -51], ['child', 6.5, -52]], { kind: 'bound', T: 70, guardR: 13, near: 30, label: 'r_town' }); };
+  return OLD['0-1'](); };
+// ---------- CHAPTER 1 ----------
+// 1-1 Burning village: roped villagers are dragged off; take them back, find mother, then the yuzbashi duel
+RUN['1-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 2, z: -18 };
+    dragGroup([['asir', -3, -41], ['mother', -4, -42], ['child', -2, -42.5]], [['askar', -2.5, -38.5]], { x: -G.W - 3, z: -60 }, { speed: 1.25, near: 24, label: 'r_drag' });
+    dragGroup([['asir', 4, -86], ['elder', 5, -87], ['asir', 3, -87.5]], [['askar', 4, -84], ['askar', 6, -84.5]], { x: G.W + 3, z: -98 }, { speed: 1.2, near: 26, label: 'r_drag', safe: { x: 0, z: -64 } }); };
+  let A = null; const ol = G.mis.onLive; G.mis.onLive = () => { ol(); A = arenaOf('yuz', 0, -96, { crowd: crowdOf(5, 2) }); };
+  G.mis.beforeWin = async () => { await champ('yuz', 0, -96, { arena: A, after: 'flee', intro: [['gu', 'v3d_yuz']] }); await wait(.8); await H.victory(); };
+  return OLD['1-1'](); };
+// 1-2 Stable siege: women and children locked in the burning stable; a shaman and his wolves ring it
+RUN['1-2'] = async () => {
+  const p = await ch1Start(-84, [1, 2, 3, 4, 5]); spawn('sarbinaz', 3, -82, 'ally'); G.mis.safe = { x: 0, z: -84 };
+  fire(9.6, -97.5, 1.3); fire(9.8, -102.5, 1.2);
+  const door = doorAt(7.8, -100, Math.PI / 2, 420);
+  const gS = post([['shaman', 2, -106], ['wolf', -4, -98, 'p', 2], ['wolf', 5, -94, 'pz', 2], ['wolf', -6, -104], ['askar', 0, -100, 'p', 2.5], ['wolf', 4, -108]], { label: 'e_mage', wake: 14 });
+  const sh = gS.es[0]; sh.maxHp = sh.hp = 520; sh.d = { ...sh.d, name: 'v3c_sham' }; sh.vs *= 1.2;
+  const st = people([['mother', 9.6, -99], ['child', 9.8, -100.6], ['child', 9.4, -101.8], ['mother', 9.9, -98], ['elder', 9.7, -102.6]], { kind: 'fire', T: 70, door, near: 28, label: 'r_fire', face: -Math.PI / 2 });
+  chest(-9.3, -93, 60); live(); setMusic('calm'); await ban(3); mstart();
+  obj(t('v3o_1_2')); setMusic('battle'); const g3 = gate(-114); G.mis.aim = () => door.dead ? near(enemies()) : { x: 6.6, z: -100 };
+  wake(gS); setBoss(sh); let tw = false; G.tick = () => { if (!tw && st.T < 45) { tw = true; rein([['wolf', -8, p.z + 9], ['wolf', 8, p.z + 9], ['boribasi', 0, p.z + 12]], 'sa', 'bk_back'); } };
+  await until(() => (door.dead || st.done) && enemies().length === 0 || G.mis.force); if (G.mis.force && !door.dead) door.shatter(); G.tick = null; setBoss(null); G.mis.aim = null; g3.open(); setMusic('off'); await wait(1); await H.victory(); return win(); };
+// 1-3 Narrow bridge: a spearmen phalanx holds the bridge while the captive caravan is driven away on the far side
+function phalanxAI(row) { return (e, dt) => { const P = G.player; if (e.hp < e.maxHp * .92 || row.broken || (P && hyp(P.x - e.x, P.z - e.z) < 3.2)) { row.broken = row.broken || e.hp < e.maxHp * .5; e.custom = null; return false; } if (!row.go) { e.play('Idle_Combat'); return true; }
+  e.z += .55 * dt * FAST(); e.rot = 0; e.play('Walking_A', { ts: .55 }); e.farT = -1e9; return true; }; }
+RUN['1-3'] = async () => { const { DUSK } = H.moods;
+  const p = await ch1Start(3, [1, 2, 3, 4, 5], DUSK); tod('dusk'); spawn('sarbinaz', 3, 5, 'ally'); G.mis.safe = { x: 0, z: -40 };
+  // the bridge: plank deck between rails (colliders keep everyone on it)
+  const dk = new THREE.Mesh(new THREE.BoxGeometry(6.4, .25, 34), new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: .95 })); dk.position.set(0, .1, -77); dk.receiveShadow = true; world.add(dk);
+  const rm = new THREE.MeshStandardMaterial({ color: 0x4a3018, roughness: 1 }); for (const sx of [-3.3, 3.3]) { const rl = new THREE.Mesh(new THREE.BoxGeometry(.18, .18, 34), rm); rl.position.set(sx, 1.05, -77); world.add(rl); for (let z = -60; z >= -94; z -= 1.7) { const po = new THREE.Mesh(new THREE.CylinderGeometry(.1, .12, 1.15, 6), rm); po.position.set(sx, .58, z); po.castShadow = true; world.add(po); G.colC.push({ x: sx, z, r: .5 }); } for (let z = -60; z >= -94; z -= 1.3) { G.colC.push({ x: Math.sign(sx) * 5.5, z, r: 2.2 }); G.colC.push({ x: Math.sign(sx) * 9.6, z, r: 2.5 }); } }
+  const g1 = post([['askar', -.4, -30.2, 's'], ['askar', -3.6, -29.6, 's'], ['askar', 3, -33, 'p', 3], ['archer', -8.5, -30], ['wolf', 6, -27, 'pz', 2]], { fire: [-2, -31.6] });
+  const row = { go: false, broken: false }; G.noVar = true;
+  const ph = post([['nayza', -2, -63], ['nayza', 0, -63], ['nayza', 2, -63], ['nayza', -1, -65], ['nayza', 1, -65], ['archer', -1.5, -69], ['archer', 1.5, -69]], { label: 'v3c_phal', wake: 0, face: 0 });
+  for (const e of ph.es) e.next = e.type === 'nayza' ? phalanxAI(row) : null;
+  const gC = post([['askar', -3, -100], ['askar', 3, -101], ['archer', 0, -104]], { label: 'mb_cap', wake: 9 }); leader(gC, 0, -102); G.noVar = false;
+  const cv = dragGroup([['asir', -1, -99], ['mother', 1, -100], ['child', 0, -101], ['asir', -1, -102], ['elder', 1, -103]], [['askar', 0, -97]], { x: 0, z: -124 }, { speed: .95, near: 42, label: 'r_drag' });
+  page(9.6, -47); chest(-9.6, -50, 70);
+  live(); setMusic('calm'); await ban(3); mstart(); await say([['sa', 'f13a'], ['gu', 'v3d_13']]);
+  obj(t('v3o_1_3')); setMusic('battle'); const gt = gate(-128);
+  await clear(g1); H.hint('', 7, t('v3h_phal')); await until(() => p.z < -50 || G.mis.force); wake(ph); row.go = true; bark('sa', 'v3b_phal');
+  G.mis.aim = () => near(ph.es) || near(cv.hand); await until(() => alive(ph).length === 0 || G.mis.force); if (G.mis.force) for (const e of ph.es) if (!e.dead) e.die(); cp();
+  wake(gC); await until(() => (alive(gC).length === 0 && (cv.done || cv.freed || cv.hand.every(e => e.dead))) || G.mis.force); G.mis.aim = null; await until(() => enemies().length === 0 || G.mis.force);
+  gt.open(); setMusic('off'); await wait(1.4); await H.victory(); return win(); };
+// ---------- CHAPTER 2 ----------
+// 2-1 / 4-1 mounted chase: riders carry captives — catch them before they escape
+const rideCaps = (es, k = 2) => { es.forEach((f, i) => { if (i % 3 === k % 3) return; people([['asir', f.x, f.z]], { kind: 'ride', guards: [f], auto: true, T: 999, label: 'r_drag' }); }); G.mis.noResHud = false; };
+RUN['2-1'] = async () => { G.mis.onRide = es => rideCaps(es, 2); return OLD['2-1'](); };
+RUN['4-1'] = async () => { G.mis.onRide = es => rideCaps(es, 1); return OLD['4-1'](); };
+// 2-2 Bayimbet's trial: a non-lethal test duel in front of the camp — then raiders fall on the onlookers
+RUN['2-2'] = async () => { const { HOT } = H.moods;
+  const p = await gu(2, HOT, H.B[2], [], 3, 1); G.mis.safe = { x: 0, z: -14 };
+  const gA = post([['askar', -2.2, -62.6, 's'], ['askar', 1.6, -63.4, 's'], ['heavy', 5, -66], ['wolf', -7, -64, 'pz', 2], ['archer', -6, -70], ['archer', 6, -70], ['shaman', 0, -73]], { fire: [-.4, -64.4] }); leader(gA, 0, -67);
+  const A = arenaOf('bay', 0, -32, { crowd: [['asir', 4], ['elder', 2], ['mother', 2]] }); chest(9.4, -84, 80); page(-9.6, -46);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'x2a'], ['gu', 'x2b']]);
+  obj(t('v3o_2_2')); const mk = marker(0, -24); await H.reach(0, -24, 4); mk.remove();
+  const r = await champ('bay', 0, -32, { arena: A, after: 'stay', intro: [['ba', 'd_ba1'], ['gu', 'd_gu5'], ['ba', 'v3d_bay']] });
+  await say([['ba', 'v3d_bay2'], ['gu', 'd_gu6']]); H.objective('o_ambush');
+  // the twist: raiders burst in on the onlookers
+  const vil = people([['asir', -6, -36], ['elder', -5, -37.5], ['mother', 6, -36], ['child', 5, -37.5], ['asir', 0, -40]], { kind: 'bound', T: 40, auto: true, label: 'r_town' });
+  const am = rein([['wolf', -9, -30], ['wolf', 9, -30], ['askar', -9, -42], ['askar', 9, -42], ['wolf', 0, -46]], 'sa', 'bk_amb'); vil.guards = am; for (const e of am.slice(0, 3)) e.custom = raidAI(vil.ps);
+  setMusic('battle'); await dead(am); const g1 = gate(-90); gA.o.onWake = () => bark('sa', 'f13c'); await clear(gA);
+  await until(() => enemies().length === 0 || G.mis.force); g1.open(); setMusic('off'); await H.victory(); return win(); };
+// 2-3 Battle for the well: the freed people's caravan through the sandstorm (convoy code), raiders hold the well
+RUN['2-3'] = async () => OLD['2-3']();
+// ---------- CHAPTER 3 ----------
+// 3-1 Night camp: free the bound captives yurt by yurt; an alarm turns it into a big battle
+RUN['3-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: -10 };
+    [[-8.5, -62], [8.5, -104], [-8, -132]].forEach(([x, z], i) => { yurt(x + (x > 0 ? 1.8 : -1.8), z - 1.5, .9); people([['asir', x, z], ['mother', x + (x > 0 ? -1 : 1), z + .8], ['child', x, z + 1.6]], { kind: 'bound', T: 75 + i * 15, guardR: 12, near: 20, label: 'r_yurt' }); }); };
+  return OLD['3-3'](); };
+// 3-2 The slave caravan: armoured spearmen guard the roped line
+RUN['3-2'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: -12 }; G.noVar = true;
+    dragGroup([['asir', 4, -47], ['asir', 5, -48.2], ['mother', 4, -49.4], ['child', 5, -50.6]], [['nayza', 4.5, -44.5], ['nayza', 6, -45]], { x: G.W + 3, z: -66 }, { speed: .9, near: 26, label: 'r_drag' });
+    G.noVar = false; };
+  return OLD['3-1'](); };
+// 3-3 Hold the bridge: captives cross the river while boats land raiders from both banks; an archer commander on the ridge
+RUN['3-3'] = async () => { const { DAY } = H.moods;
+  const p = await gu(3, DAY, H.B[3], [], -30, 2); G.mis.safe = { x: 0, z: -20 };
+  const cr = people([['asir', -1, -84], ['mother', 1, -85], ['child', 0, -86], ['asir', -1, -87.5], ['elder', 1, -88.5], ['mother', 0, -90], ['child', -1, -91], ['asir', 1, -92]], { kind: 'walk', speed: .8, auto: true, safe: { x: 0, z: -26 }, label: 'r_walk' });
+  const cm = post([['archer', 9.2, -55], ['archer', 9.5, -61], ['archer', 9.2, -67]], { y: 1.3, label: 'v3c_arch', wake: 0, face: -Math.PI / 2 });
+  const boss = cm.es[1]; boss.maxHp = boss.hp = 700; boss.vs *= 1.35; boss.o.scale.setScalar(boss.vs); boss.d = { ...boss.d, name: 'v3c_arch' };
+  chest(-9.5, -44, 90);
+  setMusic('calm'); await ban(3); mstart(); await say([['gu', 'v3d_33']]); obj(t('v3o_3_3')); setMusic('battle');
+  G.mis.aim = () => { const al = cr.ps.filter(c => !c.dead && !c.lostP && !c.saved); const e = near(enemies().filter(e => al.some(c => hyp(c.x - e.x, c.z - e.z) < 14))); if (e) return e; if (!al.length) return near(enemies()); return { x: al[0].x, z: al[0].z }; };
+  let k = 0, nw = 4; const B = [[['askar', -11, 0], ['askar', -11, 3], ['wolf', -11, -3]], [['askar', 11, 0], ['heavy', 11, 3], ['archer', 11, -3]], [['wolf', -11, 0], ['wolf', 11, 2], ['askar', -11, 4], ['askar', 11, -2]], [['heavy', -11, 0], ['shaman', -11, 3], ['askar', 11, 1]], [['askar', -11, 0], ['askar', 11, 0], ['wolf', -11, 3], ['wolf', 11, 3], ['archer', 11, -3]]];
+  G.tick = dt => { cr.halt = enemies().some(e => cr.ps.some(c => !c.dead && hyp(c.x - e.x, c.z - e.z) < 3)); nw -= dt * FAST(); const al = cr.ps.filter(c => !c.dead && !c.lostP && !c.saved); if (nw <= 0 && k < B.length && al.length) { nw = 11; const z0 = al.reduce((s, c) => s + c.z, 0) / al.length; const es = rein(B[k].map(([ty, x, dz]) => [ty, x, z0 + dz]), 'gu', k % 2 ? 'v3b_boat' : null); es.forEach((e, i) => { if (i < 2) e.custom = raidAI(cr.ps); }); burst(-11, .5, z0, 0x88aacc, 3); burst(11, .5, z0, 0x88aacc, 3); if (k === 1) { wake(cm); setBoss(boss); bark('gu', 'v3b_arch'); } k++; } };
+  await until(() => (cr.done && enemies().length === 0) || G.mis.force); G.tick = null; setBoss(null);
+  setMusic('off'); await wait(1); await H.victory(); return win(); };
+// ---------- CHAPTER 4 ----------
+// 4-2 Ship deck: get the captives out of the hold, then duel the ship's captain on deck
+RUN['4-2'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: -60 };
+    people([['asir', 7.5, -88], ['mother', 8.5, -89.5], ['child', 7, -90.5], ['asir', 9, -91]], { kind: 'cage', T: 110, guardR: 11, near: 30, label: 'r_hold', exit: { x: G.W + 4, z: -96 } }); cageAt(8, -89.5); };
+  let A = null; const ol = G.mis.onLive; G.mis.onLive = () => { ol(); const dk = new THREE.Mesh(new THREE.BoxGeometry(16, .3, 16), new THREE.MeshStandardMaterial({ color: 0x5a3c22, roughness: .9 })); dk.position.set(0, .12, -102); dk.receiveShadow = true; world.add(dk); A = arenaOf('cap', 0, -102, { crowd: crowdOf(5, 3) }); };
+  G.mis.beforeWin = async () => {
+    await champ('cap', 0, -102, { arena: A, after: 'flee', intro: [['ot', 'v3d_cap'], ['gu', 'v3d_cap2']] }); await H.victory(); };
+  return OLD['4-2'](); };
+// 4-3 Wolf chieftain: the fishing village at dusk — save the villagers from the pack
+RUN['4-3'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: 0 };
+    people([['asir', -8, -42], ['mother', -9, -43.5], ['child', -7.5, -44.5]], { kind: 'bound', T: 50, guardR: 13, near: 28, label: 'r_fish' });
+    people([['elder', 8, -62], ['asir', 9, -60.5], ['child', 7.5, -61]], { kind: 'bound', T: 60, guardR: 12, near: 26, label: 'r_fish' });
+    people([['mother', -8, -96], ['child', -9, -97], ['asir', -7, -98]], { kind: 'bound', T: 60, guardR: 12, near: 24, label: 'r_fish', safe: { x: 0, z: -70 } }); };
+  return OLD['4-3'](); };
+// ---------- CHAPTER 5 ----------
+// 5-1 Pass ambush: carry the wounded maidens out under rockfall and archer fire
+RUN['5-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: -2 }; G.mis.hazard = rain(4.2, 'rock');
+    people([['qiz', -8, -40], ['qiz', -7, -41.5]], { kind: 'wound', T: 60, near: 26, label: 'r_wound' });
+    people([['qiz', 8, -58], ['qiz', 7, -60]], { kind: 'wound', T: 70, near: 26, label: 'r_wound' });
+    people([['qiz', -7.5, -80], ['qiz', -8.5, -82]], { kind: 'wound', T: 80, near: 26, label: 'r_wound', safe: { x: 0, z: -50 } });
+    post([['archer', -10.5, -50], ['archer', 10.5, -66], ['archer', -10.5, -86]], { y: 2, label: 'e_arch', wake: 18 }); };
+  const r = await OLD['5-1'](); G.mis.hazard = null; return r; };
+// 5-2 Sarbinaz alone: three Kalmyk champions, one after another; each holds a cage of captives his men will carry off
+RUN['5-2'] = async () => { const { DUSK } = H.moods;
+  const p = await sar(DUSK, H.B[5], ['jallod'], 3, 0); G.mis.safe = { x: 0, z: 0 };
+  chest(9.5, -84, 100); const AR = {}, CG = {};
+  for (const [k, z, cz] of [['ch1', -30, -40], ['ch2', -62, -72], ['ch3', -94, -104]]) { AR[k] = arenaOf(k, 0, z, { crowd: crowdOf(5, 2) }); cageAt(0, cz); CG[k] = people([['asir', -.6, cz], ['mother', .6, cz + .5], ['child', 0, cz - .6]], { kind: 'cage', T: 70, near: 15, guards: [AR[k].foe], label: 'r_cage', exit: { x: 0, z: cz - 30 } }); }
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'v3d_52']]);
+  for (const [k, z, cz] of [['ch1', -30, -40], ['ch2', -62, -72], ['ch3', -94, -104]]) {
+    obj(t('v3o_5_2')); const mk = marker(0, z + 6); G.mis.aim = () => ({ x: 0, z: z + 6 }); await H.reach(0, z + 6, 4.5); mk.remove(); G.mis.aim = null;
+    await champ(k, 0, z, { arena: AR[k], after: 'flee', intro: [['sa', 'v3d_' + k]] }); p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .4); }
+  setMusic('off'); await H.victory(); return win(); };
+// 5-3 Archer tower: shepherds are held in the pit under the tower; archers on top, a door at its foot
+RUN['5-3'] = async () => { const { DUSK } = H.moods;
+  const p = await sar(DUSK, H.B[5], [], 3, 4); G.mis.safe = { x: 0, z: -20 };
+  const tw = new THREE.Group(), sm = new THREE.MeshStandardMaterial({ color: 0x8a7a64, roughness: 1 }), wm = new THREE.MeshStandardMaterial({ color: 0x5a3c22, roughness: 1 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3.1, 6.2, 14), sm); body.position.y = 3.1; const pl = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.4, .35, 14), wm); pl.position.y = 6.3; tw.add(body, pl); for (const m of [body, pl]) { m.castShadow = m.receiveShadow = true; } tw.position.set(0, 0, -78); world.add(tw); G.colC.push({ x: 0, z: -78, r: 3.1 });
+  const door = doorAt(0, -74.7, 0, 520);
+  const top = post([['archer', -1.6, -77], ['archer', 1.6, -77], ['archer', 0, -79.4]], { y: 6.5, label: 'v3c_tow', wake: 26 });
+  const gA = post([['askar', -2, -42, 's'], ['askar', 2, -43, 's'], ['heavy', 0, -47], ['wolf', -6, -45, 'p', 2], ['archer', 7, -50]], { fire: [0, -44] });
+  const gB = post([['askar', -4, -68], ['askar', 4, -68], ['heavy', 0, -70], ['shaman', -6, -72]], { label: 'mb_cap', wake: 12 }); leader(gB, 3, -71);
+  const sh = people([['asir', -1.2, -73], ['elder', 0, -72.5], ['asir', 1.2, -73], ['child', 0, -73.6]], { kind: 'cage', T: 120, near: 40, label: 'r_tower', exit: { x: -G.W - 4, z: -90 } }); cageAt(0, -73.1); sh.guards = [...top.es, ...gB.es]; sh.door = door;
+  chest(-9.5, -60, 100); setMusic('calm'); await ban(3); mstart(); await say([['sa', 'v3d_53']]);
+  obj(t('v3o_5_3')); setMusic('battle'); const g0 = gate(-96); await clear(gA); H.hint('', 6, t('v3h_tow'));
+  G.mis.aim = () => door.dead ? near([...top.es, ...gB.es]) : { x: 0, z: -73 };
+  await until(() => door.dead || G.mis.force); if (!door.dead) door.shatter(); for (const e of top.es) if (!e.dead) { e.y = 0; e.z = -73; e.x += (Math.random() - .5) * 3; burst(e.x, 3, e.z, 0x9a8a70, 2); } bark('sa', 'v3b_tow');
+  await until(() => enemies().length === 0 || G.mis.force); G.mis.aim = null; g0.open(); setMusic('off'); await wait(1); await H.victory(); return win(); };
+// ---------- CHAPTER 6 ----------
+// 6-1 Narrow streets: townsfolk locked in burning houses, one after another; attacks from every side street
+RUN['6-1'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: 0 };
+    [[-9.3, -30, 55], [9.3, -54, 65], [-9.3, -78, 70], [9.3, -100, 80]].forEach(([x, z, T0]) => { const d = doorAt(x - Math.sign(x) * .6, z, Math.PI / 2, 260); fire(x + Math.sign(x) * .6, z - 1.6, .9);
+      people([['mother', x + Math.sign(x) * 1.2, z - .8], ['child', x + Math.sign(x) * 1.4, z + .6], ['asir', x + Math.sign(x) * 1.1, z + 1.6]], { kind: 'fire', T: T0, door: d, near: 22, label: 'r_house', face: -Math.sign(x) * Math.PI / 2 }); }); };
+  return OLD['6-1'](); };
+// 6-2 Gate siege under arrow and fire rain (the old gate mission), people locked in the burning quarter behind it
+RUN['6-2'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: -104 }; G.mis.hazard = rain(3.6, 'fire');
+    people([['mother', 4, -128], ['child', 5, -129], ['asir', 3, -129.5], ['elder', 6, -128.5]], { kind: 'fire', T: 150, guardR: 16, near: 34, label: 'r_house' }); };
+  const r = await OLD['6-3'](); G.mis.hazard = null; return r; };
+// 6-3 Cages: the chain champion guards the cages; open them before the captives are carried off
+RUN['6-3'] = async () => { const { DAY } = H.moods;
+  const p = await gu(6, DAY, H.B[6], ['sarbinaz', 'jallod'], -60, 5, 4, SAR6); G.mis.safe = { x: 0, z: -62 };
+  const C = [[-7, -84, 70], [7, -98, 85], [-6, -112, 100]].map(([x, z, T0]) => { cageAt(x, z); const g = post([['askar', x + (x > 0 ? -3 : 3), z + 1.5], ['archer', x + (x > 0 ? -1 : 1), z - 3], ['wolf', x + (x > 0 ? -4 : 4), z - 1, 'p', 1.5]], { label: 'r_cage', wake: 11 });
+    return people([['asir', x - .6, z], ['mother', x + .6, z + .4], ['child', x, z - .6]], { kind: 'cage', T: T0, guards: g, near: 32, raid: 0, label: 'r_cage', exit: { x: x > 0 ? G.W + 4 : -G.W - 4, z: z - 12 } }); });
+  const b = preBoss('jallod', 0, -100, 'v3c_chain'); b.maxHp = b.hp = 3200; b.vs *= .82; b.o.scale.setScalar(b.vs); b.d = { ...b.d, name: 'v3c_chain' }; chest(9.4, -124, 110);
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'v3d_63']]); obj(t('v3o_6_3')); setMusic('battle'); const g0 = gate(-124);
+  await until(() => p.z < -88 || b.hp < b.maxHp || G.mis.force); b.asleep = false; b.custom = H.bossBrain({ dmg: 36, every: 2.8, moves: ['charge', 'quake', 'charge'], col: 0xaa3322 }); G.mis.preBoss = null; setBoss(b); setMusic('boss'); Sfx.horn(); bark('sa', 'v3b_chain');
+  G.mis.aim = () => near([b, ...C.flatMap(g => g.guards)]); await until(() => (b.dead && enemies().length === 0) || G.mis.force); if (!b.dead) b.die(); setBoss(null); G.mis.aim = null;
+  g0.open(); setMusic('off'); await wait(1); await H.victory(); return win(); };
+// ---------- CHAPTER 7 ----------
+// 7-2 Circle of shamans: captives are bound at the totems for the sacrifice — break the totems in time
+RUN['7-2'] = async () => { G.mis.onLive = () => { G.mis.safe = { x: 0, z: 0 };
+    [[-7, -40, 60], [7, -58, 75], [-7, -80, 90], [7, -98, 105]].forEach(([x, z, T0]) => { const s = x > 0 ? -1 : 1; people([['asir', x + s * 1.6, z + 2.6], ['mother', x + s * 2.6, z + 1.8]], { kind: 'altar', T: T0, guardR: 7, near: 26, label: 'r_altar' }); }); };
+  return OLD['7-3'](); };
+// 7-3 Surtaysha's three wolf-champions: arena duels in a row (each holds captives his pack will drag away)
+RUN['7-3'] = async () => { const { NIGHT } = H.moods;
+  const p = await gu(7, NIGHT, H.B[7], ['sarbinaz', 'otbasqan'], 3, 6, 3, { ...ALL7, tod: 'night' }); G.mis.safe = { x: 0, z: 2 };
+  chest(9.5, -48, 120); const AR = {};
+  for (const [k, z, cz] of [['w1', -32, -43], ['w2', -64, -75], ['w3', -96, -107]]) { AR[k] = arenaOf(k, 0, z, { crowd: [['wolf', 5], ['askar', 3]] }); cageAt(0, cz); people([['asir', -.6, cz], ['mother', .6, cz + .5], ['child', 0, cz - .6]], { kind: 'cage', T: 75, near: 15, guards: [AR[k].foe], label: 'r_cage', exit: { x: 0, z: cz - 30 } }); }
+  setMusic('calm'); await ban(3); mstart(); await say([['sa', 'v3d_73'], ['gu', 'v3d_73b']]);
+  for (const [k, z, cz] of [['w1', -32, -43], ['w2', -64, -75], ['w3', -96, -107]]) {
+    obj(t('v3o_7_3')); const mk = marker(0, z + 6); G.mis.aim = () => ({ x: 0, z: z + 6 }); await H.reach(0, z + 6, 4.5); mk.remove(); G.mis.aim = null;
+    const r = await champ(k, 0, z, { arena: AR[k], after: k === 'w3' ? 'fight' : 'flee', intro: [['gu', 'v3d_' + k]] }); if (r.es && r.es.length) { setMusic('battle'); obj(t('v3o_7_3')); await dead(r.es); } p.hp = Math.min(p.maxHp, p.hp + p.maxHp * .35); }
+  setMusic('off'); await H.victory(); return win(); };
+// ---------- intro fly-over points: the real posted groups / bosses of the running mission (map.js flyFor) ----------
+export const INTRO_M = {};
+export function flyPoints() { const gs = ((G.mis && G.mis.groups) || []).filter(g => !g.o || !g.o.nofly); if (!gs.length) return null; gs.sort((a, b) => b.z - a.z);
+  let pick = gs; if (gs.length > 5) { const keep = new Set(gs.filter(g => g.boss)); keep.add(gs[0]); keep.add(gs[gs.length - 1]); for (let i = 1; keep.size < 5 && i < gs.length - 1; i += Math.max(1, Math.round(gs.length / 4))) keep.add(gs[i]); pick = gs.filter(g => keep.has(g)); }
+  return pick.map(g => { const b = g.boss; return { x: b ? b.x : g.x, z: b ? b.z : g.z, g, label: t(g.label), boss: !!b, name: b ? t(g.bossName || b.d.name || g.label) : '', img: g.img || null, chap: !!g.chapBoss, big: b && b.d.heavy }; }); }
+export const flyStart = on => { G.flying = !!on; };
