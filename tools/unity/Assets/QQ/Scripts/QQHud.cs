@@ -163,7 +163,7 @@ public class QQHud : MonoBehaviour
         var pt = Resources.Load<Texture2D>("ui/portrait_gulayim");
         if (pt) { float side = Mathf.Min(pt.width, pt.height) * .62f; Img(Rect(pm, "p", new Vector2(.5f, .5f), Vector2.zero, new Vector2(80, 80)), Sprite.Create(pt, new Rect((pt.width - side) * .5f, pt.height - side - pt.height * .06f, side, side), new Vector2(.5f, .5f)), Color.white); }
         Img(Rect(hero, "pframe", new Vector2(.5f, .5f), Vector2.zero, new Vector2(104, 112)), Art("pframe"), Color.white);
-        Txt(Rect(root, "name", new Vector2(0, 1), new Vector2(268, -50), new Vector2(240, 30)), "Gúlayım", Display, 26, TextAnchor.MiddleLeft, GOLD_L);
+        Txt(Rect(root, "name", new Vector2(0, 1), new Vector2(268, -50), new Vector2(240, 30)), "Guloyim", Display, 26, TextAnchor.MiddleLeft, GOLD_L);
         hpFill = Bar(root, "hp", new Vector2(0, 1), new Vector2(268, -82), new Vector2(240, 20), C(0xd23a2c), out hpLag);
 
         // ---- objective plate (top centre) ----
@@ -200,7 +200,7 @@ public class QQHud : MonoBehaviour
         var atk = Action("Hujum", "Hujum", new Vector2(-150, 150), 168, Enamel("red", C(0xff8a6a), CARN, C(0x6a0d0a)), Icon(0, 0));
         var ev = atk.gameObject.AddComponent<QQPress>(); ev.down = () => { if (QQPlayer.I) QQPlayer.I.AttackDown(); }; ev.up = () => { if (QQPlayer.I) QQPlayer.I.AttackUp(); };
         var dg = Action("Chetlan", "Chetlan", new Vector2(-345, 92), 112, Enamel("blue", C(0x3a4690), C(0x1d2556), C(0x0e1126)), Icon(1, 1)); dodgeFill = Cooldown(dg, .86f);
-        dg.gameObject.AddComponent<QQPress>().down = () => { if (QQPlayer.I) QQPlayer.I.Dodge(); };
+        var dp = dg.gameObject.AddComponent<QQPress>(); dp.down = () => { if (QQPlayer.I) QQPlayer.I.DodgeDown(); }; dp.up = () => { if (QQPlayer.I) QQPlayer.I.DodgeUp(); };
         var am = Action("Tumor", "Tumor", new Vector2(-132, 352), 112, Enamel("blue", C(0x3a4690), C(0x1d2556), C(0x0e1126)), Icon(3, 2));
         var gl = Rect(am, "glow", new Vector2(.5f, .5f), Vector2.zero, new Vector2(200, 200)); amuletGlow = Img(gl, Glow(), new Color(1f, .75f, .25f, 0)); gl.SetAsFirstSibling();
         amuletCd = Cooldown(am, .86f);
@@ -208,6 +208,21 @@ public class QQHud : MonoBehaviour
         var ar = Rect(am, "gauge", new Vector2(.5f, .5f), Vector2.zero, new Vector2(112, 112)); amuletRing = Img(ar, GoldRing(.86f), Color.white);
         amuletRing.type = Image.Type.Filled; amuletRing.fillMethod = Image.FillMethod.Radial360; amuletRing.fillOrigin = (int)Image.Origin360.Top; amuletRing.fillClockwise = true;
         am.gameObject.AddComponent<QQPress>().down = () => { if (QQPlayer.I) QQPlayer.I.Amulet(); };
+
+        // ---- settings: gear (top right) -> music / effects volume, resume ----
+        var gb = Rect(root, "gear", new Vector2(1, 1), new Vector2(-40, -40), new Vector2(54, 54)); var gbi = Img(gb, Enamel("blue", C(0x3a4690), C(0x1d2556), C(0x0e1126)), Color.white); gbi.raycastTarget = true;
+        Img(Rect(gb, "ring", new Vector2(.5f, .5f), Vector2.zero, new Vector2(54, 54)), GoldRing(.84f), Color.white);
+        Txt(Rect(gb, "g", new Vector2(.5f, .5f), new Vector2(0, 1), new Vector2(54, 54)), "≡", UiBold, 30, TextAnchor.MiddleCenter, GOLD_L);
+        var sp0 = Rect(root, "settings", new Vector2(.5f, .5f), Vector2.zero, new Vector2(560, 360)); settings = sp0.gameObject;
+        Img(sp0, Art("pnl_dark", new Vector4(80, 80, 80, 80)), Color.white, true, 1.1f).raycastTarget = true;
+        Txt(Rect(sp0, "t", new Vector2(.5f, 1), new Vector2(0, -56), new Vector2(500, 60)), "Sozlamalar", Display, 44, TextAnchor.MiddleCenter, C(0xf8dc92));
+        musicFill = VolumeRow(sp0, "Musiqa", -140, () => QQFeel.musicVol, v => { QQFeel.SetVolumes(v, QQFeel.sfxVol); });
+        sfxFill = VolumeRow(sp0, "Ovozlar", -210, () => QQFeel.sfxVol, v => { QQFeel.SetVolumes(QQFeel.musicVol, v); });
+        var rs = Rect(sp0, "resume", new Vector2(.5f, 0), new Vector2(0, 58), new Vector2(300, 62)); Img(rs, Art("btn_red", new Vector4(72, 0, 72, 0)), Color.white, true, 120f / 62f).raycastTarget = true;
+        Txt(Rect(rs, "l", new Vector2(.5f, .5f), new Vector2(0, 2), new Vector2(280, 56)), "Davom etish", Display, 28, TextAnchor.MiddleCenter, CREAM);
+        rs.gameObject.AddComponent<QQPress>().down = () => ShowSettings(false);
+        gb.gameObject.AddComponent<QQPress>().down = () => ShowSettings(!settings.activeSelf);
+        settings.SetActive(false);
 
         // ---- end panel ----
         var ep = Rect(root, "end", new Vector2(.5f, .5f), Vector2.zero, new Vector2(820, 560)); endPanel = ep.gameObject;
@@ -256,7 +271,7 @@ public class QQHud : MonoBehaviour
     }
 
     static readonly System.Collections.Generic.Dictionary<string, (string name, string img)> SPEAKERS = new System.Collections.Generic.Dictionary<string, (string, string)> {
-        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") }, { "qumdevi", ("Qum devi", "ui/por_qumdevi") }, { "jallod", ("Jallod", "ui/por_jallod") }, { "otbasqan", ("O'tbosqan", "ui/por_otbasqan") } };
+        { "gulayim", ("Guloyim", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sarbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qashqir", "ui/por_qashqir") }, { "qumdevi", ("Qum devi", "ui/por_qumdevi") }, { "jallod", ("Jallod", "ui/por_jallod") }, { "otbasqan", ("O'tbosqan", "ui/por_otbasqan") } };
     public static void Say(string who, string text)
     {
         if (!I) return; skip = false;
@@ -276,6 +291,24 @@ public class QQHud : MonoBehaviour
     public static void Title(string small, string big) { if (!I) return; I.titleSmall.text = small; I.titleBig.text = big; I.titleT = 3.4f; }
     public static void Hint(string s) { if (I) { I.toastT = 0; Toast(s, 3.5f); } }
 
+    GameObject settings; Image musicFill, sfxFill; float savedScale = 1f;
+    void ShowSettings(bool on)
+    {
+        if (on == settings.activeSelf) return; settings.SetActive(on);
+        if (on) { savedScale = Time.timeScale; Time.timeScale = 0f; QQFeel.Paused = true; } else { QQFeel.Paused = false; Time.timeScale = 1f; }
+        RefreshVolumes();
+    }
+    void RefreshVolumes() { if (musicFill) musicFill.fillAmount = QQFeel.musicVol; if (sfxFill) sfxFill.fillAmount = QQFeel.sfxVol; }
+    // a volume row: label, a gold bar you tap / drag along (0..1)
+    Image VolumeRow(RectTransform parent, string label, float y, System.Func<float> get, System.Action<float> set)
+    {
+        Txt(Rect(parent, label, new Vector2(0, 1), new Vector2(120, y), new Vector2(160, 40)), label, UiBold, 22, TextAnchor.MiddleLeft, PARCH);
+        var bar = Rect(parent, label + "_bar", new Vector2(0, 1), new Vector2(360, y), new Vector2(300, 26)); var bi = Img(bar, INK); bi.raycastTarget = true; Hair(bar);
+        var f = Img(Rect(bar, "f", new Vector2(.5f, .5f), Vector2.zero, new Vector2(292, 18)), C(0xe8bd62)); f.type = Image.Type.Filled; f.fillMethod = Image.FillMethod.Horizontal; f.fillAmount = get();
+        var sl = bar.gameObject.AddComponent<QQSlider>(); sl.onValue = v => { set(v); f.fillAmount = v; };
+        return f;
+    }
+
     public static void Objective(string s) { if (I) { I.objective.text = s; I.objPlate.SetActive(!string.IsNullOrEmpty(s)); } }
     public static void Toast(string s, float dur = 1.6f) { if (I && I.toastT < 2f) { I.toast.text = s; I.toastT = dur; } }
     // first-time hints for the new mechanics (shown once per install)
@@ -283,7 +316,7 @@ public class QQHud : MonoBehaviour
     public static void End(bool win, string sub)
     {
         if (!I) return; I.endPanel.SetActive(true); I.endTitle.text = win ? "G'alaba!" : "Mag'lubiyat"; I.endTitle.color = win ? C(0xf8dc92) : C(0xff8a6a);
-        foreach (var n in new[] { "joy", "Hujum", "Chetlan", "Tumor", "chain", "boss", "toast" }) { var c = I.root.Find(n); if (c) c.gameObject.SetActive(false); }
+        foreach (var n in new[] { "joy", "Hujum", "Chetlan", "Tumor", "chain", "boss", "toast", "gear" }) { var c = I.root.Find(n); if (c) c.gameObject.SetActive(false); }
         I.endSub.text = sub; I.againTxt.text = win ? "Keyingi jang" : "Qaytadan"; I.RefreshShop();
     }
     void RefreshShop()
@@ -312,7 +345,7 @@ public class QQHud : MonoBehaviour
         }
         if (QQPlayer.I)
         {
-            float a = QQPlayer.I.AmuletReady; amuletRing.fillAmount = a; amuletCd.fillAmount = 1 - a; dodgeFill.fillAmount = 1 - QQPlayer.I.DodgeReady;
+            float a = QQPlayer.I.AmuletReady; amuletRing.fillAmount = a; amuletCd.fillAmount = 1 - a; dodgeFill.fillAmount = QQPlayer.I.Guarding ? 1 - QQPlayer.I.Stamina : 1 - QQPlayer.I.DodgeReady;
             amuletGlow.color = new Color(1f, .75f, .25f, a >= 1f ? .55f + .25f * Mathf.Sin(Time.unscaledTime * 5f) : 0f);
         }
         if (toastT > 0) { toastT -= dt; toastCg.alpha = Mathf.Clamp01(toastT * 3f); } else toastCg.alpha = 0;

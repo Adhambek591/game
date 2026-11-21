@@ -3,7 +3,7 @@ using UnityEngine;
 
 public class QQCam : MonoBehaviour
 {
-    public Transform target; Vector3 cur; public float height = 7.4f, back = 13.4f, lookY = 1.4f;
+    public Transform target; Vector3 cur; public float height = 12.5f, back = 9.5f, lookY = .8f;   // ~53 deg: Call of Dragons / Diablo Immortal angle
     public static float shake, debugZoom = 1f; float zoom, lift;
     public float yaw;   // 180 in the chapter street, which runs toward -z
 

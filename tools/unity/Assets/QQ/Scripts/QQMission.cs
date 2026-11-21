@@ -141,7 +141,7 @@ public class QQMission : MonoBehaviour
     IEnumerator RunCh3()
     {
         QQFeel.Music("calm", .6f); A.running = false; wallZ = -104f; amuletLocked = false; QQFeel.Ambience("amb_river", .5f);
-        if (A.sarbinaz) Ally(A.sarbinaz, "Sárbinaz", new Vector3(-2f, 0, 5f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
+        if (A.sarbinaz) Ally(A.sarbinaz, "Sarbinaz", new Vector3(-2f, 0, 5f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
         for (int i = 0; i < 2 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", new Vector3(-3f + i * 3f, 0, 7f), 300, 16, 1.7f, A.saber);
         foreach (var u in Unit.All) { var ai = u.GetComponent<QQAI>(); if (u.team == 0 && u != P && ai) ai.enabled = false; }   // the maidens wait at the edge while she scouts
         // sentries by the fires, facing the street at different angles
@@ -217,7 +217,7 @@ public class QQMission : MonoBehaviour
         QQArena.Look(cgo, null);
         cart = root.AddComponent<Unit>(); cart.team = 0; cart.maxHp = cart.hp = 1500; cart.radius = 1.7f; cart.anchored = true; cart.displayName = "Karvon"; QQHud.Escort = cart;
         for (int i = 0; i < 3; i++) { var w = A.Spawn(i == 1 && A.ona ? A.ona : A.yigit, root.transform.position + new Vector3(i % 2 == 0 ? -1.4f : 1.4f, 0, 3.2f + (i / 2) * 1.6f), 0, 100, 1, i == 1 ? 1.65f : 1.78f, null, "xalq"); w.isCaptive = true; w.inv = 9999; walkers.Add(w); }
-        if (A.sarbinaz) Ally(A.sarbinaz, "Sárbinaz", new Vector3(-2f, 0, 2f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
+        if (A.sarbinaz) Ally(A.sarbinaz, "Sarbinaz", new Vector3(-2f, 0, 2f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
         for (int i = 0; i < 3 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", new Vector3(-4f + i * 3f, 0, 4.5f), 300, 16, 1.7f, A.saber);
         int gR = Post(Ar(9f, -60f), Ar(9.6f, -63.5f), Ar(9.2f, -67f), Ar(9.7f, -70.5f), S(6.2f, -62f), S(6f, -68f));      // archers on the ridge
         foreach (var u in Unit.All) if (u.group == gR) { u.transform.rotation = Quaternion.LookRotation(Vector3.left); u.wakeR = 0f; }
@@ -285,6 +285,9 @@ public class QQMission : MonoBehaviour
         QQFeel.Music("calm", .7f); A.running = false; wallZ = -30f; amuletLocked = true;
         Captive(new Vector3(-8f, 0, -11f)); Captive(new Vector3(8.5f, 0, -42f)); Captive(new Vector3(-8f, 0, -76f)); Captive(new Vector3(7.5f, 0, -92f));
         if (A.ona) { var mo = A.Spawn(A.ona, new Vector3(2f, 0, -22f), 0, 100, 1, 1.65f, null, "Ona"); mo.isCaptive = true; mo.inv = 9999; mo.transform.rotation = Quaternion.LookRotation(Vector3.forward); }
+        // her forty maidens are always with her (author): Sarbinaz and the maidens come into Sarkop behind her
+        if (A.sarbinaz) Ally(A.sarbinaz, "Sarbinaz", new Vector3(-2.5f, 0, 6.5f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
+        for (int i = 0; i < 4 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", new Vector3(-4.5f + i * 3f, 0, 8.5f + (i % 2)), 300, 16, 1.7f, A.saber);
         int g0 = Post(S(4.5f, -14f));                                                                         // a lone looter in the first street
         int gA = Post(S(-2.2f, -46f), S(1.4f, -47f), S(5f, -50f), Ar(-7f, -54f), Ar(7f, -54f));               // guard post behind gate 1
         int gC = Post(S(-6f, -84f), S(6f, -84f), S(-3f, -88f), S(3f, -88f), S(0f, -91f), Ar(-8f, -93f), Ar(8f, -93f));   // the horde's camp
@@ -308,12 +311,9 @@ public class QQMission : MonoBehaviour
         int r1 = March(new Vector3(0, 0, -62f), 4, 1); QQHud.Toast("Yana kelishyapti!"); yield return Clear(r1);
         yield return OpenGate(1, -100f); QQFeel.Music("calm", .7f); QQHud.Objective("Oldinga boring");
         yield return Reach(new Vector3(0, 0, -68f), 4f);
-        // Sárbinaz and the maidens ride in from behind (they were following from Qıran)
-        var bz = P.transform.position + Vector3.forward * 16f;
-        if (A.sarbinaz) Ally(A.sarbinaz, "Sárbinaz", bz, 420, 22, 1.74f, A.spear ? A.spear : A.saber);
-        for (int i = 0; i < 3 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", bz + new Vector3(-3 + i * 3, 0, 2), 300, 16, 1.7f, A.saber);
-        yield return new WaitForSeconds(2.2f);
-        yield return Say(("sarbinaz", "Guloyim! Qirq qiz hamisha yoningda. Biz ham ota-onamiz uchun qasos olamiz!"), ("gulayim", "Unda otlaning, qizlar! Sarkopning qasosini birga olamiz, Sárbinaz."));
+        // the maidens gather round before the horde's camp
+        yield return new WaitForSeconds(1.2f);
+        yield return Say(("sarbinaz", "Guloyim! Qirq qiz hamisha yoningda. Biz ham ota-onamiz uchun qasos olamiz!"), ("gulayim", "Unda otlaning, qizlar! Sarkopning qasosini birga olamiz, Sarbinaz."));
         QQFeel.Music("battle", .8f); QQHud.Objective("Dushman to'dasini yenging"); Unit.WakeGroup(gC);
         while (Unit.CountGroup(gC) > 4) { if (P.Dead) yield break; yield return null; }
         QQHud.Toast("Orqamizdan hujum qilishyapti!", 2.5f); int rb = March(P.transform.position + Vector3.forward * 18f, 3, 0);

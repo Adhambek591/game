@@ -15,18 +15,42 @@ public class QQPlayer : MonoBehaviour
     Unit u; int combo; float comboT, holdT, amuletCd, dodgeCd, volleyCd, strikeAt = -1; bool holding, spinning; Vector3 rollDir; float rollT;
     Unit lungeTo; float lungeT, bufT, amuletAt = -1; Unit lastTarget;
     public int Chain { get; private set; }   // hits in a row without being hit (HUD combo counter)
+    // Witcher-style guard on the same button (author: 3 buttons): tap = dodge, press on a gold mark = counter, HOLD = block
+    public bool Guarding { get { return u && u.guarding; } }
+    public float Stamina { get; private set; } = 1f;
+    float dodgeHeld = -1f; bool dodgeDown;
+    public void DodgeDown()
+    {
+        if (u.Dead || !QQArena.I.running) return; dodgeDown = true; dodgeHeld = 0f;
+        foreach (var o in Unit.All) if (o.team == 1 && !o.Dead && o.telegraph > 0 && o.swingAt == u && !o.unblockable && (o.transform.position - transform.position).sqrMagnitude < 4.2f * 4.2f) { dodgeDown = false; Dodge(); return; }   // counter at once
+    }
+    public void DodgeUp()
+    {
+        if (!dodgeDown) return; dodgeDown = false;
+        if (u.guarding) { u.guarding = false; u.rig.Play("combat", .15f); return; }
+        if (dodgeHeld < .2f) Dodge();
+    }
+    float Guard(float d, Unit from, bool heavy)
+    {
+        Vector3 to = from ? from.transform.position - transform.position : transform.forward; to.y = 0;
+        if (Vector3.Dot(transform.forward, to.normalized) < .2f) return d;                                  // from behind: no block
+        if (heavy || Stamina < .08f) { u.guarding = false; Stamina = 0; u.stun = .7f; u.rig.Play("hit2", .05f, false, true); QQHud.Toast("Himoya buzildi!"); QQFeel.Sfx("v_block", null, 1f, 0); return d * .6f; }   // red blows break the guard
+        Stamina -= d / 140f; QQFeel.Sfx("clash", transform.position, .8f); QQFx.Spark(transform.position + Vector3.up * 1.3f + transform.forward * .5f, new Color(1f, .9f, .6f)); u.rig.Play("block", .04f, false, true);
+        return d * .15f;
+    }   // hits in a row without being hit (HUD combo counter)
     public int BestChain { get; private set; }
     float chainT;
     static float AMULET_CD { get { return 14f - QQProgress.AmuletCdCut; } }
     public float AmuletReady { get { return 1f - Mathf.Clamp01(amuletCd / AMULET_CD); } }
     public float DodgeReady { get { return 1f - Mathf.Clamp01(dodgeCd / .6f); } }
+    int slashSide = 1;
     enum Strike { None, Combo, Finisher, Spin }
     Strike pending; bool hitThisStrike;
 
     void Awake() { I = this; }
     void Start()
     {
-        u = GetComponent<Unit>(); u.isPlayer = true; if (u.rig) u.rig.desync = false; amuletCd = AMULET_CD * .5f;
+        u = GetComponent<Unit>(); u.isPlayer = true; if (u.rig) u.rig.desync = false; u.onGuard = Guard; amuletCd = AMULET_CD * .5f;
         u.onHit = (from, d) => { if (Chain >= 12) QQHud.Toast("Kombo uzildi"); Chain = 0; };
     }
 
@@ -143,7 +167,7 @@ public class QQPlayer : MonoBehaviour
         }
         float wind = fin ? .34f : combo % 4 == 1 ? .26f : .2f, rec = fin ? .42f : .3f;   // impact lands on the clip's measured hit frame
         u.rig.PlaySeg(seq[combo % 4], wind, rec, .05f); u.busy = wind + rec * .5f; comboT = 1.1f; combo++;
-        pending = fin ? Strike.Finisher : Strike.Combo; strikeAt = wind; hitThisStrike = false;
+        pending = fin ? Strike.Finisher : Strike.Combo; strikeAt = wind; hitThisStrike = false; slashSide = combo % 2 == 0 ? 1 : -1;
         QQFeel.Sfx(fin ? "v_swing" : "swing", null, .7f);
     }
 
@@ -151,8 +175,14 @@ public class QQPlayer : MonoBehaviour
     {
         if (u.Dead) return;
         float dt = Time.deltaTime;
+        { var kb = Keyboard.current; var ms = Mouse.current;   // dodge / guard button: read every frame, also while busy (press = buffered dodge or counter, hold = guard)
+          if ((kb != null && kb.spaceKey.wasPressedThisFrame) || (ms != null && ms.rightButton.wasPressedThisFrame)) DodgeDown();
+          if ((kb != null && kb.spaceKey.wasReleasedThisFrame) || (ms != null && ms.rightButton.wasReleasedThisFrame)) DodgeUp(); }
         amuletCd -= dt; dodgeCd -= dt; comboT -= dt; volleyCd -= dt;
         if (chainT > 0) { chainT -= dt; if (chainT <= 0) Chain = 0; }
+        if (dodgeDown) { dodgeHeld += dt; if (dodgeHeld >= .2f && !u.guarding && u.busy <= .1f && rollT <= 0 && Stamina > .1f) { u.guarding = true; u.rig.Play("block", .08f, false, true); } }
+        if (!u.guarding) Stamina = Mathf.Min(1f, Stamina + dt * .25f);
+        if (u.guarding) { var nf = Unit.Nearest(transform.position, 1, 8f); if (nf) u.Face(nf.transform.position - transform.position, 10f); if (Stamina <= 0) u.guarding = false; return; }   // holds still, faces the nearest foe
         if (amuletAt >= 0) { amuletAt -= dt; if (amuletAt < 0) {
             QQFx.Ring(transform.position, new Color(1f, .8f, .3f), 7f); QQFx.Flash(); QQFeel.HitStop(.12f); QQCam.shake = 1.2f;
             foreach (var o in Unit.All.ToArray()) if (o.team == 1 && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 49f) o.Hit(u.dmg * 3.5f, u, true); } }
@@ -169,12 +199,18 @@ public class QQPlayer : MonoBehaviour
             u.Face(d, 40f);
         }
 
+        // during a swing keep the chest on the foe (author: fight facing the enemy, not sideways)
+        if (u.busy > 0 && rollT <= 0 && lastTarget && !lastTarget.Dead) { Vector3 tf = lastTarget.transform.position - transform.position; tf.y = 0; if (tf.sqrMagnitude < 36f) u.Face(tf, 18f); }
         if (strikeAt >= 0)
         {
             strikeAt -= dt;
             if (strikeAt < 0)
             {
                 int hits = 0;
+                // the crescent arc of the blow (reference ARPGs' signature effect)
+                if (pending == Strike.Spin) QQSlash.Spawn(transform, new Color(.45f, .9f, 1f), 340, 2.3f, 0, 1, .9f);
+                else if (pending == Strike.Finisher) QQSlash.Spawn(transform, new Color(1f, .78f, .3f), 200, 2.2f, -55f, slashSide, 1.2f);
+                else QQSlash.Spawn(transform, new Color(.75f, .88f, 1f), 150, 1.9f, slashSide * 18f, slashSide, 1.15f);
                 foreach (var o in Unit.All.ToArray())
                 {
                     if (o.team != 1 || o.Dead) continue; Vector3 d = o.transform.position - transform.position; d.y = 0;
@@ -200,11 +236,10 @@ public class QQPlayer : MonoBehaviour
         var k = Keyboard.current;
         if (k != null)
         {
-            if (k.spaceKey.wasPressedThisFrame) Dodge();
             if (k.eKey.wasPressedThisFrame) Amulet();
             if (k.jKey.wasPressedThisFrame) AttackDown(); if (k.jKey.wasReleasedThisFrame) AttackUp();
         }
-        var m = Mouse.current; if (m != null && !QQHud.PointerOverUI) { if (m.leftButton.wasPressedThisFrame) AttackDown(); if (m.leftButton.wasReleasedThisFrame) AttackUp(); if (m.rightButton.wasPressedThisFrame) Dodge(); }
+        var m = Mouse.current; if (m != null && !QQHud.PointerOverUI) { if (m.leftButton.wasPressedThisFrame) AttackDown(); if (m.leftButton.wasReleasedThisFrame) AttackUp(); }
 
         if (mv.sqrMagnitude > .02f)
         {
@@ -225,7 +260,6 @@ public class QQPlayer : MonoBehaviour
         if (u.busy > 0 || rollT > 0)
         {
             var k = Keyboard.current; var m = Mouse.current;
-            if ((k != null && k.spaceKey.wasPressedThisFrame) || (m != null && m.rightButton.wasPressedThisFrame)) { if (rollT <= 0) Dodge(); }
             if ((k != null && k.jKey.wasPressedThisFrame) || (m != null && !QQHud.PointerOverUI && m.leftButton.wasPressedThisFrame)) AttackDown();
             if ((k != null && k.jKey.wasReleasedThisFrame) || (m != null && m.leftButton.wasReleasedThisFrame)) AttackUp();
         }

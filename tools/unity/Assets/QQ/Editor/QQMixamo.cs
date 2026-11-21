@@ -95,6 +95,7 @@ public static class QQMixamo
         var avatar = AvatarBuilder.BuildHumanAvatar(go, hd); Object.DestroyImmediate(tp);
         if (!avatar.isValid || !avatar.isHuman) { Debug.LogError("QQ MIXAMO avatar invalid"); return; }
         var anim = go.AddComponent<Animator>(); anim.avatar = avatar; anim.applyRootMotion = false;
+        Vector3 r0 = B["RightUpLeg"].position - B["LeftUpLeg"].position; r0.y = 0; Vector3 fwd0 = Vector3.Cross(r0.normalized, Vector3.up);   // the character's forward at bind
 
         var sb = new StringBuilder(); sb.Append("LIB2\nHIPSY ").Append(F(hipsBindY)).Append('\n');
         foreach (var n in BODY) { var q = Conv(bindLocal[n]); sb.Append("REST ").Append(n).Append(' ').Append(F(q.x)).Append(' ').Append(F(q.y)).Append(' ').Append(F(q.z)).Append(' ').Append(F(q.w)).Append(" 0 0 0\n"); }
@@ -114,6 +115,26 @@ public static class QQMixamo
                 hy.Add(B["Hips"].localPosition.y); hand.Add(B["RightHand"].position - B["Hips"].position);
             }
             graph.Destroy();
+            // face the foe: the sword-and-shield set stands side-on (shield forward). Measure the hips' facing (from the thighs) over the
+            // move and turn the whole body back so the chest points where the character points (author: fight facing the enemy)
+            {
+                var yaws = new List<float>(); var rot0 = go.transform.rotation; var hipsT = B["Hips"]; var par = hipsT.parent;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = Mathf.Min(len, i / 30f); hipsT.localRotation = keys["Hips"][i];
+                    foreach (var b2 in BODY) if (b2 != "Hips") B[b2].localRotation = keys[b2][i];
+                    Vector3 r = B["RightUpLeg"].position - B["LeftUpLeg"].position; r.y = 0; Vector3 sh = B["RightArm"].position - B["LeftArm"].position; sh.y = 0;
+                    Vector3 fw = Vector3.Cross((r.normalized + sh.normalized).normalized, Vector3.up);
+                    yaws.Add(Vector3.SignedAngle(fwd0, fw, Vector3.up));
+                }
+                yaws.Sort(); float mid = yaws[yaws.Count / 2];
+                if (Mathf.Abs(mid) > 4f && !e.name.StartsWith("dead") && !e.name.StartsWith("dodge") && e.name != "roll")
+                {
+                    var R = Quaternion.AngleAxis(-mid, Vector3.up); var pr = par.rotation;
+                    for (int i = 0; i < n; i++) keys["Hips"][i] = Quaternion.Inverse(pr) * R * pr * keys["Hips"][i];
+                    Debug.Log("QQ MIXAMO face-fix " + e.name + " " + mid.ToString("F0") + " deg");
+                }
+            }
             if (hipsK <= 0) hipsK = hipsBindY / Mathf.Max(1e-4f, hy[0]);   // first clip = standing idle: Mecanim's hips units -> ours
             for (int i = 0; i < hy.Count; i++) hy[i] *= hipsK;
             // make quaternion signs continuous

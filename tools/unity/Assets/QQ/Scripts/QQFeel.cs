@@ -11,12 +11,18 @@ public class QQFeel : MonoBehaviour
     float stopT, slowT, slowScale = 1f;
     readonly List<AudioSource> pool = new List<AudioSource>(); int next;
     AudioSource music, amb; readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
-    public static float sfxVol = 1f, musicVol = .55f;
+    public static float sfxVol = 1f, musicVol = .55f; public static bool Paused;
+    public static void SetVolumes(float music, float sfx)
+    {
+        musicVol = music; sfxVol = sfx; PlayerPrefs.SetFloat("qq_music", music); PlayerPrefs.SetFloat("qq_sfx", sfx); PlayerPrefs.Save();
+        var f = Get(); if (f.music) f.music.volume = f.musicBase * musicVol; if (f.amb) f.amb.volume = f.ambBase * sfxVol;
+    }
+    float musicBase = 1f, ambBase = .4f;
 
     static QQFeel Get()
     {
         if (I) return I;
-        var go = new GameObject("QQFeel"); I = go.AddComponent<QQFeel>();
+        var go = new GameObject("QQFeel"); I = go.AddComponent<QQFeel>(); musicVol = PlayerPrefs.GetFloat("qq_music", .55f); sfxVol = PlayerPrefs.GetFloat("qq_sfx", 1f);
         for (int i = 0; i < 16; i++) { var s = go.AddComponent<AudioSource>(); s.playOnAwake = false; I.pool.Add(s); }
         I.music = go.AddComponent<AudioSource>(); I.music.loop = true; I.music.playOnAwake = false;
         I.amb = go.AddComponent<AudioSource>(); I.amb.loop = true; I.amb.playOnAwake = false;
@@ -46,16 +52,17 @@ public class QQFeel : MonoBehaviour
     public static void Music(string n, float vol = 1f)
     {
         var f = Get(); var c = f.Clip(n); if (!c || f.music.clip == c) return;
-        f.music.clip = c; f.music.volume = vol * musicVol; f.music.Play();
+        f.music.clip = c; f.musicBase = vol; f.music.volume = vol * musicVol; f.music.Play();
     }
     public static void Ambience(string n, float vol)
     {
-        var f = Get(); var c = f.Clip(n); if (!c) return; f.amb.clip = c; f.amb.volume = vol * sfxVol; f.amb.Play();
+        var f = Get(); var c = f.Clip(n); if (!c) return; f.amb.clip = c; f.ambBase = vol; f.amb.volume = vol * sfxVol; f.amb.Play();
     }
 
     void Update()
     {
         float dt = Time.unscaledDeltaTime;
+        if (Paused) { Time.timeScale = 0f; return; }
         if (stopT > 0) { stopT -= dt; Time.timeScale = .02f; }
         else if (slowT > 0) { slowT -= dt; Time.timeScale = slowScale; }
         else Time.timeScale = Mathf.MoveTowards(Time.timeScale, 1f, dt * 4f);

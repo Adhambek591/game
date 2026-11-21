@@ -36,6 +36,15 @@ public class QQFx : MonoBehaviour
     // a defeated monster's spirit: gold motes rise and stream INTO the amulet on Gúlayım's chest (author's rule)
     public static void Soul(Vector3 from, Transform to) { var go = new GameObject("soul"); go.transform.position = from + Vector3.up * 1.4f; go.AddComponent<QQSoul>().Init(to); QQFeel.Sfx("power", null, .8f, 0); }
 
+    static Mesh disc;
+    public static Mesh DiscMesh()   // flat disc in the XY plane (rotate 90 on X to lay it on the ground), soft rim via the fx material's additive blend
+    {
+        if (disc) return disc; const int N = 40; var m = new Mesh(); var v = new Vector3[N * 2]; var t = new int[N * 6]; var c = new Color[N * 2];
+        for (int i = 0; i < N; i++) { float a = i * Mathf.PI * 2 / N; var d = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0); v[i * 2] = d * .38f; v[i * 2 + 1] = d * .5f; c[i * 2] = new Color(1, 1, 1, .15f); c[i * 2 + 1] = new Color(1, 1, 1, 1f);
+            int j = (i + 1) % N; t[i * 6] = i * 2; t[i * 6 + 1] = i * 2 + 1; t[i * 6 + 2] = j * 2; t[i * 6 + 3] = j * 2; t[i * 6 + 4] = i * 2 + 1; t[i * 6 + 5] = j * 2 + 1; }
+        m.vertices = v; m.triangles = t; m.colors = c; m.RecalculateNormals(); return disc = m;
+    }
+
     static Texture2D dot;
     static Texture2D Dot()   // soft round sprite for particles
     {

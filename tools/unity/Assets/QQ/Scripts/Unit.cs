@@ -17,7 +17,7 @@ public class Unit : MonoBehaviour
     // Ghost of Tsushima: foes look aggressive but only a couple attack Gúlayım at a time; the rest circle and wait for a turn
     [System.NonSerialized] public bool hasToken;
     // story missions: guard posts sleep until Gúlayım comes near (or one of them is hit), then the whole group wakes
-    [System.NonSerialized] public int group; [System.NonSerialized] public bool asleep, isCaptive, anchored; [System.NonSerialized] public float wakeR = 13f;
+    [System.NonSerialized] public int group; [System.NonSerialized] public bool asleep, isCaptive, anchored, guarding; public System.Func<float, Unit, bool, float> onGuard; [System.NonSerialized] public float wakeR = 13f;   // onGuard returns the damage that gets through
     public static void WakeGroup(int g) { if (g == 0) return; for (int i = 0; i < All.Count; i++) if (All[i].group == g) All[i].asleep = false; }
     public static int CountGroup(int g) { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].group == g && !All[i].Dead) n++; return n; }
     public static int TokensOnPlayer() { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].hasToken && !All[i].Dead) n++; return n; }
@@ -36,7 +36,8 @@ public class Unit : MonoBehaviour
         bool silent = false;
         if (asleep && from && from.isPlayer && Vector3.Dot(transform.forward, from.transform.position - transform.position) < .1f) { d *= 12f; silent = true; }
         if (asleep && !silent) WakeGroup(group);
-        hp -= d; flash = .1f;
+        if (guarding && onGuard != null) { d = onGuard(d, from, heavy); if (d <= 0) return; heavy = false; }
+        hp -= d; flash = .1f; if (from && (from.isPlayer || isPlayer)) QQDmgText.Show(transform.position + Vector3.up * (boss ? 3f : 2f), d, heavy, isPlayer);
         if (onHit != null) onHit(from, d);
         QQFx.Spark(transform.position + Vector3.up * 1.2f, team == 0 ? new Color(1f, .45f, .3f) : new Color(1f, .85f, .5f));
         QQFeel.Sfx(heavy ? "v_hit" : "hit", transform.position, heavy ? 1f : .75f);

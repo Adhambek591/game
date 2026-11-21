@@ -45,7 +45,7 @@ public class QQArena : MonoBehaviour
     {
         QQHud.Build(); DynamicGI.UpdateEnvironment(); QQObstacles.Collect();
         QQFeel.Music("battle", .8f); QQFeel.Ambience("amb_fire", .35f);
-        player = Spawn(gulayim, QQMission.I ? new Vector3(0, 0, 3) : new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Gúlayım");
+        player = Spawn(gulayim, QQMission.I ? new Vector3(0, 0, 3) : new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Guloyim");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;
         if (QQMission.I) { QQMission.I.Begin(); return; }   // story chapter: the mission script drives everything
@@ -53,7 +53,7 @@ public class QQArena : MonoBehaviour
         {
             bool sb = i == 2 && sarbinaz;   // Sárbinaz, Gúlayım's deputy, fights with a spear in the middle of the line
             var mdl = sb ? sarbinaz : (maidens != null && maidens.Length > 0 ? maidens[i % maidens.Length] : qiz);
-            var q = Spawn(mdl, new Vector3(-4 + i * 2, 0, -19), 0, sb ? 420 : 300, sb ? 22 : 16, sb ? 1.74f : 1.7f, sb && spear ? spear : saber, sb ? "Sárbinaz" : "qiz");
+            var q = Spawn(mdl, new Vector3(-4 + i * 2, 0, -19), 0, sb ? 420 : 300, sb ? 22 : 16, sb ? 1.74f : 1.7f, sb && spear ? spear : saber, sb ? "Sarbinaz" : "qiz");
             q.gameObject.AddComponent<QQAI>(); q.speed = 4.4f;
         }
         StartCoroutine(Run());
@@ -89,7 +89,7 @@ public class QQArena : MonoBehaviour
         if (weapon && rig.HasFingers) { rig.SampleBind(); var f1 = rig.Bone("RightMiddle1") ?? rig.Bone("RightFingers1"); var hd = rig.Bone("RightHand"); if (f1 && hd) grip = Vector3.Lerp(hd.position, f1.position, .8f); }   // real finger bones: hold at the knuckles
         else if (weapon) grip = QQFist.Apply(m, rig, height);   // older models: bend the open hand into a fist in the mesh
         if (weapon) Arm(rig, weapon, root.transform, height, grip);
-        var u = root.AddComponent<Unit>(); u.team = team; u.maxHp = u.hp = hp; u.dmg = dmg; u.displayName = name; u.rig = rig;
+        var u = root.AddComponent<Unit>(); u.team = team; root.AddComponent<QQBars>(); u.maxHp = u.hp = hp; u.dmg = dmg; u.displayName = name; u.rig = rig;
         rig.Play("idle", .01f);
         foreach (var r in root.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; }
         return u;
@@ -159,7 +159,7 @@ public class QQArena : MonoBehaviour
     public void OnDeath(Unit u)
     {
         if (u.team == 1) { killed++; if (!spawning && Unit.CountTeam(1) == 0) { QQFeel.SlowMo(.2f, u.boss ? 1.6f : .9f); QQCam.shake = 1f; } }   // last foe of the wave: Arkham's final-blow slow motion
-        else if (u == player) { running = false; QQFeel.Sfx("st_lose", null, 1f, 0); QQFeel.SlowMo(.25f, 1.2f); int c = 10 + killed; QQProgress.Coins += c; QQHud.End(false, "Gúlayım yiqildi. +" + c + " tanga" + System.Environment.NewLine + "Kuchingizni oshirib, qaytadan urinib ko'ring."); }
+        else if (u == player) { running = false; QQFeel.Sfx("st_lose", null, 1f, 0); QQFeel.SlowMo(.25f, 1.2f); int c = 10 + killed; QQProgress.Coins += c; QQHud.End(false, "Guloyim yiqildi. +" + c + " tanga" + System.Environment.NewLine + "Kuchingizni oshirib, qaytadan urinib ko'ring."); }
         else if (!u.anchored && !u.isCaptive && u.displayName != "batır") lostMaidens++;
     }
 }

@@ -114,7 +114,7 @@ public class QQAI : MonoBehaviour
                     }
                     else
                     {
-                        QQFeel.Sfx("v_swing", transform.position, .6f);
+                        QQFeel.Sfx("v_swing", transform.position, .6f); if (u.boss) QQSlash.Spawn(transform, new Color(1f, .3f, .2f), 170, u.range + 1.2f, Random.Range(-30f, 30f), Random.value < .5f ? 1 : -1, 1.4f);
                         if ((target.transform.position - transform.position).magnitude < u.range + target.radius + .5f)
                             target.Hit(u.dmg * (u.unblockable ? 1.6f : 1f), u, u.unblockable);
                     }
