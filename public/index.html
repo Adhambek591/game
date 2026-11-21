@@ -601,6 +601,38 @@ function ui(){var ti=D.getElementById('title');if(!ti)return;
 fsState();ui();setInterval(ui,500);
 })();
 </script>
+<script id="qqhud">/* HUD layout guard (QA 2b, big fights): one live list of the HUD panels; floating things (world HP bars, objective arrow, target chips, barks, banners, level-up) keep out of them */
+(function(){
+var D=document,Z=[],T=0,PAD=4,$=function(i){return D.getElementById(i);};
+var IDS=['pl','gold','mt-xp','w4army','rescnt','huntcnt','f3side','topc','cvbar','hc','bset','jb','bA','bD','bP','bM','qqbark','w3cp','tuskip','w4ctl'];
+function box(el){if(!el)return null;var r=el.getBoundingClientRect();if(r.width<2||r.height<2)return null;if((el.id==='hint'||el.id==='obj')&&D.querySelector('#ban.show'))return null;/* ui2.css hides them under the banner */
+ var on=el.classList.contains('show')||el.classList.contains('on')||el.style.opacity==='1';/* fading in: counts at once */
+ for(var v=el;v&&v!==D.body;v=v.parentElement){var c=getComputedStyle(v);if(c.display==='none'||c.visibility==='hidden'||(+c.opacity<.08&&!(on&&v===el)))return null;}return r;}
+function topcBox(){/* #topc is a column: only its visible children count (#hint keeps its place while faded out) */var c=$('topc'),r=null;if(!c||!box(c))return null;for(var i=0;i<c.children.length;i++){var b=box(c.children[i]);if(!b)continue;r=r?{left:Math.min(r.left,b.left),top:Math.min(r.top,b.top),right:Math.max(r.right,b.right),bottom:Math.max(r.bottom,b.bottom)}:{left:b.left,top:b.top,right:b.right,bottom:b.bottom};}return r;}
+function refresh(){var z=[];for(var i=0;i<IDS.length;i++){var r=IDS[i]==='topc'?topcBox():box($(IDS[i]));if(r)z.push({id:IDS[i],l:r.left-PAD,t:r.top-PAD,r:r.right+PAD,b:r.bottom+PAD});}
+ var hc=D.querySelectorAll('#hud .qqtg');for(var j=0;j<hc.length;j++){var q=box(hc[j]);if(q)z.push({id:'tg',l:q.left-PAD,t:q.top-PAD,r:q.right+PAD,b:q.bottom+PAD});}
+ var bn=banBox();if(bn)z.push({id:'ban',l:bn.left-PAD,t:bn.top-PAD,r:bn.right+PAD,b:bn.bottom+PAD});
+ Z=z;T=performance.now();layout();}
+/* the chapter / boss banner (#ban is a full-screen layer: only its three text lines count, from the moment it is told to show) */
+function banBox(){var b=$('ban');if(!b||!b.classList.contains('show'))return null;var r=null;for(var i=1;i<=3;i++){var e=$('ban'+i);if(!e||!e.textContent.trim())continue;var q=e.getBoundingClientRect();if(q.width<2||q.height<2)continue;r=r?{left:Math.min(r.left,q.left),top:Math.min(r.top,q.top),right:Math.max(r.right,q.right),bottom:Math.max(r.bottom,q.bottom)}:{left:q.left,top:q.top,right:q.right,bottom:q.bottom};}return r;}
+function zones(){if(performance.now()-T>180)refresh();return Z;}
+function hit(l,t,r,b,skip){var z=zones();for(var i=0;i<z.length;i++){var q=z[i];if(skip&&skip.indexOf(q.id)>=0)continue;if(l<q.r&&r>q.l&&t<q.b&&b>q.t)return q;}return null;}
+/* move a w x h box (top-left x,y) out of the panels by the shortest step that stays on screen */
+function push(x,y,w,h,skip){var W=innerWidth,H=innerHeight;for(var k=0;k<6;k++){var q=hit(x,y,x+w,y+h,skip);if(!q)break;var c=[[q.b-y,0,1],[y+h-q.t,0,-1],[q.r-x,1,1],[x+w-q.l,1,-1]],best=null;
+ for(var j=0;j<4;j++){var d=c[j][0],nx=c[j][1]?x+c[j][2]*d:x,ny=c[j][1]?y:y+c[j][2]*d;if(nx<2||ny<2||nx+w>W-2||ny+h>H-2)continue;if(!best||d<best[0])best=[d,nx,ny];}if(!best)break;x=best[1];y=best[2];}return [x,y];}
+/* the top-centre stack: objective / boss bar / timer / hint, then the convoy bar; barks, the level-up and the chapter banner go under it */
+function below(){var b=0,t=topcBox(),cv=box($('cvbar'));if(t)b=t.bottom;if(cv)b=Math.max(b,cv.bottom);return b;}
+function layout(){var H=innerHeight,y=below();
+ var bn=$('ban');if(bn){var bs=box($('boss'))||box($('timer'))||box($('cvbar'));bn.style.paddingTop=bs?Math.round(y+6)+'px':'';}
+ var bb=banBox();if(bb)y=Math.max(y,bb.bottom);
+ var bk=$('qqbark');if(bk)bk.style.top=Math.round(Math.max(H*.21,y+8))+'px';
+ var lv=$('mt-lvup');if(lv)lv.style.top=Math.round(Math.max(H*.22,y+6))+'px';}
+window.qqHud={hit:hit,push:push,zones:zones,refresh:refresh,below:below};
+setInterval(refresh,200);
+addEventListener('qq:bark',function(){setTimeout(refresh,0);});addEventListener('resize',function(){setTimeout(refresh,50);});
+try{var mo=new MutationObserver(function(){setTimeout(refresh,0);});['ban','hint','hc'].forEach(function(i){var e=$(i);if(e)mo.observe(e,{attributes:true,attributeFilter:['class']});});}catch(e){}
+})();
+</script>
 <script defer src="./js/ui_skin.js?v=1795218616"></script>
 <script type="module" src="./js/story.js?v=1795218616"></script>
 <script type="module" src="./js/meta.js?v=1795218616"></script>
