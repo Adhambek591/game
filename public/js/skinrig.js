@@ -1,7 +1,7 @@
 // Realistic skinned character (Meshy rig) driven by mocap clips retargeted from a shared library
 import * as THREE from 'three';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795218616';
-import { PROPS } from './glbrig.js?v=1795218616';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795223095';
+import { PROPS } from './glbrig.js?v=1795223095';
 export const ANIM = { data: null };
 const PI = Math.PI;
 // game action name -> [clip, loop, default duration (s) or null = natural]
@@ -239,4 +239,4 @@ export class SkinRig {
 }
 
 // feel systems (hit-stop, recoil, look-at, blade trails, FOV punch) live in feel.js; loaded lazily so engine.js / index.html stay untouched
-setTimeout(() => import('./feel.js?v=1795218616').catch(e => console.warn('feel', e)), 0);
+setTimeout(() => import('./feel.js?v=1795223095').catch(e => console.warn('feel', e)), 0);
