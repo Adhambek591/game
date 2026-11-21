@@ -57,7 +57,7 @@ public class QQFx : MonoBehaviour
             var go = new GameObject("flash", typeof(RectTransform)); go.transform.SetParent(cv.transform, false); flashImg = go.AddComponent<UnityEngine.UI.Image>(); flashImg.raycastTarget = false;
             var rt = (RectTransform)go.transform; rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;
         }
-        flashA = .28f; flashImg.color = new Color(1f, .85f, .45f, flashA);
+        flashA = .16f; flashImg.color = new Color(1f, .85f, .45f, flashA);
     }
 
     static Mesh BuildRing()

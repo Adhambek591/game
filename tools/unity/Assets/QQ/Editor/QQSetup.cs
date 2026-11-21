@@ -41,13 +41,16 @@ public static class QQSetup
         AssetDatabase.Refresh(); TexSettings();
         var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        // sky + light: the browser build's HDRI (Poly Haven overcast_soil_puresky) as skybox, ambient and reflections; warm low sun
-        var hdr = Load<Texture2D>(ART + "hdr/overcast_soil_puresky_1k.hdr");
-        var sky = new Material(Shader.Find("Skybox/Panoramic")); sky.SetTexture("_MainTex", hdr); sky.SetFloat("_Exposure", 1.05f); sky.SetColor("_Tint", new Color(.86f, .8f, .74f)); AssetDatabase.CreateAsset(sky, ART + "M_sky.mat");
-        RenderSettings.skybox = sky; RenderSettings.ambientMode = AmbientMode.Trilight; RenderSettings.ambientSkyColor = new Color(.78f, .78f, .82f); RenderSettings.ambientEquatorColor = new Color(.6f, .55f, .5f); RenderSettings.ambientGroundColor = new Color(.28f, .24f, .2f);   /* trilight: needs no baked lighting data in the player */ RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox; RenderSettings.reflectionIntensity = .8f;
-        var sun = new GameObject("Sun").AddComponent<Light>(); sun.type = LightType.Directional; sun.color = new Color(1f, .86f, .7f); sun.intensity = 2.2f;
-        sun.shadows = LightShadows.Soft; sun.shadowStrength = .85f; sun.transform.rotation = Quaternion.Euler(34, -42, 0); RenderSettings.sun = sun;
-        RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogColor = new Color(.66f, .6f, .55f); RenderSettings.fogStartDistance = 34; RenderSettings.fogEndDistance = 120;
+        // sky + light: golden hour over the burnt city. Procedural atmosphere, the sun low ahead (above the Qalmaq camp) so fighters get
+        // warm rim light and long shadows; warm haze in the distance, cool fill from the sky.
+        var sky = new Material(Shader.Find("Skybox/Procedural")); sky.SetFloat("_SunDisk", 2); sky.SetFloat("_SunSize", .05f); sky.SetFloat("_SunSizeConvergence", 3.5f);
+        sky.SetFloat("_AtmosphereThickness", 1.35f); sky.SetColor("_SkyTint", new Color(.62f, .52f, .48f)); sky.SetColor("_GroundColor", new Color(.42f, .34f, .28f)); sky.SetFloat("_Exposure", 1.3f);
+        AssetDatabase.CreateAsset(sky, ART + "M_sky.mat");
+        RenderSettings.skybox = sky; RenderSettings.ambientMode = AmbientMode.Trilight; RenderSettings.ambientSkyColor = new Color(.62f, .62f, .72f); RenderSettings.ambientEquatorColor = new Color(.55f, .45f, .38f); RenderSettings.ambientGroundColor = new Color(.28f, .22f, .18f);
+        var sun = new GameObject("Sun").AddComponent<Light>(); sun.type = LightType.Directional; sun.color = new Color(1f, .78f, .56f); sun.intensity = 2.9f;
+        sun.shadows = LightShadows.Soft; sun.shadowStrength = .8f; sun.transform.rotation = Quaternion.Euler(26, 38, 0);   // behind-left of the camera: faces lit, long shadows toward the camp RenderSettings.sun = sun;
+        RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = new Color(.8f, .58f, .42f); RenderSettings.fogDensity = .0065f;
+        Hills();
 
         // camera: MSAA from the URP asset (crisp edges), no FXAA blur
         var camGo = new GameObject("Main Camera"); camGo.tag = "MainCamera"; var cam = camGo.AddComponent<Camera>(); cam.clearFlags = CameraClearFlags.Skybox; cam.farClipPlane = 160; cam.nearClipPlane = .5f; cam.allowMSAA = false;
@@ -58,8 +61,10 @@ public static class QQSetup
         // post: ACES, modest bloom, light grade, soft vignette
         var vol = new GameObject("Post").AddComponent<Volume>(); vol.isGlobal = true; var prof = ScriptableObject.CreateInstance<VolumeProfile>();
         var tm = prof.Add<Tonemapping>(true); tm.mode.Override(TonemappingMode.ACES);
-        var bl = prof.Add<Bloom>(true); bl.intensity.Override(.35f); bl.threshold.Override(1.15f);
-        var ca = prof.Add<ColorAdjustments>(true); ca.postExposure.Override(.25f); ca.saturation.Override(4f); ca.contrast.Override(12f);
+        var bl = prof.Add<Bloom>(true); bl.intensity.Override(.3f); bl.threshold.Override(1.25f); bl.scatter.Override(.55f);
+        var ca = prof.Add<ColorAdjustments>(true); ca.postExposure.Override(.15f); ca.saturation.Override(12f); ca.contrast.Override(24f);
+        var wb = prof.Add<WhiteBalance>(true); wb.temperature.Override(6f);
+        var lgg = prof.Add<LiftGammaGain>(true); lgg.lift.Override(new Vector4(.98f, .98f, 1.04f, 0f)); lgg.gain.Override(new Vector4(1.03f, 1f, .96f, 0f));   // cool shadows, warm highlights
         var vg = prof.Add<Vignette>(true); vg.intensity.Override(.18f);
         AssetDatabase.CreateAsset(prof, ART + "Post.asset"); vol.sharedProfile = prof;
 
@@ -152,7 +157,7 @@ public static class QQSetup
             for (int k = -4; k <= 4; k++) { if (Mathf.Abs(k) <= 1) continue; put(BE + "E_fence.glb", new Vector3(k * 4.1f, 0, 33), 1f, 0); }
             put(BE + "E_tower.glb", new Vector3(-21, 0, 35), 1f, 0); put(BE + "E_tower.glb", new Vector3(21, 0, 35), 1f, 0);
             put(BE + "E_banner.glb", new Vector3(-6, 0, -24), 1f, 0); put(BE + "E_banner.glb", new Vector3(6, 0, -24), 1f, 0);
-            for (int k = 0; k < 6; k++) { var cp = new Vector3(rr(-26, 26), 0, rr(-20, 28)); if (Mathf.Abs(cp.x) < 9) cp.x += 18 * Mathf.Sign(cp.x + .01f); put(BE + "E_campfire.glb", cp, 1f, 0); Fire(cp + Vector3.up * .2f, root); }
+            for (int k = 0; k < 6; k++) { var cp = new Vector3(rr(-26, 26), 0, rr(-20, 28)); if (Mathf.Abs(cp.x) < 9) cp.x += 18 * Mathf.Sign(cp.x + .01f); put(BE + "E_campfire.glb", cp, 1f, 0); Fire(cp + Vector3.up * .2f, root, false); }
         }
         var ysrc = Load<GameObject>(ART + "props/B_yurt.glb");
         for (int c = 0; c < 9; c++)
@@ -214,16 +219,84 @@ public static class QQSetup
         }
     }
 
-    static Material fireMat;
-    static void Fire(Vector3 p, Transform parent)
+    static Material fireMat, smokeMat, emberMat;
+    // procedural particle sprites saved as assets: a flickering flame tongue, a soft smoke puff, a round ember
+    static Texture2D ProcTex(string name, int S, System.Func<float, float, Color> f)
     {
+        string path = ART + "tex/" + name + ".png";
+        var tx = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) tx.SetPixel(x, y, f(x / (float)S, y / (float)S));
+        File.WriteAllBytes(path, tx.EncodeToPNG()); AssetDatabase.ImportAsset(path);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(path); ti.alphaIsTransparency = true; ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.SaveAndReimport();
+        return Load<Texture2D>(path);
+    }
+    static float Fbm(float x, float y) { return Mathf.PerlinNoise(x, y) * .55f + Mathf.PerlinNoise(x * 2.1f + 5, y * 2.1f) * .3f + Mathf.PerlinNoise(x * 4.3f + 9, y * 4.3f + 3) * .15f; }
+    static Material PMat(string name, Texture2D t, bool additive)
+    {
+        var m = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); m.SetTexture("_BaseMap", t); m.SetFloat("_Surface", 1); m.SetFloat("_Blend", additive ? 2 : 0);
+        m.SetOverrideTag("RenderType", "Transparent"); m.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); m.SetInt("_DstBlend", (int)(additive ? BlendMode.One : BlendMode.OneMinusSrcAlpha)); m.SetInt("_ZWrite", 0);
+        m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000; AssetDatabase.CreateAsset(m, ART + name + ".mat"); return m;
+    }
+    static void FireMats()
+    {
+        if (smokeMat) return;
+        var flame = ProcTex("p_flame", 128, (u, v) => { float x = (u - .5f) * 2f, y = v; float w = Mathf.Lerp(.95f, .12f, Mathf.Pow(y, .8f)); float a = Mathf.Clamp01(1f - Mathf.Abs(x) / Mathf.Max(.05f, w)) * Mathf.Clamp01(y * 6f) * Mathf.Clamp01((1f - y) * 1.6f);
+            a *= .55f + .9f * Fbm(u * 5f, v * 3f - .5f); return new Color(1, 1, 1, Mathf.Clamp01(a * a * 1.4f)); });
+        var smoke = ProcTex("p_smoke", 128, (u, v) => { float dx = u - .5f, dy = v - .5f, d = Mathf.Sqrt(dx * dx + dy * dy) * 2f; float a = Mathf.Clamp01(1f - d); a = a * a * (.45f + .9f * Fbm(u * 4f + 2, v * 4f)); return new Color(1, 1, 1, Mathf.Clamp01(a)); });
+        var dot = ProcTex("p_dot", 32, (u, v) => { float dx = u - .5f, dy = v - .5f, d = Mathf.Sqrt(dx * dx + dy * dy) * 2f; float a = Mathf.Clamp01(1f - d); return new Color(1, 1, 1, a * a); });
+        fireMat = PMat("M_fire", flame, true); smokeMat = PMat("M_smoke", smoke, false); emberMat = PMat("M_ember", dot, true);
+    }
+    // a burning yurt (big) or a campfire: flame tongues, a smoke column drifting with the wind, embers, a flickering light
+    static void Fire(Vector3 p, Transform parent, bool big = true)
+    {
+        FireMats(); float k = big ? 1f : .55f;
         var go = new GameObject("Fire"); go.transform.SetParent(parent); go.transform.position = p;
-        var ps = go.AddComponent<ParticleSystem>(); var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = 1.6f; main.startSize = new ParticleSystem.MinMaxCurve(.8f, 1.6f); main.startColor = new Color(1f, .55f, .2f, .8f); main.maxParticles = 80;
-        var em = ps.emission; em.rateOverTime = 34; var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = .8f; sh.rotation = new Vector3(-90, 0, 0);
-        var col = ps.colorOverLifetime; col.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(new Color(1f, .8f, .4f), 0), new GradientColorKey(new Color(.9f, .3f, .05f), .5f), new GradientColorKey(new Color(.2f, .18f, .16f), 1) }, new[] { new GradientAlphaKey(.9f, 0), new GradientAlphaKey(.6f, .5f), new GradientAlphaKey(0, 1) }); col.color = gr;
-        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.EaseInOut(0, .6f, 1, 1.6f));
-        var pr = go.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = fireMat;
-        var l = new GameObject("FireLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.transform.localPosition = Vector3.up * 1.5f; l.type = LightType.Point; l.color = new Color(1f, .55f, .2f); l.range = 12; l.intensity = 3;
+        var ps = go.AddComponent<ParticleSystem>(); var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(.6f, 1.1f); main.startSpeed = new ParticleSystem.MinMaxCurve(.8f * k, 2.2f * k);
+        main.startSize = new ParticleSystem.MinMaxCurve(.7f * k, 1.8f * k); main.startRotation = new ParticleSystem.MinMaxCurve(-.3f, .3f); main.maxParticles = 90; main.simulationSpace = ParticleSystemSimulationSpace.World; main.prewarm = true;
+        var em = ps.emission; em.rateOverTime = 40 * k; var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = big ? 1.4f : .5f; sh.rotation = new Vector3(-90, 0, 0);
+        var col = ps.colorOverLifetime; col.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(new Color(1f, .92f, .6f), 0), new GradientColorKey(new Color(1f, .5f, .12f), .35f), new GradientColorKey(new Color(.6f, .12f, .03f), 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, .12f), new GradientAlphaKey(.7f, .5f), new GradientAlphaKey(0, 1) }); col.color = gr;
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.EaseInOut(0, 1f, 1, .35f));
+        var nz = ps.noise; nz.enabled = true; nz.strength = .6f; nz.frequency = 1.4f; nz.scrollSpeed = 1.2f;
+        var pr = go.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = fireMat; pr.renderMode = ParticleSystemRenderMode.VerticalBillboard;
+        // smoke column
+        bool smokeOk = new Vector2(p.x, p.z).magnitude > 30f;   // fires inside the play area keep flames + embers only
+        var sg = new GameObject("Smoke"); sg.transform.SetParent(go.transform, false); sg.SetActive(smokeOk); sg.transform.localPosition = Vector3.up * 1.2f * k;
+        var sp = sg.AddComponent<ParticleSystem>(); var sm = sp.main; sm.startLifetime = new ParticleSystem.MinMaxCurve(7f * k, 11f * k); sm.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.2f); sm.startSize = new ParticleSystem.MinMaxCurve(1.5f * k, 2.6f * k);
+        sm.startRotation = new ParticleSystem.MinMaxCurve(0, 6.28f); sm.startColor = new ParticleSystem.MinMaxGradient(new Color(.1f, .09f, .085f, .38f), new Color(.22f, .2f, .18f, .3f)); sm.maxParticles = big ? 70 : 30; sm.simulationSpace = ParticleSystemSimulationSpace.World; sm.prewarm = true;
+        var se = sp.emission; se.rateOverTime = big ? 4 : 1.2f; var ss = sp.shape; ss.shapeType = ParticleSystemShapeType.Circle; ss.radius = .6f * k; ss.rotation = new Vector3(-90, 0, 0);
+        var sv = sp.velocityOverLifetime; sv.enabled = true; sv.space = ParticleSystemSimulationSpace.World; sv.x = new ParticleSystem.MinMaxCurve(.25f, .5f); sv.y = new ParticleSystem.MinMaxCurve(1f, 1.6f); sv.z = new ParticleSystem.MinMaxCurve(.1f, .25f);   // rises in a column, leans a little with the wind
+        var szs = sp.sizeOverLifetime; szs.enabled = true; szs.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.EaseInOut(0, .5f, 1, big ? 4f : 2f));
+        var sc2 = sp.colorOverLifetime; sc2.enabled = true; var g2 = new Gradient(); g2.SetKeys(new[] { new GradientColorKey(new Color(.35f, .3f, .27f), 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(1, .1f), new GradientAlphaKey(.55f, .6f), new GradientAlphaKey(0, 1) }); sc2.color = g2;
+        var srt = sp.rotationOverLifetime; srt.enabled = true; srt.z = new ParticleSystem.MinMaxCurve(-.2f, .2f);
+        var spr = sg.GetComponent<ParticleSystemRenderer>(); spr.sharedMaterial = smokeMat; spr.sortingFudge = 10;
+        // embers
+        var eg = new GameObject("Embers"); eg.transform.SetParent(go.transform, false);
+        var ep = eg.AddComponent<ParticleSystem>(); var emn = ep.main; emn.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 3.5f); emn.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 3.5f); emn.startSize = new ParticleSystem.MinMaxCurve(.04f, .09f);
+        emn.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, .7f, .3f), new Color(1f, .4f, .1f)); emn.maxParticles = 40; emn.simulationSpace = ParticleSystemSimulationSpace.World; emn.prewarm = true; emn.gravityModifier = -.05f;
+        var eem = ep.emission; eem.rateOverTime = 8 * k; var esh = ep.shape; esh.shapeType = ParticleSystemShapeType.Circle; esh.radius = 1f * k; esh.rotation = new Vector3(-90, 0, 0);
+        var enz = ep.noise; enz.enabled = true; enz.strength = 1.2f; enz.frequency = .8f;
+        var ecl = ep.colorOverLifetime; ecl.enabled = true; var g3 = new Gradient(); g3.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(1, .7f), new GradientAlphaKey(0, 1) }); ecl.color = g3;
+        eg.GetComponent<ParticleSystemRenderer>().sharedMaterial = emberMat;
+        var l = new GameObject("FireLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.transform.localPosition = Vector3.up * 1.5f; l.type = LightType.Point; l.color = new Color(1f, .55f, .2f); l.range = 12 * k; l.intensity = 3;
+        l.gameObject.AddComponent<QQFlicker>();
+    }
+
+    // distant rolling hills round the arena: silhouettes in the warm haze instead of a flat horizon
+    static void Hills()
+    {
+        int A = 160, Rn = 12; var m = new Mesh(); var vs = new Vector3[A * Rn]; var uv = new Vector2[A * Rn]; var tr = new System.Collections.Generic.List<int>();
+        for (int r = 0; r < Rn; r++) for (int a = 0; a < A; a++)
+            {
+                float ang = a * Mathf.PI * 2 / A, rad = Mathf.Lerp(58f, 175f, r / (float)(Rn - 1));
+                float rise = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(58f, 95f, rad)), x = Mathf.Cos(ang) * rad, z = Mathf.Sin(ang) * rad * 1.05f;
+                float h = rise * (3f + 16f * Mathf.PerlinNoise(x * .012f + 40, z * .012f + 7) + 5f * Mathf.PerlinNoise(x * .05f, z * .05f)) - (r == 0 ? .3f : 0);
+                vs[r * A + a] = new Vector3(x, h, z); uv[r * A + a] = new Vector2(x * .05f, z * .05f);
+                if (r < Rn - 1) { int i0 = r * A + a, i1 = r * A + (a + 1) % A, i2 = (r + 1) * A + a, i3 = (r + 1) * A + (a + 1) % A; tr.AddRange(new[] { i0, i2, i1, i1, i2, i3 }); }
+            }
+        m.vertices = vs; m.uv = uv; m.triangles = tr.ToArray(); m.RecalculateNormals(); m.RecalculateBounds(); AssetDatabase.CreateAsset(m, ART + "hills.asset");
+        var go = new GameObject("Hills"); go.AddComponent<MeshFilter>().sharedMesh = m; var mr = go.AddComponent<MeshRenderer>();
+        var hm = new Material(Shader.Find("Universal Render Pipeline/Lit")); hm.SetTexture("_BaseMap", Load<Texture2D>(ART + "tex/burned_ground_01_diff.jpg")); hm.SetColor("_BaseColor", new Color(.62f, .52f, .42f)); hm.SetFloat("_Smoothness", .05f);
+        AssetDatabase.CreateAsset(hm, ART + "M_hills.mat"); mr.sharedMaterial = hm; mr.shadowCastingMode = ShadowCastingMode.Off;
     }
 
     // ---- headless look check: pose the fighters and render the game camera ----

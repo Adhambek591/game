@@ -27,7 +27,7 @@ public class QQPlayer : MonoBehaviour
     void Start()
     {
         u = GetComponent<Unit>(); u.isPlayer = true; amuletCd = AMULET_CD * .5f;
-        u.onHit = (from, d) => { if (Chain >= 5) QQHud.Toast("Kombo uzildi"); Chain = 0; };
+        u.onHit = (from, d) => { if (Chain >= 12) QQHud.Toast("Kombo uzildi"); Chain = 0; };
     }
 
     // ---- input from QQHud buttons ----
