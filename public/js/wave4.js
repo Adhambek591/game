@@ -221,6 +221,7 @@ function attack() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (
   const hm = PW[7] && G.ents.find(e => isFoe(e) && e.onChain && e.helm > 0 && hyp(e.x - p.x, e.z - p.z) < 14);
   if (hm && free0 && sk[7] && sk[7].cd <= 0) { sk[7].on = true; p.act = null; p.rot = Math.atan2(hm.x - p.x, hm.z - p.z); doAct(2); return; }
   const near = meleeTarget(p);
+  if (p.act && p.act.w4v && p.act.w4v.fired < p.act.w4v.n) return;   /* a volley in flight is never restarted by a repeated tap (fast tapping used to reset it before the first arrow: no arrows at all) */
   if (!near) { const a = p.act; const free = !a || a.kind === 'atk' && a.hit || (c.canCancel && c.canCancel(a) && a.kind !== 'block'); const tgs = free ? rangedTargets(p, arrowsN()) : [];
     if (tgs.length) { volley(p, tgs); return; } }
   doAct('A'); const tg = p.act && p.act.kind === 'atk' ? (p.lock && !p.lock.dead ? p.lock : null) : null; if (tg && hyp(tg.x - p.x, tg.z - p.z) < 8) autoLock(p, tg); }
