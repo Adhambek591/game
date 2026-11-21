@@ -77,6 +77,25 @@ Gúlayım (tumorsiz) mashqni tashlab **unga qarab yuguradi** va uni yiqilishdan 
 
 Balans hozir: **1169 kredit**. K4 tashlansa: ~590.
 
+## Halol baho: nima yaxshi chiqadi, nima xavfli
+Sun'iy intellekt video modeli hamma narsani birdek yaxshi chiqarmaydi. Kadrlar xavf darajasi bo'yicha:
+
+| Xavf | Kadrlar | Sababi | Choralar |
+|---|---|---|---|
+| Past | K3 (oltin nur), K9 (sehr, totem), K10, K11, K8 | yorug'lik, tutun, olov, sekin emotsional harakat: model buni yaxshi qiladi | oddiy test |
+| O'rta | K1 (yugurib kelib ushlash), K2 (ko'p otliq), K5 (Aydarha + to'lqin), K7 (yig'lash → turish) | ikki odamning bir-biriga tegishi, ko'p ot bir xil yurib qolishi, katta maxluq o'lchami | skeletda aniq joy va vaqt; promptda "har xil otlar, bir xil yurmaydi"; ehtimol 1 qayta test |
+| Yuqori | **K6 (Qunqar zarbasi, Otbasqan yiqiladi)** | jangda qurol tegishi, qalqon sinishi, yiqilish fizikasi: modellar ko'pincha qo'l va qurolni buzadi | 2 qisqa kadrga bo'linadi: (a) Qunqar gurzini ko'taradi va tushiradi, (b) Otbasqan yiqiladi (zarba payti kadr kesimida); 2–3 test |
+
+Yana hisobga olinganlar:
+- **Hikoyachi ovozi:** har bir video uzunligi ovozga mos. nar1 7.8 s, nar2 10.8, nar4 7.7, nar7 9.3, nar9 10.0, nar10 9.6, nar11 9.7, nar12 8.4, nar13 18.7 s (K10 + K11 = 20 s). K1 + K2 uchun yangi nar3m ovozi hali yozilmagan.
+- **Bir xil yuz:** har kadrda faqat Elements; bir kadrda 2–3 tadan ortiq nomli personaj bo'lmaydi.
+- **Qırq qız:** Element faqat uchta qiz uchun bor (aysuliw, qalbiyke, gulshad). Fondagi qolgan qizlarni model chizadi; promptda "qoraqalpoq qizlari, har xil kiyimda".
+- **Otlar va ona:** Element yo'q. Ona (p_mo portreti) faqat kerak bo'lsa.
+- **Ovoz:** videolarda ovoz o'chiq; musiqa va effektlar o'yindan keladi.
+- **Kafolat yo'q:** test bosqichi (10 kredit) aynan shuning uchun bor. Yomon chiqsa 720p qilinmaydi.
+
+Yangilangan narx (K6 ikki kadr va qayta testlar bilan): 12 kadr × 55 + taxminan 10 qayta test × 10 = **~760 kredit**.
+
 ## Muallifdan kerak
 1. **Shabarman qiyofasi**: Element yo'q. Variantlar:
    - (a) tasdiqlangan kliplardagi qoraqalpoq erkak kadridan Element yasash (bepul);
