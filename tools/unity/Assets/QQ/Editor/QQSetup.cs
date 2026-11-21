@@ -12,8 +12,9 @@ using UnityEngine.Rendering.Universal;
 
 public static class QQSetup
 {
-    const string ART = "Assets/QQ/Art/", SCENE = "Assets/QQ/Arena.unity", CH1 = "Assets/QQ/Chapter1.unity";
-    static bool ch1;   // building the chapter-1 street instead of the open battlefield
+    const string ART = "Assets/QQ/Art/", SCENE = "Assets/QQ/Arena.unity", CH1 = "Assets/QQ/Chapter1.unity", CH2 = "Assets/QQ/Chapter2.unity";
+    static int chap;   // 0 = open battlefield, 1 = chapter-1 street, 2 = chapter-2 salt desert
+    static bool ch1 { get { return chap > 0; } }   // any story corridor
 
     static T Load<T>(string p) where T : Object { var o = AssetDatabase.LoadAssetAtPath<T>(p); if (!o) Debug.LogWarning("QQ missing " + p); return o; }
 
@@ -38,7 +39,7 @@ public static class QQSetup
     }
 
     // chapter 1 "Yonayotgan Sarkop": the burnt street with three gates (QQMission drives it); then the battlefield is rebuilt too
-    public static void BuildCh1() { ch1 = true; try { Build(); } finally { ch1 = false; } Build(); }
+    public static void BuildCh1() { chap = 1; try { Build(); } finally { chap = 0; } chap = 2; try { Build(); } finally { chap = 0; } Build(); }
 
     public static void Build()
     {
@@ -55,6 +56,12 @@ public static class QQSetup
         sun.shadows = LightShadows.Soft; sun.shadowStrength = .8f; sun.transform.rotation = Quaternion.Euler(26, 38, 0);   // behind-left of the camera: faces lit, long shadows toward the camp RenderSettings.sun = sun;
         RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = new Color(.8f, .58f, .42f); RenderSettings.fogDensity = .0065f;
         if (ch1) sun.transform.rotation = Quaternion.Euler(26, 218, 0);
+        if (chap == 2)   // the salt desert at midday: high white sun, pale hot haze
+        {
+            sun.transform.rotation = Quaternion.Euler(44, 214, 0); sun.color = new Color(1f, .94f, .82f); sun.intensity = 3.1f;
+            RenderSettings.fogColor = new Color(.86f, .8f, .68f); RenderSettings.fogDensity = .0055f; sky.SetColor("_SkyTint", new Color(.55f, .6f, .7f)); sky.SetFloat("_AtmosphereThickness", 1.0f);
+            RenderSettings.ambientEquatorColor = new Color(.7f, .64f, .55f); RenderSettings.ambientGroundColor = new Color(.5f, .45f, .38f);
+        }
         Hills(); if (ch1) { var hl = GameObject.Find("Hills"); hl.transform.position = new Vector3(0, 0, -70); hl.transform.localScale = new Vector3(1, 1, 1.75f); }
 
         // camera: MSAA from the URP asset (crisp edges), no FXAA blur
@@ -82,7 +89,7 @@ public static class QQSetup
 
         fireMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fireMat.SetFloat("_Surface", 1); fireMat.SetFloat("_Blend", 2); fireMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fireMat.renderQueue = 3000;
         fireMat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fireMat.SetInt("_DstBlend", (int)BlendMode.One); fireMat.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fireMat, ART + "M_fire.mat");
-        if (ch1) DressCh1(); else Dress();
+        if (chap == 1) DressCh1(); else if (chap == 2) DressCh2(); else Dress();
         var gate = new GameObject("CampGate"); gate.transform.position = new Vector3(0, 0, 26);
 
         // arena logic
@@ -107,11 +114,14 @@ public static class QQSetup
         if (ch1)
         {
             ar.bounds = new Vector4(-11, 11, -148, 8);
-            var mis = new GameObject("Mission").AddComponent<QQMission>(); mis.gates = new[] { GameObject.Find("Gate0").transform, GameObject.Find("Gate1").transform, GameObject.Find("Gate2").transform };
+            var mis = new GameObject("Mission").AddComponent<QQMission>(); if (chap == 1) mis.gates = new[] { GameObject.Find("Gate0").transform, GameObject.Find("Gate1").transform, GameObject.Find("Gate2").transform };
             camGo.transform.position = new Vector3(0, 7.4f, -10f);
         }
-        EditorSceneManager.SaveScene(scene, ch1 ? CH1 : SCENE);
-        EditorBuildSettings.scenes = AssetDatabase.LoadAssetAtPath<SceneAsset>(CH1) ? new[] { new EditorBuildSettingsScene(CH1, true), new EditorBuildSettingsScene(SCENE, true) } : new[] { new EditorBuildSettingsScene(SCENE, true) };
+        if (chap == 2) { var mi = Object.FindFirstObjectByType<QQMission>(); mi.chapter = 2; mi.gates = new Transform[0]; ar.cart = Load<GameObject>(ART + "blender/E_arava.glb"); ar.giant = Load<GameObject>(ART + "models/R_qumdev.glb");
+            var gmat = Object.FindFirstObjectByType<MeshRenderer>(); var gr2 = GameObject.Find("Ground").GetComponent<Renderer>(); var sand = new Material(gr2.sharedMaterial); sand.SetColor("_Tint", new Color(1.55f, 1.42f, 1.22f)); sand.SetColor("_RoadTint", new Color(.95f, .85f, .7f)); AssetDatabase.CreateAsset(sand, ART + "M_sand.mat"); gr2.sharedMaterial = sand;
+            var hl2 = GameObject.Find("Hills").GetComponent<Renderer>(); var hs = new Material(hl2.sharedMaterial); hs.SetColor("_BaseColor", new Color(1.1f, .95f, .72f)); AssetDatabase.CreateAsset(hs, ART + "M_dunes.mat"); hl2.sharedMaterial = hs; }
+        EditorSceneManager.SaveScene(scene, chap == 2 ? CH2 : chap == 1 ? CH1 : SCENE);
+        var list = new System.Collections.Generic.List<EditorBuildSettingsScene>(); foreach (var sc in new[] { CH1, CH2, SCENE }) if (AssetDatabase.LoadAssetAtPath<SceneAsset>(sc)) list.Add(new EditorBuildSettingsScene(sc, true)); EditorBuildSettings.scenes = list.ToArray();
 
         PlayerSettings.companyName = "Nukus Animation"; PlayerSettings.productName = "Qirq qiz";
         PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.nukusanimation.qirqqiz");
@@ -245,6 +255,55 @@ public static class QQSetup
             for (int k = -3; k <= 3; k++) put(BE + "E_fence.glb", new Vector3(k * 4.1f, 0, gz[gi]), 1f, 0, gate);
             put(BE + "E_tower.glb", new Vector3(-13.5f, 0, gz[gi] - 1.5f), .9f, 0, null); put(BE + "E_tower.glb", new Vector3(13.5f, 0, gz[gi] - 1.5f), .9f, 0, null);
         }
+    }
+
+    // chapter 2: the salt desert road. Dunes on both sides (sand mounds = obstacles), salt crust patches, rocks, a dead tree,
+    // the raiders' ridge on the right, their camp near the end, the sand giant's flat at the far end.
+    static void DressCh2()
+    {
+        var root = new GameObject("Sarkop").transform; var R = new System.Random(23);
+        System.Func<float, float, float> rr = (a, b) => a + (float)R.NextDouble() * (b - a);
+        string BE = ART + "blender/", E = ART + "env/";
+        System.Action<string, Vector3, float, float> put = (path, pos, sc, rot) =>
+        {
+            var src = Load<GameObject>(path); if (!src) return; var o = (GameObject)PrefabUtility.InstantiatePrefab(src, root);
+            o.transform.position = pos; o.transform.rotation = Quaternion.Euler(0, rot, 0); o.transform.localScale = Vector3.one * sc;
+        };
+        var dm = new Material(Shader.Find("Universal Render Pipeline/Lit")); dm.SetTexture("_BaseMap", Load<Texture2D>(ART + "tex/burned_ground_01_diff.jpg")); dm.SetColor("_BaseColor", new Color(1.15f, 1f, .78f)); dm.SetFloat("_Smoothness", .05f);
+        dm.SetTextureScale("_BaseMap", new Vector2(3, 3)); AssetDatabase.CreateAsset(dm, ART + "M_dune.mat");
+        System.Action<Vector3, Vector3> dune = (pos, sc) =>
+        {
+            var d = GameObject.CreatePrimitive(PrimitiveType.Sphere); Object.DestroyImmediate(d.GetComponent<Collider>()); d.name = "dune"; d.transform.SetParent(root);
+            d.transform.position = pos; d.transform.localScale = sc; d.GetComponent<Renderer>().sharedMaterial = dm;
+        };
+        for (float z = 12; z > -152; z -= rr(9, 14))
+            foreach (int side in new[] { -1, 1 })
+            {
+                if (side > 0 && z < -55 && z > -75) continue;   // the archers' ridge goes here
+                dune(new Vector3(side * rr(15.5f, 19f), -rr(.4f, 1.2f), z), new Vector3(rr(7, 11), rr(2.6f, 4.4f), rr(10, 16)));
+            }
+        dune(new Vector3(13.5f, -.6f, -65f), new Vector3(6f, 3.4f, 18f));   // the ridge
+        var salt = ScorchMat(); var sm = new Material(salt); sm.SetColor("_BaseColor", new Color(2.4f, 2.35f, 2.25f, .55f)); AssetDatabase.CreateAsset(sm, ART + "M_salt.mat");
+        for (int i = 0; i < 34; i++)
+        {
+            var d = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(d.GetComponent<Collider>()); d.transform.SetParent(root); float sc = rr(3, 9);
+            d.transform.localScale = new Vector3(sc, sc, 1); d.transform.position = new Vector3(rr(-12, 12), .02f + i * .0005f, rr(-148, 8)); d.transform.rotation = Quaternion.Euler(90, rr(0, 360), 0);
+            var dr = d.GetComponent<Renderer>(); dr.sharedMaterial = sm; dr.shadowCastingMode = ShadowCastingMode.Off;
+        }
+        for (int i = 0; i < 60; i++)
+        {
+            var pos = new Vector3(rr(-11f, 11f), 0, rr(-148, 8)); if (Mathf.Abs(pos.x - 1.5f) < 3.2f) continue;   // keep the caravan road clear
+            double k = R.NextDouble();
+            if (k < .35) put(E + "namaqualand_stones_01/namaqualand_stones_01.glb", pos, rr(.8f, 1.6f), rr(0, 360));
+            else if (k < .62) put(E + "dry_branches_medium_01/dry_branches_medium_01.glb", pos, rr(.8f, 1.5f), rr(0, 360));
+            else if (k < .72) put(E + "boulder_01/boulder_01.glb", pos, rr(.9f, 1.8f), rr(0, 360));
+            else if (k < .8) put(E + "dead_tree_trunk/dead_tree_trunk.glb", pos, rr(.9f, 1.3f), rr(0, 360));
+            else put(E + "grass_medium_01/grass_medium_01.glb", pos, rr(.5f, .9f), rr(0, 360));
+        }
+        // the raiders' camp before the giant's flat
+        put(BE + "E_campfire.glb", new Vector3(-1f, 0, -124f), 1f, 0); Fire(new Vector3(-1f, .2f, -124f), root, false);
+        for (int k = -3; k <= 3; k++) if (k != 0) put(BE + "E_fence.glb", new Vector3(k * 4.1f, 0, -118f), 1f, 0);
+        put(BE + "E_tower.glb", new Vector3(-12.5f, 0, -120f), .9f, 0); put(BE + "E_banner.glb", new Vector3(5, 0, -126f), 1f, 180);
     }
 
     static Material ScorchMat()

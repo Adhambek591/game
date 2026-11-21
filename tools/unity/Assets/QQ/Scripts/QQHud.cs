@@ -13,7 +13,8 @@ public class QQHud : MonoBehaviour
     Text objective, toast, endTitle, endSub, chain, chainLbl, bossName, coinTxt, againTxt; Text[] upName = new Text[3], upInfo = new Text[3], upCost = new Text[3]; Image[] upImg = new Image[3]; Image[][] upPips = new Image[3][];
     Image hpFill, hpLag, amuletRing, amuletGlow, amuletCd, dodgeFill, bossFill, bossLag; GameObject endPanel, bossBar, objPlate; CanvasGroup toastCg; float toastT, chainPop, hpShown = 1, bossShown = 1;
     GameObject sayPanel; Image sayPortrait; Text sayName, sayText; CanvasGroup titleCg; Text titleBig, titleSmall; float titleT; static bool skip;
-    public static int NextScene = -1;   // -1 = reload this scene
+    public static int NextScene = -1;
+    public static Unit Escort;   // the caravan in chapter 2: its health shows in the boss bar slot when no boss is up   // -1 = reload this scene
     RectTransform root; readonly System.Collections.Generic.List<Text> marks = new System.Collections.Generic.List<Text>();
 
     // ---- palette (ui2.css) ----
@@ -168,7 +169,7 @@ public class QQHud : MonoBehaviour
         // ---- objective plate (top centre) ----
         var ob = Rect(root, "obj", new Vector2(.5f, 1), new Vector2(40, -36), new Vector2(540, 44)); objPlate = ob.gameObject;
         Img(ob, Art("plate", new Vector4(44, 0, 44, 0)), Color.white, true, 64f / 44f);
-        objective = Txt(Rect(ob, "t", new Vector2(.5f, .5f), new Vector2(0, 1), new Vector2(460, 40)), "", UiBold, 17, TextAnchor.MiddleCenter, PARCH, false);
+        objective = Txt(Rect(ob, "t", new Vector2(.5f, .5f), new Vector2(0, 1), new Vector2(460, 40)), "", UiBold, 17, TextAnchor.MiddleCenter, PARCH, false); objPlate.SetActive(false);
 
         // ---- toast: red ribbon with gold Forum lettering ----
         var tr = Rect(root, "toast", new Vector2(.5f, .5f), new Vector2(0, 128), new Vector2(540, 58)); toastCg = tr.gameObject.AddComponent<CanvasGroup>(); toastCg.alpha = 0; toastCg.blocksRaycasts = false; toastCg.interactable = false;
@@ -255,7 +256,7 @@ public class QQHud : MonoBehaviour
     }
 
     static readonly System.Collections.Generic.Dictionary<string, (string name, string img)> SPEAKERS = new System.Collections.Generic.Dictionary<string, (string, string)> {
-        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") } };
+        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") }, { "qumdevi", ("Qum devi", "ui/por_qumdevi") } };
     public static void Say(string who, string text)
     {
         if (!I) return; skip = false;
@@ -271,6 +272,7 @@ public class QQHud : MonoBehaviour
         bool kb = k != null && (k.enterKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame);
         bool r = skip || kb; skip = false; return r;
     }
+    public static void Visible(bool on) { if (I) I.GetComponent<Canvas>().enabled = on; }
     public static void Title(string small, string big) { if (!I) return; I.titleSmall.text = small; I.titleBig.text = big; I.titleT = 3.4f; }
     public static void Hint(string s) { if (I) { I.toastT = 0; Toast(s, 3.5f); } }
 
@@ -325,6 +327,7 @@ public class QQHud : MonoBehaviour
 
         // boss bar
         Unit boss = null; foreach (var o in Unit.All) if (o.boss && !o.Dead) { boss = o; break; }
+        if (!boss && Escort && !Escort.Dead) boss = Escort;
         bossBar.SetActive(boss && !endPanel.activeSelf);
         if (boss)
         {

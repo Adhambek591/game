@@ -13,6 +13,7 @@ public class QQMission : MonoBehaviour
 {
     public static QQMission I;
     public Transform[] gates;                       // palisade parents, set by QQSetup.BuildCh1
+    public int chapter = 1;
     [System.NonSerialized] public float wallZ = -999f;   // Gúlayım's side cannot pass this z while a gate is closed
     [System.NonSerialized] public Vector3? target;       // current objective point (marker, bot navigation)
     [System.NonSerialized] public bool amuletLocked = true;
@@ -27,7 +28,7 @@ public class QQMission : MonoBehaviour
     QQArena A { get { return QQArena.I; } }
     Unit P { get { return QQArena.I.player; } }
 
-    public void Begin() { StartCoroutine(Run()); }
+    public void Begin() { StartCoroutine(chapter == 2 ? RunCh2() : Run()); }
 
     // ---------------- building blocks ----------------
     int Post(params (bool archer, Vector3 p)[] list)
@@ -113,7 +114,102 @@ public class QQMission : MonoBehaviour
         var q = A.Spawn(model, p, 0, hp, dmg, h, wpn, name); q.gameObject.AddComponent<QQAI>(); q.speed = 4.6f;
     }
 
-    void Update() { TickCaptives(); }
+    void Update() { TickCaptives(); TickCaravan(); }
+
+    // ---------------- chapter 2: the caravan ----------------
+    Unit cart; readonly List<Unit> walkers = new List<Unit>(); float cartGoal = 0f; bool cartBroken;
+    void TickCaravan()
+    {
+        if (!cart || cart.Dead || !A.running) { foreach (var w in walkers) if (w) w.rig.Play("idle", .3f); return; }
+        bool threat = false; foreach (var u in Unit.All) if (u.team == 1 && !u.Dead && !u.asleep && (u.transform.position - cart.transform.position).sqrMagnitude < 81f) { threat = true; break; }
+        bool near = (P.transform.position - cart.transform.position).sqrMagnitude < 22f * 22f;
+        bool move = !cartBroken && !threat && near && cart.transform.position.z > cartGoal + .1f;
+        if (move) cart.transform.position += Vector3.back * 1.7f * Time.deltaTime;
+        for (int i = 0; i < walkers.Count; i++)
+        {
+            var w = walkers[i]; if (!w) continue;
+            Vector3 slot = cart.transform.position + new Vector3(i % 2 == 0 ? -1.4f : 1.4f, 0, 3.2f + (i / 2) * 1.6f), d = slot - w.transform.position; d.y = 0;
+            if (d.magnitude > .4f) { w.transform.position += d.normalized * Mathf.Min(d.magnitude, 2.4f * Time.deltaTime); w.Face(d); w.rig.Play("walk", .2f); w.rig.speed = .9f; }
+            else { w.rig.Play("idle", .3f); w.Face(Vector3.back, 4f); }
+        }
+    }
+    IEnumerator CartTo(float z) { cartGoal = z; while (cart && !cart.Dead && cart.transform.position.z > z + .15f) { if (P.Dead) yield break; target = cart.transform.position + Vector3.forward * 3f; yield return null; } target = null; }
+    bool CaravanLost { get { return !cart || cart.Dead; } }
+    IEnumerator Fail(string why)
+    {
+        A.running = false; QQFeel.Sfx("st_lose", null, 1f, 0); QQHud.NextScene = -1;
+        QQHud.End(false, why + System.Environment.NewLine + "Kuchingizni oshirib, qaytadan urinib ko'ring."); yield break;
+    }
+
+    IEnumerator RunCh2()
+    {
+        QQFeel.Music("calm", .7f); A.running = false; wallZ = -999f; amuletLocked = false; QQFeel.Ambience("amb_desert", .5f);
+        // the freed people's caravan: one cart with three walkers behind it
+        var cgo = Instantiate(A.cart); var root = new GameObject("Karvon"); root.transform.position = new Vector3(1.5f, 0, -4f); cgo.transform.SetParent(root.transform, false); cgo.transform.localRotation = Quaternion.identity;   // shafts toward -z, the way it travels
+        QQArena.Look(cgo, null);
+        cart = root.AddComponent<Unit>(); cart.team = 0; cart.maxHp = cart.hp = 1500; cart.radius = 1.7f; cart.anchored = true; cart.displayName = "Karvon"; QQHud.Escort = cart;
+        for (int i = 0; i < 3; i++) { var w = A.Spawn(i == 1 && A.ona ? A.ona : A.yigit, root.transform.position + new Vector3(i % 2 == 0 ? -1.4f : 1.4f, 0, 3.2f + (i / 2) * 1.6f), 0, 100, 1, i == 1 ? 1.65f : 1.78f, null, "xalq"); w.isCaptive = true; w.inv = 9999; walkers.Add(w); }
+        if (A.sarbinaz) Ally(A.sarbinaz, "Sárbinaz", new Vector3(-2f, 0, 2f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
+        for (int i = 0; i < 3 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", new Vector3(-4f + i * 3f, 0, 4.5f), 300, 16, 1.7f, A.saber);
+        int gR = Post(Ar(9f, -60f), Ar(9.6f, -63.5f), Ar(9.2f, -67f), Ar(9.7f, -70.5f), S(6.2f, -62f), S(6f, -68f));      // archers on the ridge
+        foreach (var u in Unit.All) if (u.group == gR) { u.transform.rotation = Quaternion.LookRotation(Vector3.left); u.wakeR = 0f; }
+        int gB = Post(S(-3f, -112f), S(3f, -112.6f), S(-6.5f, -114f), S(6f, -115f), Ar(-4.5f, -121f), Ar(4.5f, -121f), S(0f, -122f));   // the blockade camp
+        QQHud.Visible(false);
+        yield return QQCutscene.Play("c2", "nar6", "Asirlar karvoni sho'rxok cho'l bo'ylab sharqqa haydaldi. Guloyim qirq qizi bilan ularning izidan quvdi.");
+        QQHud.Visible(true);
+        QQHud.Title("2-bob", "Sho'rxok cho'l"); yield return new WaitForSeconds(3f);
+        yield return Say(("sarbinaz", "Guloyim, ozod etilgan odamlar charchagan. Aravalar sekin yuradi."), ("gulayim", "Ularni cho'l orqali omon olib o'tamiz. Qizlar, karvonni qo'riqlang!"));
+        A.running = true; QQFeel.Music("battle", .75f);
+        QQHud.Objective("Karvonni cho'l orqali omon olib o'ting"); QQHud.Hint("Karvondan uzoqlashmang — dushman yaqinlashsa, karvon to'xtaydi");
+        // 1) raiders burst out of the dunes on both sides
+        yield return CartTo(-34f); if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; }
+        QQHud.Toast("Pistirma! Dushman har tomondan chiqdi!", 2.5f); QQFeel.Sfx("horn", null, .8f, 0);
+        var cz = cart.transform.position.z; int a1 = March(new Vector3(-10.5f, 0, cz - 2f), 3, 0), a2 = March(new Vector3(10.5f, 0, cz + 1f), 3, 0);
+        foreach (var gx in new[] { -10.5f, 10.5f }) for (int i = 0; i < 4; i++) QQFx.Ring(new Vector3(gx, 0, cz + Random.Range(-5f, 5f)), new Color(.85f, .72f, .5f), 2.5f);
+        while (Unit.CountGroup(a1) + Unit.CountGroup(a2) > 0) { if (P.Dead) yield break; if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; } yield return null; }
+        // 2) archers on the ridge shoot at the caravan
+        cartGoal = -86f; while (cart && cart.transform.position.z > -50f) { if (P.Dead) yield break; target = cart.transform.position + Vector3.forward * 3f; yield return null; }
+        Unit.WakeGroup(gR); QQHud.Toast("Qirdagi kamonchilar karvonni o'qqa tutmoqda — ularni yo'q qiling!", 3f); QQHud.Objective("Qirdagi kamonchilarni yo'q qiling");
+        while (Unit.CountGroup(gR) > 0) { if (P.Dead) yield break; if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; } target = null; yield return null; }
+        QQHud.Objective("Karvonni cho'l orqali omon olib o'ting");
+        yield return CartTo(-86f); if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; }
+        // 3) a wheel breaks: hold until it is fixed, raiders from the front and the back
+        cartBroken = true; QQHud.Toast("G'ildirak sindi! Dushman aynan shuni kutib turgan edi!", 3f); QQHud.Objective("G'ildirak tuzatilguncha karvonni himoya qiling");
+        float hold = 32f, next = 0f; int wave = 0;
+        while (hold > 0)
+        {
+            if (P.Dead) yield break; if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; }
+            hold -= Time.deltaTime; next -= Time.deltaTime;
+            if (next <= 0 && wave < 4) { next = 8f; wave++; bool back = wave % 2 == 0; March(cart.transform.position + (back ? Vector3.forward * 20f : Vector3.back * 22f), 3, wave >= 3 ? 1 : 0); if (back) QQHud.Toast("Orqamizdan hujum qilishyapti!", 2f); }
+            QQHud.Objective("G'ildirak tuzatilmoqda… " + Mathf.CeilToInt(hold) + " s");
+            yield return null;
+        }
+        while (Unit.CountTeam(1) - Unit.CountGroup(gB) > 0) { if (P.Dead) yield break; if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; } yield return null; }
+        cartBroken = false; QQHud.Toast("G'ildirak tuzatildi! Karvon yo'lga chiqdi", 2.5f); QQHud.Objective("Yo'l to'silgan! Qalmoq lagerini yo'q qiling");
+        // 4) the blockade camp
+        yield return CartTo(-104f); if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; }
+        Unit.WakeGroup(gB); yield return Clear(gB); if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; }
+        QQHud.Objective("Oldinga boring"); yield return CartTo(-110f);
+        yield return Reach(new Vector3(0, 0, -128f), 5f);
+        // 5) the sand giant: Gúlayım alone
+        var g = A.Spawn(A.giant ? A.giant : A.captain, new Vector3(0, 0, -142f), 1, 2700 * QQProgress.FoeHpMul, 38 * QQProgress.FoeDmgMul, 4.4f, null, "Qum devi");
+        g.boss = true; g.speed = 3.0f; g.range = 3.4f; g.radius = 1.2f; g.transform.rotation = Quaternion.LookRotation(Vector3.forward); g.gameObject.AddComponent<QQAI>();
+        for (int i = 0; i < 8; i++) QQFx.Ring(g.transform.position + Random.insideUnitSphere * 3f, new Color(.85f, .72f, .5f), 4f);
+        QQFeel.Sfx("roar", null, 1f, 0); QQCam.shake = 1.2f; A.duel = true;
+        yield return new WaitForSeconds(1.2f);
+        yield return Say(("qumdevi", "Tuz va qum — mening tanam. Bu bepoyon cho'l seni tiriklayin yutib yuboradi!"), ("gulayim", "Bu cho'l bizning ota makonimiz. Sen esa — o'tkinchi bir qora sehrsan!"));
+        QQFeel.Music("boss", .9f); QQHud.Objective("Qum devini yenging"); QQHud.Hint("Qum devi yerni yoradi — qizil doiralardan chetga qoching");
+        while (g && !g.Dead) { if (P.Dead) yield break; if (CaravanLost) { yield return Fail("Karvon yo'qoldi."); yield break; } yield return null; }
+        QQFx.Soul(g.transform.position, P.transform); A.duel = false;
+        foreach (var u in Unit.All.ToArray()) if (u.team == 1 && !u.Dead) u.Hit(99999, P, true);
+        yield return new WaitForSeconds(2.6f);
+        yield return Say(("sarbinaz", "Hamma omon. Endi navbat Qum deviga!".Replace("Endi navbat Qum deviga!", "Karvon xavfsiz joyga yetdi.")));
+        float hpk = cart ? cart.hp / cart.maxHp : 0; int lost = A.LostMaidens;
+        int stars = 1 + (hpk >= .6f ? 1 : 0) + (hpk >= .9f && lost == 0 ? 1 : 0);
+        int coins = 80 + Mathf.RoundToInt(hpk * 60) + stars * 20; QQProgress.Coins += coins; QQProgress.Chapter = Mathf.Max(QQProgress.Chapter, 3);
+        A.running = false; QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0); QQHud.NextScene = 2;
+        QQHud.End(true, new string('★', stars) + new string('☆', 3 - stars) + "   Karvon: " + Mathf.RoundToInt(hpk * 100) + "%" + System.Environment.NewLine + "+" + coins + " tanga");
+    }
 
     // ---------------- the chapter ----------------
     IEnumerator Run()
@@ -124,6 +220,11 @@ public class QQMission : MonoBehaviour
         int g0 = Post(S(4.5f, -14f));                                                                         // a lone looter in the first street
         int gA = Post(S(-2.2f, -46f), S(1.4f, -47f), S(5f, -50f), Ar(-7f, -54f), Ar(7f, -54f));               // guard post behind gate 1
         int gC = Post(S(-6f, -84f), S(6f, -84f), S(-3f, -88f), S(3f, -88f), S(0f, -91f), Ar(-8f, -93f), Ar(8f, -93f));   // the horde's camp
+        // the messenger's tale (approved clips): Surtaysha's dawn attack, Allayar's fall, the people led away in chains
+        QQHud.Visible(false);
+        yield return QQCutscene.Play("v1", "nar1", "Tong saharda Sarkop osmonini qora bulut qopladi. Qalmoq xoni Surtaysha qirq ming lashkari bilan yurtga bostirib kirdi…");
+        yield return QQCutscene.Play("v2", "nar2", "Allayar bay va olti o'g'li mardlarcha halok bo'ldi. Sarkopga o't qo'yildi. Omon qolgan xalq zanjirband qilinib, qalmoq yurtiga haydaldi.");
+        QQHud.Visible(true);
         QQHud.Title("1-bob", "Yonayotgan Sarkop");
         yield return new WaitForSeconds(3f);
         A.running = true;
@@ -166,7 +267,7 @@ public class QQMission : MonoBehaviour
         int lost = A.LostMaidens; int stars = 1 + (captivesSaved * 10 >= captivesTotal * 6 ? 1 : 0) + (captivesSaved == captivesTotal && lost == 0 ? 1 : 0);
         int coins = 60 + captivesSaved * 15 + stars * 20; QQProgress.Coins += coins; QQProgress.Chapter = Mathf.Max(QQProgress.Chapter, 2);
         A.running = false; QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0);
-        QQHud.NextScene = 1;   // the open battlefield after the chapter
+        QQHud.NextScene = 1;   // chapter 2 next
         QQHud.End(true, new string('★', stars) + new string('☆', 3 - stars) + "   Ozod qilingan asirlar: " + captivesSaved + "/" + captivesTotal + System.Environment.NewLine + "+" + coins + " tanga");
     }
 }

@@ -6,7 +6,7 @@ using UnityEngine;
 public class QQArena : MonoBehaviour
 {
     public static QQArena I;
-    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain, ona, yigit;
+    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain, ona, yigit, cart, giant;
     [Header("Weapons")] public GameObject saber, bow, axe, spear;
     [Header("Rigged Meshy models (tools/blender/chars.py)")] public GameObject sarbinaz; public GameObject[] maidens;
     public Texture2D gulayimBlue;
@@ -159,6 +159,6 @@ public class QQArena : MonoBehaviour
     {
         if (u.team == 1) { killed++; if (!spawning && Unit.CountTeam(1) == 0) { QQFeel.SlowMo(.2f, u.boss ? 1.6f : .9f); QQCam.shake = 1f; } }   // last foe of the wave: Arkham's final-blow slow motion
         else if (u == player) { running = false; QQFeel.Sfx("st_lose", null, 1f, 0); QQFeel.SlowMo(.25f, 1.2f); int c = 10 + killed; QQProgress.Coins += c; QQHud.End(false, "Gúlayım yiqildi. +" + c + " tanga" + System.Environment.NewLine + "Kuchingizni oshirib, qaytadan urinib ko'ring."); }
-        else lostMaidens++;
+        else if (!u.anchored && !u.isCaptive && u.displayName != "batır") lostMaidens++;
     }
 }

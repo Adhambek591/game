@@ -16,6 +16,7 @@ public class QQBot : MonoBehaviour
         int i = System.Array.IndexOf(args, "-qqout"); outDir = i >= 0 && i + 1 < args.Length ? args[i + 1] : Application.persistentDataPath;
         Directory.CreateDirectory(outDir);
         if (System.Array.IndexOf(args, "-qqclose") >= 0) QQCam.debugZoom = .42f;
+        int si = System.Array.IndexOf(args, "-qqscene"); if (si >= 0 && si + 1 < args.Length) { int sn = int.Parse(args[si + 1]); if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex != sn) UnityEngine.SceneManagement.SceneManager.LoadScene(sn); }
         if (System.Array.IndexOf(args, "-qqkeep") < 0) { PlayerPrefs.DeleteAll(); }   // every QA run starts from battle 1 with no upgrades
         new GameObject("QQBot").AddComponent<QQBot>(); DontDestroyOnLoad(FindFirstObjectByType<QQBot>());
         Application.logMessageReceived += (c, s, ty) => { if (ty == LogType.Exception || ty == LogType.Error) File.AppendAllText(Path.Combine(outDir, "bot.log"), "ERR " + c + " | " + s.Split('\n')[0] + "\n"); };

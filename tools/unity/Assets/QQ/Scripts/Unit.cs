@@ -17,7 +17,7 @@ public class Unit : MonoBehaviour
     // Ghost of Tsushima: foes look aggressive but only a couple attack Gúlayım at a time; the rest circle and wait for a turn
     [System.NonSerialized] public bool hasToken;
     // story missions: guard posts sleep until Gúlayım comes near (or one of them is hit), then the whole group wakes
-    [System.NonSerialized] public int group; [System.NonSerialized] public bool asleep, isCaptive; [System.NonSerialized] public float wakeR = 13f;
+    [System.NonSerialized] public int group; [System.NonSerialized] public bool asleep, isCaptive, anchored; [System.NonSerialized] public float wakeR = 13f;
     public static void WakeGroup(int g) { if (g == 0) return; for (int i = 0; i < All.Count; i++) if (All[i].group == g) All[i].asleep = false; }
     public static int CountGroup(int g) { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].group == g && !All[i].Dead) n++; return n; }
     public static int TokensOnPlayer() { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].hasToken && !All[i].Dead) n++; return n; }
@@ -71,7 +71,7 @@ public class Unit : MonoBehaviour
         if (stun > 0) stun -= dt; if (stunImmune > 0) stunImmune -= dt; if (inv > 0) inv -= dt; if (busy > 0) busy -= dt; if (telegraph > 0) telegraph -= dt;
         if (flash > 0) { flash -= dt; SetFlash(Mathf.Max(0, flash) / .1f); if (flash <= 0) SetFlash(0); }
         // separation
-        for (int i = 0; i < All.Count; i++)
+        for (int i = 0; i < All.Count && !anchored; i++)
         {
             var o = All[i]; if (o == this) continue;
             Vector3 d = transform.position - o.transform.position; d.y = 0; float r = radius + o.radius, m = d.sqrMagnitude;
