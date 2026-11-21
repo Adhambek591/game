@@ -12,7 +12,7 @@ import * as THREE from '/public/assets/vendor/three.module.min.js';
 const W = 1280, H = 720, FPS = 30, SECS = 10;
 const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setSize(W, H); R.setPixelRatio(1); R.shadowMap.enabled = true; document.body.appendChild(R.domElement);
 const S = new THREE.Scene(); S.background = new THREE.Color(0xdcd6ca); S.fog = new THREE.Fog(0xdcd6ca, 60, 220);
-const cam = new THREE.PerspectiveCamera(38, W / H, .1, 500);
+const cam = new THREE.PerspectiveCamera(38, W / H, .1, 900);
 S.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.1)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-30, 40, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, far: 150 }); S.add(sun);
 const M = c => new THREE.MeshLambertMaterial({ color: c });
 const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
@@ -30,7 +30,7 @@ for (const [x, z] of [[-8, -63], [-10, -64], [11, -64], [12.5, -65]]) cyl(.12, 1
 // dark column on the horizon = smoke over Sarkop. Beats: 0-3 s she sits her horse at the gate, looking at the smoke (grief -> resolve), turns and spurs;
 // 3-10 s she, Sárbinaz and the maidens gallop past the camera out through the gate, the camera pans after them.
 for (const x of [-4.5, 4.5]) box(4, 11, 4, 0x948c7e, x, 5.5, -20);   // gate towers
-const smoke = new THREE.Mesh(new THREE.CylinderGeometry(4, 9, 60, 16), new THREE.MeshLambertMaterial({ color: 0x2a2a2a, transparent: true, opacity: .75 })); smoke.position.set(30, 30, 140); S.add(smoke);
+const smoke = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 4, 40, 16), new THREE.MeshLambertMaterial({ color: 0x2a2a2a, transparent: true, opacity: .5, fog: false })); smoke.position.set(80, 20, 760); S.add(smoke);   // VERY far: a thin column on the horizon (author)
 S.remove(g); const g2 = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), M(0xb8aa8a)); g2.rotation.x = -Math.PI / 2; g2.receiveShadow = true; S.add(g2);   // ground beyond the wall too
 const horseCols = [0x8a5a32, 0x3a2a20, 0xb08a60, 0x6a4a3a, 0xd8d0c0, 0x4a3a30, 0x9a6a3a, 0x2a2420, 0xa07850, 0x5a4030];
 function mkRider(i, bodyCol, headCol) { const gr = new THREE.Group(); S.add(gr); const hc = horseCols[i % horseCols.length];
