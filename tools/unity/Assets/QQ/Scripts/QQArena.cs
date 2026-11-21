@@ -48,10 +48,24 @@ public class QQArena : MonoBehaviour
         StartCoroutine(Run());
     }
 
+    // Generated models come out facing different ways: read the facing from the hips (left thigh -> right thigh is the
+    // body's right; forward = right x up) and turn the model so it faces the root's forward. Yaw only, rounded to 90°.
+    static void FaceForward(GameObject m, Transform root)
+    {
+        Transform l = null, r = null;
+        foreach (var t in m.GetComponentsInChildren<Transform>()) { if (t.name == "LeftUpLeg") l = t; else if (t.name == "RightUpLeg") r = t; }
+        if (!l || !r) return;
+        Vector3 right = r.position - l.position; right.y = 0; if (right.sqrMagnitude < 1e-6f) return;
+        Vector3 f = Vector3.Cross(right.normalized, Vector3.up); Vector3 want = root.forward; want.y = 0;
+        float yaw = Vector3.SignedAngle(f, want, Vector3.up); yaw = Mathf.Round(yaw / 90f) * 90f;
+        m.transform.rotation = Quaternion.AngleAxis(yaw, Vector3.up) * m.transform.rotation;
+    }
+
     public Unit Spawn(GameObject model, Vector3 pos, int team, float hp, float dmg, float height, GameObject weapon, string name)
     {
         var root = new GameObject(name); root.transform.position = pos; root.transform.rotation = Quaternion.LookRotation(team == 0 ? Vector3.forward : Vector3.back);
         var m = Instantiate(model, root.transform); m.transform.localPosition = Vector3.zero; m.transform.localRotation = Quaternion.identity;
+        FaceForward(m, root.transform);
         // normalise height from the bind-pose bounds
         var b = new Bounds(m.transform.position, Vector3.zero); bool any = false;
         foreach (var r in m.GetComponentsInChildren<Renderer>()) { if (!any) { b = r.bounds; any = true; } else b.Encapsulate(r.bounds); }

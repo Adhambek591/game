@@ -239,10 +239,29 @@ public static class QQSetup
             ("R_shaman", "Shaman", spear, 1.85f, "idle"), ("R_surtaysha", "Surtaysha", axe, 2.0f, "combat"), ("R_qashqir", "Qasqir", axe, 2.4f, "combat"),
             ("R_jallod", "Jallad", null, 2.3f, "combat"), ("R_qargashiq", "Qargashiq", axe, 2.3f, "combat"), ("R_qunqar", "Qunqar", null, 4.2f, "idle"),
             ("R_qumdev", "Qum devi", null, 4.5f, "idle"), ("R_bori4", "Bori", null, 1.2f, "idle"), ("R_aydarho", "Aydarha", null, 5f, "idle") };
-        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/chars");
+        RenderSheet(ar, list, "models/", "Builds/chars");
+        Debug.Log("QQ GALLERY OK");
+    }
+
+    public static void GalleryMeshy()
+    {
+        EditorSceneManager.OpenScene(SCENE);
+        var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") { foreach (Transform c in t) if ((c.position - Vector3.zero).sqrMagnitude < 64) c.gameObject.SetActive(false); }
+        var list = new (string file, string name, GameObject wpn, float h, string pose)[] {
+            ("M_gulayim", "Gulayim", null, 1.75f, ""), ("M_sarbinaz", "Sarbinaz", null, 1.72f, ""), ("M_aysuliw", "Aysuliw", null, 1.7f, ""), ("M_qalbiyke", "Qalbiyke", null, 1.72f, ""),
+            ("M_gulshad", "Gulshad", null, 1.65f, ""), ("M_allayar", "Allayar", null, 1.75f, ""), ("M_otbasqan", "Otbasqan", null, 1.85f, ""), ("M_askar", "Askar", null, 1.8f, ""),
+            ("M_surtaysha", "Surtaysha", null, 1.95f, ""), ("M_qashqir", "Qasqir", null, 2.2f, ""), ("M_qargashiq", "Qargashiq", null, 3.2f, ""), ("M_qunqar", "Qunqar", null, 3.5f, ""), ("M_aydarha", "Aydarha", null, 5f, "") };
+        RenderSheet(ar, list, "meshy/", "Builds/meshy");
+        Debug.Log("QQ GALLERY OK");
+    }
+
+    static void RenderSheet(QQArena ar, (string file, string name, GameObject wpn, float h, string pose)[] list, string folder, string outDir)
+    {
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory(outDir);
         foreach (var e in list)
         {
-            var model = Load<GameObject>(ART + "models/" + e.file + ".glb"); if (!model) continue;
+            var model = Load<GameObject>(ART + folder + e.file + ".glb"); if (!model) continue;
             var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, e.h, e.wpn, e.name);
             u.transform.rotation = Quaternion.LookRotation(Vector3.back);   // face the camera side
             if (e.file == "R_bori4") QQArena.Look(u.gameObject, Load<Texture2D>(ART + "tex/var/bori_g.jpg"));   // the wolf mesh ships untextured; the browser paints it with this atlas
@@ -261,10 +280,9 @@ public static class QQSetup
                 var rt = new RenderTexture(640, 720, 24); cam.targetTexture = rt; cam.aspect = 640f / 720f; cam.Render(); cam.Render(); RenderTexture.active = rt;
                 sheet.ReadPixels(new Rect(0, 0, 640, 720), v * 640, 0); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
             }
-            sheet.Apply(); File.WriteAllBytes("Builds/chars/" + e.file.Substring(2) + ".png", sheet.EncodeToPNG());
+            sheet.Apply(); File.WriteAllBytes(outDir + "/" + e.file.Substring(2) + ".png", sheet.EncodeToPNG());
             Object.DestroyImmediate(u.gameObject);
         }
-        Debug.Log("QQ GALLERY OK");
     }
 
     public static void Win()
