@@ -20,7 +20,7 @@ window.__qaBot = async function (qo) { qo = qo || {}; if (window.__qaOn) return 
     } catch (e) { } };
     let pz = 0, pzL = ''; setInterval(() => { try { if (G.paused || G.freeze) { pz++; if (pz === 25) { const ov = [...document.querySelectorAll('.on,.in,.show,.open')].filter(e => e.id && e.offsetWidth > 0).map(e => e.id).join(','); const big = [...document.body.children].filter(e => e.offsetWidth > innerWidth * .5 && getComputedStyle(e).display !== 'none' && +getComputedStyle(e).opacity > .3 && e.id && !['c', 'hud', 'vig'].includes(e.id)).map(e => e.id + ':' + (e.innerText || '').replace(/\s+/g, ' ').slice(0, 60)).join(' ; '); const s = 'PAUSED>3s paused=' + G.paused + ' freeze=' + G.freeze + ' on=[' + ov + '] big=[' + big + ']'; if (s !== pzL) { pzL = s; __TL.push(G.time.toFixed(1) + ' ' + s); } } } else pz = 0; } catch (e) { } }, 120);
     setInterval(ui, 120);
-    const step = () => { try { const ST = __ST;
+    const step = () => { try { if (window.__botOff) { for (const c in keys) key(c, false); return; } const ST = __ST;
       for (const c of taps) key(c, false); taps = [];
       const t = +G.time.toFixed(1);
       const ob = $('obj').textContent; if (ob !== lo) { lo = ob; __TL.push(t + ' OBJ ' + ob); }
