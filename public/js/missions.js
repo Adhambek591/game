@@ -1186,10 +1186,20 @@ function wallArcher(x, z, y) { const e = sp('w4wa', x, z); e.spawnT = 0; e.o.sca
     const d = hyp(P.x - e.x, P.z - e.z); if (d > 34 || P.z < e.z - 2) { e.play('Idle'); return true; } e.rot = Math.atan2(P.x - e.x, P.z - e.z); e.cdw -= dt;
     if (e.cdw <= 0) { e.cdw = rnd(3.4, 4.8); e.play('1H_Ranged_Shoot', { once: true, force: true }); w4Shoot(e, { x: P.x + rnd(-1.3, 1.3), z: P.z + rnd(-1.3, 1.3) }, rnd(e.d.dmg[0], e.d.dmg[1]) * (e.dmgMul || 1)); e.shT = .7; }
     else if ((e.shT = (e.shT || 0) - dt) <= 0) e.play('Idle_Combat'); return true; }; return e; }
+// QA 2b "hero ~1.5x taller than the spearman": no model-scale bug (world heights: Gúlayım 1.90 m, askar 2.08, nayza 2.42 — she is the smallest);
+// it is perspective: with the 34° camera 15 m from her, a soldier 20 m ahead (the wall line) drew at ~0.65x her size. The siege camera backs off 1.59x
+// with a 1.3x narrower lens (her size stays ~80 %): a soldier 14 m ahead now draws at ~0.85x, and the view reaches ~17 m ahead (catapults, wall sooner).
+function siegeCam() { const M = G.mis, t0 = performance.now(); let f0 = 0, last = -1, iv = 0;   // installed after mstart(): the fly-over owns G.camFn until then; eases in over 1.2 s
+  const off = () => { clearInterval(iv); if (G.camFn === fn) G.camFn = null; try { if (f0 && G.camT && Math.abs(G.camT.fov - last) < 3) { G.camT.fov = f0; G.camT.updateProjectionMatrix(); } } catch (e) { } };
+  const fn = cam => { if (G.mis !== M) { off(); return; } G.camT = cam; const u = Math.min(1, (performance.now() - t0) / 1200), K = 1 + .3 * u, Z = 1 + .22 * u, DZ = -1.5 * u; f0 = innerHeight > innerWidth ? 44 : 34;   // the engine's own lens (resize()). Absolute, never read back from cam.fov: feel.js's kill punch reads it back too and the two fed each other down to a 0.4° lens
+    const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s, k = K * Z;
+    cam.position.set(lx + (cam.position.x - lx) * k, .8 + (cam.position.y - .8) * k, lz + DZ + (cam.position.z - lz) * k); cam.lookAt(lx, .8, lz + DZ);
+    last = 2 * Math.atan(Math.tan(f0 * Math.PI / 360) / K) * 180 / Math.PI; if (Math.abs(cam.fov - last) > .01) { cam.fov = last; cam.updateProjectionMatrix(); } };
+  G.camFn = fn; iv = setInterval(() => { if (G.mis !== M) off(); }, 300); return off; }
 async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const p = await gu(c, H.moods.DAY, siegeBuild, [], 3, c - 1, 5); G.curCh = c - 1;
   const gt = H.gateDoor(0, WZ); flyPt(0, WZ, 'e_gate');
-  const cats = W4 && W4.catProp ? [W4.catProp(-7.6, -20), W4.catProp(7.6, -23)] : [];
+  const cats = W4 && W4.catProp ? [W4.catProp(-6.4, -3.5), W4.catProp(6.4, -5.5)] : [];   /* QA 2b: 6.5-8.5 m ahead of the start, in the opening frame (at -20 / -23 they were above the top edge) */
   const wa = [-9.6, -6.3, 6.3, 9.6].map(x => wallArcher(x, WZ, 4.8));
   const pool = w4Pool(c).filter(q => q !== 'manj' && q !== 'cav'), pick = i => pool[i % pool.length];
   const L1 = []; for (let i = 0; i < 8; i++) L1.push([pick(i), (i % 4 - 1.5) * 2.5, WZ + 9 + (i > 3 ? 2.6 : 0), i % 2 ? 'p' : 'g', 1.4]);
@@ -1199,7 +1209,7 @@ async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const pts = [[-5.5, WZ - 26], [5.5, WZ - 48]].map(([x, z], i) => { const L = []; for (let k = 0; k < 5; k++) { const a = k / 5 * 6.283 + .4; L.push([pick(k + i), x + Math.cos(a) * 2.8, z + Math.sin(a) * 2.8]); }
     const g = post(L, { label: 'mb_cap', wake: 11, noExtra: true }); const cap = leader(g, x, z, 'mb_cap'); const mk = marker(x, z, 0xff4030, 3.4); try { w4Banner(x + (i ? 2.6 : -2.6), z - 2.4, 0x1a1a1a); } catch (e) { } return { g, cap, mk, x, z, done: false }; });
   const BO = { x: 0, z: WZ - 74, R: 8, type: TY('heavy'), hp: 4200, dmg: 1.45, scale: 1.22, name: 'w4_qbek', title: 'w4_qbek_t', crowd: [['askar', 4], ['archer', 2]], after: 'flee' }; BO.arena = arena(BO);
-  live(); setMusic('battle'); await ban(3); mstart(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
+  live(); setMusic('battle'); await ban(3); mstart(); siegeCam(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
   let ph = 1, lobT = 1.5, side = 0, lp = '', w2 = [], ptsN = 0; const up = L => L.filter(e => !e.dead), hud = s => { if (s !== lp) { lp = s; $('obj').textContent = s; } };
   const lobAt = (x, z, o) => { const cg = cats[side++ % Math.max(1, cats.length)]; if (!cg || !W4) { if (o.cb) o.cb(); return; } cg.fire(); W4.lob(cg.x, cg.z, x, z, o); };
   G.mis.aim = () => ph === 1 ? near(up(g1.es)) : ph === 2 ? (near(up(w2)) || near(up(wa)) || { x: 0, z: WZ + 12 }) : ph === 3 ? { x: 0, z: WZ + 9 } : ph === 4 ? (near(up(g3.es)) || near(pts.filter(q => !q.done).map(q => q.cap)) || null) : null;
@@ -1652,6 +1662,11 @@ async function rideRun(o) { const R = { rings: [], riders: [] }; f3D = Math.max(
   R.riders = (o.riders || []).map(([x, z, v, wt]) => { const f = spawn('askar', x, z, 'npc', true); f.spawnT = 0; f.o.scale.setScalar(f.vs || f.d.scale || 1); toggleMount(f, true); f.rot = Math.PI; f.d = { ...f.d, name: '' }; f.seed = rnd(0, 9); f.v0 = v; f.wait = !!wt; f.farT = -1e9;
     const g = people([['asir', x, z + .8]], { kind: 'ride', guards: [f], auto: true, T: 999, label: 'r_drag' }); f.g3 = g; return f; });   // team npc: driven from G.tick below
   const mk = marker(0, -193 - f3D, 0x66ff88, 2.2); live(); setMusic('calm'); await ban(3); mstart(); for (const f of R.riders) if (!f.wait) f.go = true;
+  if (o.shore) { const M = G.mis, t0 = G.time; let k = 0; const fn = (cam, dt) => { if (G.mis !== M) { if (G.camFn === fn) G.camFn = null; return; }   // 4-1 (author): the camera turns toward the sea on the right: orbit ~24° to the left of the hero and look past him toward the water
+      k = Math.min(1, (G.time - t0) / 1.5); const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s;
+      const ox = cam.position.x - lx, oz = cam.position.z - lz, a = -.42 * k, c = Math.cos(a), sn = Math.sin(a), sh = 4 * k;
+      cam.position.x = lx + sh + ox * c + oz * sn; cam.position.z = lz - ox * sn + oz * c; cam.lookAt(lx + sh, .8, lz); };
+    G.camFn = fn; R.camFn = fn; }
   setMusic('battle'); H.hint('', 7, t(o.hint || 'f3_h_ride'));
   const tm = $('timer'); let T0 = o.T || 0, late = false; if (T0) tm.style.display = 'block';
   const ringNext = () => R.rings.find(r => !r.done && r.z < G.player.z + 1.5);
@@ -1662,7 +1677,7 @@ async function rideRun(o) { const R = { rings: [], riders: [] }; f3D = Math.max(
       if (hyp(P.x - r.x, P.z - r.z) < 2.3) { r.done = true; Sfx.pick(); burst(r.x, 2.6, r.z, 0xffd060, 2.2); ringFx(r.x, r.z, 2.4, 0xffd060); r.tor.material.color.set(0x7fe08a); r.glow.material.opacity = 0; addGold(5, r.x, r.z); } }
     if (T0 > 0) { T0 -= dt * FAST(); tm.textContent = '⏳ ' + Math.max(0, Math.ceil(T0)); if (T0 <= 0) { late = true; hintRaw(t('f3_late')); tm.style.display = 'none'; } } };
   await until(() => (G.player.z < -189 - f3D && R.riders.every(f => f.caught || f.escaped)) || G.mis.force); mk.remove();
-  G.tick = null; G.mis.aim = null; tm.style.display = 'none'; G.mis.flag = !!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
+  G.tick = null; G.mis.aim = null; if (R.camFn && G.camFn === R.camFn) G.camFn = null; tm.style.display = 'none'; G.mis.flag =!!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
   setMusic('off'); await wait(.6); for (const m of G.ents) if (m.mounted) toggleMount(m, false); p.speed = sp0;
   const ok = R.riders.every(f => f.caught); await H.bannerShow('', R.riders.length ? t(ok ? 'rideWin' : 'rideMiss') : t('f3_ride_end'), '', 2.2); if (ok || !R.riders.length) addGold(80, p.x, p.z); return ok; }
 const RL = [[-5, -34], [5, -58], [-4, -84], [4.5, -110], [-5, -136], [3, -162]];
@@ -1675,9 +1690,10 @@ RUN['2-1'] = async () => { const { HOT } = H.moods; await H.chapterIntro(2, 'nar
 RUN['4-1'] = async () => { const { DAY } = H.moods; await H.chapterIntro(4, 'nar8', 'ruins'); G.curCh = 3;
   // 460 m along the shore (~70 s): the sea closes the right side of the road, driftwood and crates instead of rocks, two pairs of riders driving captives to the boats at the far end
   const SX = 5.2; await rideRun({ mood: DAY, obj: 'f3o_4_1', len: 460, shore: true, xMax: SX,
-    build: () => { try { w4Water((SX + 34) / 2 + 1.2, -225, 34 - SX, 480); } catch (e) { } G.colB.push({ x1: SX + 1.6, x2: 40, z1: -480, z2: 14 });
+    build: () => { if (window.__SCN !== 'r4') { try { const w = w4Water((SX + 60) / 2 + 2.6, -225, 60 - SX, 480); w.position.y = .06; } catch (e) { } }   /* the scenery sea (waterline x ~8.2) is the real one; this plane is only the fallback when the scenery module failed (at -0.25 it lay under the ground) */
+      G.colB.push({ x1: SX + 1.6, x2: 60, z1: -480, z2: 14 });
       for (let z = -30; z > -440; z -= 41) { try { w4Crate(SX - .4 + rnd(-.5, .3), z + rnd(-5, 5)); } catch (e) { } }
-      for (const [x, z, r] of [[SX + 4.5, -438, .5], [SX + 5, -449, -.3]]) { try { decor('R_arava', x, z, r); } catch (e) { } } },
+      for (const [x, z, r] of [[SX + 1.2, -436, .5], [SX + 1.4, -447, -.3]]) { try { decor('R_arava', x, z, r); } catch (e) { } } },
     riders: [[-6, -24, 5.8], [1, -30, 5.6], [-3, -205, 6.1, 1], [2.5, -212, 6.0, 1]],
     rings: f3Zig(-40, -430, 36, [-7, 1.5, -4, 3, -8, 0]), rocks: f3Zig(-52, -430, 31, [-2, -8.5, 2.5, -5.5, 0.5, -9]).map(([x, z], i) => [x, z, 1.3 + (i % 2) * .3]) }); return win(); };
 RUN['7-1'] = async () => { const { DUSK } = H.moods; await H.chapterIntro(7, 'nar11', 'ruins'); G.curCh = 6;
