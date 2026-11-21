@@ -46,12 +46,13 @@ const rider = person(0x2a3550, 0, 0, 0x1a1a1a, 1.7); S.remove(rider); rider.posi
 const ss = k => Math.max(0, Math.min(1, k)) ** 2 * (3 - 2 * Math.max(0, Math.min(1, k))), lerp = (a, b, k) => a + (b - a) * k, seg = (t, a, b) => ss((t - a) / (b - a));
 const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
 const RX = -1.7, RSTOP = -62.6; let rz, v, t = 0;
-const legsAnim = () => { const gait = v / 11, ph = t * 11; hr.position.set(RX, Math.abs(Math.sin(ph)) * .09 * gait, rz); legs.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? .8 : 0)) * .7 * gait; }); };
+const deck = z => Math.abs(z + 79) < 3.6 ? .47 : 0;   // plank bridge top: the horse rides ON the bridge, not through it
+const legsAnim = () => { const gait = v / 11, ph = t * 11; hr.position.set(RX, deck(rz) + Math.abs(Math.sin(ph)) * .09 * gait, rz); legs.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? .8 : 0)) * .7 * gait; }); };
 const face = (p, x, z, k) => { p.rotation.y = lerp(p.rotation.y, Math.atan2(x - p.position.x, z - p.position.z), k); };
-function reset() { t = 0; if (SHOT === 'a') { rz = -112; v = 9; } else { rz = -76; v = 9.5; } if (rider.parent !== hr) { S.remove(rider); hr.add(rider); rider.position.set(0, 1.2, -.1); rider.rotation.set(0, 0, 0); } }
+function reset() { t = 0; if (SHOT === 'a') { rz = -118; v = 8; } else { rz = -76; v = 9.5; } if (rider.parent !== hr) { S.remove(rider); hr.add(rider); rider.position.set(0, 1.2, -.1); rider.rotation.set(0, 0, 0); } }
 // K1a (6 s): medium shot. Gúlayım and Sárbinaz spar in the foreground, maidens train behind. 2.0 s hooves: EVERYONE stops and turns to the bridge
 // (staggered, nearest first). 3-4.5 s alarm (she steps forward). 4.5-6 s she breaks into a run toward the rider, camera pans with her.
-function stepA(dt) { t += dt; v = Math.min(11, v + 4 * dt); rz += v * dt; legsAnim();
+function stepA(dt) { t += dt; v = Math.min(10, v + 3 * dt); rz = Math.min(-66, rz + v * dt); legsAnim();   // still approaching at the end of K1a (K1b continues)
   const stop = seg(t, 2.0, 2.6);
   gu.position.set(GX + Math.sin(t * 5) * .12 * (1 - stop), 0, GZ); sa.position.set(.4 - Math.sin(t * 5) * .12 * (1 - stop), 0, -55.3);
   if (t < 2.2) { gu.rotation.y = Math.atan2(sa.position.x - GX, sa.position.z - GZ); sa.rotation.y = Math.atan2(GX - .4, GZ + 55.3); } else { face(gu, RX, rz, .12); face(sa, RX, rz, .1); }
