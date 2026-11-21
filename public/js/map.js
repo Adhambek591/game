@@ -8,7 +8,10 @@ import { MLIST, byCh, midx, TYICON, INTRO_M, flyPoints, flyStart } from './missi
 const qs = new URLSearchParams(location.search);
 const BOSS = { 0: ['p_ca', 'n_ca'], 1: ['p_qa', 'n_qa'], 2: ['p_qd', 'n_qd'], 3: ['p_ja', 'n_ja'], 4: ['p_ay', 'n_ay'], 5: ['p_qu', 'n_qu'], 6: ['p_qg', 'n_qg'], 7: ['p_su', 'n_su'] };
 // node positions on the map (percent of the map area): Sarkop → salt desert → river → sea shore → Darbent → Qashal → horde
-const NODE = [[7.5, 70], [22.5, 30], [35, 67], [43.5, 28], [58.5, 70], [63, 37], [72.5, 78], [86, 44]];
+// spread evenly (12 % apart, two rows) and matched to the map art; layout() then clamps them under the header / above the chest bar
+const NODE = [[8, 68], [22, 30], [32, 68], [44.5, 30], [56, 70], [67.5, 30], [79, 68], [91, 32]];
+// region names: candidate spots (percent); the first one that is clear of nodes / camps / HUD is used, otherwise the name is hidden
+const PLACE = { m_sar: [[10, 21], [9.5, 25], [14, 47]], m_dar: [[77, 12], [56.5, 12], [66, 13], [74, 48]], m_qas: [[88, 53], [70, 47], [80, 46], [88, 60]] };
 
 // ---------- progress ----------
 const ls = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
@@ -51,6 +54,7 @@ const CSS = `
 @keyframes mpul2{50%{box-shadow:0 0 0 2px rgba(255,225,150,.8),0 0 6px 2px rgba(255,190,60,.9)}}
 #map .nd .nm{margin-top:3px;max-width:100%;padding:2px 8px 3px;border-radius:7px;background:rgba(241,223,182,.86);box-shadow:0 0 0 1px rgba(90,50,10,.55),0 2px 5px rgba(40,18,4,.35);text-align:center;color:#5a100c;font:400 clamp(11.5px,1.5vw,14px)/1.05 var(--fd);letter-spacing:.03em}
 #map .nd .nm small{display:block;font:400 clamp(9.5px,1.15vw,11.5px)/1.1 var(--fu);color:var(--sepia);letter-spacing:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-height:460px){#map .nd .ci{width:clamp(44px,13vh,60px)}#map .nd .st{position:relative;z-index:1;margin-top:-8px}html #map .w4camp .ci{width:22px;height:22px;font-size:13px}}
 #map .nd.lk .ci{filter:grayscale(1) brightness(.5) sepia(.35)}
 #map .nd.lk .ci:after{content:"";position:absolute;left:50%;top:50%;width:54%;height:54%;transform:translate(-50%,-50%);border-radius:50%;background:url(./assets/img/ui/icons.webp) 100% 100%/400% 800%;filter:brightness(1.9) sepia(.2);box-shadow:0 0 0 1px #ffe9ad}
 #map .nd.lk .num{filter:grayscale(1) brightness(.7)}
@@ -150,9 +154,9 @@ function build() {
   const m = document.createElement('div'); m.id = 'map'; m.className = 'layer';
   m.innerHTML = `<div class="pm"><div class="mh"><button class="bk"></button><h2></h2><div class="tot"></div></div><div class="ma">${terrainSVG()}<div class="hero"></div></div><div class="card"><div class="bp"></div><div class="tx"><h3></h3><div class="cn"></div><div class="bs"></div><div class="cs"></div><div class="ml"></div><div class="bt"><button class="go"></button><button class="x">✕</button></div></div></div><div class="toast"></div></div>`;
   document.body.appendChild(m);
-  const ma = m.querySelector('.ma');
+  const ma = m.querySelector('.ma'); try { new ResizeObserver(() => relay()).observe(ma); } catch (e) { }
   for (let n = 0; n <= 7; n++) { const [x, y] = NODE[n], b = document.createElement('div'); b.className = 'nd'; b.dataset.n = n; b.style.left = x + '%'; b.style.top = y + '%'; b.innerHTML = `<div class="ci" style="background-image:url(./assets/img/${BOSS[n][0]}.jpg)"><span class="num">${n || '★'}</span></div><div class="st"></div><div class="nm"></div>`; b.onclick = () => tapNode(n, b); ma.appendChild(b); }
-  for (const [k, x, y] of [['m_sar', 14, 21], ['m_dar', 73, 47], ['m_qas', 87, 71]]) { const p = document.createElement('div'); p.className = 'pl'; p.dataset.k = k; p.style.left = x + '%'; p.style.top = y + '%'; ma.appendChild(p); }
+  for (const [k, [[x, y]]] of Object.entries(PLACE)) { const p = document.createElement('div'); p.className = 'pl'; p.dataset.k = k; p.style.left = x + '%'; p.style.top = y + '%'; ma.appendChild(p); }
   m.querySelector('.bk').onclick = closeMap; m.querySelector('.card .x').onclick = () => m.querySelector('.card').classList.remove('vis');
   m.addEventListener('pointerdown', e => { const c = m.querySelector('.card'); if (c.classList.contains('vis') && !c.contains(e.target) && !e.target.closest('.nd')) c.classList.remove('vis'); });
 }
@@ -165,10 +169,64 @@ function refresh() {
     b.querySelector('.st').innerHTML = '<span class="pps">' + byCh(n).map(m => `<i class="pp${mdone(m.id) ? ' d' : ''}${cm1 && cm1.id === m.id ? ' c' : ''}${munlocked(m.id) ? '' : ' l'}"></i>`).join('') + '</span><b>★</b>' + ck + '/' + cm;
     b.querySelector('.nm').innerHTML = `${t('ch' + n)}<small>${t('ch' + n + 'n')}</small>`; });
   m.querySelector('.tot').textContent = '★ ' + tot + '/' + MLIST.length * 3;
-  const [hx, hy] = NODE[cur], h = m.querySelector('.hero'); h.style.backgroundImage = 'url(./assets/img/p_gu.jpg)'; h.style.left = (hx + 3.2) + '%'; h.style.top = 'calc(' + hy + '% - clamp(18px,6vh,44px))';
-  // progress line: done fraction of the route
-  const pth = m.querySelector('#mdone'); try { const L = pth.getTotalLength(); const segs = 7; const cm = curMission(), f = Math.min(1, (cur + (cm ? byCh(cur).indexOf(cm) / byCh(cur).length : 0)) / segs); pth.style.strokeDasharray = L; pth.style.strokeDashoffset = L * (1 - f); } catch (e) { }
+  m.querySelector('.hero').style.backgroundImage = 'url(./assets/img/p_gu.jpg)';   // position: layout()
+  progress();
 }
+// progress line: done fraction of the route (whole segments up to the current chapter + the done share of its missions)
+let LP = null;   // node centres in px from layout()
+function progress() { const m = $('map'), cur = current(), pth = m.querySelector('#mdone'); try { const cm = curMission(), fr = cur >= 7 && !cm ? 0 : cm ? byCh(cur).indexOf(cm) / byCh(cur).length : 0;
+  // non-scaling stroke: the dash pattern is in screen pixels, so measure each road segment in px (the viewBox is stretched)
+  let seg; if (LP) seg = LP.slice(1).map((b, i) => { const a = LP[i], mx = (a[0] + b[0]) / 2; let l = 0, q = a; for (let k = 1; k <= 40; k++) { const t = k / 40, u = 1 - t, p = [u * u * u * a[0] + 3 * u * t * mx + t * t * t * b[0], u * u * u * a[1] + 3 * u * u * t * a[1] + 3 * u * t * t * b[1] + t * t * t * b[1]]; l += Math.hypot(p[0] - q[0], p[1] - q[1]); q = p; } return l; });
+  else { const L = pth.getTotalLength(); seg = Array(7).fill(L / 7); }
+  const Ls = seg.reduce((x, y) => x + y, 0), done = Math.min(Ls, seg.slice(0, cur).reduce((x, y) => x + y, 0) + (seg[cur] || 0) * fr);
+  pth.style.strokeDasharray = Ls + 2; pth.style.strokeDashoffset = Ls + 2 - done; } catch (e) { } }
+
+// ---------- layout: nothing clipped by the header / chest bar, nothing overlapping (runs whenever the map is shown or resized) ----------
+function layout() {
+  const m = $('map'); if (!m || !m.classList.contains('on')) return; const ma = m.querySelector('.ma'), A = ma.getBoundingClientRect(), W = A.width, H = A.height; if (W < 50 || H < 50) return;
+  const rel = e => { const r = e.getBoundingClientRect(); return { l: r.left - A.left, t: r.top - A.top, r: r.right - A.left, b: r.bottom - A.top }; };
+  const shown = e => e && e.offsetWidth > 0 && e.offsetHeight > 0 && getComputedStyle(e).visibility !== 'hidden' && +getComputedStyle(e).opacity > .05;
+  const hit = (a, b, g) => a.l < b.r + g && a.r > b.l - g && a.t < b.b + g && a.b > b.t - g;
+  const E = 6;   // screen-edge margin
+  const tops = [...m.querySelectorAll('.mh>*')].filter(shown).map(rel), bots = [...m.querySelectorAll('#mt-chestbar')].filter(shown).map(rel), hud = tops.concat(bots);
+  // 1) nodes
+  const nds = [...ma.querySelectorAll('.nd')], P = [];
+  nds.forEach(b => { const n = +b.dataset.n, w = b.offsetWidth, h = b.offsetHeight; let cx = NODE[n][0] / 100 * W, cy = NODE[n][1] / 100 * H;
+    cx = Math.max(w / 2 + E, Math.min(W - w / 2 - E, cx)); const l = cx - w / 2, r = cx + w / 2;
+    let lo = E + h / 2, hi = H - E - h / 2; for (const o of tops) if (o.r > l && o.l < r) lo = Math.max(lo, o.b + 5 + h / 2); for (const o of bots) if (o.r > l && o.l < r) hi = Math.min(hi, o.t - 5 - h / 2);
+    cy = lo > hi ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, cy)); P[n] = [cx, cy, w, h]; });
+  for (let pass = 0; pass < 4; pass++) for (let i = 0; i < 7; i++) { const a = P[i], b = P[i + 1], ov = Math.min(a[0] + a[2] / 2, b[0] + b[2] / 2) - Math.max(a[0] - a[2] / 2, b[0] - b[2] / 2) + 4, ovy = Math.min(a[1] + a[3] / 2, b[1] + b[3] / 2) - Math.max(a[1] - a[3] / 2, b[1] - b[3] / 2) + 4;
+    if (ov > 0 && ovy > 0) { const d = ov / 2; a[0] = Math.max(a[2] / 2 + E, a[0] - d); b[0] = Math.min(W - b[2] / 2 - E, b[0] + d); } }   // neighbours touching: push apart sideways
+  nds.forEach(b => { const p = P[+b.dataset.n]; b.style.left = (p[0] / W * 100).toFixed(2) + '%'; b.style.top = (p[1] / H * 100).toFixed(2) + '%'; });
+  // 2) road through the real node centres
+  const V = ([x, y]) => [x * 1000 / W, y * 500 / H]; let d = 'M' + V(P[0]).join(','); for (let i = 1; i < 8; i++) { const [x0, y0] = V(P[i - 1]), [x1, y1] = V(P[i]), mx = (x0 + x1) / 2; d += ` C${mx},${y0} ${mx},${y1} ${x1},${y1}`; }
+  m.querySelectorAll('svg.bg path').forEach(p => p.setAttribute('d', d)); LP = P.map(p => [p[0], p[1]]); progress();
+  const boxes = []; nds.forEach(b => [...b.children].forEach(c => { if (c.offsetWidth > 4) boxes.push(rel(c)); })); [...ma.querySelectorAll('.nd .num')].forEach(c => boxes.push(rel(c)));
+  // 3) Gúlayım's token: beside the current node's medallion (never above it, where the header is)
+  const cur = current(), hc = ma.querySelector(`.nd[data-n="${cur}"] .ci`), hero = ma.querySelector('.hero');
+  if (hc && hero) { const r = rel(hc), hw = hero.offsetWidth || 32; if (!hero.style.left) { hero.style.transition = 'none'; setTimeout(() => hero.style.transition = '', 60); }   /* first placement: no slide in from the corner */ let x = r.r + hw / 2 - 8; if (x + hw / 2 > W - E) x = r.l - hw / 2 + 8; hero.style.left = x + 'px'; hero.style.top = (r.t + (r.b - r.t) / 2 + hw / 2) + 'px'; boxes.push({ l: x - hw / 2, r: x + hw / 2, t: r.t + (r.b - r.t) / 2 - hw / 2 - 6, b: r.t + (r.b - r.t) / 2 + hw / 2 }); }
+  const inside = (q, top) => q.l >= E && q.r <= W - E && q.t >= top && q.b <= H - E;
+  const topMin = tops.length ? Math.max(...tops.map(o => o.b)) + 3 : E;
+  // 4) camp markers: beside the road between their two chapter nodes, clear of nodes, HUD and each other
+  const placed = [];
+  const B = (a, b, t) => { const mx = (a[0] + b[0]) / 2, u = 1 - t; const x = u * u * u * a[0] + 3 * u * u * t * mx + 3 * u * t * t * mx + t * t * t * b[0], y = u * u * u * a[1] + 3 * u * u * t * a[1] + 3 * u * t * t * b[1] + t * t * t * b[1];
+    const dx = 3 * u * u * (mx - a[0]) + 6 * u * t * 0 + 3 * t * t * (b[0] - mx), dy = 6 * u * t * (b[1] - a[1]), L = Math.hypot(dx, dy) || 1; return [x, y, -dy / L, dx / L]; };
+  ma.querySelectorAll('.w4camp').forEach(el => { const c = +el.dataset.c, i = +el.dataset.i || 0, k = +el.dataset.k || 1; if (!c || !P[c]) return; el.style.translate = ''; const w = el.offsetWidth, h = el.offsetHeight, f = (i + 1) / (k + 1);
+    const box = (x, y) => ({ l: x - w / 2, r: x + w / 2, t: y - h / 2, b: y + h / 2 }), ok = q => inside(q, topMin) && !boxes.some(o => hit(q, o, 3)) && !hud.some(o => hit(q, o, 3)) && !placed.some(o => hit(q, o, 3));
+    let best = null, bs = 1e9;
+    for (let t = .04; t <= .96; t += .02) { const [x, y, nx, ny] = B(P[c - 1], P[c], t); for (const o of [0, 16, -16, 30, -30, 46, -46, 62, -62]) { const s = Math.abs(t - f) * 120 + Math.abs(o) * .5 + (o === 0 ? 14 : 0); if (s >= bs) continue; const q = box(x + nx * o, y + ny * o); if (ok(q)) { best = q; bs = s; } } }   // 0 offset costs a bit: markers sit beside the road, not on it
+    if (!best) { const [x0, y0] = B(P[c - 1], P[c], f); outer: for (let R = 20; R <= 140; R += 12) for (let a = 0; a < 16; a++) { const q = box(x0 + Math.cos(a * Math.PI / 8) * R, y0 + Math.sin(a * Math.PI / 8) * R); if (ok(q)) { best = q; break outer; } } }
+    if (!best) { const [x0, y0] = B(P[c - 1], P[c], f); best = box(x0, y0); }
+    el.style.left = ((best.l + w / 2) / W * 100).toFixed(2) + '%'; el.style.top = ((best.t + h / 2) / H * 100).toFixed(2) + '%'; placed.push(best); });
+  // 5) region names last: first clear candidate, else hidden
+  ma.querySelectorAll('.pl').forEach(p => { p.style.visibility = 'hidden'; const w = p.offsetWidth, h = p.offsetHeight; let ok = false;
+    for (const [x, y] of PLACE[p.dataset.k] || []) { const cx = x / 100 * W, cy = y / 100 * H, q = { l: cx - w / 2, r: cx + w / 2, t: cy - h / 2, b: cy + h / 2 }; if (inside(q, topMin) && !boxes.some(o => hit(q, o, 4)) && !hud.some(o => hit(q, o, 4)) && !placed.some(o => hit(q, o, 4))) { p.style.left = x + '%'; p.style.top = y + '%'; ok = true; placed.push(q); break; } }
+    p.style.visibility = ok ? '' : 'hidden'; });
+  m.dataset.lay = '1';
+}
+window.__MAPL = layout;
+let layT = 0, layT2 = 0; const relay = () => { clearTimeout(layT); clearTimeout(layT2); layT = setTimeout(layout, 40); layT2 = setTimeout(layout, 450); };   // second pass: safe-area / app-height vars settle late on phones
+addEventListener('resize', relay);   // the app height (--apph) settles a bit after 'resize': watch the map box itself too
 function toast(s) { const el = $('map').querySelector('.toast'); el.textContent = s; el.classList.add('vis'); clearTimeout(toast.to); toast.to = setTimeout(() => el.classList.remove('vis'), 2200); }
 function tapNode(n, b) {
   Sfx.ui && Sfx.ui();
@@ -191,7 +249,7 @@ function startCh(n) {
   $('map').classList.remove('on'); $('map').querySelector('.card').classList.remove('vis');
   if (from === 'end') { $('end').classList.remove('on'); fn(); } else ctx.begin(fn);
 }
-export function openMap(src = 'title') { build(); from = src; refresh(); if (src === 'end') $('end').classList.remove('on'); $('map').classList.add('on'); }
+export function openMap(src = 'title') { build(); from = src; refresh(); if (src === 'end') $('end').classList.remove('on'); $('map').classList.add('on'); layout(); try { document.fonts.ready.then(layout); } catch (e) { } }
 function closeMap() { $('map').classList.remove('on'); if (from === 'end') $('end').classList.add('on'); }
 
 // ---------- title / end hooks ----------
