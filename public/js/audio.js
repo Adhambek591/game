@@ -142,7 +142,7 @@ for(const k in SMAP){ const f=Sfx[k]; Sfx[k]=function(...a){ if(quiet()&&k!=='pi
   if(k==='big'&&Math.random()<.35&&BUF.s_hit) spr('hit',3,.45*sp.g,{rate:.8,pan:sp.pan});
   const l=SMAP[k]; const n=l[(Math.random()*l.length)|0]; if(playS(n, (SVOL[k]??1)*sp.g, 0, {pan:sp.pan})) return; return f&&f.apply(Sfx,a); }; }
 // horn = súren. In a running fight a 2nd horn means a new wave: add the drum roll + an enemy shout
-function hornExtra(){ const G=G_(); if(!G||G.paused) return; if(fight.nE>0&&ac&&ac.currentTime-(cdT.wave||-9)>6){ cdT.wave=ac.currentTime; playS('roll',.55,1); bark('enemy','wave',null,.9); } }
+function hornExtra(){ const G=G_(); if(!G||G.paused||(G.mis&&G.mis.id==='0-0')) return;   /* 0-0: the friendly spar is no enemy wave */ if(fight.nE>0&&ac&&ac.currentTime-(cdT.wave||-9)>6){ cdT.wave=ac.currentTime; playS('roll',.55,1); bark('enemy','wave',null,.9); } }
 // gallop: the engine calls Sfx.hoof() per stride of the player's horse -> we keep a looped gallop alive (speed-matched in the ticker)
 let hoofT=-9; { const hf=Sfx.hoof; Sfx.hoof=function(...a){ if(!ac) return; hoofT=ac.currentTime; if(LOOP.gallop||BUF.l_gallop_loop) return; if(BUF.gallop){ if(!quiet()&&ac.currentTime-(cdT.gal||-9)>3.4){ cdT.gal=ac.currentTime; playS('gallop',.4,1); } return; } return hf&&hf.apply(Sfx,a); }; }
 Sfx.roar=()=>!quiet()&&playS('roar',.8,1); Sfx.cry=()=>!quiet()&&playS('cry',.55,1);
