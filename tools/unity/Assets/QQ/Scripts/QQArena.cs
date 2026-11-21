@@ -6,7 +6,7 @@ using UnityEngine;
 public class QQArena : MonoBehaviour
 {
     public static QQArena I;
-    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain, ona, yigit, cart, giant;
+    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain, ona, yigit, cart, giant, executioner, otbasqan;
     [Header("Weapons")] public GameObject saber, bow, axe, spear;
     [Header("Rigged Meshy models (tools/blender/chars.py)")] public GameObject sarbinaz; public GameObject[] maidens;
     public Texture2D gulayimBlue;

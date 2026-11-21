@@ -256,7 +256,7 @@ public class QQHud : MonoBehaviour
     }
 
     static readonly System.Collections.Generic.Dictionary<string, (string name, string img)> SPEAKERS = new System.Collections.Generic.Dictionary<string, (string, string)> {
-        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") }, { "qumdevi", ("Qum devi", "ui/por_qumdevi") } };
+        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") }, { "qumdevi", ("Qum devi", "ui/por_qumdevi") }, { "jallod", ("Jallod", "ui/por_jallod") }, { "otbasqan", ("O'tbosqan", "ui/por_otbasqan") } };
     public static void Say(string who, string text)
     {
         if (!I) return; skip = false;

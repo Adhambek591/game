@@ -28,7 +28,7 @@ public class QQMission : MonoBehaviour
     QQArena A { get { return QQArena.I; } }
     Unit P { get { return QQArena.I.player; } }
 
-    public void Begin() { StartCoroutine(chapter == 2 ? RunCh2() : Run()); }
+    public void Begin() { StartCoroutine(chapter == 3 ? RunCh3() : chapter == 2 ? RunCh2() : Run()); }
 
     // ---------------- building blocks ----------------
     int Post(params (bool archer, Vector3 p)[] list)
@@ -114,7 +114,75 @@ public class QQMission : MonoBehaviour
         var q = A.Spawn(model, p, 0, hp, dmg, h, wpn, name); q.gameObject.AddComponent<QQAI>(); q.speed = 4.6f;
     }
 
-    void Update() { TickCaptives(); TickCaravan(); }
+    void Update() { TickCaptives(); TickCaravan(); TickSentries(); }
+
+    // ---------------- chapter 3: sentries that look around; seen = alarm ----------------
+    readonly List<Unit> sentries = new List<Unit>(); readonly List<float> sentryYaw = new List<float>(); bool alarm, stealthOn;
+    void Sentry(float x, float z, float yaw)
+    {
+        int g = Post(S(x, z)); foreach (var u in Unit.All) if (u.group == g) { u.wakeR = 0f; u.transform.rotation = Quaternion.Euler(0, yaw, 0); sentries.Add(u); sentryYaw.Add(yaw); var c = new GameObject("cone"); c.AddComponent<QQCone>().Init(u, 9f, 60f); }
+    }
+    void TickSentries()
+    {
+        if (!stealthOn || alarm || !A.running || !P) return;
+        for (int i = 0; i < sentries.Count; i++)
+        {
+            var s = sentries[i]; if (!s || s.Dead || !s.asleep) continue;
+            s.transform.rotation = Quaternion.Euler(0, sentryYaw[i] + Mathf.Sin(Time.time * .45f + i * 1.7f) * 42f, 0);   // looking around
+            Vector3 d = P.transform.position - s.transform.position; d.y = 0; float dist = d.magnitude;
+            if (dist < 2f || (dist < 9f && Vector3.Angle(s.transform.forward, d) < 60f))
+            {
+                alarm = true; foreach (var t in sentries) if (t && !t.Dead) Unit.WakeGroup(t.group);
+                QQHud.Toast("Xavf! Sizni ko'rib qolishdi!", 2.5f); QQFeel.Sfx("horn", null, 1f, 0); QQFeel.Music("battle", .8f); break;
+            }
+        }
+    }
+
+    IEnumerator RunCh3()
+    {
+        QQFeel.Music("calm", .6f); A.running = false; wallZ = -104f; amuletLocked = false; QQFeel.Ambience("amb_river", .5f);
+        if (A.sarbinaz) Ally(A.sarbinaz, "Sárbinaz", new Vector3(-2f, 0, 5f), 420, 22, 1.74f, A.spear ? A.spear : A.saber);
+        for (int i = 0; i < 2 && A.maidens != null && A.maidens.Length > 0; i++) Ally(A.maidens[i % A.maidens.Length], "qiz", new Vector3(-3f + i * 3f, 0, 7f), 300, 16, 1.7f, A.saber);
+        foreach (var u in Unit.All) { var ai = u.GetComponent<QQAI>(); if (u.team == 0 && u != P && ai) ai.enabled = false; }   // the maidens wait at the edge while she scouts
+        // sentries by the fires, facing the street at different angles
+        Sentry(-4f, -28f, 160f); Sentry(6f, -36f, 210f); Sentry(-7f, -50f, 120f); Sentry(2f, -58f, 200f); Sentry(-6f, -74f, 170f); Sentry(6f, -80f, 230f); Sentry(0f, -92f, 180f);
+        Captive(new Vector3(-4f, 0, -97f)); Captive(new Vector3(-1.5f, 0, -98.5f)); Captive(new Vector3(1.5f, 0, -98.5f)); Captive(new Vector3(4f, 0, -97f));
+        var ot = A.Spawn(A.otbasqan ? A.otbasqan : A.yigit, new Vector3(0, 0, -122f), 0, 900, 30, 1.9f, null, "O'tbosqan"); ot.isCaptive = true; ot.inv = 9999; ot.transform.rotation = Quaternion.LookRotation(Vector3.forward); ot.rig.Play("hit", .01f, false, true); ot.rig.speed = 0;
+        int gC = Post(S(-6f, -136f), S(6f, -136f), S(-3f, -140f), S(3f, -140f), Ar(-7f, -146f), Ar(7f, -146f), S(0f, -144f));
+        QQHud.Visible(false);
+        yield return QQCutscene.Play("c3", "nar7", "Katta daryo bo'yida qul karvoni dam olishga to'xtadi. Zanjirband asirlar orasida Sarkopning mashhur botiri O'tbosqan ham bor edi.");
+        QQHud.Visible(true);
+        QQHud.Title("3-bob", "Daryo bo'yi"); yield return new WaitForSeconds(3f);
+        yield return Say(("sarbinaz", "Qaranglar, daryo bo'yida gulxan tutuni ko'rinyapti. Karvon shu yerda to'xtagan!"), ("gulayim", "Avval asirlarni ozod qilamiz, keyin jallodning jazosini beramiz. O'tbosqan og'a ham o'sha yerda!"));
+        A.running = true; stealthOn = true;
+        QQHud.Objective("Qo'riqchilarga ko'rinmay asirlarga yeting"); QQHud.Hint("Qo'riqchilarga orqa tomondan yashirincha yaqinlashib uring — ular faqat oldini ko'radi");
+        yield return Reach(new Vector3(0, 0, -97f), 4f);
+        stealthOn = false;
+        // free all four (stand among them), then the maidens come up
+        float t0 = 0; while (captivesSaved < captivesTotal && t0 < 8f) { t0 += Time.deltaTime; target = new Vector3(0, 0, -98f); yield return null; }
+        foreach (var u in Unit.All) if (u.team == 0 && !u.isPlayer && u.GetComponent<QQAI>()) u.GetComponent<QQAI>().enabled = true;
+        if (alarm) { QQHud.Objective("Qo'riqchilarni yengib chiqing"); while (Unit.CountTeam(1) - Unit.CountGroup(gC) > 0) { if (P.Dead) yield break; yield return null; } }
+        foreach (var s in sentries) if (s && !s.Dead) s.Hit(99999, P, true);
+        yield return OpenGate(0, -150f); QQHud.Objective("Jallodni toping");
+        yield return Reach(new Vector3(0, 0, -110f), 4f);
+        var j = A.Spawn(A.executioner ? A.executioner : A.captain, new Vector3(0, 0, -118f), 1, 3000 * QQProgress.FoeHpMul, 40 * QQProgress.FoeDmgMul, 2.3f, A.axe, "Jallod");
+        j.boss = true; j.speed = 3.6f; j.range = 2.4f; j.radius = .7f; j.transform.rotation = Quaternion.LookRotation(Vector3.forward); j.gameObject.AddComponent<QQAI>(); A.duel = true;
+        QQFeel.Sfx("slam", null, 1f, 0); yield return new WaitForSeconds(1f);
+        yield return Say(("jallod", "Har bir zanjir — bir qulning oxirgi faryodi. Sening bo'yningga ham zanjir tayyor!"), ("gulayim", "O'sha zanjirlaring bilan o'zingni bo'g'ib o'ldiraman, jallod!"));
+        QQFeel.Music("boss", .9f); QQHud.Objective("Jallodni yenging");
+        while (j && !j.Dead) { if (P.Dead) yield break; yield return null; }
+        QQFx.Soul(j.transform.position, P.transform); A.duel = false; yield return new WaitForSeconds(2.4f);
+        yield return Reach(new Vector3(0, 0, -120f), 3f);
+        ot.isCaptive = false; ot.inv = 0; ot.rig.speed = 1f; ot.rig.Play("taunt", .2f, false, true); QQFx.Ring(ot.transform.position, new Color(1f, .85f, .4f), 3f);
+        yield return Say(("otbasqan", "Guloyim… Allayar botirning qizi! Qalmoqlar meni zanjirlasa ham, ruhimni sindira olmadi."), ("gulayim", "O'tbosqan og'a, endi yolg'iz emassiz. Qirq qiz yoningizda — safimizga qo'shiling."), ("otbasqan", "Qilichimni qo'limga bering! Surtayshaning o'rdasini yer bilan yakson qilmaguncha to'xtamayman!"));
+        if (A.saber) QQArena.ArmUnit(ot, A.saber, 1.9f); ot.gameObject.AddComponent<QQAI>(); ot.speed = 4.4f; ot.displayName = "O'tbosqan"; QQFeel.Sfx("power", null, .8f, 0);
+        QQFeel.Music("battle", .8f); QQHud.Objective("Qolgan asirlarni ozod qiling"); Unit.WakeGroup(gC); yield return Clear(gC);
+        yield return new WaitForSeconds(1.5f);
+        int lost = A.LostMaidens; int stars = 1 + (!alarm ? 1 : 0) + (!alarm && captivesSaved == captivesTotal && lost == 0 ? 1 : 0);
+        int coins = 90 + captivesSaved * 15 + stars * 20; QQProgress.Coins += coins; QQProgress.Chapter = Mathf.Max(QQProgress.Chapter, 4);
+        A.running = false; QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0); QQHud.NextScene = 3;
+        QQHud.End(true, new string('★', stars) + new string('☆', 3 - stars) + (alarm ? "   Qo'riqchilar sizni ko'rdi" : "   Sezdirmay o'tdingiz") + System.Environment.NewLine + "+" + coins + " tanga");
+    }
 
     // ---------------- chapter 2: the caravan ----------------
     Unit cart; readonly List<Unit> walkers = new List<Unit>(); float cartGoal = 0f; bool cartBroken;
@@ -207,7 +275,7 @@ public class QQMission : MonoBehaviour
         float hpk = cart ? cart.hp / cart.maxHp : 0; int lost = A.LostMaidens;
         int stars = 1 + (hpk >= .6f ? 1 : 0) + (hpk >= .9f && lost == 0 ? 1 : 0);
         int coins = 80 + Mathf.RoundToInt(hpk * 60) + stars * 20; QQProgress.Coins += coins; QQProgress.Chapter = Mathf.Max(QQProgress.Chapter, 3);
-        A.running = false; QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0); QQHud.NextScene = 2;
+        A.running = false; QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0); QQHud.NextScene = 2;   // chapter 3 next
         QQHud.End(true, new string('★', stars) + new string('☆', 3 - stars) + "   Karvon: " + Mathf.RoundToInt(hpk * 100) + "%" + System.Environment.NewLine + "+" + coins + " tanga");
     }
 

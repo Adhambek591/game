@@ -32,7 +32,10 @@ public class Unit : MonoBehaviour
     public void Hit(float d, Unit from, bool heavy = false)
     {
         if (Dead || inv > 0) return;
-        if (asleep) WakeGroup(group);
+        // a sentry struck from behind while unaware falls silently (chapter 3 stealth): heavy damage, the others do not wake
+        bool silent = false;
+        if (asleep && from && from.isPlayer && Vector3.Dot(transform.forward, from.transform.position - transform.position) < .1f) { d *= 12f; silent = true; }
+        if (asleep && !silent) WakeGroup(group);
         hp -= d; flash = .1f;
         if (onHit != null) onHit(from, d);
         QQFx.Spark(transform.position + Vector3.up * 1.2f, team == 0 ? new Color(1f, .45f, .3f) : new Color(1f, .85f, .5f));
