@@ -14,7 +14,7 @@ public class QQAI : MonoBehaviour
     // allies keep their OWN loose spot BEHIND Gúlayım and notice she moved only after their own delay; they walk, and sprint
     // only when left far behind; at most 2 allies per ordinary foe; foes spread over targets; around a target each attacker
     // takes its own slot on a ring, so nobody runs in one clump
-    float pace, tempo, react, slotAng; int comboLeft; float pounceT = -1, pounceCd = 4f; Vector3 pounceFrom, pounceTo; Vector3 spot; Vector3 lastPl; float noticeT; bool sprinting;
+    float pace, tempo, react, slotAng; int comboLeft; bool followUp; float pounceT = -1, pounceCd = 4f; Vector3 pounceFrom, pounceTo; Vector3 spot; Vector3 lastPl; float noticeT; bool sprinting;
     static readonly string[] MELEE = { "attack", "slash2", "attack3", "heavy" };
     static int MaxTokens { get { return QQArena.I && QQArena.I.Wave >= 2 ? 3 : 2; } }
 
@@ -116,11 +116,11 @@ public class QQAI : MonoBehaviour
                     {
                         QQFeel.Sfx("v_swing", transform.position, .6f); if (u.boss) QQSlash.Spawn(transform, new Color(1f, .3f, .2f), 170, u.range + 1.2f, Random.Range(-30f, 30f), Random.value < .5f ? 1 : -1, 1.4f);
                         if ((target.transform.position - transform.position).magnitude < u.range + target.radius + .5f)
-                            target.Hit(u.dmg * (u.unblockable ? 1.6f : 1f), u, u.unblockable);
+                            target.Hit(u.dmg * (u.unblockable ? 1.6f : 1f) * (u.boss && followUp ? .55f : 1f), u, u.unblockable);
                     }
                 }
                 u.hasToken = false; u.unblockable = false; u.swingAt = null; slam = false;
-                if (u.boss && comboLeft > 0) { comboLeft--; cd = .15f; u.busy = .1f; } else if (u.boss) comboLeft = Random.Range(1, phase2 ? 3 : 2);
+                if (u.boss && comboLeft > 0) { comboLeft--; cd = .35f; u.busy = .1f; followUp = true; } else if (u.boss) { comboLeft = Random.Range(0, phase2 ? 3 : 2); followUp = false; }
             }
             if (u.busy > 0) return;
         }

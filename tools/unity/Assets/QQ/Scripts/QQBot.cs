@@ -37,6 +37,7 @@ public class QQBot : MonoBehaviour
         if (t > 300 && !ended) { ended = true; Log("TIMEOUT"); Invoke(nameof(Quit), .5f); }
         if (ended || me.Dead) return;
 
+        if (guardT > 0) { guardT -= Time.deltaTime; if (guardT <= 0) { P.DodgeUp(); Log("GUARD end stamina " + P.Stamina.ToString("0.00")); } else return; }   // release even if the foe died meanwhile
         var foe = Unit.Nearest(me.transform.position, 1, 60f);
         if (foe && foe.asleep && QQMission.I && QQMission.I.BotGoal.HasValue) foe = null;   // objective first, posts wake on their own
         if (foe && QQMission.I && QQMission.I.wallZ > -900 && foe.transform.position.z < QQMission.I.wallZ - 1f && QQMission.I.BotGoal.HasValue) foe = null;
@@ -56,7 +57,6 @@ public class QQBot : MonoBehaviour
             if (o.team == 1 && !o.Dead && o.swingAt == me && o.telegraph > 0 && o.telegraph < .3f && (o.transform.position - me.transform.position).sqrMagnitude < 16f)
             { if (reactFor != o) { reactFor = o; if (Random.value < .7f) { P.Dodge(); Log(o.unblockable ? "ROLL red" : "COUNTER " + o.displayName + " chain " + P.Chain); } } break; }
         // guard test: now and then hold the dodge button for ~1 s when foes are close
-        if (guardT > 0) { guardT -= Time.deltaTime; if (guardT <= 0) { P.DodgeUp(); Log("GUARD end stamina " + P.Stamina.ToString("0.00")); } return; }
         if (dist < 3f && Random.value < .004f) { P.DodgeDown(); guardT = 1.1f; blocks++; Log("GUARD start"); }
         int crowd = 0; foreach (var u in Unit.All) if (u.team == 1 && !u.Dead && (u.transform.position - me.transform.position).sqrMagnitude < 36f) crowd++;
         if (crowd >= 4 && P.AmuletReady >= 1f) P.Amulet();

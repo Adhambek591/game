@@ -165,7 +165,7 @@ public class QQMission : MonoBehaviour
         foreach (var s in sentries) if (s && !s.Dead) s.Hit(99999, P, true);
         yield return OpenGate(0, -150f); QQHud.Objective("Jallodni toping");
         yield return Reach(new Vector3(0, 0, -110f), 4f);
-        var j = A.Spawn(A.executioner ? A.executioner : A.captain, new Vector3(0, 0, -118f), 1, 3000 * QQProgress.FoeHpMul, 40 * QQProgress.FoeDmgMul, 2.3f, A.axe, "Jallod");
+        var j = A.Spawn(A.executioner ? A.executioner : A.captain, new Vector3(0, 0, -118f), 1, 2500 * QQProgress.FoeHpMul, 34 * QQProgress.FoeDmgMul, 2.3f, A.axe, "Jallod");
         j.boss = true; j.speed = 3.6f; j.range = 2.4f; j.radius = .7f; j.transform.rotation = Quaternion.LookRotation(Vector3.forward); j.gameObject.AddComponent<QQAI>(); A.duel = true;
         QQFeel.Sfx("slam", null, 1f, 0); yield return new WaitForSeconds(1f);
         yield return Say(("jallod", "Har bir zanjir — bir qulning oxirgi faryodi. Sening bo'yningga ham zanjir tayyor!"), ("gulayim", "O'sha zanjirlaring bilan o'zingni bo'g'ib o'ldiraman, jallod!"));
@@ -260,7 +260,7 @@ public class QQMission : MonoBehaviour
         QQHud.Objective("Oldinga boring"); yield return CartTo(-110f);
         yield return Reach(new Vector3(0, 0, -128f), 5f);
         // 5) the sand giant: Gúlayım alone
-        var g = A.Spawn(A.giant ? A.giant : A.captain, new Vector3(0, 0, -142f), 1, 2700 * QQProgress.FoeHpMul, 38 * QQProgress.FoeDmgMul, 4.4f, null, "Qum devi");
+        var g = A.Spawn(A.giant ? A.giant : A.captain, new Vector3(0, 0, -142f), 1, 2400 * QQProgress.FoeHpMul, 34 * QQProgress.FoeDmgMul, 4.4f, null, "Qum devi");
         g.boss = true; g.speed = 3.0f; g.range = 3.4f; g.radius = 1.2f; g.transform.rotation = Quaternion.LookRotation(Vector3.forward); g.gameObject.AddComponent<QQAI>();
         for (int i = 0; i < 8; i++) QQFx.Ring(g.transform.position + Random.insideUnitSphere * 3f, new Color(.85f, .72f, .5f), 4f);
         QQFeel.Sfx("roar", null, 1f, 0); QQCam.shake = 1.2f; A.duel = true;
