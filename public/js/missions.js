@@ -488,7 +488,7 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
   const g3 = post([['askar', -6, -66], ['askar', 6, -66], ['archer', -9, -72], ['archer', 9, -72]], { nofly: true, wake: 0 }); chest(9.3, -17, 50);
   // wave4 / missions audit: no Camel Dev here (off-plan). The finale is the plan's beat: Allayar holds the line while the townsfolk flee past him into the town.
   const folk = ['mother', 'child', 'elder', 'asir', 'mother', 'child', 'elder', 'asir', 'mother', 'asir'].map((ty, i) => { const sd = i % 2 ? 1 : -1, e = spawn(ty, sd * (7.2 + (i % 3) * .9), -53 - (i >> 1) * 1.7, 'npc', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = 0; e.farT = -1e9; e.w4folk = 1; e.play('Sit_Floor_Idle'); return e; });
-  await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
+  await H.cutscene('v1', 'nar1', 'p_su'); live();   /* STORY: the still behind the clip must not be the keyart (Gúlayım is not in Sarkop) */ setMusic('battle'); await ban(3); mstart();
   await wait(.6); await say([['al', 'd_al1']]);
   H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
   await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7, t('h_attack_al')); wake(g1);   /* Allayar has no bow */
@@ -526,7 +526,7 @@ RUN['0-2'] = async () => { const { NIGHT } = H.moods;
   flash(.9); Sfx.big(); G.shake = 1; p.play('Death_A', { once: true, force: true }); await wait(1.3);
   G.freeze = false; await say([['al', 'd_al3']]);
   await H.fadeTo(true); setBoss(null); $('hud').classList.remove('on'); setMusic('off'); G.paused = true;
-  await H.cutscene('v2', 'nar2'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
+  await H.cutscene('v2', 'nar2', 'p_al'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
 
 // ===== CHAPTER 1 =====
 async function ch1Start(z, sk, mood) { const { DAY } = H.moods; await H.fadeTo(true); await ensureReal(['qashqir', 'sarbinaz']); clearLevel(); setMood(mood || DAY); G.emberDown = true; H.buildMission(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; G.chGold = 0;
@@ -539,7 +539,7 @@ RUN['1-1'] = async () => {
   const g0p = post([['askar', 4.5, -12, 'p', 2]], { nofly: true, wake: 7 });
   const gA = post([['askar', -2.2, -46.4, 's'], ['askar', 1.4, -47.2, 's'], ['askar', 5, -50, 'p', 2.5], ['archer', -8, -54], ['archer', 8, -54]], { fire: [-.5, -48.4] });
   const gC = post([['askar', -6, -74], ['askar', 6, -74], ['askar', -3, -79, 'p', 2], ['askar', 3, -79], ['askar', 0, -82], ['wolf', -9, -72, 'pz', 2], ['wolf', 9, -72, 'pz', 2], ['archer', -8, -83], ['archer', 8, -83]]);
-  await H.lore('lore1'); await H.cutscene('v3', 'nar3'); live(); setMusic('calm'); await ban(3); mstart();
+  await H.lore('lore1'); await H.cutscene('v3', 'nar3m'); live();   /* STORY: after the messenger's tale — v3 (Qıran, the ride, smoke on the horizon) = she rides home to Sarkop; nar3 ('she was training at Qıran') was already shown by the tutorial */ setMusic('calm'); await ban(3); mstart();
   G.tick = () => { for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
   H.objective('o_mother'); H.hint('h_attack', 6); const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
   await H.reach(2, -23, 3.6); mm.remove(); mo.face(p.x - mo.x, p.z - mo.z); p.act = null; p.play('Idle');
@@ -1549,12 +1549,12 @@ const TUT = (() => {
     const res = await duel({ arena: A, x: DX, z: DZ, R: DR, name: 'n_sa', title: 'tu_duel_t', nonLethal: .3, after: 'stay', intro: [['gu', 'tu3_duel1'], ['sa', 'tu_d_sa3'], ['ays', 'tu_d_gu3'], ['sa', 'tu_d_sa4']] });
     if (!alive(R)) return; G.tick = tick; R.duelCard = 0; R.duelClean = !!(res && res.clean); cardOk(); reward(40, null); card(''); obj('');
     await say([['sa', 'tu_d_sa6'], ['gu', 'tu3_win']]); if (!alive(R)) return;
-    // ---- story hook: the alarm horn, a rider over the bridge, smoke over Sarkop ----
+    // ---- story hook: a lone messenger rides in over the bridge (no horn, no smoke) ----
     for (const c of A.ring.crowd) c.play('Cheer', { force: true }); await wait(1.4); if (!alive(R)) return;
     // STORY (author): no alarm and no smoke here — Gúlayım trains at Qıran mountain and knows nothing; the battle of Sarkop is already lost. A wounded, dust-covered messenger gallops in and tells her.
     setMusic('off'); try { Sfx.hoof && Sfx.hoof(); } catch (e) { }
     const pz = P().z, rd = npc('son', 1.4, -104, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4 }; S.mes = rd; G.mis.aim = () => rd;
-    // short cinematic: the camera lifts and looks past the bridge — the rider and smoke columns over the far bank
+    // short cinematic: the camera lifts and looks past the bridge at the arriving rider
     const cv = { k: 0, on: true }, V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
     tuCam((cam, dt) => { cv.k = Math.min(1, Math.max(0, cv.k + (cv.on ? 1 : -1) * Math.min(dt, .05) * .7)); if (cv.k <= 0 && !cv.on) { tuCam(null); return; } const s = cv.k * cv.k * (3 - 2 * cv.k), p = P(); if (!p) return;
       V1.set(p.x + 3.4, 3.2, p.z + 5.2); V3.set(p.x, .8, p.z - .9); V2.set((p.x + rd.x) / 2, 2.4, Math.min(rd.z, p.z - 8) - 10); cam.position.lerp(V1, s); cam.lookAt(V3.lerp(V2, s)); });
@@ -1563,7 +1563,7 @@ const TUT = (() => {
     for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) { c.rot = Math.atan2(rd.x - c.x, -90 - c.z); c.play('Idle', { force: true }); }
     const tR = G.time; await until(() => !alive(R) || G.mis.force || S.rider.arrived || G.time - tR > 9); if (!alive(R)) return;
     bubble(rd, 'tu_b_ms', 2, 'ms'); await wait(1.1); if (!alive(R)) return;
-    await say([['ms', 'w4_ms1'], ['gu', 'w4_ms_gu1'], ['ms', 'w4_ms2'], ['ms', 'w4_ms3'], ['gu', 'w4_ms_gu2']]); if (!alive(R)) return;
+    await say([['ms', 'w4_ms1'], ['gu', 'w4_ms_gu1'], ['ms', 'w4_ms2'], ['gu', 'w4_ms_gu2'], ['ms', 'w4_ms3']]);   /* STORY: the messenger's 'let me tell you what I saw' is the last line -> it leads straight into his tale (0-1 / 0-2 as Allayar) */ if (!alive(R)) return;
     R.camOff(); G.mis.aim = null;
     for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) c.play('Idle', { force: true }); setMusic('calm');
     G.mis.flag = R.duelClean; G.mis.flag2 = R.optHave.every(k => R.opt[k]); R.log.push('end@' + G.time.toFixed(1) + ' clean=' + R.duelClean + ' opt=' + JSON.stringify(R.opt));

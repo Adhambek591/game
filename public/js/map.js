@@ -169,7 +169,7 @@ function refresh() {
     b.querySelector('.st').innerHTML = '<span class="pps">' + byCh(n).map(m => `<i class="pp${mdone(m.id) ? ' d' : ''}${cm1 && cm1.id === m.id ? ' c' : ''}${munlocked(m.id) ? '' : ' l'}"></i>`).join('') + '</span><b>★</b>' + ck + '/' + cm;
     b.querySelector('.nm').innerHTML = `${t('ch' + n)}<small>${t('ch' + n + 'n')}</small>`; });
   m.querySelector('.tot').textContent = '★ ' + tot + '/' + MLIST.length * 3;
-  m.querySelector('.hero').style.backgroundImage = 'url(./assets/img/p_gu.jpg)';   // position: layout()
+  { const cmh = curMission(); m.querySelector('.hero').style.backgroundImage = 'url(./assets/img/' + (cmh && /^0-[12]$/.test(cmh.id) ? 'p_al' : 'p_gu') + '.jpg)'; }   /* STORY: the prologue is Allayar's battle; position: layout() */
   progress();
 }
 // progress line: done fraction of the route (whole segments up to the current chapter + the done share of its missions)
