@@ -197,7 +197,7 @@ public class QQMission : MonoBehaviour
         {
             var w = walkers[i]; if (!w) continue;
             Vector3 slot = cart.transform.position + new Vector3(i % 2 == 0 ? -1.4f : 1.4f, 0, 3.2f + (i / 2) * 1.6f), d = slot - w.transform.position; d.y = 0;
-            if (d.magnitude > .4f) { w.transform.position += d.normalized * Mathf.Min(d.magnitude, 2.4f * Time.deltaTime); w.Face(d); w.rig.Play("walk", .2f); w.rig.speed = .9f; }
+            if (d.magnitude > .4f) { w.transform.position += d.normalized * Mathf.Min(d.magnitude, 2.4f * Time.deltaTime); w.Face(d); w.rig.Locomote(Mathf.Min(2.4f, d.magnitude / Mathf.Max(1e-4f, Time.deltaTime))); }
             else { w.rig.Play("idle", .3f); w.Face(Vector3.back, 4f); }
         }
     }

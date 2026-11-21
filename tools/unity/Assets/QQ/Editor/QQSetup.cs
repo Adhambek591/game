@@ -52,8 +52,10 @@ public static class QQSetup
         sky.SetFloat("_AtmosphereThickness", 1.35f); sky.SetColor("_SkyTint", new Color(.62f, .52f, .48f)); sky.SetColor("_GroundColor", new Color(.42f, .34f, .28f)); sky.SetFloat("_Exposure", 1.3f);
         AssetDatabase.CreateAsset(sky, ART + "M_sky.mat");
         RenderSettings.skybox = sky; RenderSettings.ambientMode = AmbientMode.Trilight; RenderSettings.ambientSkyColor = new Color(.62f, .62f, .72f); RenderSettings.ambientEquatorColor = new Color(.55f, .45f, .38f); RenderSettings.ambientGroundColor = new Color(.28f, .22f, .18f);
+        // rim: a cool light from the side opposite the sun, no shadows: silhouettes separate from the ground (every AAA character shot has one)
+        var rim = new GameObject("Rim").AddComponent<Light>(); rim.type = LightType.Directional; rim.color = new Color(.62f, .72f, 1f); rim.intensity = .55f; rim.shadows = LightShadows.None;
         var sun = new GameObject("Sun").AddComponent<Light>(); sun.type = LightType.Directional; sun.color = new Color(1f, .78f, .56f); sun.intensity = 2.9f;
-        sun.shadows = LightShadows.Soft; sun.shadowStrength = .8f; sun.transform.rotation = Quaternion.Euler(26, 38, 0);   // behind-left of the camera: faces lit, long shadows toward the camp RenderSettings.sun = sun;
+        sun.shadows = LightShadows.Soft; sun.shadowStrength = .8f; sun.transform.rotation = Quaternion.Euler(26, 38, 0); RenderSettings.sun = sun;   // behind-left of the camera: faces lit, long shadows toward the camp
         RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = new Color(.8f, .58f, .42f); RenderSettings.fogDensity = .0065f;
         if (ch1) sun.transform.rotation = Quaternion.Euler(26, 218, 0);
         if (chap == 3)   // the river at night: cold moonlight, warm camp fires, dark blue haze
@@ -68,6 +70,7 @@ public static class QQSetup
             RenderSettings.fogColor = new Color(.86f, .8f, .68f); RenderSettings.fogDensity = .0055f; sky.SetColor("_SkyTint", new Color(.55f, .6f, .7f)); sky.SetFloat("_AtmosphereThickness", 1.0f);
             RenderSettings.ambientEquatorColor = new Color(.7f, .64f, .55f); RenderSettings.ambientGroundColor = new Color(.5f, .45f, .38f);
         }
+        rim.transform.rotation = Quaternion.Euler(12f, sun.transform.eulerAngles.y + 180f, 0); if (chap == 3) rim.intensity = .35f;
         Hills(); if (ch1) { var hl = GameObject.Find("Hills"); hl.transform.position = new Vector3(0, 0, -70); hl.transform.localScale = new Vector3(1, 1, 1.75f); }
 
         // camera: MSAA from the URP asset (crisp edges), no FXAA blur
@@ -759,6 +762,23 @@ public static class QQSetup
             sheet.Apply(); File.WriteAllBytes("Builds/sim/all_" + nm.Substring(2) + ".png", sheet.EncodeToPNG());
         }
         Debug.Log("QQ SIMALL OK");
+    }
+
+    // stride: how fast the feet travel backwards relative to the hips in walk / run at speed 1 (a 1.75 m character) -> no foot sliding
+    public static void ClipStride()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g");
+        var lf = u.rig.Bone("LeftFoot"); var rf = u.rig.Bone("RightFoot"); var hips = u.rig.Bone("Hips");
+        foreach (var clip in new[] { "walk", "run", "combat" })
+        {
+            float dur = QQAnimLib.clips[clip].dur; int n = 240; float minL = 1e9f, maxL = -1e9f, minR = 1e9f, maxR = -1e9f; Vector3 fw = u.transform.forward;
+            for (int i = 0; i < n; i++) { u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)n); float l = Vector3.Dot(lf.position - hips.position, fw), r = Vector3.Dot(rf.position - hips.position, fw); minL = Mathf.Min(minL, l); maxL = Mathf.Max(maxL, l); minR = Mathf.Min(minR, r); maxR = Mathf.Max(maxR, r); }
+            float stride = ((maxL - minL) + (maxR - minR)) * .5f;   // one foot's travel per step
+            int cross = 0; float mid = (maxL + minL) * .5f, prev = 0; for (int i = 0; i < n; i++) { u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)n); float l = Vector3.Dot(lf.position - hips.position, fw) - mid; if (i > 0 && Mathf.Sign(l) != Mathf.Sign(prev)) cross++; prev = l; }
+            int cycles = Mathf.Max(1, cross / 2); Debug.Log("QQ STRIDE " + clip + " cycles " + cycles + " -> ground speed " + (2f * stride * cycles / dur).ToString("F2") + " m/s");
+            Debug.Log("QQ STRIDE " + clip + " dur " + dur.ToString("F3") + " foot sweep " + stride.ToString("F3") + " m -> ground speed at x1 = " + (2f * stride / dur).ToString("F2") + " m/s");
+        }
     }
 
     public static void Win()

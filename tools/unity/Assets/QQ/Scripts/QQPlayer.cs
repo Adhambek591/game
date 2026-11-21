@@ -26,7 +26,7 @@ public class QQPlayer : MonoBehaviour
     void Awake() { I = this; }
     void Start()
     {
-        u = GetComponent<Unit>(); u.isPlayer = true; amuletCd = AMULET_CD * .5f;
+        u = GetComponent<Unit>(); u.isPlayer = true; if (u.rig) u.rig.desync = false; amuletCd = AMULET_CD * .5f;
         u.onHit = (from, d) => { if (Chain >= 12) QQHud.Toast("Kombo uzildi"); Chain = 0; };
     }
 
@@ -209,7 +209,7 @@ public class QQPlayer : MonoBehaviour
         {
             Vector3 d = CamDir(mv); float sp = u.speed * Mathf.Clamp01(mv.magnitude * 1.2f);
             transform.position += d * sp * dt; u.Face(d, 14);
-            u.rig.Play(sp > 2.5f ? "run" : "walk", .15f); u.rig.speed = sp > 2.5f ? sp / 4.6f : 1f;
+            u.rig.Locomote(sp, .15f);
         }
         else
         {

@@ -14,6 +14,16 @@ public class QQRig : MonoBehaviour
     Transform hips; Vector3 hipsBind;
     string cur, prev; float tCur, tPrev, fade = 1f, fadeDur = .15f; bool loopCur = true, loopPrev = true;
     public float speed = 1f;
+    // measured ground speed of the in-place mocap at x1 for a 1.75 m character (QQSetup.ClipStride): feet sweep vs time
+    public const float WALK_MS = .80f, RUN_MS = 3.78f;
+    public bool desync = true;   // crowds: each fighter starts a loop at its own phase and pace (author: nobody moves in unison)
+    float pace = 1f, sizeK = 1f;
+    // walk / run with the clip speed matched to the real movement speed: no foot sliding (animation principle: solid drawing / weight)
+    public void Locomote(float metersPerSec, float fade = .18f)
+    {
+        bool run = metersPerSec > 2.1f * sizeK; Play(run ? "run" : "walk", fade);
+        speed = Mathf.Clamp(metersPerSec / ((run ? RUN_MS : WALK_MS) * sizeK), run ? .55f : .5f, run ? 1.9f : 3.2f) * pace;
+    }
     // finger chains added by tools/blender/chars.py (two bones per hand); 0 = open, 1 = fist round a grip
     public float gripRight = .85f, gripLeft = .25f;
     class Fing { public Transform t; public Quaternion bind; public Vector3 axis; public float deg; public bool right; }
@@ -42,6 +52,8 @@ public class QQRig : MonoBehaviour
         foreach (var t in GetComponentsInChildren<Transform>(true)) if (!B.ContainsKey(t.name)) B[t.name] = t;
         foreach (var n in BONES) { Transform b; if (B.TryGetValue(n, out b)) bind[b] = b.localRotation; }
         hips = Bone("Hips"); if (hips) hipsBind = hips.localPosition;
+        Transform rt0 = transform.parent ? transform.parent : transform; if (hips) sizeK = Mathf.Clamp((hips.position.y - rt0.position.y) / 1.0f, .5f, 3f);   // stride grows with leg length
+        pace = Random.Range(.94f, 1.06f);
         SetupFingers();
     }
 
@@ -103,7 +115,7 @@ public class QQRig : MonoBehaviour
         segOn = false;
         if (name == cur && !restart) return;
         if (Get(name) == null) return;
-        prev = cur; tPrev = tCur; loopPrev = loopCur; cur = name; tCur = 0; loopCur = loop; fade = prev == null ? 1f : 0f; fadeDur = Mathf.Max(.01f, fadeTime);
+        prev = cur; tPrev = tCur; loopPrev = loopCur; cur = name; tCur = loop && desync && !restart ? Random.value * Get(name).src.dur : 0; loopCur = loop; fade = prev == null ? 1f : 0f; fadeDur = Mathf.Max(.01f, fadeTime);
     }
 
     static int Key(float[] t, float time)

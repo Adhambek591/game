@@ -123,13 +123,13 @@ public class QQAI : MonoBehaviour
     {
         float sp = u.speed * dir.magnitude; if (sp < .05f) return;
         transform.position += dir.normalized * sp * Time.deltaTime; u.Face(dir);
-        u.rig.Play(sp > 2.2f ? "run" : "walk", .2f); u.rig.speed = sp > 2.2f ? sp / 4.2f : 1f;
+        u.rig.Locomote(sp, .2f);
     }
 
     // sideways / backwards step while still facing the foe
     void Strafe(Vector3 dir, Vector3 face)
     {
         float sp = u.speed * .45f; transform.position += dir.normalized * sp * Time.deltaTime; u.Face(face, 8f);
-        u.rig.Play("walk", .25f); u.rig.speed = .8f;
+        u.rig.Locomote(sp, .25f);
     }
 }
