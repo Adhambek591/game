@@ -128,6 +128,8 @@ public class QQRig : MonoBehaviour
     public void SampleAt(float frac) { if (cur == null) return; tCur = rc[cur].src.dur * frac; fade = 1f; prev = null; Apply(0); }
 
     void LateUpdate() { Apply(Time.deltaTime); }
+    public void Tick(float dt) { Apply(dt); }   // editor simulation
+    [System.NonSerialized] public QQSpring spring;
 
     void Apply(float rawDt)
     {
@@ -156,7 +158,7 @@ public class QQRig : MonoBehaviour
         }
         // curl the fingers about their local X (the axis the Blender pipeline built them around)
         for (int i = 0; i < fingers.Count; i++) { var f = fingers[i]; f.t.localRotation = f.bind * Quaternion.AngleAxis(f.deg * (f.right ? gripRight : gripLeft), f.axis); }
-        if (rawDt <= 0) return;
+        if (rawDt <= 0) { if (spring) spring.Step(0); return; }
         // flinch: damped spring back to the mocap pose, bent at two spine joints so it reads as the body, not a hinge
         flinchVel += (-160f * flinch - 16f * flinchVel) * rawDt; flinch = Mathf.Clamp(flinch + flinchVel * rawDt, -35f, 35f);
         if (Mathf.Abs(flinch) > .05f) { Transform s1 = Bone("Spine01"), s2 = Bone("Spine02");
@@ -177,5 +179,6 @@ public class QQRig : MonoBehaviour
             if (neck) neck.rotation = Quaternion.AngleAxis(yaw * .4f, Vector3.up) * neck.rotation;
             head.rotation = Quaternion.AngleAxis(yaw * .6f, Vector3.up) * head.rotation;
         }
+        if (spring) spring.Step(rawDt);   // last: coat / braids follow the fully posed skeleton (mocap + flinch + lean + look-at)
     }
 }

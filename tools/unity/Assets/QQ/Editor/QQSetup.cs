@@ -83,7 +83,8 @@ public static class QQSetup
         ar.gulayimBlue = Load<Texture2D>(ART + "tex/gulayim_blue.jpg"); ar.campGate = gate.transform;
         // rigged models with finger bones from the Blender pipeline, when present
         // P_ = Meshy body + MakeHuman/MPFB hands with 15 finger bones (tools/blender/hands_mpfb.py); C_ = older 2-bone fingers
-        System.Func<string, GameObject> pick = n => AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/P_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_" + n + ".glb");
+        // L_ = layered rebuild (tools/blender/layered.py: free coat skirt on spring chains, trousers, separate braids)
+        System.Func<string, GameObject> pick = n => AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/L_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/P_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_" + n + ".glb");
         var cg = pick("gulayim"); if (cg) { ar.gulayim = cg; ar.gulayimBlue = null; }
         var cq = AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_qashqir.glb") ?? Load<GameObject>(ART + "meshy/M_qashqir.glb"); if (cq) ar.captain = cq;
         ar.sarbinaz = pick("sarbinaz_low"); ar.spear = Load<GameObject>(ART + "props/W_spear.glb");
@@ -444,6 +445,79 @@ public static class QQSetup
             for (int i = 0; i < n; i += 6) line.Append(Mathf.RoundToInt(sp[i] * 10)).Append(' ');
             Debug.Log("QQ TIMING " + clip + " dur " + dur.ToString("F2") + " peak " + (pk / 60f).ToString("F2") + "s (" + mx.ToString("F1") + " m/s) start " + (st / 60f).ToString("F2") + " end " + (en / 60f).ToString("F2") + " | " + line);
         }
+    }
+
+    // spring-bone check: play clips continuously (springs need time) with the root moving, bake + render 8 frames per clip
+    public static void SimSheet()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
+        var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-qqmodel"); string mf = ai >= 0 ? args[ai + 1] : "L_gulayim";
+        var model = Load<GameObject>(ART + "chars/" + mf + ".glb");
+        foreach (var e in new[] { ("run", 5f), ("slash", 0f), ("attack", 0f), ("spin", 0f), ("roll", 6f), ("heavy", 0f) })
+        {
+            var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+            const int N = 8, W = 200, H = 300; var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
+            bool seg = QQAnimLib.seg.ContainsKey(e.Item1);
+            if (seg) u.rig.PlaySeg(e.Item1, .3f, .5f); else u.rig.Play(e.Item1, .01f);
+            float total = seg ? .8f : 1.2f, dt = 1f / 60f; int frames = Mathf.RoundToInt(total / dt);
+            for (int f = 0; f <= frames; f++)
+            {
+                u.transform.position += u.transform.forward * e.Item2 * dt; u.rig.Tick(dt);
+                int k = -1; for (int q = 0; q < N; q++) if (f == Mathf.RoundToInt(q * frames / (float)(N - 1))) k = q;
+                if (k < 0) continue;
+                var snap = Snapshot(u);
+                for (int v = 0; v < 2; v++)
+                {
+                    var c = u.transform.position + Vector3.up * .8f; var dir = v == 0 ? Vector3.right : (Vector3.back + Vector3.right * .6f).normalized;
+                    cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + dir * 4.4f + Vector3.up * .2f; cam.transform.LookAt(c);
+                    var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                    sheet.ReadPixels(new Rect(0, 0, W, H), k * W, (1 - v) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+                }
+                Unsnap(u, snap);
+            }
+            sheet.Apply(); File.WriteAllBytes("Builds/sim/" + mf + "_" + e.Item1 + ".png", sheet.EncodeToPNG());
+            Object.DestroyImmediate(u.gameObject);
+        }
+        Debug.Log("QQ SIM OK");
+    }
+
+    // every layered model: run (moving) and spin, 8 frames each from the front-3/4, springs simulated -> Builds/sim/all_<name>.png
+    public static void SimAll()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
+        var hs = new System.Collections.Generic.Dictionary<string, float> { { "qargashiq", 3.2f }, { "qunqar", 3.5f }, { "surtaysha", 1.95f }, { "otbasqan", 1.85f }, { "gulshad", 1.65f } };
+        foreach (var g in AssetDatabase.FindAssets("L_ t:GameObject", new[] { ART + "chars" }))
+        {
+            var path = AssetDatabase.GUIDToAssetPath(g); var nm = Path.GetFileNameWithoutExtension(path); if (nm.EndsWith("_low") || !nm.StartsWith("L_")) continue;
+            float h; if (!hs.TryGetValue(nm.Substring(2), out h)) h = 1.75f;
+            const int N = 8, W = 180, H = 300; var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
+            int row = 0;
+            foreach (var e in new[] { ("run", 5f), ("spin", 0f) })
+            {
+                var u = ar.Spawn(AssetDatabase.LoadAssetAtPath<GameObject>(path), Vector3.zero, 0, 100, 10, h, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+                bool seg = QQAnimLib.seg.ContainsKey(e.Item1); if (seg) u.rig.PlaySeg(e.Item1, .3f, .5f); else u.rig.Play(e.Item1, .01f);
+                float dt = 1f / 60f; int frames = 60;
+                for (int f = 0; f <= frames; f++)
+                {
+                    u.transform.position += u.transform.forward * e.Item2 * h / 1.75f * dt; u.rig.Tick(dt);
+                    int k = -1; for (int q = 0; q < N; q++) if (f == Mathf.RoundToInt(q * frames / (float)(N - 1))) k = q;
+                    if (k < 0) continue;
+                    var snap = Snapshot(u);
+                    var c = u.transform.position + Vector3.up * h * .46f; var dir = (Vector3.back + Vector3.right * .9f).normalized;
+                    cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + dir * h * 2.5f + Vector3.up * .2f * h; cam.transform.LookAt(c);
+                    var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                    sheet.ReadPixels(new Rect(0, 0, W, H), k * W, (1 - row) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+                    Unsnap(u, snap);
+                }
+                Object.DestroyImmediate(u.gameObject); row++;
+            }
+            sheet.Apply(); File.WriteAllBytes("Builds/sim/all_" + nm.Substring(2) + ".png", sheet.EncodeToPNG());
+        }
+        Debug.Log("QQ SIMALL OK");
     }
 
     public static void Win()

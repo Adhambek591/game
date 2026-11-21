@@ -80,6 +80,7 @@ public class QQArena : MonoBehaviour
         float h = any ? b.size.y : height; if (h > .01f) m.transform.localScale *= height / h;
         Look(m, VariantFor(model));
         var rig = m.AddComponent<QQRig>();
+        if (QQSpring.Wants(m)) rig.spring = m.AddComponent<QQSpring>();   // layered models: coat skirt + braids on spring chains
         Vector3? grip = null;
         if (weapon && rig.HasFingers) { rig.SampleBind(); var f1 = rig.Bone("RightMiddle1") ?? rig.Bone("RightFingers1"); var hd = rig.Bone("RightHand"); if (f1 && hd) grip = Vector3.Lerp(hd.position, f1.position, .8f); }   // real finger bones: hold at the knuckles
         else if (weapon) grip = QQFist.Apply(m, rig, height);   // older models: bend the open hand into a fist in the mesh
