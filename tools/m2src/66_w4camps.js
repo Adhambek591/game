@@ -73,10 +73,20 @@ function wallArcher(x, z, y) { const e = sp('w4wa', x, z); e.spawnT = 0; e.o.sca
     const d = hyp(P.x - e.x, P.z - e.z); if (d > 34 || P.z < e.z - 2) { e.play('Idle'); return true; } e.rot = Math.atan2(P.x - e.x, P.z - e.z); e.cdw -= dt;
     if (e.cdw <= 0) { e.cdw = rnd(3.4, 4.8); e.play('1H_Ranged_Shoot', { once: true, force: true }); w4Shoot(e, { x: P.x + rnd(-1.3, 1.3), z: P.z + rnd(-1.3, 1.3) }, rnd(e.d.dmg[0], e.d.dmg[1]) * (e.dmgMul || 1)); e.shT = .7; }
     else if ((e.shT = (e.shT || 0) - dt) <= 0) e.play('Idle_Combat'); return true; }; return e; }
+// QA 2b "hero ~1.5x taller than the spearman": no model-scale bug (world heights: Gúlayım 1.90 m, askar 2.08, nayza 2.42 — she is the smallest);
+// it is perspective: with the 34° camera 15 m from her, a soldier 20 m ahead (the wall line) drew at ~0.65x her size. The siege camera backs off 1.59x
+// with a 1.3x narrower lens (her size stays ~80 %): a soldier 14 m ahead now draws at ~0.85x, and the view reaches ~17 m ahead (catapults, wall sooner).
+function siegeCam() { const M = G.mis, t0 = performance.now(); let f0 = 0, last = -1, iv = 0;   // installed after mstart(): the fly-over owns G.camFn until then; eases in over 1.2 s
+  const off = () => { clearInterval(iv); if (G.camFn === fn) G.camFn = null; try { if (f0 && G.camT && Math.abs(G.camT.fov - last) < 3) { G.camT.fov = f0; G.camT.updateProjectionMatrix(); } } catch (e) { } };
+  const fn = cam => { if (G.mis !== M) { off(); return; } G.camT = cam; const u = Math.min(1, (performance.now() - t0) / 1200), K = 1 + .3 * u, Z = 1 + .22 * u, DZ = -1.5 * u; f0 = innerHeight > innerWidth ? 44 : 34;   // the engine's own lens (resize()). Absolute, never read back from cam.fov: feel.js's kill punch reads it back too and the two fed each other down to a 0.4° lens
+    const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s, k = K * Z;
+    cam.position.set(lx + (cam.position.x - lx) * k, .8 + (cam.position.y - .8) * k, lz + DZ + (cam.position.z - lz) * k); cam.lookAt(lx, .8, lz + DZ);
+    last = 2 * Math.atan(Math.tan(f0 * Math.PI / 360) / K) * 180 / Math.PI; if (Math.abs(cam.fov - last) > .01) { cam.fov = last; cam.updateProjectionMatrix(); } };
+  G.camFn = fn; iv = setInterval(() => { if (G.mis !== M) off(); }, 300); return off; }
 async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const p = await gu(c, H.moods.DAY, siegeBuild, [], 3, c - 1, 5); G.curCh = c - 1;
   const gt = H.gateDoor(0, WZ); flyPt(0, WZ, 'e_gate');
-  const cats = W4 && W4.catProp ? [W4.catProp(-7.6, -20), W4.catProp(7.6, -23)] : [];
+  const cats = W4 && W4.catProp ? [W4.catProp(-6.4, -3.5), W4.catProp(6.4, -5.5)] : [];   /* QA 2b: 6.5-8.5 m ahead of the start, in the opening frame (at -20 / -23 they were above the top edge) */
   const wa = [-9.6, -6.3, 6.3, 9.6].map(x => wallArcher(x, WZ, 4.8));
   const pool = w4Pool(c).filter(q => q !== 'manj' && q !== 'cav'), pick = i => pool[i % pool.length];
   const L1 = []; for (let i = 0; i < 8; i++) L1.push([pick(i), (i % 4 - 1.5) * 2.5, WZ + 9 + (i > 3 ? 2.6 : 0), i % 2 ? 'p' : 'g', 1.4]);
@@ -86,7 +96,7 @@ async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const pts = [[-5.5, WZ - 26], [5.5, WZ - 48]].map(([x, z], i) => { const L = []; for (let k = 0; k < 5; k++) { const a = k / 5 * 6.283 + .4; L.push([pick(k + i), x + Math.cos(a) * 2.8, z + Math.sin(a) * 2.8]); }
     const g = post(L, { label: 'mb_cap', wake: 11, noExtra: true }); const cap = leader(g, x, z, 'mb_cap'); const mk = marker(x, z, 0xff4030, 3.4); try { w4Banner(x + (i ? 2.6 : -2.6), z - 2.4, 0x1a1a1a); } catch (e) { } return { g, cap, mk, x, z, done: false }; });
   const BO = { x: 0, z: WZ - 74, R: 8, type: TY('heavy'), hp: 4200, dmg: 1.45, scale: 1.22, name: 'w4_qbek', title: 'w4_qbek_t', crowd: [['askar', 4], ['archer', 2]], after: 'flee' }; BO.arena = arena(BO);
-  live(); setMusic('battle'); await ban(3); mstart(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
+  live(); setMusic('battle'); await ban(3); mstart(); siegeCam(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
   let ph = 1, lobT = 1.5, side = 0, lp = '', w2 = [], ptsN = 0; const up = L => L.filter(e => !e.dead), hud = s => { if (s !== lp) { lp = s; $('obj').textContent = s; } };
   const lobAt = (x, z, o) => { const cg = cats[side++ % Math.max(1, cats.length)]; if (!cg || !W4) { if (o.cb) o.cb(); return; } cg.fire(); W4.lob(cg.x, cg.z, x, z, o); };
   G.mis.aim = () => ph === 1 ? near(up(g1.es)) : ph === 2 ? (near(up(w2)) || near(up(wa)) || { x: 0, z: WZ + 12 }) : ph === 3 ? { x: 0, z: WZ + 9 } : ph === 4 ? (near(up(g3.es)) || near(pts.filter(q => !q.done).map(q => q.cap)) || null) : null;
