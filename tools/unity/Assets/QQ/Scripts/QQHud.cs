@@ -6,7 +6,8 @@ using UnityEngine.UI;
 public class QQHud : MonoBehaviour
 {
     public static Vector2 Move; public static bool PointerOverUI;
-    static QQHud I; Text objective, toast, endTitle, endSub; Image hpFill, amuletFill, dodgeFill; GameObject endPanel; float toastT;
+    static QQHud I; Text objective, toast, endTitle, endSub, chain, bossName, coinTxt, againTxt; Text[] upTxt = new Text[3]; Image[] upImg = new Image[3]; Image hpFill, amuletFill, dodgeFill, bossFill; GameObject endPanel, bossBar; float toastT, chainPop;
+    RectTransform root; readonly System.Collections.Generic.List<Text> marks = new System.Collections.Generic.List<Text>();
     static Font font; static Sprite circle;
 
     public static void Build()
@@ -41,6 +42,7 @@ public class QQHud : MonoBehaviour
 
     void Make(Transform root)
     {
+        this.root = (RectTransform)root;
         // joystick
         var jb = Rect(root, "joy", new Vector2(0, 0), new Vector2(190, 190), new Vector2(240, 240)); Img(jb, new Color(1, 1, 1, .12f), true);
         var knob = Rect(jb, "knob", new Vector2(.5f, .5f), Vector2.zero, new Vector2(100, 100)); Img(knob, new Color(1, 1, 1, .45f), true);
@@ -63,12 +65,27 @@ public class QQHud : MonoBehaviour
         objective = Txt(Rect(root, "obj", new Vector2(.5f, 1), new Vector2(0, -40), new Vector2(800, 40)), "", 28, TextAnchor.MiddleCenter);
         toast = Txt(Rect(root, "toast", new Vector2(.5f, .5f), new Vector2(0, 160), new Vector2(800, 60)), "", 40, TextAnchor.MiddleCenter);
 
+        // combo counter (right edge, under the objective) and boss bar (top centre)
+        chain = Txt(Rect(root, "chain", new Vector2(1, 1), new Vector2(-150, -120), new Vector2(260, 80)), "", 44, TextAnchor.MiddleCenter);
+        var bb = Rect(root, "boss", new Vector2(.5f, 1), new Vector2(0, -100), new Vector2(560, 18)); Img(bb, new Color(0, 0, 0, .6f), false); bossBar = bb.gameObject;
+        var bf = Rect(bb, "fill", new Vector2(0, .5f), Vector2.zero, new Vector2(556, 14)); bf.pivot = new Vector2(0, .5f); bf.anchoredPosition = new Vector2(2, 0); bossFill = Img(bf, new Color(.85f, .2f, .15f), false);
+        bossName = Txt(Rect(bb, "n", new Vector2(.5f, 1), new Vector2(0, 16), new Vector2(560, 30)), "", 24, TextAnchor.MiddleCenter);
+        bossBar.SetActive(false);
+
         // end panel
-        var ep = Rect(root, "end", new Vector2(.5f, .5f), Vector2.zero, new Vector2(640, 320)); Img(ep, new Color(.08f, .06f, .05f, .88f), false); endPanel = ep.gameObject;
+        var ep = Rect(root, "end", new Vector2(.5f, .5f), Vector2.zero, new Vector2(780, 540)); Img(ep, new Color(.08f, .06f, .05f, .88f), false); endPanel = ep.gameObject;
         endTitle = Txt(Rect(ep, "t", new Vector2(.5f, 1), new Vector2(0, -70), new Vector2(600, 70)), "", 52, TextAnchor.MiddleCenter);
-        endSub = Txt(Rect(ep, "s", new Vector2(.5f, 1), new Vector2(0, -140), new Vector2(600, 50)), "", 26, TextAnchor.MiddleCenter);
-        var rb = Rect(ep, "again", new Vector2(.5f, 0), new Vector2(0, 70), new Vector2(280, 70)); Img(rb, new Color(.75f, .2f, .15f, 1), false);
-        Txt(Rect(rb, "l", new Vector2(.5f, .5f), Vector2.zero, new Vector2(280, 70)), "Qaytadan", 30, TextAnchor.MiddleCenter);
+        endSub = Txt(Rect(ep, "s", new Vector2(.5f, 1), new Vector2(0, -160), new Vector2(600, 90)), "", 26, TextAnchor.MiddleCenter);
+        var rb = Rect(ep, "again", new Vector2(.5f, 0), new Vector2(0, 55), new Vector2(300, 70)); Img(rb, new Color(.75f, .2f, .15f, 1), false);
+        againTxt = Txt(Rect(rb, "l", new Vector2(.5f, .5f), Vector2.zero, new Vector2(280, 70)), "Qaytadan", 30, TextAnchor.MiddleCenter);
+        // upgrades: three cards, coins on top
+        coinTxt = Txt(Rect(ep, "coins", new Vector2(.5f, 1), new Vector2(0, -225), new Vector2(700, 40)), "", 28, TextAnchor.MiddleCenter); coinTxt.color = new Color(1f, .85f, .35f);
+        for (int i = 0; i < 3; i++)
+        {
+            int k = i; var cr = Rect(ep, "up" + i, new Vector2(.5f, 1), new Vector2(-240 + i * 240, -330), new Vector2(220, 120)); upImg[i] = Img(cr, new Color(.25f, .2f, .15f, 1), false);
+            upTxt[i] = Txt(Rect(cr, "t", new Vector2(.5f, .5f), Vector2.zero, new Vector2(210, 110)), "", 22, TextAnchor.MiddleCenter);
+            cr.gameObject.AddComponent<QQPress>().down = () => { if (QQProgress.Buy(k)) { QQFeel.Sfx("coin", null, 1f); RefreshShop(); } else QQFeel.Sfx("v_ui", null, .6f); };
+        }
         rb.gameObject.AddComponent<QQPress>().down = () => UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
         endPanel.SetActive(false);
     }
@@ -89,7 +106,18 @@ public class QQHud : MonoBehaviour
     public static void Toast(string s) { if (I) { I.toast.text = s; I.toastT = 1.6f; } }
     public static void End(bool win, string sub)
     {
-        if (!I) return; I.endPanel.SetActive(true); I.endTitle.text = win ? "G'alaba!" : "Mag'lubiyat"; I.endTitle.color = win ? new Color(1f, .85f, .4f) : new Color(1f, .5f, .45f); I.endSub.text = sub;
+        if (!I) return; I.endPanel.SetActive(true); I.endTitle.text = win ? "G'alaba!" : "Mag'lubiyat"; I.endTitle.color = win ? new Color(1f, .85f, .4f) : new Color(1f, .5f, .45f); foreach (var n in new[] { "joy", "Hujum", "Chetlan", "Tumor", "chain", "boss" }) { var c = I.root.Find(n); if (c) c.gameObject.SetActive(false); }
+        I.endSub.text = sub; I.againTxt.text = win ? "Keyingi jang" : "Qaytadan"; I.RefreshShop();
+    }
+    void RefreshShop()
+    {
+        coinTxt.text = "Tanga: " + QQProgress.Coins + "     (" + QQProgress.Level + "-jang chegarasi: " + QQProgress.Cap + "-daraja)";
+        for (int i = 0; i < 3; i++)
+        {
+            int lv = QQProgress.Upg(i); bool cap = lv >= QQProgress.Cap;
+            upTxt[i].text = QQProgress.Names[i] + "  " + lv + "-daraja\n" + QQProgress.Info[i] + "\n" + (cap ? "chegara" : QQProgress.Cost(i) + " tanga");
+            upImg[i].color = QQProgress.CanBuy(i) ? new Color(.45f, .32f, .12f, 1) : new Color(.22f, .19f, .16f, 1);
+        }
     }
 
     void Update()
@@ -99,6 +127,31 @@ public class QQHud : MonoBehaviour
         if (QQPlayer.I) { amuletFill.fillAmount = 1 - QQPlayer.I.AmuletReady; dodgeFill.fillAmount = 1 - QQPlayer.I.DodgeReady; }
         if (toastT > 0) { toastT -= Time.deltaTime; toast.color = new Color(1, .9f, .6f, Mathf.Clamp01(toastT * 2)); }
         PointerOverUI = EventSystem.current && EventSystem.current.IsPointerOverGameObject();
+
+        // combo counter with a pop on every new hit
+        var pl = QQPlayer.I; int c = pl ? pl.Chain : 0;
+        if (c >= 3) { if (chain.text != c + " zarba") chainPop = .15f; chain.text = c + " zarba"; } else chain.text = "";
+        chainPop = Mathf.Max(0, chainPop - Time.unscaledDeltaTime); chain.transform.localScale = Vector3.one * (1f + chainPop * 2.5f);
+        chain.color = c >= 20 ? new Color(1f, .75f, .25f) : c >= 10 ? new Color(1f, .9f, .55f) : Color.white;
+
+        // boss bar
+        Unit boss = null; foreach (var o in Unit.All) if (o.boss && !o.Dead) { boss = o; break; }
+        bossBar.SetActive(boss && !endPanel.activeSelf); if (boss) { bossFill.rectTransform.sizeDelta = new Vector2(556 * Mathf.Clamp01(boss.hp / boss.maxHp), 14); bossName.text = boss.displayName; }
+
+        // telegraph marks over foes about to strike Gúlayım: gold = counter with Dodge, red = unblockable, roll away
+        int n = 0; var cam = Camera.main;
+        if (cam && p)
+            foreach (var o in Unit.All)
+            {
+                if (o.Dead || o.team != 1 || o.telegraph <= 0 || o.swingAt != p) continue;
+                Vector3 sp = cam.WorldToScreenPoint(o.transform.position + Vector3.up * (o.boss ? 3.1f : 2.3f)); if (sp.z < 0) continue;
+                if (n >= marks.Count) { var r = Rect(root, "mark", Vector2.zero, Vector2.zero, new Vector2(80, 80)); var t = Txt(r, "", 64, TextAnchor.MiddleCenter); t.fontStyle = FontStyle.Bold; marks.Add(t); }
+                var mk = marks[n++]; mk.gameObject.SetActive(true);
+                Vector2 lp; RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, null, out lp); mk.rectTransform.anchorMin = mk.rectTransform.anchorMax = new Vector2(.5f, .5f); mk.rectTransform.anchoredPosition = lp;
+                mk.text = o.unblockable ? "!!" : "!"; mk.color = o.unblockable ? new Color(1f, .25f, .2f) : new Color(1f, .85f, .3f);
+                mk.transform.localScale = Vector3.one * (1f + .3f * Mathf.Sin(Time.unscaledTime * 30f));
+            }
+        for (int i = n; i < marks.Count; i++) marks[i].gameObject.SetActive(false);
     }
 }
 

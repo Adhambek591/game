@@ -11,40 +11,60 @@ public class Unit : MonoBehaviour
     public string displayName = "";
     [System.NonSerialized] public QQRig rig;
     [System.NonSerialized] public float stun, inv, busy, stunImmune;   // seconds: hit-stun, invulnerable (dodge), locked in an attack
+    // Arkham-style telegraph: seconds left before this fighter's blow lands; the HUD shows a mark over his head meanwhile.
+    // unblockable = red mark (boss heavy blows): a counter fails, only a roll saves you.
+    [System.NonSerialized] public float telegraph; [System.NonSerialized] public bool unblockable; [System.NonSerialized] public Unit swingAt;
+    // Ghost of Tsushima: foes look aggressive but only a couple attack Gúlayım at a time; the rest circle and wait for a turn
+    [System.NonSerialized] public bool hasToken;
+    public static int TokensOnPlayer() { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].hasToken && !All[i].Dead) n++; return n; }
     public bool Dead { get { return hp <= 0; } }
     public System.Action<Unit, float> onHit;
-    Renderer[] rends; float flash;
+    Renderer[] rends; float flash; MaterialPropertyBlock mpb;
 
-    void Awake() { rig = GetComponentInChildren<QQRig>(); rends = GetComponentsInChildren<Renderer>(); }
+    void Awake() { rig = GetComponentInChildren<QQRig>(); rends = GetComponentsInChildren<Renderer>(); mpb = new MaterialPropertyBlock(); }
     void OnEnable() { All.Add(this); }
     void OnDisable() { All.Remove(this); }
 
     public void Hit(float d, Unit from, bool heavy = false)
     {
         if (Dead || inv > 0) return;
-        hp -= d; flash = .12f;
+        hp -= d; flash = .1f;
         if (onHit != null) onHit(from, d);
         QQFx.Spark(transform.position + Vector3.up * 1.2f, team == 0 ? new Color(1f, .45f, .3f) : new Color(1f, .85f, .5f));
+        QQFeel.Sfx(heavy ? "v_hit" : "hit", transform.position, heavy ? 1f : .75f);
+        if (isPlayer) QQFeel.Sfx("hurt", null, .6f);
+        Vector3 away = from ? transform.position - from.transform.position : -transform.forward; away.y = 0;
+        if (rig) rig.Impulse(away, heavy ? 260f : 150f);
         if (hp <= 0) { Die(from); return; }
         // poise (author: no stun-lock): after a flinch a fighter cannot be flinched again for a while, so fast combos
         // do not freeze him and he swings back; bosses flinch only on heavy blows, then shrug off hits for 3 s
-        if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play("hit", .05f, false, true); }
-        if (from) transform.position += (transform.position - from.transform.position).normalized * (heavy ? .9f : .25f);
+        if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; telegraph = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play("hit", .05f, false, true); }
+        if (from) transform.position += away.normalized * (heavy ? (boss ? .4f : 1.4f) : .25f);
     }
 
     void Die(Unit from)
     {
-        hp = 0; if (rig) rig.Play("dead", .08f, false, true);
+        hp = 0; telegraph = 0; hasToken = false; if (rig) { rig.Play("dead", .08f, false, true); rig.lookAt = null; }
+        QQFeel.Sfx(boss ? "roar" : "death", transform.position, boss ? 1f : .6f);
         All.Remove(this);
         if (QQArena.I) QQArena.I.OnDeath(this);
         Destroy(gameObject, 6f);
         enabled = false;
+        SetFlash(0);
+    }
+
+    void SetFlash(float k)
+    {
+        if (rends == null) return;
+        var c = new Color(1f, .95f, .85f) * (k * 2.2f);
+        for (int i = 0; i < rends.Length; i++) { if (!rends[i]) continue; rends[i].GetPropertyBlock(mpb); mpb.SetColor("emissiveFactor", c); rends[i].SetPropertyBlock(mpb); }
     }
 
     void Update()
     {
-        if (stun > 0) stun -= Time.deltaTime; if (stunImmune > 0) stunImmune -= Time.deltaTime; if (inv > 0) inv -= Time.deltaTime; if (busy > 0) busy -= Time.deltaTime;
-        if (flash > 0) { flash -= Time.deltaTime; }
+        float dt = Time.deltaTime;
+        if (stun > 0) stun -= dt; if (stunImmune > 0) stunImmune -= dt; if (inv > 0) inv -= dt; if (busy > 0) busy -= dt; if (telegraph > 0) telegraph -= dt;
+        if (flash > 0) { flash -= dt; SetFlash(Mathf.Max(0, flash) / .1f); if (flash <= 0) SetFlash(0); }
         // separation
         for (int i = 0; i < All.Count; i++)
         {

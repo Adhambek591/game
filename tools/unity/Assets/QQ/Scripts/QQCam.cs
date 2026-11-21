@@ -11,8 +11,8 @@ public class QQCam : MonoBehaviour
         if (!target) return;
         var c = GetComponent<Camera>(); bool portrait = Screen.height > Screen.width; c.fieldOfView = portrait ? 50f : 34f;
         float k = portrait ? 1.35f : 1f;
-        cur = Vector3.Lerp(cur == Vector3.zero ? target.position : cur, target.position, Mathf.Min(1, Time.deltaTime * 6));
-        Vector3 s = shake > 0 ? Random.insideUnitSphere * shake * .3f : Vector3.zero; shake = Mathf.Max(0, shake - Time.deltaTime * 1.6f);
+        cur = Vector3.Lerp(cur == Vector3.zero ? target.position : cur, target.position, Mathf.Min(1, Time.unscaledDeltaTime * 6));
+        Vector3 s = shake > 0 ? Random.insideUnitSphere * shake * .3f : Vector3.zero; shake = Mathf.Max(0, shake - Time.unscaledDeltaTime * 2.2f);
         transform.position = cur + new Vector3(0, height * k, -back * k) + s;
         transform.LookAt(cur + new Vector3(0, lookY, 1.8f));
         QQFx.Tick();

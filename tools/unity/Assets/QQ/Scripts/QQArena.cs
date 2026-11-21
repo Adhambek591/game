@@ -35,14 +35,15 @@ public class QQArena : MonoBehaviour
     public Transform campGate;
     public float halfSize = 30f;
     [System.NonSerialized] public Unit player; [System.NonSerialized] public bool running;
-    int wave, killed, lostMaidens; const int WAVES = 3;
+    int wave, killed, lostMaidens; bool spawning; public int Wave { get { return wave; } } const int WAVES = 3;
 
     void Awake() { I = this; Application.targetFrameRate = 60; }
 
     void Start()
     {
         QQHud.Build(); DynamicGI.UpdateEnvironment();
-        player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620, 34, 1.8f, saber, "Gúlayım");
+        QQFeel.Music("battle", .8f); QQFeel.Ambience("amb_fire", .35f);
+        player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;
         for (int i = 0; i < 5; i++)
@@ -97,39 +98,55 @@ public class QQArena : MonoBehaviour
         w.transform.SetPositionAndRotation(grip ?? hand.position + d * .085f * height / 1.75f, Quaternion.LookRotation(d, up));   // grip = centre of the fist
         w.transform.localScale = Vector3.one * height / 1.75f * .78f;
         w.transform.SetParent(hand, true);
+        // sword trail (every great melee game has one): a short additive ribbon from the blade tip, on only while swinging
+        var mf = w.GetComponentsInChildren<MeshFilter>(); if (mf.Length == 0 || !I || !I.fxMat) return;
+        float far = 0; Vector3 tipL = Vector3.zero;
+        foreach (var f in mf) { if (!f.sharedMesh) continue; var bb = f.sharedMesh.bounds; for (int c = 0; c < 8; c++) { var v = bb.center + Vector3.Scale(bb.extents, new Vector3((c & 1) == 0 ? -1 : 1, (c & 2) == 0 ? -1 : 1, (c & 4) == 0 ? -1 : 1)); var wl = w.transform.InverseTransformPoint(f.transform.TransformPoint(v)); if (wl.y > far) { far = wl.y; tipL = wl; } } }   // bounds, not vertices: meshes are not CPU-readable in builds
+        if (far <= 0) return;
+        var tip = new GameObject("trail"); tip.transform.SetParent(w.transform, false); tip.transform.localPosition = new Vector3(0, far * .92f, 0);
+        var tr = tip.AddComponent<TrailRenderer>(); tr.time = .11f; tr.minVertexDistance = .03f; tr.emitting = false;
+        tr.widthCurve = new AnimationCurve(new Keyframe(0, .07f * height / 1.75f), new Keyframe(1, 0)); tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var m = new Material(I.fxMat); m.SetColor("_BaseColor", new Color(1f, 1f, 1f, .35f)); tr.sharedMaterial = m;
+        tr.colorGradient = new Gradient { colorKeys = new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(new Color(.6f, .75f, 1f), 1) }, alphaKeys = new[] { new GradientAlphaKey(.55f, 0), new GradientAlphaKey(0, 1) } };
+        root.gameObject.AddComponent<QQTrail>().tr = tr;
     }
 
     IEnumerator Run()
     {
-        QQHud.Objective("Sarkop maydonini himoya qiling");
+        QQHud.Objective(QQProgress.Level + "-jang: Sarkop maydonini himoya qiling");
         yield return new WaitForSeconds(1.2f); running = true;
         for (wave = 1; wave <= WAVES; wave++)
         {
-            QQHud.Toast(wave + "-to'lqin"); QQHud.Objective("To'lqin " + wave + "/" + WAVES + " — qalmoqlarni yenging");
-            int n = 6 + wave * 3, archers = wave >= 2 ? wave : 0;
+            QQHud.Toast(wave + "-to'lqin"); QQFeel.Sfx("v_drum", null, .9f, 0); QQHud.Objective("To'lqin " + wave + "/" + WAVES + " — qalmoqlarni yenging");
+            spawning = true; int n = 6 + wave * 3 + QQProgress.ExtraFoes, archers = wave >= 2 ? wave : 0;
             for (int i = 0; i < n; i++)
             {
                 bool ar = i < archers; var gate = campGate ? campGate.position : new Vector3(0, 0, 26);
-                var e = Spawn(ar ? kamonchi : askar, gate + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(0f, 3f)), 1, ar ? 80 : 130 + wave * 20, ar ? 11 : 12 + wave * 2, 1.85f, ar ? bow : saber, ar ? "kamonchi" : "askar");
+                var e = Spawn(ar ? kamonchi : askar, gate + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(0f, 3f)), 1, (ar ? 80 : 130 + wave * 20) * QQProgress.FoeHpMul, (ar ? 14 : 18 + wave * 4) * QQProgress.FoeDmgMul, 1.85f, ar ? bow : saber, ar ? "kamonchi" : "askar");
                 e.archer = ar; e.speed = ar ? 3f : 3.4f; e.range = ar ? 10f : 1.8f; e.gameObject.AddComponent<QQAI>();
                 yield return new WaitForSeconds(.35f);
             }
             if (wave == WAVES && captain)
             {
-                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 2200, 30, 2.4f, axe, "Yuzboshi");
+                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 3400 * QQProgress.FoeHpMul, 46 * QQProgress.FoeDmgMul, 2.4f, axe, "Yuzboshi");
                 c.boss = true; c.speed = 3.6f; c.range = 2.4f; c.radius = .7f; c.gameObject.AddComponent<QQAI>(); QQHud.Toast("Qalmoq yuzboshisi!");
+                QQFeel.Music("boss", .9f); QQFeel.Sfx("horn", null, .9f, 0);
             }
+            spawning = false;
             while (Unit.CountTeam(1) > 0) { if (player.Dead) yield break; yield return null; }
             yield return new WaitForSeconds(1.5f);
         }
         running = false; QQHud.Objective("");
-        QQHud.End(true, "Yengilgan dushmanlar: " + killed + "   Halok bo'lgan qizlar: " + lostMaidens);
+        QQFeel.Music("win", .9f); QQFeel.Sfx("st_win", null, 1f, 0);
+        int best = QQPlayer.I ? QQPlayer.I.BestChain : 0, coins = QQProgress.Reward(killed, lostMaidens, best);
+        QQProgress.Coins += coins; QQProgress.Level++;
+        QQHud.End(true, "Yengilgan dushmanlar: " + killed + "   Halok bo'lgan qizlar: " + lostMaidens + System.Environment.NewLine + "Eng uzun kombo: " + best + "   +" + coins + " tanga");
     }
 
     public void OnDeath(Unit u)
     {
-        if (u.team == 1) killed++;
-        else if (u == player) { running = false; QQHud.End(false, "Gúlayım yiqildi. Qaytadan urinib ko'ring."); }
+        if (u.team == 1) { killed++; if (!spawning && Unit.CountTeam(1) == 0) { QQFeel.SlowMo(.2f, u.boss ? 1.6f : .9f); QQCam.shake = 1f; } }   // last foe of the wave: Arkham's final-blow slow motion
+        else if (u == player) { running = false; QQFeel.Sfx("st_lose", null, 1f, 0); QQFeel.SlowMo(.25f, 1.2f); int c = 10 + killed; QQProgress.Coins += c; QQHud.End(false, "Gúlayım yiqildi. +" + c + " tanga" + System.Environment.NewLine + "Kuchingizni oshirib, qaytadan urinib ko'ring."); }
         else lostMaidens++;
     }
 }

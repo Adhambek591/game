@@ -1,7 +1,10 @@
-// Gúlayım: the author's 3-button design.
-//  Attack (auto-target): near = sword combo hitting 2-3 foes in front; far = volley of 3-4 arrows; hold = spin hitting all around.
-//  Dodge: roll with i-frames; pressed just as a foe swings at her = parry + counter.
-//  Amulet: gold blast around her, long cooldown.
+// Gúlayım: the author's 3-button design, with the feel of the genre's best (docs/design/genre_study_uz.md).
+//  Attack (auto-target, stick direction picks the foe): near = 4-hit sword combo, she LUNGES to a foe up to 7 m away (Arkham freeflow),
+//          the 4th blow is a heavy finisher; far = volley of 3-4 arrows; hold = spin hitting all around.
+//  Dodge: pressed while a foe's gold mark is up = COUNTER (every telegraphing foe in reach, slow motion, Arkham);
+//          against a red mark (unblockable) a roll at the last moment = perfect dodge: the world slows for a moment (Bayonetta);
+//          otherwise a roll with i-frames.
+//  Amulet: gold blast around her; cooldown, shortened by every blow that lands (Witcher adrenaline / Arkham combo meter).
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -9,14 +12,23 @@ using UnityEngine.InputSystem;
 public class QQPlayer : MonoBehaviour
 {
     public static QQPlayer I;
-    Unit u; int combo; float comboT, holdT, amuletCd, dodgeCd, volleyCd, strikeAt = -1, parryWin; bool holding, spinning; Vector3 rollDir; float rollT;
-    public float AmuletReady { get { return 1f - Mathf.Clamp01(amuletCd / 12f); } }
-    public float DodgeReady { get { return 1f - Mathf.Clamp01(dodgeCd / .7f); } }
-    enum Strike { None, Combo, Spin }
-    Strike pending;
+    Unit u; int combo; float comboT, holdT, amuletCd, dodgeCd, volleyCd, strikeAt = -1; bool holding, spinning; Vector3 rollDir; float rollT;
+    Unit lungeTo; float lungeT, bufT; Unit lastTarget;
+    public int Chain { get; private set; }   // hits in a row without being hit (HUD combo counter)
+    public int BestChain { get; private set; }
+    float chainT;
+    static float AMULET_CD { get { return 14f - QQProgress.AmuletCdCut; } }
+    public float AmuletReady { get { return 1f - Mathf.Clamp01(amuletCd / AMULET_CD); } }
+    public float DodgeReady { get { return 1f - Mathf.Clamp01(dodgeCd / .6f); } }
+    enum Strike { None, Combo, Finisher, Spin }
+    Strike pending; bool hitThisStrike;
 
     void Awake() { I = this; }
-    void Start() { u = GetComponent<Unit>(); u.isPlayer = true; u.onHit = (from, d) => { }; }
+    void Start()
+    {
+        u = GetComponent<Unit>(); u.isPlayer = true; amuletCd = AMULET_CD * .5f;
+        u.onHit = (from, d) => { if (Chain >= 5) QQHud.Toast("Kombo uzildi"); Chain = 0; };
+    }
 
     // ---- input from QQHud buttons ----
     public void AttackDown() { holding = true; holdT = 0; }
@@ -26,28 +38,46 @@ public class QQPlayer : MonoBehaviour
         if (spinning) { spinning = false; return; }
         if (holdT < .35f) Attack();
     }
+
     public void Dodge()
     {
         if (u.Dead || dodgeCd > 0 || !QQArena.I.running) return;
-        // parry: a foe within reach is mid-swing
-        Unit foe = null;
-        foreach (var o in Unit.All) if (o.team == 1 && !o.Dead && o.busy > .45f && (o.transform.position - transform.position).sqrMagnitude < 9f) { foe = o; break; }
-        if (foe)
+        // counter: every foe whose gold mark is up and who is in reach
+        int n = 0; Unit first = null; bool redClose = false;
+        foreach (var o in Unit.All.ToArray())
         {
-            u.inv = .5f; dodgeCd = .5f; u.Face(foe.transform.position - transform.position, 99);
-            u.rig.Play("judg", .05f, false, true); u.busy = .55f;
-            foe.Hit(u.dmg * 2.2f, u, true); QQFx.Ring(transform.position, new Color(1f, .9f, .5f), 2.5f);
-            QQHud.Toast("Qaytarildi!");
+            if (o.team != 1 || o.Dead || o.telegraph <= 0 || o.swingAt != u) continue;
+            float d = (o.transform.position - transform.position).magnitude;
+            if (o.unblockable) { if (d < 4f) redClose = true; continue; }
+            if (d > 4.2f) continue;
+            if (!first) first = o; n++;
+            o.telegraph = 0; o.busy = 0; o.Hit(u.dmg * 2.2f, u, true);
+            QQFx.Spark(o.transform.position + Vector3.up * 1.3f, new Color(1f, .9f, .5f));
+        }
+        if (first)
+        {
+            u.inv = .6f; dodgeCd = .35f; u.Face(first.transform.position - transform.position, 99);
+            Vector3 to = first.transform.position - transform.position; to.y = 0;
+            if (to.magnitude > 1.6f) transform.position += to.normalized * (to.magnitude - 1.4f);   // snap into the counter
+            u.rig.Play("judg", .04f, false, true); u.rig.speed = 1.3f; u.busy = .5f;
+            QQFx.Ring(transform.position, new Color(1f, .9f, .5f), 2.8f); QQFeel.Sfx("clash", null, 1f); QQFeel.Sfx("v_block", null, .8f);
+            QQFeel.HitStop(.09f); QQFeel.SlowMo(.3f, .35f); QQCam.shake = .8f;
+            AddChain(n); amuletCd -= 1.5f * n;
+            QQHud.Toast(n > 1 ? "Qaytarildi! x" + n : "Qaytarildi!");
             return;
         }
-        var mv = QQHud.Move; rollDir = mv.sqrMagnitude > .04f ? CamDir(mv) : transform.forward;
-        u.rig.Play("roll", .05f, false, true); u.inv = .45f; u.busy = .55f; rollT = .55f; dodgeCd = .7f;
+        var mv = InputMove(); rollDir = mv.sqrMagnitude > .04f ? CamDir(mv) : -transform.forward;
+        strikeAt = -1; pending = Strike.None; lungeT = 0; bufT = 0;   // a roll cancels the swing
+        u.rig.Play("roll", .05f, false, true); u.rig.speed = 1.15f; u.inv = .5f; u.busy = .5f; rollT = .5f; dodgeCd = .6f;
+        QQFeel.Sfx("roll", null, .7f);
+        if (redClose) { QQFeel.SlowMo(.35f, .6f); QQHud.Toast("Mukammal chetlanish!"); u.inv = .8f; AddChain(1); }
     }
+
     public void Amulet()
     {
         if (u.Dead || amuletCd > 0 || !QQArena.I.running) return;
-        amuletCd = 12f; u.rig.Play("cast", .05f, false, true); u.busy = .8f;
-        QQFx.Ring(transform.position, new Color(1f, .8f, .3f), 7f); QQFx.Flash();
+        amuletCd = AMULET_CD; u.rig.Play("cast", .05f, false, true); u.busy = .8f;
+        QQFx.Ring(transform.position, new Color(1f, .8f, .3f), 7f); QQFx.Flash(); QQFeel.Sfx("power", null, 1f); QQFeel.HitStop(.12f); QQCam.shake = 1.2f;
         foreach (var o in Unit.All.ToArray()) if (o.team == 1 && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 49f) o.Hit(u.dmg * 3.5f, u, true);
     }
 
@@ -57,26 +87,62 @@ public class QQPlayer : MonoBehaviour
         return f * v.y + r * v.x;
     }
 
+    Vector2 InputMove()
+    {
+        Vector2 mv = QQHud.Move; var k = Keyboard.current;
+        if (k != null) { Vector2 kb = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0)); if (kb.sqrMagnitude > 0) mv = kb.normalized; }
+        return mv;
+    }
+
+    // Freeflow target choice: nearest foe, but the stick direction wins (a foe 5 m away in the pushed direction beats one 2 m behind)
+    Unit PickTarget(float maxD)
+    {
+        Vector2 mv = InputMove(); Vector3 want = mv.sqrMagnitude > .04f ? CamDir(mv).normalized : transform.forward;
+        Unit best = null; float bs = 1e9f;
+        foreach (var o in Unit.All)
+        {
+            if (o.team != 1 || o.Dead) continue; Vector3 d = o.transform.position - transform.position; d.y = 0; float dist = d.magnitude; if (dist > maxD) continue;
+            float s = dist - Vector3.Dot(want, d / Mathf.Max(.01f, dist)) * (mv.sqrMagnitude > .04f ? 4f : 1.5f) + (o == lastTarget ? -.8f : 0);
+            if (s < bs) { bs = s; best = o; }
+        }
+        return best;
+    }
+
+    void AddChain(int n)
+    {
+        Chain += n; chainT = 3f; BestChain = Mathf.Max(BestChain, Chain);
+        if (Chain >= 10 && Chain % 10 < n) QQHud.Toast(Chain + " zarba ketma-ket!");
+    }
+
     void Attack()
     {
-        if (u.Dead || u.busy > .15f || !QQArena.I.running) return;
-        var t = Unit.Nearest(transform.position, 1, 16f);
-        if (t && (t.transform.position - transform.position).magnitude > 3.4f)
+        if (u.Dead || !QQArena.I.running) return;
+        if (u.busy > .18f || rollT > 0) { bufT = .35f; return; }   // buffered: pressed during a swing = the next blow of the chain
+        bufT = 0;
+        var t = PickTarget(7f) ?? Unit.Nearest(transform.position, 1, 18f);
+        if (t && (t.transform.position - transform.position).magnitude > 7f)
         {
             if (volleyCd > 0) return;   // the bow needs a moment to reload: no machine-gun volleys
             volleyCd = 1.4f;
-            // volley: one arrow each at up to 4 foes, nearest first
-            var list = Unit.All.FindAll(o => o.team == 1 && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 256f);
+            var list = Unit.All.FindAll(o => o.team == 1 && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 324f);
             list.Sort((a, b) => (a.transform.position - transform.position).sqrMagnitude.CompareTo((b.transform.position - transform.position).sqrMagnitude));
             u.Face(t.transform.position - transform.position, 99); u.rig.Play("attack", .05f, false, true); u.busy = .5f;
             for (int i = 0; i < Mathf.Min(4, Mathf.Max(3, list.Count)); i++) { var tg = list[i % list.Count]; QQArrow.Shoot(u, tg, u.dmg * .55f, i * .08f); }
+            QQFeel.Sfx("v_bow", null, .8f); QQFeel.Sfx("arrow", null, .5f);
             return;
         }
-        if (t) u.Face(t.transform.position - transform.position, 99);
-        string[] seq = { "slash", "attack", "triple" };
         if (comboT <= 0) combo = 0;
-        u.rig.Play(seq[combo % 3], .05f, false, true); u.rig.speed = 1.35f; u.busy = .45f; comboT = 1.1f; combo++;
-        pending = Strike.Combo; strikeAt = .2f;
+        bool fin = combo % 4 == 3;
+        string[] seq = { "slash", "attack", "slash", "heavy" };
+        if (t)
+        {
+            lastTarget = t; u.Face(t.transform.position - transform.position, 99);
+            float dist = (t.transform.position - transform.position).magnitude;
+            if (dist > 2.3f) { lungeTo = t; lungeT = .22f; }   // close the gap during the wind-up
+        }
+        u.rig.Play(seq[combo % 4], .05f, false, true); u.rig.speed = fin ? 1.15f : 1.45f; u.busy = fin ? .55f : .4f; comboT = 1.1f; combo++;
+        pending = fin ? Strike.Finisher : Strike.Combo; strikeAt = fin ? .26f : .18f; hitThisStrike = false;
+        QQFeel.Sfx(fin ? "v_swing" : "swing", null, .7f);
     }
 
     void Update()
@@ -84,38 +150,56 @@ public class QQPlayer : MonoBehaviour
         if (u.Dead) return;
         float dt = Time.deltaTime;
         amuletCd -= dt; dodgeCd -= dt; comboT -= dt; volleyCd -= dt;
-        if (holding) { holdT += dt; if (holdT > .35f && !spinning && u.busy <= 0) { spinning = true; pending = Strike.Spin; strikeAt = .25f; u.rig.Play("spin", .05f, false, true); u.rig.speed = 1.2f; u.busy = .8f; } }
+        if (chainT > 0) { chainT -= dt; if (chainT <= 0) Chain = 0; }
+        if (bufT > 0) { bufT -= dt; if (u.busy <= .18f && rollT <= 0 && u.stun <= 0) Attack(); }
+        var near = Unit.Nearest(transform.position, 1, 12f); u.rig.lookAt = near ? near.transform : null;
+        if (holding) { holdT += dt; if (holdT > .35f && !spinning && u.busy <= 0) { spinning = true; pending = Strike.Spin; strikeAt = .25f; u.rig.Play("spin", .05f, false, true); u.rig.speed = 1.2f; u.busy = .8f; QQFeel.Sfx("v_swing", null, .8f); } }
+
+        // lunge: glide to the chosen foe, stopping at sword reach
+        if (lungeT > 0 && lungeTo && !lungeTo.Dead)
+        {
+            lungeT -= dt; Vector3 d = lungeTo.transform.position - transform.position; d.y = 0;
+            float gap = d.magnitude - (1.3f + lungeTo.radius);
+            if (gap > 0) transform.position += d.normalized * Mathf.Min(gap, 22f * dt);
+            u.Face(d, 40f);
+        }
 
         if (strikeAt >= 0)
         {
             strikeAt -= dt;
             if (strikeAt < 0)
             {
+                int hits = 0;
                 foreach (var o in Unit.All.ToArray())
                 {
                     if (o.team != 1 || o.Dead) continue; Vector3 d = o.transform.position - transform.position; d.y = 0;
-                    if (pending == Strike.Spin) { if (d.magnitude < 3.2f) o.Hit(u.dmg * 1.3f, u, true); }
-                    else if (d.magnitude < 2.6f + o.radius && Vector3.Angle(transform.forward, d) < 70f) o.Hit(u.dmg, u, combo % 3 == 0);
+                    if (pending == Strike.Spin) { if (d.magnitude < 3.2f) { o.Hit(u.dmg * 1.3f, u, true); hits++; } }
+                    else if (d.magnitude < 2.6f + o.radius && Vector3.Angle(transform.forward, d) < 75f) { o.Hit(pending == Strike.Finisher ? u.dmg * 1.8f : u.dmg, u, pending == Strike.Finisher); hits++; }
                 }
-                if (pending == Strike.Spin) { QQFx.Ring(transform.position, new Color(.6f, .8f, 1f), 3.2f); if (spinning && holding) { strikeAt = .45f; u.busy = .5f; } }
+                if (hits > 0)
+                {
+                    AddChain(hits); amuletCd -= .35f * hits;
+                    bool big = pending != Strike.Combo;
+                    QQFeel.HitStop(big ? .1f : .05f); QQCam.shake = Mathf.Max(QQCam.shake, big ? .7f : .3f);
+                    u.rig.Impulse(transform.forward, big ? -120f : -60f);   // recoil of the blow through her body
+                }
+                if (pending == Strike.Spin) { QQFx.Ring(transform.position, new Color(.6f, .8f, 1f), 3.2f); if (spinning && holding) { strikeAt = .45f; u.busy = .5f; QQFeel.Sfx("swing", null, .6f); } }
                 pending = Strike.None;
             }
         }
 
-        if (rollT > 0) { rollT -= dt; transform.position += rollDir * 7.5f * dt; u.Face(rollDir, 30); return; }
+        if (rollT > 0) { rollT -= dt; transform.position += rollDir * 8f * dt; u.Face(rollDir, 30); return; }
         if (u.stun > 0 || u.busy > 0) return;
 
-        Vector2 mv = QQHud.Move;
+        Vector2 mv = InputMove();
         var k = Keyboard.current;
         if (k != null)
         {
-            Vector2 kb = new Vector2((k.dKey.isPressed ? 1 : 0) - (k.aKey.isPressed ? 1 : 0), (k.wKey.isPressed ? 1 : 0) - (k.sKey.isPressed ? 1 : 0));
-            if (kb.sqrMagnitude > 0) mv = kb.normalized;
             if (k.spaceKey.wasPressedThisFrame) Dodge();
             if (k.eKey.wasPressedThisFrame) Amulet();
             if (k.jKey.wasPressedThisFrame) AttackDown(); if (k.jKey.wasReleasedThisFrame) AttackUp();
         }
-        var m = Mouse.current; if (m != null && !QQHud.PointerOverUI) { if (m.leftButton.wasPressedThisFrame) AttackDown(); if (m.leftButton.wasReleasedThisFrame) AttackUp(); }
+        var m = Mouse.current; if (m != null && !QQHud.PointerOverUI) { if (m.leftButton.wasPressedThisFrame) AttackDown(); if (m.leftButton.wasReleasedThisFrame) AttackUp(); if (m.rightButton.wasPressedThisFrame) Dodge(); }
 
         if (mv.sqrMagnitude > .02f)
         {
@@ -125,8 +209,20 @@ public class QQPlayer : MonoBehaviour
         }
         else
         {
-            bool foes = Unit.Nearest(transform.position, 1, 10f);
-            u.rig.Play(foes ? "combat" : "idle", .25f); u.rig.speed = 1f;
+            u.rig.Play(near ? "combat" : "idle", .25f); u.rig.speed = 1f;
+        }
+    }
+
+    // Space/E/J must also work while she is busy (buffered dodge-cancel feels responsive: Witcher 3's main complaint was input lag)
+    void LateUpdate()
+    {
+        if (u.Dead || u.stun > 0) return;
+        if (u.busy > 0 || rollT > 0)
+        {
+            var k = Keyboard.current; var m = Mouse.current;
+            if ((k != null && k.spaceKey.wasPressedThisFrame) || (m != null && m.rightButton.wasPressedThisFrame)) { if (rollT <= 0) Dodge(); }
+            if ((k != null && k.jKey.wasPressedThisFrame) || (m != null && !QQHud.PointerOverUI && m.leftButton.wasPressedThisFrame)) AttackDown();
+            if ((k != null && k.jKey.wasReleasedThisFrame) || (m != null && m.leftButton.wasReleasedThisFrame)) AttackUp();
         }
     }
 }

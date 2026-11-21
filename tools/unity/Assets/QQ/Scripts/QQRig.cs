@@ -19,6 +19,14 @@ public class QQRig : MonoBehaviour
     class Fing { public Transform t; public Quaternion bind; public Vector3 axis; public float deg; public bool right; }
     readonly List<Fing> fingers = new List<Fing>();
     public bool HasFingers { get { return fingers.Count > 0; } }
+    // procedural layers on top of the mocap: a sprung flinch of the upper body (hit reactions, weight of a swing) and a head that
+    // looks at the foe (eye-lines, as in the author's video rules)
+    public Transform lookAt; float lookW; Vector3 flinchAxis = Vector3.right; float flinch, flinchVel;
+    public void Impulse(Vector3 worldDir, float degPerSec)
+    {
+        worldDir.y = 0; if (worldDir.sqrMagnitude < 1e-6f) return;
+        flinchAxis = Vector3.Cross(Vector3.up, worldDir.normalized); flinchVel += degPerSec;
+    }
     public string Current { get { return cur; } }
     public float ClipTime { get { return tCur; } }
     public float Duration { get { RClip r; return cur != null && rc.TryGetValue(cur, out r) ? r.src.dur : 1f; } }
@@ -131,5 +139,22 @@ public class QQRig : MonoBehaviour
         }
         // curl the fingers about their local X (the axis the Blender pipeline built them around)
         for (int i = 0; i < fingers.Count; i++) { var f = fingers[i]; f.t.localRotation = f.bind * Quaternion.AngleAxis(f.deg * (f.right ? gripRight : gripLeft), f.axis); }
+        if (rawDt <= 0) return;
+        // flinch: damped spring back to the mocap pose, bent at two spine joints so it reads as the body, not a hinge
+        flinchVel += (-160f * flinch - 16f * flinchVel) * rawDt; flinch = Mathf.Clamp(flinch + flinchVel * rawDt, -35f, 35f);
+        if (Mathf.Abs(flinch) > .05f) { Transform s1 = Bone("Spine01"), s2 = Bone("Spine02");
+            if (s1) s1.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s1.rotation; if (s2) s2.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s2.rotation; }
+        // head look-at, clamped, eased in and out; split between neck and head
+        Transform head = Bone("Head"), neck = Bone("neck");
+        Vector3 to = lookAt ? lookAt.position - (transform.parent ? transform.parent : transform).position : Vector3.zero; to.y = 0;
+        Transform rt = transform.parent ? transform.parent : transform; Vector3 fw = rt.forward; fw.y = 0;
+        bool want = lookAt && to.sqrMagnitude > .25f && to.sqrMagnitude < 400f && Vector3.Angle(fw, to) < 110f;
+        lookW = Mathf.MoveTowards(lookW, want ? 1f : 0f, rawDt * 3f);
+        if (lookW > .01f && head && to.sqrMagnitude > 1e-4f)
+        {
+            float yaw = Mathf.Clamp(Vector3.SignedAngle(fw, to, Vector3.up), -60f, 60f) * lookW;
+            if (neck) neck.rotation = Quaternion.AngleAxis(yaw * .4f, Vector3.up) * neck.rotation;
+            head.rotation = Quaternion.AngleAxis(yaw * .6f, Vector3.up) * head.rotation;
+        }
     }
 }
