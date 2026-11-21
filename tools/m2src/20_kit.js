@@ -185,7 +185,7 @@ async function duel(o) {
   P.x = o.x; P.z = o.z + R * .45; P.act = null; P.face(e.x - P.x, e.z - P.z); e.rot = Math.atan2(P.x - e.x, P.z - e.z); if (G.cam) { G.cam.x = P.x; G.cam.z = P.z; }
   H.setCP(P.x, P.z); G.freeze = true; P.play('Idle'); e.play(o.mounted ? 'Idle' : 'Cheer', { once: true, force: true }); Sfx.horn();
   await H.bannerShow(t('duelT'), t(o.name), t(o.title || ''), 2.6); if (o.intro) await say(o.intro);
-  G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
+  const obj0 = $('obj').textContent; G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
   let last = P.hp, hit = false, d0 = G.stats.deaths; const t0 = G.time, prev = G.tick;
   G.mis.aim = () => e.dead ? null : e;
   G.tick = dt => { if (prev) prev(dt); if (P.hp < last - .5 || G.stats.deaths > d0) hit = true; last = P.hp;
@@ -194,7 +194,7 @@ async function duel(o) {
       if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
     for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
   await until(() => e.dead || e.yield || G.mis.force);
-  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { $('obj').textContent = t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays as the objective */
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { if (M.winning) H.objective(''); else $('obj').textContent = obj0 || t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays; a final duel (beforeWin) clears it instead of re-showing the mission text */
   if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
   const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
   Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));

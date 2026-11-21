@@ -18,7 +18,7 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
   await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
   await wait(.6); await say([['al', 'd_al1']]);
   H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
-  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7); wake(g1);
+  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7, t('h_attack_al')); wake(g1);   /* Allayar has no bow */
   await clear(g1); await practiceDodge(); await wait(.8);
   H.hint('h_skill', 7); await dead(rein([['askar', -6, -30], ['askar', 6, -30], ['wolf', 0, -35], ['wolf', -9, -27], ['wolf', 9, -27], ['askar', 2, -37]]));
   g1g.open(); H.setCP(0, -34); p.hp = Math.min(p.maxHp, p.hp + 250); H.objective('o_square'); const g2 = gate(-78);

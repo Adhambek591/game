@@ -73,7 +73,7 @@ function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.tot
 // mission complete → stars + end screen (boss missions also finish the chapter)
 async function win() {
   await resFinish();
-  if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
+  G.mis.winning = true; if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
   for (const g of (G.mis && G.mis.res) || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;  // freed and on their way = saved (before the stars are counted)
   const M = G.mis, m = M.m, st = starsOf(), k = st.filter(Boolean).length, i = midx(m.id), next = MLIST[i + 1];
   try { window.__META && window.__META.missionEnd(m.id, k); } catch (e) { }
@@ -299,7 +299,7 @@ async function duel(o) {
   P.x = o.x; P.z = o.z + R * .45; P.act = null; P.face(e.x - P.x, e.z - P.z); e.rot = Math.atan2(P.x - e.x, P.z - e.z); if (G.cam) { G.cam.x = P.x; G.cam.z = P.z; }
   H.setCP(P.x, P.z); G.freeze = true; P.play('Idle'); e.play(o.mounted ? 'Idle' : 'Cheer', { once: true, force: true }); Sfx.horn();
   await H.bannerShow(t('duelT'), t(o.name), t(o.title || ''), 2.6); if (o.intro) await say(o.intro);
-  G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
+  const obj0 = $('obj').textContent; G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
   let last = P.hp, hit = false, d0 = G.stats.deaths; const t0 = G.time, prev = G.tick;
   G.mis.aim = () => e.dead ? null : e;
   G.tick = dt => { if (prev) prev(dt); if (P.hp < last - .5 || G.stats.deaths > d0) hit = true; last = P.hp;
@@ -308,7 +308,7 @@ async function duel(o) {
       if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
     for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
   await until(() => e.dead || e.yield || G.mis.force);
-  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { $('obj').textContent = t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays as the objective */
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { if (M.winning) H.objective(''); else $('obj').textContent = obj0 || t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays; a final duel (beforeWin) clears it instead of re-showing the mission text */
   if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
   const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
   Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));
@@ -487,7 +487,7 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
   await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
   await wait(.6); await say([['al', 'd_al1']]);
   H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
-  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7); wake(g1);
+  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7, t('h_attack_al')); wake(g1);   /* Allayar has no bow */
   await clear(g1); await practiceDodge(); await wait(.8);
   H.hint('h_skill', 7); await dead(rein([['askar', -6, -30], ['askar', 6, -30], ['wolf', 0, -35], ['wolf', -9, -27], ['wolf', 9, -27], ['askar', 2, -37]]));
   g1g.open(); H.setCP(0, -34); p.hp = Math.min(p.maxHp, p.hp + 250); H.objective('o_square'); const g2 = gate(-78);
