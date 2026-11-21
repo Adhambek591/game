@@ -65,7 +65,7 @@ function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.tot
 // mission complete → stars + end screen (boss missions also finish the chapter)
 async function win() {
   await resFinish();
-  if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
+  G.mis.winning = true; if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
   for (const g of (G.mis && G.mis.res) || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;  // freed and on their way = saved (before the stars are counted)
   const M = G.mis, m = M.m, st = starsOf(), k = st.filter(Boolean).length, i = midx(m.id), next = MLIST[i + 1];
   try { window.__META && window.__META.missionEnd(m.id, k); } catch (e) { }
