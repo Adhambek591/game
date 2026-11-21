@@ -59,5 +59,6 @@ public class QQBot : MonoBehaviour
         return " | near " + (f.transform.position - me.transform.position).magnitude.ToString("0.0") + "m busy " + f.busy.ToString("0.0") + " stun " + f.stun.ToString("0.0") + " inv " + me.inv.ToString("0.0") + " anim " + (f.rig ? f.rig.Current : "-") + " ai " + (ai ? ai.Dbg : "");
     }
 
-    void Quit() { Application.Quit(); }
+    // leave no trace in the real save (level, coins, upgrades, hints): the author plays this same build
+    void Quit() { if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-qqkeep") < 0) { PlayerPrefs.DeleteAll(); PlayerPrefs.Save(); } Application.Quit(); }
 }

@@ -72,10 +72,25 @@ public class QQFx : MonoBehaviour
         m.vertices = v; m.uv = uv; m.triangles = tr; m.RecalculateNormals(); return m;
     }
 
-    float R, t; Material mt; Color col;
+    // ground warning for an area attack: a full-size ring that pulses and brightens until the blow lands
+    public static void Warn(Vector3 p, Color c, float radius, float dur)
+    {
+        if (!ringMesh) ringMesh = BuildRing();
+        var go = new GameObject("warn"); go.AddComponent<MeshFilter>().sharedMesh = ringMesh; var mr = go.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = AddMat(c); go.transform.position = p + Vector3.up * .05f; go.transform.localScale = Vector3.one * radius;
+        var f = go.AddComponent<QQFx>(); f.Init(radius, mr.sharedMaterial, c); f.warnDur = dur;
+    }
+
+    float R, t, warnDur; Material mt; Color col;
     void Init(float r, Material m, Color c) { R = r; mt = m; col = c; }
     void Update()
     {
+        if (warnDur > 0)
+        {
+            t += Time.deltaTime; if (t >= warnDur) { Destroy(gameObject); Destroy(mt); return; }
+            float k = t / warnDur; transform.localScale = Vector3.one * R * (1f + .04f * Mathf.Sin(t * 25f));
+            mt.SetColor("_BaseColor", new Color(col.r, col.g, col.b, .25f + .75f * k * (.6f + .4f * Mathf.Sin(t * 30f)))); return;
+        }
         t += Time.deltaTime; float u = t / .45f; if (u >= 1) { Destroy(gameObject); Destroy(mt); return; }
         transform.localScale = Vector3.one * Mathf.Lerp(.3f, R, 1 - (1 - u) * (1 - u));
         mt.SetColor("_BaseColor", new Color(col.r, col.g, col.b, 1 - u));

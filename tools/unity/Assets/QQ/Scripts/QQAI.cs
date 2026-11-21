@@ -9,7 +9,7 @@ using UnityEngine;
 public class QQAI : MonoBehaviour
 {
     public string Dbg { get { return (target ? target.displayName : "none") + " cd " + cd.ToString("0.0") + " strike " + strikeAt.ToString("0.0") + (u && u.hasToken ? " TOKEN" : ""); } }
-    Unit u, target; float cd, think, strikeAt = -1, windup, circleDir; string atk;
+    Unit u, target; float cd, think, strikeAt = -1, windup, circleDir; string atk; bool phase2, slam;
     static readonly string[] MELEE = { "slash", "attack", "heavy" };
     static int MaxTokens { get { return QQArena.I && QQArena.I.Wave >= 2 ? 3 : 2; } }
 
@@ -20,10 +20,18 @@ public class QQAI : MonoBehaviour
         if (u.Dead || !QQArena.I || !QQArena.I.running) { if (!u.Dead && u.rig) u.rig.Play("idle", .3f); return; }
         if (u.stun > 0) { strikeAt = -1; return; }
         float dt = Time.deltaTime; cd -= dt; think -= dt;
+        // boss phase 2 (Sekiro / Ghost of Tsushima duels): at half health he roars, shrugs off flinches, moves faster, adds a ground slam
+        if (u.boss && !phase2 && u.hp < u.maxHp * .5f)
+        {
+            phase2 = true; strikeAt = -1; u.telegraph = 0; u.hasToken = false; u.rig.speed = 1f; u.rig.Play("taunt", .1f, false, true); u.busy = 1.6f; u.stunImmune = 2.5f; u.speed *= 1.25f; cd = 1.8f;
+            QQFeel.Sfx("roar", transform.position, 1f, 0); QQCam.shake = 1f; QQHud.Toast(u.displayName + " g'azablandi!"); QQFx.Ring(transform.position, new Color(1f, .3f, .2f), 6f);
+            return;
+        }
         var pl = QQArena.I.player;
         if (think <= 0 || !target || target.Dead)
         {
-            think = .4f; target = Unit.Nearest(transform.position, 1 - u.team, u.team == 0 ? 16f : 60f);
+            think = .4f; target = u.team == 0 ? Unit.NearestNoBoss(transform.position, 1, 16f) : Unit.Nearest(transform.position, 0, 60f);
+            if (u.boss && pl && !pl.Dead) target = pl;   // the boss duels Gúlayım only
             // Qalmaq soldiers go for Gúlayım herself when she is close: she must not stroll through untouched
             if (u.team == 1 && pl && !pl.Dead && (pl.transform.position - transform.position).sqrMagnitude < 100f && (u.boss || (GetInstanceID() & 1) == 0)) target = pl;
             if (u.hasToken && target != pl) u.hasToken = false;
@@ -41,6 +49,11 @@ public class QQAI : MonoBehaviour
                 if (target && !target.Dead)
                 {
                     if (u.archer) { QQArrow.Shoot(u, target, u.dmg); QQFeel.Sfx("v_bow", transform.position, .5f); }
+                    else if (slam)
+                    {
+                        QQFeel.Sfx("slam", transform.position, 1f, 0); QQCam.shake = 1.3f; QQFx.Ring(transform.position, new Color(1f, .45f, .25f), 4f);
+                        foreach (var o in Unit.All.ToArray()) if (o.team != u.team && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 4f * 4f) o.Hit(u.dmg * 1.2f, u, true);
+                    }
                     else
                     {
                         QQFeel.Sfx("v_swing", transform.position, .6f);
@@ -48,7 +61,7 @@ public class QQAI : MonoBehaviour
                             target.Hit(u.dmg * (u.unblockable ? 1.6f : 1f), u, u.unblockable);
                     }
                 }
-                u.hasToken = false; u.unblockable = false; u.swingAt = null;
+                u.hasToken = false; u.unblockable = false; u.swingAt = null; slam = false;
             }
             if (u.busy > 0) return;
         }
@@ -80,11 +93,13 @@ public class QQAI : MonoBehaviour
                 if (cd <= 0)
                 {
                     atk = u.archer ? "attack" : MELEE[Random.Range(0, u.boss ? 3 : 2)];
-                    float wind = u.archer ? .55f : u.boss ? .7f : .62f;
+                    float wind = u.archer ? .55f : u.boss ? (phase2 ? .55f : .7f) : .62f;
                     u.unblockable = u.boss && atk == "heavy";
+                    slam = phase2 && Random.value < .35f && u.rig.Has("slam");
+                    if (slam) { atk = "slam"; wind = .95f; u.unblockable = true; QQFx.Warn(transform.position, new Color(1f, .2f, .15f), 4f, wind); }
                     u.rig.speed = .55f; u.rig.Play(atk, .08f, false, true); u.busy = wind + .45f; strikeAt = wind; windup = 0;
                     if (target == pl) { u.telegraph = wind; u.swingAt = pl; }
-                    cd = (u.archer ? 2.2f : 1.7f) * Random.Range(.85f, 1.25f) * (u.boss ? .8f : 1f);
+                    cd = (u.archer ? 2.2f : 1.7f) * Random.Range(.85f, 1.25f) * (u.boss ? (phase2 ? .6f : .8f) : 1f);
                 }
                 else if (u.busy <= 0) { u.rig.speed = 1f; u.rig.Play("combat", .25f); if (onPlayer && cd > .6f) u.hasToken = false; }
             }

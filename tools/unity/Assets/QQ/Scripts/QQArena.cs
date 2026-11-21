@@ -115,6 +115,7 @@ public class QQArena : MonoBehaviour
     {
         QQHud.Objective(QQProgress.Level + "-jang: Sarkop maydonini himoya qiling");
         yield return new WaitForSeconds(1.2f); running = true;
+        if (PlayerPrefs.GetInt("qq_hint_atk", 0) == 0) { PlayerPrefs.SetInt("qq_hint_atk", 1); QQHud.Toast("Hujum: yaqinda qilich, uzoqda o'q. Bosib tursangiz — aylanma zarba", 3.5f); }
         for (wave = 1; wave <= WAVES; wave++)
         {
             QQHud.Toast(wave + "-to'lqin"); QQFeel.Sfx("v_drum", null, .9f, 0); QQHud.Objective("To'lqin " + wave + "/" + WAVES + " — qalmoqlarni yenging");
@@ -128,7 +129,7 @@ public class QQArena : MonoBehaviour
             }
             if (wave == WAVES && captain)
             {
-                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 3400 * QQProgress.FoeHpMul, 46 * QQProgress.FoeDmgMul, 2.4f, axe, "Yuzboshi");
+                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 2500 * QQProgress.FoeHpMul, 38 * QQProgress.FoeDmgMul, 2.4f, axe, "Yuzboshi");
                 c.boss = true; c.speed = 3.6f; c.range = 2.4f; c.radius = .7f; c.gameObject.AddComponent<QQAI>(); QQHud.Toast("Qalmoq yuzboshisi!");
                 QQFeel.Music("boss", .9f); QQFeel.Sfx("horn", null, .9f, 0);
             }

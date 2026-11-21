@@ -63,7 +63,7 @@ public class QQHud : MonoBehaviour
         var nm = Rect(root, "name", new Vector2(0, 1), new Vector2(230, -72), new Vector2(380, 30)); Txt(nm, "Gúlayım", 24, TextAnchor.MiddleLeft);
 
         objective = Txt(Rect(root, "obj", new Vector2(.5f, 1), new Vector2(0, -40), new Vector2(800, 40)), "", 28, TextAnchor.MiddleCenter);
-        toast = Txt(Rect(root, "toast", new Vector2(.5f, .5f), new Vector2(0, 160), new Vector2(800, 60)), "", 40, TextAnchor.MiddleCenter);
+        toast = Txt(Rect(root, "toast", new Vector2(.5f, .5f), new Vector2(0, 160), new Vector2(980, 60)), "", 38, TextAnchor.MiddleCenter); toast.verticalOverflow = VerticalWrapMode.Overflow;
 
         // combo counter (right edge, under the objective) and boss bar (top centre)
         chain = Txt(Rect(root, "chain", new Vector2(1, 1), new Vector2(-150, -120), new Vector2(260, 80)), "", 44, TextAnchor.MiddleCenter);
@@ -103,7 +103,9 @@ public class QQHud : MonoBehaviour
     }
 
     public static void Objective(string s) { if (I) I.objective.text = s; }
-    public static void Toast(string s) { if (I) { I.toast.text = s; I.toastT = 1.6f; } }
+    public static void Toast(string s, float dur = 1.6f) { if (I && I.toastT < 2f) { I.toast.text = s; I.toastT = dur; } }
+    // first-time hints for the new mechanics (shown once per install)
+    static void Hint(string key, string s) { if (PlayerPrefs.GetInt("qq_hint_" + key, 0) == 1 || !I) return; PlayerPrefs.SetInt("qq_hint_" + key, 1); PlayerPrefs.Save(); I.toastT = 0; Toast(s, 3.2f); }
     public static void End(bool win, string sub)
     {
         if (!I) return; I.endPanel.SetActive(true); I.endTitle.text = win ? "G'alaba!" : "Mag'lubiyat"; I.endTitle.color = win ? new Color(1f, .85f, .4f) : new Color(1f, .5f, .45f); foreach (var n in new[] { "joy", "Hujum", "Chetlan", "Tumor", "chain", "boss" }) { var c = I.root.Find(n); if (c) c.gameObject.SetActive(false); }
@@ -125,7 +127,7 @@ public class QQHud : MonoBehaviour
         var p = QQArena.I ? QQArena.I.player : null;
         if (p) hpFill.rectTransform.sizeDelta = new Vector2(376 * Mathf.Clamp01(p.hp / p.maxHp), 18);
         if (QQPlayer.I) { amuletFill.fillAmount = 1 - QQPlayer.I.AmuletReady; dodgeFill.fillAmount = 1 - QQPlayer.I.DodgeReady; }
-        if (toastT > 0) { toastT -= Time.deltaTime; toast.color = new Color(1, .9f, .6f, Mathf.Clamp01(toastT * 2)); }
+        if (toastT > 0) { toastT -= Time.unscaledDeltaTime; toast.color = new Color(1, .9f, .6f, Mathf.Clamp01(toastT * 2)); }
         PointerOverUI = EventSystem.current && EventSystem.current.IsPointerOverGameObject();
 
         // combo counter with a pop on every new hit
@@ -148,6 +150,7 @@ public class QQHud : MonoBehaviour
                 if (n >= marks.Count) { var r = Rect(root, "mark", Vector2.zero, Vector2.zero, new Vector2(80, 80)); var t = Txt(r, "", 64, TextAnchor.MiddleCenter); t.fontStyle = FontStyle.Bold; marks.Add(t); }
                 var mk = marks[n++]; mk.gameObject.SetActive(true);
                 Vector2 lp; RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, null, out lp); mk.rectTransform.anchorMin = mk.rectTransform.anchorMax = new Vector2(.5f, .5f); mk.rectTransform.anchoredPosition = lp;
+                if (o.unblockable) Hint("red", "Qizil !! — qaytarib bo'lmaydi: «Chetlan» bilan qoching"); else Hint("gold", "Oltin ! — shu payt «Chetlan» bosing: zarbani qaytarasiz");
                 mk.text = o.unblockable ? "!!" : "!"; mk.color = o.unblockable ? new Color(1f, .25f, .2f) : new Color(1f, .85f, .3f);
                 mk.transform.localScale = Vector3.one * (1f + .3f * Mathf.Sin(Time.unscaledTime * 30f));
             }

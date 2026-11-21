@@ -90,5 +90,13 @@ public class Unit : MonoBehaviour
         return best;
     }
 
+    // allies leave bosses to Gúlayım (author: she fights main bosses alone)
+    public static Unit NearestNoBoss(Vector3 p, int team, float maxDist)
+    {
+        Unit best = null; float bd = maxDist * maxDist;
+        for (int i = 0; i < All.Count; i++) { var u = All[i]; if (u.team != team || u.Dead || u.boss) continue; float d = (u.transform.position - p).sqrMagnitude; if (d < bd) { bd = d; best = u; } }
+        return best;
+    }
+
     public static int CountTeam(int team) { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].team == team && !All[i].Dead) n++; return n; }
 }
