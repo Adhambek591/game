@@ -781,6 +781,34 @@ public static class QQSetup
         }
     }
 
+    // posture check: walking figures from behind and from the side (author marked bent backs)
+    public static void PostureSheet()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/posture");
+        foreach (var e in new[] { ("models/R_ona.glb", 1.65f, "ona"), ("chars/L_gulayim.glb", 1.75f, "gulayim"), ("models/R_yigit.glb", 1.78f, "yigit") })
+        {
+            const int N = 6, W = 200, H = 300; var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
+            int col = 0;
+            foreach (var clip in new[] { "walk", "run", "idle" })
+            {
+                var u = ar.Spawn(Load<GameObject>(ART + e.Item1), Vector3.zero, 0, 100, 10, e.Item2, null, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+                u.rig.desync = false; u.rig.Play(clip, .01f); for (int f = 0; f < 50; f++) u.rig.Tick(1f / 60f);
+                for (int v = 0; v < 2; v++)
+                {
+                    var snap = Snapshot(u); var c = u.transform.position + Vector3.up * e.Item2 * .52f; var dir = v == 0 ? Vector3.back : Vector3.right;
+                    cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + dir * 4.2f + Vector3.up * .6f; cam.transform.LookAt(c);
+                    var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                    sheet.ReadPixels(new Rect(0, 0, W, H), col * W, (1 - v) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+                }
+                col++; Object.DestroyImmediate(u.gameObject);
+            }
+            sheet.Apply(); File.WriteAllBytes("Builds/posture/" + e.Item3 + ".png", sheet.EncodeToPNG());
+        }
+        Debug.Log("QQ POSTURE OK");
+    }
+
     public static void Win()
     {
         Directory.CreateDirectory("Builds/win");

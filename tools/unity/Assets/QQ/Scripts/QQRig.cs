@@ -175,6 +175,24 @@ public class QQRig : MonoBehaviour
         flinchVel += (-160f * flinch - 16f * flinchVel) * rawDt; flinch = Mathf.Clamp(flinch + flinchVel * rawDt, -35f, 35f);
         if (Mathf.Abs(flinch) > .05f) { Transform s1 = Bone("Spine01"), s2 = Bone("Spine02");
             if (s1) s1.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s1.rotation; if (s2) s2.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s2.rotation; }
+        // posture: the shared mocap run is a sprinter's crouch (trunk ~55° forward) and the walk stoops; on locomotion clips the
+        // trunk tilt (hips -> neck, in the forward/up plane) is measured and anything past the limit is straightened over the three
+        // spine joints, the head counter-rotated so the eyes stay level (the author marked bent backs)
+        if (cur == "run" || cur == "walk" || cur == "idle")
+        {
+            Transform r0p = transform.parent ? transform.parent : transform; Transform nk = Bone("neck"), s0 = Bone("Spine"), s1 = Bone("Spine01"), s2 = Bone("Spine02"), hd = Bone("Head");
+            if (hips && nk && s0 && s1 && s2)
+            {
+                Vector3 fwd = r0p.forward, rgt = r0p.right; Vector3 trunk = nk.position - hips.position; trunk -= rgt * Vector3.Dot(trunk, rgt);
+                float tilt = Vector3.SignedAngle(Vector3.up, trunk, rgt);   // + = leaning forward
+                float limit = cur == "run" ? 16f : 5f, fix = Mathf.Max(0, tilt - limit) * fade;
+                if (fix > .1f)
+                {
+                    foreach (var b in new[] { s0, s1, s2 }) b.rotation = Quaternion.AngleAxis(-fix / 3f, rgt) * b.rotation;
+                    if (hd) hd.rotation = Quaternion.AngleAxis(fix * .25f, rgt) * hd.rotation;
+                }
+            }
+        }
         // lean into turns while running (bank like a rider): from the root's yaw speed
         { Transform r0 = transform.parent ? transform.parent : transform; float yaw = r0.eulerAngles.y; float yv = Mathf.DeltaAngle(lastYaw, yaw) / rawDt; lastYaw = yaw;
           float wl = cur == "run" ? Mathf.Clamp(-yv * .05f, -14f, 14f) : 0f; lean = Mathf.Lerp(lean, wl, Mathf.Min(1, rawDt * 8f));
