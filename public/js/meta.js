@@ -2,10 +2,10 @@
 // Systems: hero level/XP · skill upgrade tiers · equipment · maidens roster · daily/weekly quests · achievements · star chests · Camp screen.
 // Public API: window.__META (see bottom). Combat code may read __META.mul('spin.dmg') etc. — every key defaults to 1 (add() to 0).
 // Rules kept on purpose: one currency (the game's coins), no timers/energy, nothing sold for real money, every bonus is small and capped.
-import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795247251';
-import { t, lang } from './i18n.js?v=1795247251';
-import { Sfx } from './audio.js?v=1795247251';
-import { MLIST } from './missions.js?v=1795247251';
+import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795247421';
+import { t, lang } from './i18n.js?v=1795247421';
+import { Sfx } from './audio.js?v=1795247421';
+import { MLIST } from './missions.js?v=1795247421';
 
 const KEY = 'qq_meta', VER = 2, MAXLV = 30, TEAM = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,7 +297,7 @@ export function pdMul(kk) {
   return mul('hero.dmg') * k * (B.boss && G.boss && !G.boss.dead ? 1 + B.boss / 100 : 1) * (B.laststand && p.hp < p.maxHp * .35 ? 1 + B.laststand / 100 : 1);
 }
 // if engine.js carries the pdMul hook, the dmgBoost emulation is switched off (self-healing: if the hook disappears, emulation stays on)
-try { fetch(new URL('./engine.js?v=1795247251', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
+try { fetch(new URL('./engine.js?v=1795247421', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
 
 // ---------------------------------------------------------------- rewards
 let goldSeen = SAVE.gold;

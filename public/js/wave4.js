@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247251';
-import { t, lang, L } from './i18n.js?v=1795247251';
-import { Sfx } from './audio.js?v=1795247251';
-import { MLIST } from './missions.js?v=1795247251';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247421';
+import { t, lang, L } from './i18n.js?v=1795247421';
+import { Sfx } from './audio.js?v=1795247421';
+import { MLIST } from './missions.js?v=1795247421';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -60,6 +60,12 @@ const TX = {
   w_qu: ['Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sonda hújim etiń!', 'Qunqarning olovli tanasi qilichni o\'tmas qiladi. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching — shunda hujum qiling!', 'Огонь Кункара тупит меч. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара — и бейте!', 'Qunqar\'s fire dulls your blade. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times — then strike!'],
   w_qg: ['Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń!', 'Qarg\'ashiq olti arshinli dev — oddiy zarba unga chivin chaqqandek. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching!', 'Каргашык — великан в шесть аршин. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара!', 'Qargashiq is a six-arshin giant. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times!'],
   o_helm: ['Altın dubılǵanı shınjır menen julıp alıń — Surtaysha qasında ⚔ basıń', 'Tilla dubulg\'ani zanjir bilan yulib oling — Surtaysha yonida ⚔ ni bosing', 'Сорвите золотой шлем цепью — жмите ⚔ рядом с Суртайшой', 'Tear off the golden helmet with the chain — press ⚔ near Surtaysha'],
+  o_gate: ['Qorǵan dárwazasın buzıń — dárwaza qasında ⚔ basıń', 'Qal\'a darvozasini buzing — darvoza yonida ⚔ ni bosing', 'Сломайте ворота — жмите ⚔ у ворот', 'Break the gate — press ⚔ next to it'],
+  w4_o_rest: ['Qalǵan dushpandı jeńiń', 'Qolgan dushmanni yenging', 'Добейте оставшихся врагов', 'Defeat the remaining enemies'],
+  w4_o_rein: ['Járdemge kelgen dushpandı qaytarıń', 'Yordamga kelgan dushmanni qaytaring', 'Отбейте подкрепление врага', 'Drive back the enemy reinforcements'],
+  w4_o_stakes: ['Qazıqlar artındaǵı oq-jayshılardı atıń', 'Qoziqlar ortidagi kamonchilarni oting', 'Подстрелите лучников за кольями', 'Shoot the archers behind the stakes'],
+  w4_o_alarm: ['Dabıl qaǵıldı! Dushpanlar kiyatır — jeńiń', 'Xavf signali chalindi! Dushman kelyapti — yenging', 'Тревога! Враги идут — победите их', 'The alarm is raised! Enemies are coming — defeat them'],
+  w4_o_well: ['Qudıq qasında kárwandı qorǵań', 'Quduq yonida karvonni himoya qiling', 'Защитите караван у колодца', 'Defend the caravan at the well'],
   o_totem: ['Qanlı totemlerdi buzıń — totem qasında ⚔ basıń', 'Qonli totemlarni buzing — totem yonida ⚔ ni bosing', 'Разбейте кровавые тотемы — жмите ⚔ у тотема', 'Smash the blood totems — press ⚔ next to a totem'],
   v3h_phal: ['Nayzagerlerdi aldınan buzıp bolmaydı — qaptalınan urıń yamasa ⚔ basıp turıp aylanıp soǵıń', 'Nayzachilarni old tomondan yorib bo\'lmaydi — yonidan uring yoki ⚔ ni bosib turib aylanib uring', 'Копейщиков не пробить в лоб — бейте с фланга или держите ⚔ для удара с разворота', 'Spearmen can\'t be broken from the front — strike their flank or hold ⚔ for the spinning strike'],
   n_bash: ['Qalqan soqqısı', 'Qalqon zarbasi', 'Удар щитом', 'Shield Bash'],
