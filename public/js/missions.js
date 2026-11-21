@@ -1120,6 +1120,8 @@ const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
+// camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -1146,7 +1148,7 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
   const capt = leader(gC, 0, CZ - 11, 'mb_cap'); capt.maxHp = capt.hp = Math.round(capt.maxHp * (1.2 + .1 * c));
   if (c >= 4) for (const e of gA.es.slice(0, 2)) if (window.__W4) window.__W4.cavalry(e);
   if (c >= 5 && window.__W4) for (const x of [-5.5, 5.5].slice(0, c >= 6 ? 2 : 1)) { const cat = window.__W4.catapult(x, CZ - 17); cat.grp = gC; cat.next = cat.custom; cat.custom = sleepAI; cat.pose = 'g'; cat.hx = cat.x; cat.hz0 = cat.z; cat.seed = 1; cat.rot = cat.rot0 = 0; cat.farT = -1e9; gC.es.push(cat); }
-  const cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * 1.35); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * 1.2; };   /* sim: 1-C1 at the cap took 2.0 min with 68 % HP left -> tougher camp soldiers */
+  const CK = W4CAMPK[c] || W4CAMPK[7], cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * CK[0]); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * CK[1]; };   /* camp balance 2c (wave4_log): per-chapter soldier [HP x, damage x] */
   const all = [...gA.es, ...gB.es, ...gC.es]; all.forEach(cbuff); let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
   const full = ['askar', 'qalqan', 'archer', 'qilich', 'nayza'], wpool = w => { const q = pool.filter(x => x !== 'manj' && x !== 'cav'); for (const x of full.slice(0, Math.min(full.length, c + w))) if (!q.includes(x)) q.push(x); return q; }, upN = () => all.filter(e => !e.dead && e !== capt && !e.w4cat).length;
   const exits = k === 'tower' ? [[-2, CZ - 23], [2, CZ - 23], [0, CZ - 25]] : k === 'ford' ? [[-3.5, CZ - 24], [3.5, CZ - 24], [0, CZ - 26]] : [[-3, CZ - 26], [3, CZ - 27], [0, CZ - 28]];
