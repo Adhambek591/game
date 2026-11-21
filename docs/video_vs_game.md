@@ -216,3 +216,17 @@ Approved, but it breaks two hard rules. **A (swap, recommended):** approved **08
 2. **Swap in approved clips (ffmpeg concat/trim only):** v2 ← 03+07; c2 ← 11; c3 ← 08+12 (ask the author first, because 06 is approved but has Otbasqan wearing the up-pointing amulet); c4 ← 13; c6 ← 14; e1 ← 09 + 05 trimmed.
 3. **Until a new video exists**, set the slots with no approved clip (v3, v4, c5, c7, e2) to the still image + narration. `cutscene()` already falls back to the still when the video fails to load.
 4. **Send these prompts to the author for OK:** B-v3 "Ride-out from Miywali" (this answers his complaint directly), then v4_seal, c5_qunqar, c4_aydarha, c6_qarg, c7_ritual, e2_grave and e2_return, adding the line "on the right side of frame; small flat plain gold triangle pointing DOWN". B-0-0 only if he wants the messenger filmed.
+
+## Done (Nov 21): swap to approved clips only (ffmpeg trim/concat, no generation, no credits)
+| slot | now | source (approved) |
+|---|---|---|
+| v1 | unchanged | 01 2a1cd048 |
+| v2 | 03 + 07 (10.1 s) | 63675757 + 22beb001 |
+| c2 | 11 (8.1 s) | 02936dfd |
+| c3 | 08 + 12 (13.1 s) — 06 dropped (Otbasqan wore an up-pointing amulet, Gúlayım in red) | 6a12c6a9 + 1f9ffaa6 |
+| c4 | 13 (8.1 s) | d32053b9 |
+| c6 | 14 (8.1 s) | 904bd7aa |
+| e1 | 09 cut at 4.8 s (before the close-up: its amulet hangs point UP) + 05 cut at 8.8 s (before the red-dress shot) (13.7 s) | 2cb2ce4e + 8a8b253a |
+| v3, v4, c5, c7, e2 | still image + narration (story.js NOVID) until a new clip is approved | — |
+All outputs 1280x720, 24 fps, h264 + aac, faststart. Frames checked: Gúlayım only in blue, no up-pointing amulet visible, no text. story.js VIDV = 2 busts the browser cache for replaced files.
+Note for the author: approved 09 shows the amulet pointing UP in its close-up (cut out here).
