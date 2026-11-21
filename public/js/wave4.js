@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247575';
-import { t, lang, L } from './i18n.js?v=1795247575';
-import { Sfx } from './audio.js?v=1795247575';
-import { MLIST } from './missions.js?v=1795247575';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247727';
+import { t, lang, L } from './i18n.js?v=1795247727';
+import { Sfx } from './audio.js?v=1795247727';
+import { MLIST } from './missions.js?v=1795247727';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -285,7 +285,7 @@ function pickPower(p) { const PW = G.powers || {}, h = G.hero, n7 = enemiesWithi
   return 4; }
 const PNAME = { 1: 'k1', 2: 'k2', 3: 'k3', 4: 'k4', 5: 'k5', 6: 'pw6', 7: 'pw7', 8: 'pw8', 9: 'pw9', 0: 'pw0' };
 const HNAME = { allayar: { 1: 'n_bash', 2: 'n_cry', 3: 'n_cleave' }, sarbinaz: { 1: 'n_thrust', 2: 'n_sweep', 5: 'n_javelin' } };
-function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + '@' + (G.time || 0).toFixed(1); }; if (!p || p.dead || !c || busy()) return why('busy'); const btn = $('bP');
+function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + '@' + (G.time || 0).toFixed(1); }; if (!p || p.dead || !c || busy()) return why('busy'); if (G.noAmulet) return why('noamulet'); const btn = $('bP');
   if ((G.ulti || 0) < 100) { if (btn) { btn.classList.remove('w4no'); void btn.offsetWidth; btn.classList.add('w4no'); } if (G.time > (amulet.nt || 0)) { amulet.nt = G.time + 1.5; num(p, Math.round(G.ulti || 0) + '%', 'n'); } return why('gauge'); }
   const a = p.act; if (a && !(a.kind === 'atk' || c.canCancel(a))) return why('act:' + a.kind);
   let k = pickPower(p); if (k == null) { if (G.time > (amulet.nt || 0)) { amulet.nt = G.time + 1.5; num(p, '🔺', 'n'); } return why('none'); }
@@ -347,7 +347,7 @@ let buf = null;
 function canStart(k) { const p = P(), c = C(); if (!p || p.dead || !c || busy()) return false; const a = p.act; if (!a) return true; try { return k === 'A' ? (a.kind === 'atk' || !!c.canCancel(a)) : (a.kind === 'dodge' || !!c.canCancel(a)); } catch (e) { return true; } }
 function press(k) { const p = P(); G.stats && (G.stats.w4tap = (G.stats.w4tap || 0) + 1); if (!p || G.qte || p.mounted || canStart(k)) { buf = null; k === 'A' ? attack() : dodge(); return; } buf = { k, t: performance.now() }; }
 function bufTick() { if (!buf) return; if (performance.now() - buf.t > 150) { buf = null; return; } if (canStart(buf.k)) { const k = buf.k; buf = null; G.stats && (G.stats.w4buf = (G.stats.w4buf || 0) + 1); k === 'A' ? attack() : dodge(); } }
-function hudTick() { const b = $('bP'); if (!b) return; const u = clamp(G.ulti || 0, 0, 100); b.style.setProperty('--p', u.toFixed(0)); b.classList.toggle('full', u >= 100); }
+function hudTick() { const b = $('bP'); if (!b) return; { const no = !!G.noAmulet; if (b.__noA !== no) { b.__noA = no; b.style.visibility = no ? 'hidden' : ''; } }   /* 1-1: no amulet button until her mother gives her the amulet */ const u = clamp(G.ulti || 0, 0, 100); b.style.setProperty('--p', u.toFixed(0)); b.classList.toggle('full', u >= 100); }
 
 // ================================================================ B) ARMY + ENEMY SCALING
 const NOARMY = /^(0-0|0-1|0-2|3-1|2-1|4-1|.*-S)$/;   // 7-1: no host while riding (mounted check below), it joins for the battle on foot

@@ -43,7 +43,7 @@ let H = null;
 const qs = new URLSearchParams(location.search);
 const FAST = () => G.misFast || 1;
 export function initMissions(h) { H = h; const v0 = h.victory; if (v0 && !v0.rf) { h.victory = async (...a) => { await resFinish(); return v0(...a); }; h.victory.rf = true; } window.__MS = { run: runMission, list: MLIST, auto, win: () => G.mis && (G.mis.force = true) }; }
-export function runMission(id) {
+export function runMission(id) { G.noAmulet = false;   /* set again by 1-1 until the mother scene */
   const i = midx(id), m = MLIST[i]; if (!m) return runMission('0-1');
   try { resCleanup(); } catch (e) { }
   G.mis = { id, m, c: m.c, t0: G.time, d0: 0, flag: false, flag2: false, run: (G.misRun = (G.misRun || 0) + 1) }; G.flying = false; try { hpBar(null); if (stEl) stEl.style.opacity = 0; storm.sv = storm.to = null; $('timer').style.display = 'none'; } catch (e) { }
