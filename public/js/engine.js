@@ -235,9 +235,9 @@ function nearest(x, z, team, maxd = 1e9) { let b = null, bd = maxd; for (const e
 export function hitCircle(x, z, r, dmg, team, src, op) { let n = 0; for (const e of G.ents) { if (e.dead || !hostile(team, e.team)) continue; if (Math.hypot(e.x - x, e.z - z) < r + e.r) { if (e.damage(typeof dmg === 'function' ? dmg() : dmg, src, op)) n++; } } return n; }
 function hitArc(src, range, minDot, dmg, op) { let n = 0; const fx = Math.sin(src.rot), fz = Math.cos(src.rot); for (const e of G.ents) { if (e.dead || !hostile(src.team, e.team)) continue; const dx = e.x - src.x, dz = e.z - src.z, d = Math.hypot(dx, dz); if (d > range + e.r) continue; if (d > .6 && (dx * fx + dz * fz) / d < minDot) continue; if (e.damage(dmg(), src, op)) n++; } return n; }
 function collide(e) {
-  e.bump = null; const ox = e.x, oz = e.z;
+  e.bump = null; e.bumpB = null; const ox = e.x, oz = e.z;
   for (const c of G.colC) { const dx = e.x - c.x, dz = e.z - c.z, rr = c.r + e.r, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); e.x = c.x + dx / d * rr; e.z = c.z + dz / d * rr; e.bump = { nx: dx / d, nz: dz / d }; } }
-  for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
+  for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { e.bumpB = b; const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
   for (const f of G.fires) { if (f.y - f.size > 1.2) continue; const rr = f.size * .62 + e.r, dx = e.x - f.x, dz = e.z - f.z, d2 = dx * dx + dz * dz; if (d2 < rr * rr) { const d = Math.sqrt(d2) || .01; e.x = f.x + dx / d * rr; e.z = f.z + dz / d * rr; if (!e.bump) e.bump = { nx: dx / d, nz: dz / d }; } }
   e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && (e._lz ?? e.z) >= G.limitZ + .8 && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
   if (e.bump) { const n = e.bump, vn = (e.kx || 0) * n.nx + (e.kz || 0) * n.nz; if (vn < 0) { const fast = vn < -3; e.kx -= 1.6 * vn * n.nx; e.kz -= 1.6 * vn * n.nz; e.kx *= .6; e.kz *= .6; if (fast && !e.wallT) { e.wallT = .3; burst(e.x - n.nx * e.r, e.h * .5, e.z - n.nz * e.r, 0xbfa58a, 1.2, true); G.shake = Math.max(G.shake, .18); Sfx.hit(); if (e !== G.player && e.team === 'enemy' && !e.d.heavy) e.damage(6, null, { silent: true }); } } }
@@ -490,15 +490,39 @@ function idleAct(e, dt) {
 }
 // no enemies: each ally keeps her own loose spot near the player. She notices the player has moved on only after
 // her own delay (0.5-3 s), picks a new random spot, walks there, and sprints only when left far behind (>20 m).
+// allies lag fix: the hero leaps a ravine (colB.ravine) — a follower standing at its edge leaps after her instead of running on the spot forever (1-1 / 1-4: whole host stuck at z -159)
+function ravineHop(e, P) { if (e.alp) return true;
+  for (const b of G.colB) { if (b.off || !b.ravine) continue; const r = (e.r || .5) + .9; let z1 = null;
+    if (e.z > b.z2 && e.z < b.z2 + r + .6 && P.z < b.z1) z1 = b.z1 - r; else if (e.z < b.z1 && e.z > b.z1 - r - .6 && P.z > b.z2) z1 = b.z2 + r; if (z1 === null) continue;
+    const x1 = clamp(e.x + (P.x - e.x) * .25, -G.W + 1, G.W - 1); e.alp = { x0: e.x, z0: e.z, x1, z1, t: 0, dur: .45 + Math.abs(z1 - e.z) * .035 }; e.leaping = true; e.face(x1 - e.x, z1 - e.z, 1); e.play('Jump_Full_Long', { once: true, force: true, ts: 1.5 }); return true; }
+  return false; }
+function allyLeap(e, dt) { const a = e.alp; a.t += dt; const u = clamp(a.t / a.dur, 0, 1); e.x = a.x0 + (a.x1 - a.x0) * u; e.z = a.z0 + (a.z1 - a.z0) * u; e.y = Math.sin(u * Math.PI) * 1.6;
+  if (u >= 1) { e.y = 0; e.alp = null; e.leaping = false; e.curName = ''; e.play('Running_A', { force: true }); } return true; }
+// allies lag fix: a follower pressed against a wall / house / yurt slides along it toward its nearer open end (1-1: maidens stuck behind the gate wall at z -122 with the gap 5 m aside)
+function slideDir(e, dx, dz) { const n = e.bump; if (!n || dx * n.nx + dz * n.nz > -.2) { e.slS = 0; return { x: dx, z: dz }; }
+  const tx = -n.nz, tz = n.nx; if (!e.slS) { const b = e.bumpB; let sg = (tx * dx + tz * dz) >= 0 ? 1 : -1;
+    if (b) { const ax = Math.abs(tx) > .5, lo = ax ? b.x1 : b.z1, hi = ax ? b.x2 : b.z2, c = ax ? e.x : e.z, okLo = !ax || lo > -G.W + .8, okHi = !ax || hi < G.W - .8, pick = okLo && okHi ? (c - lo < hi - c ? -1 : 1) : okHi ? 1 : okLo ? -1 : sg; sg = pick * Math.sign((ax ? tx : tz) || 1); }
+    e.slS = sg; }
+  return { x: tx * e.slS * .92 + n.nx * .08, z: tz * e.slS * .92 + n.nz * .08 }; }
+function blockedAt(x, z, r) { for (const b of G.colB) if (!b.off && x > b.x1 - r && x < b.x2 + r && z > b.z1 - r && z < b.z2 + r) return true; for (const c of G.colC) if (Math.hypot(x - c.x, z - c.z) < c.r + r) return true; return false; }
+// last resort: a follower left > 30 m behind for 5 s (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
+function rejoin(e, P, pdist, dt) { if (pdist < 30 || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < 5) return false;
+  if (onScreen(e.x, e.z, 1.2)) return false; for (let i = 0; i < 6; i++) { const x = clamp(P.x + rnd(-5, 5), -G.W + 1, G.W - 1), z = P.z + rnd(14, 20); if (z > 5.5 || onScreen(x, z, 1.2) || barrierBetween(P.z, z) || blockedAt(x, z, (e.r || .5) + .3)) continue; let ok = true; for (const b of G.colB) if (b.ravine && !b.off && ((z > b.z2 && P.z < b.z1) || (z < b.z1 && P.z > b.z2))) ok = false; if (!ok) continue;
+    e.x = e._lx = x; e.z = e._lz = z; e.o.position.set(x, 0, z); e.alT = 0; e.hm = null; G.rejoined = (G.rejoined || 0) + 1; return true; }
+  return false; }
 function drift(e, dt) {
   const P = G.player, pe = pers(e); relSlot(e); if (!P || P.dead) { e.play('Idle'); return; } const mt = e.mounted, k = mt ? 1.7 : 1, pdist = Math.hypot(P.x - e.x, P.z - e.z);
   let h = e.hm; if (!h) h = e.hm = { x: e.x, z: e.z, ax: P.x, az: P.z, tol: rnd(3.5, 7) * k, at: undefined };
   if (pdist > (pe.far || (pe.far = rnd(9, 12.5))) && !e.sprint) { e.sprint = true; h.at = G.time + rnd(0, .5); pe.far = rnd(9, 12.5); }   /* QA 2b: the host keeps up — catch-up run starts at 9–12 m (was 18–25) and is faster than her own run */ else if (pdist < pe.far * .42) e.sprint = false;
-  if (h.at === undefined && Math.hypot(P.x - h.ax, P.z - h.az) > h.tol) h.at = G.time + rnd(.5, 3);
-  if (h.at !== undefined && G.time >= h.at) { let ox, oz, n = 0; do { ox = rnd(-5.5, 5.5) * k; oz = rnd(1.8, 6.5) * k; } while (Math.hypot(ox, oz) < 2.6 * k && n++ < 8);  /* a loose group BEHIND her: she leads */ h.x = clamp(P.x + ox, -G.W + 1, G.W - 1); h.z = Math.min(P.z + oz, 5.5); h.ax = P.x; h.az = P.z; h.tol = rnd(4, 7.5) * k; h.at = undefined; e.ib = null; }
+  const pv = Math.hypot(P.vx || 0, P.vz || 0), hMov = pv > 2.5;   /* allies lag fix: while she is on the move the spot is re-picked quickly and then tracks her (offset kept), so nobody walks to a spot the hero left 3 s ago */
+  if (h.at === undefined && Math.hypot(P.x - h.ax, P.z - h.az) > h.tol) h.at = G.time + (hMov ? rnd(.1, .6) : rnd(.5, 3));
+  if (h.at !== undefined && G.time >= h.at) { let ox, oz, n = 0; do { ox = rnd(-5.5, 5.5) * k; oz = rnd(1.8, 6.5) * k; } while (Math.hypot(ox, oz) < 2.6 * k && n++ < 8);  /* a loose group BEHIND her: she leads */ h.x = clamp(P.x + ox, -G.W + 1, G.W - 1); h.z = Math.min(P.z + oz, 5.5); h.ox = ox; h.oz = oz; h.ax = P.x; h.az = P.z; h.tol = rnd(4, 7.5) * k; h.at = undefined; e.ib = null; }
+  if ((hMov || e.sprint) && h.ox !== undefined) { h.x = clamp(P.x + h.ox + (P.vx || 0) * .35, -G.W + 1, G.W - 1); h.z = Math.min(P.z + h.oz + (P.vz || 0) * .35, 5.5); h.ax = P.x; h.az = P.z; }
+  if (!mt && ravineHop(e, P)) return;
+  if (rejoin(e, P, pdist, dt)) return;
   const gx = h.x - e.x, gz = h.z - e.z, gl = Math.hypot(gx, gz);
-  if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.25 : 1.08)) * (mt ? 2 : 1) : (mt ? 4.6 : 2.3) * pe.pace;
-    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6); e.face(gx, gz, dt * 6); e.x += gx / gl * s * dt; e.z += gz / gl * s * dt; e.play(e.sprint ? 'Running_A' : 'Walking_A'); } }
+  if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.35 : 1.12), pv * 1.15) * (mt ? 2 : 1) : (hMov ? Math.max(e.speed * pe.pace, pv) * (pdist > 7 ? 1.1 : .95) : (mt ? 4.6 : 2.3) * pe.pace);
+    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
   else { e.mv = 0; if (mt && e.cav && e.cav.v > .1) steer(e, e.x + Math.sin(e.rot), e.z + Math.cos(e.rot), 0, dt); idleAct(e, dt); }
 }
 // generic boss phases (66% / 33%): roar + shockwave moment, then faster and with new ground attacks
@@ -549,6 +573,7 @@ const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI
 function ai(e, dt) {
   const d = e.d; if (e.spawnT > 0) { e.spawnT -= dt; e.o.scale.setScalar((e.vs || d.scale || 1) * clamp(1 - e.spawnT / .45, .01, 1)); return; }
   if (e.team === 'npc' || e.air) { if (e.team === 'npc' && CIVT.has(e.type) && !e.duel) civAvoid(e, dt); return; }
+  if (e.alp) { allyLeap(e, dt); return; }
   // QA: a closed gate blocks enemies both ways — an awake enemy on the far side neither fights nor shoots (the missions watchdog walks him back in)
   if (e.team === 'enemy' && G.limitZ > -1e8 && e.z < G.limitZ - .2 && e !== G.boss && !e.custom && (e.farT || 0) > -1e8) { if (e.state !== 'chase') { e.state = 'chase'; e.clearTele(); } const P_ = G.player, tx_ = P_ ? Math.max(-G.W + 1.5, Math.min(G.W - 1.5, P_.x + (e.x - P_.x) * .5)) : e.x, sp_ = (e.speed || 3.5) * 1.15; e.x += Math.sign(tx_ - e.x) * Math.min(Math.abs(tx_ - e.x), sp_ * .5 * dt); e.z += sp_ * dt; e.rot = 0; e.play('Running_A'); return; }   /* walks in (reinforcements spawned beyond the gate used to stand there until the watchdog moved them) */
   if (e.downT > 0) { e.downT -= dt; if (e.downT <= 0) { e.curName = ''; e.inLoco = false; e.play('Idle_Combat', { force: true }); e.stagger = .2; } return; }
