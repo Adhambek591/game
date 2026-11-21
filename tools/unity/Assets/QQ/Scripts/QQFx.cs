@@ -21,13 +21,24 @@ public class QQFx : MonoBehaviour
         if (!sparks)
         {
             var go = new GameObject("qq_sparks"); sparks = go.AddComponent<ParticleSystem>(); sparks.Stop();
-            var main = sparks.main; main.startLifetime = .35f; main.startSpeed = 6f; main.startSize = .08f; main.gravityModifier = 1.2f; main.maxParticles = 600; main.simulationSpace = ParticleSystemSimulationSpace.World; main.playOnAwake = false;
+            var main = sparks.main; main.startLifetime = new ParticleSystem.MinMaxCurve(.18f, .4f); main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 9f); main.startSize = new ParticleSystem.MinMaxCurve(.03f, .07f); main.gravityModifier = 1.2f; main.maxParticles = 600; main.simulationSpace = ParticleSystemSimulationSpace.World; main.playOnAwake = false;
             var em = sparks.emission; em.rateOverTime = 0;
             var sh = sparks.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = .1f;
-            var r = go.GetComponent<ParticleSystemRenderer>(); r.material = AddMat(Color.white);
+            var r = go.GetComponent<ParticleSystemRenderer>(); var sm = AddMat(Color.white); sm.SetTexture("_BaseMap", Dot()); r.material = sm;
+            r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = .035f; r.lengthScale = 1.2f;   // streaks, not squares
+            var col = sparks.colorOverLifetime; col.enabled = true; col.color = new Gradient { colorKeys = new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(new Color(1f, .5f, .15f), 1) }, alphaKeys = new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) } };
+            var sz = sparks.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 1), new Keyframe(1, .2f)));
         }
         var ep = new ParticleSystem.EmitParams { position = p, startColor = c, applyShapeToPosition = true };
         sparks.Emit(ep, 14);
+    }
+
+    static Texture2D dot;
+    static Texture2D Dot()   // soft round sprite for particles
+    {
+        if (dot) return dot; const int S = 32; dot = new Texture2D(S, S, TextureFormat.RGBA32, false);
+        for (int y = 0; y < S; y++) for (int x = 0; x < S; x++) { float d = Vector2.Distance(new Vector2(x + .5f, y + .5f), new Vector2(S / 2f, S / 2f)) / (S / 2f); float a = Mathf.Clamp01(1 - d); dot.SetPixel(x, y, new Color(1, 1, 1, a * a)); }
+        dot.Apply(); return dot;
     }
 
     public static void Ring(Vector3 p, Color c, float radius)
@@ -46,7 +57,7 @@ public class QQFx : MonoBehaviour
             var go = new GameObject("flash", typeof(RectTransform)); go.transform.SetParent(cv.transform, false); flashImg = go.AddComponent<UnityEngine.UI.Image>(); flashImg.raycastTarget = false;
             var rt = (RectTransform)go.transform; rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;
         }
-        flashA = .55f; flashImg.color = new Color(1f, .85f, .45f, flashA);
+        flashA = .28f; flashImg.color = new Color(1f, .85f, .45f, flashA);
     }
 
     static Mesh BuildRing()

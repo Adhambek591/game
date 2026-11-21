@@ -21,7 +21,7 @@ public class QQRig : MonoBehaviour
     public bool HasFingers { get { return fingers.Count > 0; } }
     // procedural layers on top of the mocap: a sprung flinch of the upper body (hit reactions, weight of a swing) and a head that
     // looks at the foe (eye-lines, as in the author's video rules)
-    public Transform lookAt; float lookW; Vector3 flinchAxis = Vector3.right; float flinch, flinchVel;
+    public Transform lookAt; float lookW, lastYaw, lean; Vector3 flinchAxis = Vector3.right; float flinch, flinchVel;
     public void Impulse(Vector3 worldDir, float degPerSec)
     {
         worldDir.y = 0; if (worldDir.sqrMagnitude < 1e-6f) return;
@@ -144,6 +144,10 @@ public class QQRig : MonoBehaviour
         flinchVel += (-160f * flinch - 16f * flinchVel) * rawDt; flinch = Mathf.Clamp(flinch + flinchVel * rawDt, -35f, 35f);
         if (Mathf.Abs(flinch) > .05f) { Transform s1 = Bone("Spine01"), s2 = Bone("Spine02");
             if (s1) s1.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s1.rotation; if (s2) s2.rotation = Quaternion.AngleAxis(flinch * .5f, flinchAxis) * s2.rotation; }
+        // lean into turns while running (bank like a rider): from the root's yaw speed
+        { Transform r0 = transform.parent ? transform.parent : transform; float yaw = r0.eulerAngles.y; float yv = Mathf.DeltaAngle(lastYaw, yaw) / rawDt; lastYaw = yaw;
+          float wl = cur == "run" ? Mathf.Clamp(-yv * .05f, -14f, 14f) : 0f; lean = Mathf.Lerp(lean, wl, Mathf.Min(1, rawDt * 8f));
+          Transform sp = Bone("Spine"); if (sp && Mathf.Abs(lean) > .1f) { Vector3 f = r0.forward; sp.rotation = Quaternion.AngleAxis(lean, f) * sp.rotation; } }
         // head look-at, clamped, eased in and out; split between neck and head
         Transform head = Bone("Head"), neck = Bone("neck");
         Vector3 to = lookAt ? lookAt.position - (transform.parent ? transform.parent : transform).position : Vector3.zero; to.y = 0;

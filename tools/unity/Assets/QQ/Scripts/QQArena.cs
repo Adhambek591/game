@@ -41,7 +41,7 @@ public class QQArena : MonoBehaviour
 
     void Start()
     {
-        QQHud.Build(); DynamicGI.UpdateEnvironment();
+        QQHud.Build(); DynamicGI.UpdateEnvironment(); QQObstacles.Collect();
         QQFeel.Music("battle", .8f); QQFeel.Ambience("amb_fire", .35f);
         player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;

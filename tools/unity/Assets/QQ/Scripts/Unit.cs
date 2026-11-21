@@ -56,7 +56,7 @@ public class Unit : MonoBehaviour
     void SetFlash(float k)
     {
         if (rends == null) return;
-        var c = new Color(1f, .95f, .85f) * (k * 2.2f);
+        var c = new Color(1f, .8f, .55f) * (k * .28f);   // a warm glint, not a white silhouette
         for (int i = 0; i < rends.Length; i++) { if (!rends[i]) continue; rends[i].GetPropertyBlock(mpb); mpb.SetColor("emissiveFactor", c); rends[i].SetPropertyBlock(mpb); }
     }
 
@@ -72,6 +72,7 @@ public class Unit : MonoBehaviour
             Vector3 d = transform.position - o.transform.position; d.y = 0; float r = radius + o.radius, m = d.sqrMagnitude;
             if (m < r * r && m > 1e-6f) { float k = (r - Mathf.Sqrt(m)) * (isPlayer ? .2f : .5f); transform.position += d.normalized * k; }
         }
+        transform.position = QQObstacles.PushOut(transform.position, radius);
         var p = transform.position; float lim = QQArena.I ? QQArena.I.halfSize : 30f;
         transform.position = new Vector3(Mathf.Clamp(p.x, -lim, lim), 0, Mathf.Clamp(p.z, -lim, lim));
     }

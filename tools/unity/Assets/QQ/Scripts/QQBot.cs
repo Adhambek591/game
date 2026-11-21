@@ -15,6 +15,7 @@ public class QQBot : MonoBehaviour
         if (System.Array.IndexOf(args, "-qqbot") < 0) return;
         int i = System.Array.IndexOf(args, "-qqout"); outDir = i >= 0 && i + 1 < args.Length ? args[i + 1] : Application.persistentDataPath;
         Directory.CreateDirectory(outDir);
+        if (System.Array.IndexOf(args, "-qqclose") >= 0) QQCam.debugZoom = .42f;
         if (System.Array.IndexOf(args, "-qqkeep") < 0) { PlayerPrefs.DeleteAll(); }   // every QA run starts from battle 1 with no upgrades
         new GameObject("QQBot").AddComponent<QQBot>(); DontDestroyOnLoad(FindFirstObjectByType<QQBot>());
         Application.logMessageReceived += (c, s, ty) => { if (ty == LogType.Exception || ty == LogType.Error) File.AppendAllText(Path.Combine(outDir, "bot.log"), "ERR " + c + " | " + s.Split('\n')[0] + "\n"); };
@@ -26,8 +27,8 @@ public class QQBot : MonoBehaviour
     {
         t += Time.deltaTime; var A = QQArena.I; var P = QQPlayer.I; if (!A || !P || !A.player) return;
         var me = A.player;
-        if (t >= nextLog) { nextLog = t + 5; Log("hp " + me.hp.ToString("0") + "/" + me.maxHp + " foes " + Unit.CountTeam(1) + " allies " + (Unit.CountTeam(0) - 1) + " running " + A.running + " chain " + P.Chain + " best " + P.BestChain + " tokens " + Unit.TokensOnPlayer() + " fps " + (1f / Mathf.Max(1e-4f, Time.smoothDeltaTime)).ToString("0") + Near(me)); }
-        if (t >= nextShot && shots < 6) { nextShot = t + 9; ScreenCapture.CaptureScreenshot(Path.Combine(outDir, "bot_" + (++shots) + ".png")); }
+        if (t >= nextLog) { nextLog = t + 5; Log("hp " + me.hp.ToString("0") + "/" + me.maxHp + " foes " + Unit.CountTeam(1) + " allies " + (Unit.CountTeam(0) - 1) + " running " + A.running + " chain " + P.Chain + " best " + P.BestChain + " tokens " + Unit.TokensOnPlayer() + " obst " + QQObstacles.All.Count + " fps " + (1f / Mathf.Max(1e-4f, Time.smoothDeltaTime)).ToString("0") + Near(me)); }
+        if (t >= nextShot && shots < (QQCam.debugZoom < 1 ? 14 : 6)) { nextShot = t + (QQCam.debugZoom < 1 ? 3.5f : 9); ScreenCapture.CaptureScreenshot(Path.Combine(outDir, "bot_" + (++shots) + ".png")); }
         var end = GameObject.Find("HUD/end");
         if (!ended && end && end.activeSelf) { ended = true; var tx = end.GetComponentsInChildren<UnityEngine.UI.Text>(); Log("END " + (tx.Length > 1 ? tx[0].text + " | " + tx[1].text : "?"));
             for (int g = 0; g < 12; g++) { int c = -1; for (int i = 0; i < 3; i++) if (QQProgress.CanBuy(i) && (c < 0 || QQProgress.Cost(i) < QQProgress.Cost(c))) c = i; if (c < 0) break; QQProgress.Buy(c); }
