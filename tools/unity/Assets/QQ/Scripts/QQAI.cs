@@ -23,7 +23,7 @@ public class QQAI : MonoBehaviour
         // boss phase 2 (Sekiro / Ghost of Tsushima duels): at half health he roars, shrugs off flinches, moves faster, adds a ground slam
         if (u.boss && !phase2 && u.hp < u.maxHp * .5f)
         {
-            phase2 = true; strikeAt = -1; u.telegraph = 0; u.hasToken = false; u.rig.speed = 1f; u.rig.Play("taunt", .1f, false, true); u.busy = 1.6f; u.stunImmune = 2.5f; u.speed *= 1.25f; cd = 1.8f;
+            phase2 = true; strikeAt = -1; u.telegraph = 0; u.hasToken = false; u.rig.PlaySeg("taunt", .6f, 1.0f, .1f); u.busy = 1.6f; u.stunImmune = 2.5f; u.speed *= 1.25f; cd = 1.8f;
             QQFeel.Sfx("roar", transform.position, 1f, 0); QQCam.shake = 1f; QQHud.Toast(u.displayName + " g'azablandi!"); QQFx.Ring(transform.position, new Color(1f, .3f, .2f), 6f);
             return;
         }
@@ -42,7 +42,6 @@ public class QQAI : MonoBehaviour
         if (strikeAt >= 0)
         {
             strikeAt -= dt; windup += dt;
-            u.rig.speed = windup < .3f ? .55f : 1.25f;
             if (target) u.Face(target.transform.position - transform.position, windup < .3f ? 8f : 2f);
             if (strikeAt < 0)
             {
@@ -97,7 +96,7 @@ public class QQAI : MonoBehaviour
                     u.unblockable = u.boss && atk == "heavy";
                     slam = phase2 && Random.value < .35f && u.rig.Has("slam");
                     if (slam) { atk = "slam"; wind = .95f; u.unblockable = true; QQFx.Warn(transform.position, new Color(1f, .2f, .15f), 4f, wind); }
-                    u.rig.speed = .55f; u.rig.Play(atk, .08f, false, true); u.busy = wind + .45f; strikeAt = wind; windup = 0;
+                    u.rig.PlaySeg(atk, wind, .5f, .08f); u.busy = wind + .5f; strikeAt = wind; windup = 0;   // impact on the clip's hit frame
                     if (target == pl) { u.telegraph = wind; u.swingAt = pl; }
                     cd = (u.archer ? 2.2f : 1.7f) * Random.Range(.85f, 1.25f) * (u.boss ? (phase2 ? .6f : .8f) : 1f);
                 }

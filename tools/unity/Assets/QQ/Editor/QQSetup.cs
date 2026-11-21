@@ -347,6 +347,105 @@ public static class QQSetup
         Debug.Log("QQ GALLERY OK");
     }
 
+    // every mocap clip on Gúlayım, 8 frames each from the side and front-3/4: Builds/clips/<clip>.png (animation review)
+    public static void ClipSheet()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/clips");
+        var model = Load<GameObject>(ART + "chars/P_gulayim.glb");
+        string[] clips = { "idle", "combat", "walk", "run", "slash", "attack", "triple", "heavy", "spin", "slam", "judg", "roll", "hit", "dead", "cast", "taunt" };
+        const int N = 8, W = 160, H = 300;
+        foreach (var clip in clips)
+        {
+            var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+            if (!u.rig.Has(clip)) { Object.DestroyImmediate(u.gameObject); continue; }
+            var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
+            for (int v = 0; v < 2; v++)
+                for (int i = 0; i < N; i++)
+                {
+                    u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)N); var snap = Snapshot(u);
+                    var c = u.transform.position + Vector3.up * .95f;
+                    var dir = v == 0 ? Vector3.right : (Vector3.back + Vector3.right * .8f).normalized;
+                    cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + dir * 5.2f + Vector3.up * .25f; cam.transform.LookAt(c);
+                    var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                    sheet.ReadPixels(new Rect(0, 0, W, H), i * W, (1 - v) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+                    Unsnap(u, snap);
+                }
+            sheet.Apply(); File.WriteAllBytes("Builds/clips/" + clip + ".png", sheet.EncodeToPNG());
+            Debug.Log("QQ CLIP " + clip + " dur " + QQAnimLib.clips[clip].dur);
+            Object.DestroyImmediate(u.gameObject);
+        }
+        Debug.Log("QQ CLIPS OK");
+    }
+
+    // edit-mode skinning lags one sample behind the bones: bake the current pose into a plain mesh for the render
+    static GameObject Snapshot(Unit u)
+    {
+        var smr = u.GetComponentInChildren<SkinnedMeshRenderer>(); if (!smr) return null;
+        var m = new Mesh(); smr.BakeMesh(m, true); var go = new GameObject("snap"); go.transform.SetParent(smr.transform, false);   // BakeMesh(true) = smr-local points, as TransformPoint expects
+        go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials; smr.enabled = false; return go;
+    }
+    static void Unsnap(Unit u, GameObject g) { if (g) { Object.DestroyImmediate(g.GetComponent<MeshFilter>().sharedMesh); Object.DestroyImmediate(g); } var smr = u.GetComponentInChildren<SkinnedMeshRenderer>(); if (smr) smr.enabled = true; }
+
+    public static void RigProbe()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var f in new[] { "chars/P_gulayim.glb", "chars/P_sarbinaz_low.glb", "meshy/M_gulayim.glb" })
+        {
+            var u = ar.Spawn(Load<GameObject>(ART + f), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g");
+            var hands = new System.Collections.Generic.List<Transform>(); foreach (var t in u.GetComponentsInChildren<Transform>(true)) if (t.name == "RightHand") hands.Add(t);
+            var smr = u.GetComponentInChildren<SkinnedMeshRenderer>(); var rh = u.rig.Bone("RightHand");
+            int idx = System.Array.IndexOf(smr.bones, rh);
+            string names = ""; foreach (var b in smr.bones) if (b && b.name.Contains("Right") && b.name.Contains("Hand")) names += b.name + "(" + b.GetInstanceID() + ") ";
+            Debug.Log("QQ PROBE " + f + " RightHand transforms " + hands.Count + " rig id " + (rh ? rh.GetInstanceID() : 0) + " index in smr.bones " + idx + " smr hand bones " + names + " smrs " + u.GetComponentsInChildren<SkinnedMeshRenderer>().Length);
+            u.rig.Play("heavy", .01f, true, true); u.rig.SampleAt(.6f);
+            // where is the skinned hand really? bake the mesh and find the vertex nearest to the rig hand
+            var baked = new Mesh(); smr.BakeMesh(baked, true); var vs = baked.vertices; float best = 1e9f; Vector3 bp = Vector3.zero;
+            var bw = smr.sharedMesh.boneWeights; float wsum = 0; Vector3 wc = Vector3.zero;
+            for (int i = 0; i < vs.Length; i++) { var w = bw[i]; float k = (w.boneIndex0 == idx ? w.weight0 : 0) + (w.boneIndex1 == idx ? w.weight1 : 0) + (w.boneIndex2 == idx ? w.weight2 : 0) + (w.boneIndex3 == idx ? w.weight3 : 0); if (k > .5f) { wc += smr.transform.TransformPoint(vs[i]); wsum++; } }
+            Debug.Log("QQ PROBE " + f + " hand bone pos " + rh.position.ToString("F3") + " centroid of verts skinned to it " + (wsum > 0 ? (wc / wsum).ToString("F3") : "none") + " n " + wsum + " weapon pos " + (rh.childCount > 0 ? rh.GetChild(rh.childCount - 1).position.ToString("F3") : "-"));
+            Object.DestroyImmediate(u.gameObject);
+        }
+    }
+
+    public static void BigFrame()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false;
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/P_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+        var sheet = new Texture2D(1280, 720, TextureFormat.RGB24, false); int k = 0;
+        foreach (var e in new[] { ("attack", .125f), ("attack", .25f), ("slash", .375f), ("heavy", .75f) })
+        {
+            u.rig.Play(e.Item1, .01f, true, true); u.rig.SampleAt(e.Item2);
+            var c = u.transform.position + Vector3.up * 1.1f; cam.fieldOfView = 34; cam.transform.position = c + Vector3.right * 4f + Vector3.up * .3f; cam.transform.LookAt(c);
+            var rt = new RenderTexture(640, 360, 24); cam.targetTexture = rt; cam.aspect = 640f / 360f; cam.Render(); cam.Render(); RenderTexture.active = rt;
+            sheet.ReadPixels(new Rect(0, 0, 640, 360), (k % 2) * 640, (1 - k / 2) * 360); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+            var w = u.rig.Bone("RightHand").GetComponentInChildren<MeshRenderer>();
+            Debug.Log("QQ BIG " + e.Item1 + " hand " + u.rig.Bone("RightHand").position.ToString("F2") + " weapon renderer bounds " + (w ? w.bounds.ToString() : "none") + " name " + (w ? w.name + " parent " + w.transform.parent.name : ""));
+            k++;
+        }
+        sheet.Apply(); File.WriteAllBytes("Builds/clips/big.png", sheet.EncodeToPNG());
+    }
+
+    // timing analysis: speed of the right hand through every attack clip -> wind-up start, impact (peak speed), recovery end
+    public static void ClipTiming()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/P_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g");
+        var hand = u.rig.Bone("RightHand"); var hips = u.rig.Bone("Hips");
+        foreach (var clip in new[] { "slash", "attack", "triple", "heavy", "spin", "slam", "judg", "cast", "roll", "hit", "taunt" })
+        {
+            float dur = QQAnimLib.clips[clip].dur; int n = Mathf.CeilToInt(dur * 60); var sp = new float[n]; Vector3 prev = Vector3.zero;
+            for (int i = 0; i < n; i++) { u.rig.Play(clip, .01f, false, true); u.rig.SampleAt(i / (float)n); var p = hand.position - hips.position; sp[i] = i == 0 ? 0 : (p - prev).magnitude * 60; prev = p; }
+            var line = new System.Text.StringBuilder(); float mx = 0; int pk = 0; for (int i = 2; i < n; i++) if (sp[i] > mx) { mx = sp[i]; pk = i; }
+            int st = pk; while (st > 0 && sp[st] > mx * .2f) st--; int en = pk; while (en < n - 1 && sp[en] > mx * .2f) en++;
+            for (int i = 0; i < n; i += 6) line.Append(Mathf.RoundToInt(sp[i] * 10)).Append(' ');
+            Debug.Log("QQ TIMING " + clip + " dur " + dur.ToString("F2") + " peak " + (pk / 60f).ToString("F2") + "s (" + mx.ToString("F1") + " m/s) start " + (st / 60f).ToString("F2") + " end " + (en / 60f).ToString("F2") + " | " + line);
+        }
+    }
+
     public static void Win()
     {
         Directory.CreateDirectory("Builds/win");

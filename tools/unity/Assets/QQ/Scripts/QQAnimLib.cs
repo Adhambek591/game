@@ -42,6 +42,16 @@ public static class QQAnimLib
         }
     }
 
+    // Measured timing of every action clip (QQSetup.ClipTiming: speed of the right hand): t0 = where the move starts (the idle
+    // lead-in before it is skipped), hit = impact frame (peak hand speed), end = recovered. Gameplay plays only this segment and
+    // lands damage exactly on the impact frame (animation principle 9, timing).
+    public struct Seg { public float t0, hit, end; public Seg(float a, float b, float c) { t0 = a; hit = b; end = c; } }
+    public static readonly Dictionary<string, Seg> seg = new Dictionary<string, Seg> {
+        { "slash", new Seg(.35f, .73f, 1.25f) }, { "attack", new Seg(.45f, 1.10f, 1.45f) }, { "triple", new Seg(.5f, .82f, 1.15f) },
+        { "heavy", new Seg(.6f, 1.57f, 1.85f) }, { "spin", new Seg(.6f, .88f, 1.8f) }, { "slam", new Seg(.8f, 1.68f, 2.05f) },
+        { "judg", new Seg(.6f, 1.03f, 1.3f) }, { "cast", new Seg(.1f, .68f, 1.05f) }, { "roll", new Seg(.35f, 1.0f, 1.65f) },
+        { "taunt", new Seg(1.5f, 2.12f, 2.9f) } };
+
     // glTF (right-handed) -> Unity (left-handed): the same mirror glTFast applies on import (X axis flipped)
     public static Quaternion Conv(Quaternion q) { return new Quaternion(q.x, -q.y, -q.z, q.w); }
 }

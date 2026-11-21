@@ -89,8 +89,18 @@ public class QQRig : MonoBehaviour
 
     public bool Has(string name) { return Get(name) != null; }
 
+    // Play one measured action segment: wind-up (t0 -> hit) in 'wind' seconds with slow-in / fast-out easing (anticipation),
+    // then follow-through (hit -> end) in 'recover' seconds easing out. Returns false if the clip has no measured segment.
+    bool segOn; float segT, segWind, segRec; QQAnimLib.Seg sg;
+    public bool PlaySeg(string name, float wind, float recover, float fadeTime = .06f)
+    {
+        QQAnimLib.Seg s; if (!QQAnimLib.seg.TryGetValue(name, out s) || Get(name) == null) { Play(name, fadeTime, false, true); return false; }
+        Play(name, fadeTime, false, true); tCur = s.t0; sg = s; segOn = true; segT = 0; segWind = Mathf.Max(.05f, wind); segRec = Mathf.Max(.05f, recover); return true;
+    }
+
     public void Play(string name, float fadeTime = .15f, bool loop = true, bool restart = false)
     {
+        segOn = false;
         if (name == cur && !restart) return;
         if (Get(name) == null) return;
         prev = cur; tPrev = tCur; loopPrev = loopCur; cur = name; tCur = 0; loopCur = loop; fade = prev == null ? 1f : 0f; fadeDur = Mathf.Max(.01f, fadeTime);
@@ -122,7 +132,14 @@ public class QQRig : MonoBehaviour
     void Apply(float rawDt)
     {
         if (cur == null) return; var a = rc[cur]; float dt = rawDt * speed;
-        tCur += dt; fade = Mathf.Min(1f, fade + rawDt / fadeDur);
+        if (segOn)
+        {
+            segT += rawDt;
+            if (segT < segWind) { float q = segT / segWind; tCur = sg.t0 + (sg.hit - sg.t0) * (.5f * q + .5f * q * q); }   // speed .5x -> 1.5x
+            else { float q = Mathf.Min(1f, (segT - segWind) / segRec); tCur = sg.hit + (sg.end - sg.hit) * (1f - (1f - q) * (1f - q)); }   // ease out
+        }
+        else tCur += dt;
+        fade = Mathf.Min(1f, fade + rawDt / fadeDur);
         RClip p = fade < 1f && prev != null ? rc[prev] : null; if (p != null) tPrev += dt;
         float ta = Wrap(tCur, a.src.dur, loopCur), tp = p != null ? Wrap(tPrev, p.src.dur, loopPrev) : 0;
         for (int i = 0; i < a.rot.Count; i++)
