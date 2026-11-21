@@ -321,7 +321,7 @@ public class QQMission : MonoBehaviour
         yield return OpenGate(2, -146f); QQFeel.Music("calm", .7f); QQHud.Objective("Qashqirni toping");
         yield return Reach(new Vector3(0, 0, -112f), 5f);
         // the duel: the maidens hold back, Qasqır comes out of the smoke
-        var q = A.Spawn(A.captain, new Vector3(0, 0, -130f), 1, 2600 * QQProgress.FoeHpMul, 38 * QQProgress.FoeDmgMul, 2.4f, A.axe, "Qashqir");
+        var q = A.Spawn(A.captain, new Vector3(0, 0, -130f), 1, 2200 * QQProgress.FoeHpMul, 34 * QQProgress.FoeDmgMul, 2.4f, A.axe, "Qashqir");
         q.boss = true; q.speed = 3.6f; q.range = 2.4f; q.radius = .7f; q.transform.rotation = Quaternion.LookRotation(Vector3.forward); q.gameObject.AddComponent<QQAI>();
         A.duel = true; QQFeel.Sfx("howl", null, 1f, 0);
         yield return new WaitForSeconds(1.5f);

@@ -47,7 +47,7 @@ public class Unit : MonoBehaviour
         // poise (author: no stun-lock): after a flinch a fighter cannot be flinched again for a while, so fast combos
         // do not freeze him and he swings back; bosses flinch only on heavy blows, then shrug off hits for 3 s
         if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; telegraph = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play("hit", .05f, false, true); }
-        if (from) transform.position += away.normalized * (heavy ? (boss ? .4f : 1.4f) : .25f);
+        if (from && !boss && stun > 0) transform.position += away.normalized * (heavy ? .6f : .12f);   // only a flinching fighter is pushed (and plays 'hit'); bosses stand their ground
     }
 
     void Die(Unit from)
@@ -78,7 +78,7 @@ public class Unit : MonoBehaviour
         {
             var o = All[i]; if (o == this) continue;
             Vector3 d = transform.position - o.transform.position; d.y = 0; float r = radius + o.radius, m = d.sqrMagnitude;
-            if (m < r * r && m > 1e-6f) { float k = (r - Mathf.Sqrt(m)) * (isPlayer ? .2f : .5f); transform.position += d.normalized * k; }
+            if (m < r * r && m > 1e-6f) { float k = (r - Mathf.Sqrt(m)) * (isPlayer ? .2f : boss ? .05f : o.boss ? .95f : .5f); transform.position += d.normalized * k; }   // a boss is not shoved around
         }
         transform.position = QQObstacles.PushOut(transform.position, radius);
         var p = transform.position; var bd = QQArena.I ? QQArena.I.bounds : new Vector4(-30, 30, -30, 30);

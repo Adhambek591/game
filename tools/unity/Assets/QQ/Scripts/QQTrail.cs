@@ -7,7 +7,7 @@ public class QQTrail : MonoBehaviour
     void Update()
     {
         if (!u) u = GetComponent<Unit>(); if (!tr || !u) return;
-        if (!u.isPlayer && !u.boss) { tr.emitting = false; enabled = false; return; }   // only Gúlayım and bosses: a ribbon on every soldier is noise
+        tr.emitting = false; enabled = false; return;   // TrailRenderer leaves broken segments on fast swings at 60 fps: off until a smoothed trail exists   // only Gúlayım and bosses: a ribbon on every soldier is noise
         string c = u.rig ? u.rig.Current : "";
         tr.emitting = u.busy > .05f && u.stun <= 0 && !u.Dead && c != "roll" && c != "cast" && c != "hit";
     }

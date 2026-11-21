@@ -10,10 +10,38 @@ public class QQAI : MonoBehaviour
 {
     public string Dbg { get { return (target ? target.displayName : "none") + " cd " + cd.ToString("0.0") + " strike " + strikeAt.ToString("0.0") + (u && u.hasToken ? " TOKEN" : ""); } }
     Unit u, target; float cd, think, strikeAt = -1, windup, circleDir; string atk; bool phase2, slam;
+    // author's crowd rules (browser build combat2 / fix3 logs): every fighter has a personality (pace, tempo, reaction);
+    // allies keep their OWN loose spot BEHIND Gúlayım and notice she moved only after their own delay; they walk, and sprint
+    // only when left far behind; at most 2 allies per ordinary foe; foes spread over targets; around a target each attacker
+    // takes its own slot on a ring, so nobody runs in one clump
+    float pace, tempo, react, slotAng; int comboLeft; float pounceT = -1, pounceCd = 4f; Vector3 pounceFrom, pounceTo; Vector3 spot; Vector3 lastPl; float noticeT; bool sprinting;
     static readonly string[] MELEE = { "slash", "attack", "heavy" };
     static int MaxTokens { get { return QQArena.I && QQArena.I.Wave >= 2 ? 3 : 2; } }
 
-    void Start() { u = GetComponent<Unit>(); cd = Random.Range(.3f, 1.5f); circleDir = Random.value < .5f ? -1 : 1; }
+    void Start()
+    {
+        u = GetComponent<Unit>(); cd = Random.Range(.3f, 1.5f); circleDir = Random.value < .5f ? -1 : 1;
+        pace = Random.Range(.85f, 1.12f); tempo = Random.Range(.85f, 1.2f); react = Random.Range(.5f, 3f); slotAng = Random.Range(0f, 360f);
+        spot = new Vector3(Random.Range(-5.5f, 5.5f), 0, -Random.Range(1.8f, 6.5f));
+    }
+    static int Attackers(Unit t, Unit except) { int n = 0; for (int i = 0; i < Unit.All.Count; i++) { var o = Unit.All[i]; if (o == except || o.Dead || o.team == t.team) continue; var ai = o.GetComponent<QQAI>(); if (ai && ai.target == t) n++; } return n; }
+    // best target: near, but crowded targets cost more (an ordinary foe takes at most 2 allies, an elite 3, a boss none: she duels alone)
+    Unit Pick(Vector3 from, float maxD, Unit pl)
+    {
+        Unit best = null; float bs = 1e9f;
+        for (int i = 0; i < Unit.All.Count; i++)
+        {
+            var o = Unit.All[i]; if (o.team == u.team || o.Dead || o.isCaptive) continue;
+            if (u.team == 0 && o.boss) continue;
+            float d = (o.transform.position - from).magnitude; if (d > maxD) continue;
+            if (u.team == 0 && pl && (o.transform.position - pl.transform.position).sqrMagnitude > 12.5f * 12.5f) continue;   // allies fight near her, not off on their own
+            int n = Attackers(o, u); int cap = u.team == 0 ? 2 : (o.isPlayer ? 99 : 3);
+            if (n >= cap && o != target) continue;
+            float sc = d + n * 4f + (o == target ? -2f : 0);
+            if (sc < bs) { bs = sc; best = o; }
+        }
+        return best;
+    }
 
     void Update()
     {
@@ -34,9 +62,34 @@ public class QQAI : MonoBehaviour
             return;
         }
         var pl = QQArena.I.player;
+        // boss pounce (Qasqır is a wolf: he leaps at her from 5-11 m; a red ring marks where he lands)
+        if (pounceT >= 0)
+        {
+            pounceT += dt; float k = Mathf.Clamp01((pounceT - .55f) / .35f);
+            if (pounceT < .55f) { u.Face(pounceTo - transform.position, 10f); return; }   // crouch / wind-up while the ring warns
+            transform.position = Vector3.Lerp(pounceFrom, pounceTo, k) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 1.6f;
+            if (k >= 1f)
+            {
+                pounceT = -1; var p0 = transform.position; p0.y = 0; transform.position = p0; QQCam.shake = 1.1f; QQFeel.Sfx("slam", p0, 1f, 0); QQFx.Ring(p0, new Color(1f, .45f, .25f), 3f);
+                foreach (var o in Unit.All.ToArray()) if (o.team != u.team && !o.Dead && (o.transform.position - p0).sqrMagnitude < 2.6f * 2.6f) o.Hit(u.dmg * 1.4f, u, true);
+                u.busy = .6f; cd = 1.2f;
+            }
+            return;
+        }
+        if (u.boss) pounceCd -= dt;
+        if (u.boss && pounceCd <= 0 && pl && !pl.Dead && strikeAt < 0 && u.busy <= 0 && u.stun <= 0)
+        {
+            float pd = (pl.transform.position - transform.position).magnitude;
+            if (pd > 5f && pd < 11f)
+            {
+                pounceCd = Random.Range(5f, 8f) * (phase2 ? .7f : 1f); pounceT = 0; pounceFrom = transform.position; pounceTo = pl.transform.position;
+                QQFx.Warn(pounceTo, new Color(1f, .2f, .15f), 2.6f, .9f); u.rig.PlaySeg(u.rig.Has("slam") ? "slam" : "heavy", .55f, .5f, .06f); u.busy = 1.4f; u.telegraph = .9f; u.unblockable = true; u.swingAt = pl;
+                QQFeel.Sfx("howl", transform.position, .8f, 0); return;
+            }
+        }
         if (think <= 0 || !target || target.Dead)
         {
-            think = .4f; target = u.team == 0 ? Unit.NearestNoBoss(transform.position, 1, 16f) : Unit.Nearest(transform.position, 0, 60f);
+            think = Random.Range(.7f, 1.6f); target = Pick(transform.position, u.team == 0 ? 16f : 60f, pl);
             if (u.boss && pl && !pl.Dead) target = pl;   // the boss duels Gúlayım only
             // Qalmaq soldiers go for Gúlayım herself when she is close: she must not stroll through untouched
             if (u.team == 1 && pl && !pl.Dead && (pl.transform.position - transform.position).sqrMagnitude < 100f && (u.boss || (GetInstanceID() & 1) == 0)) target = pl;
@@ -67,6 +120,7 @@ public class QQAI : MonoBehaviour
                     }
                 }
                 u.hasToken = false; u.unblockable = false; u.swingAt = null; slam = false;
+                if (u.boss && comboLeft > 0) { comboLeft--; cd = .15f; u.busy = .1f; } else if (u.boss) comboLeft = Random.Range(1, phase2 ? 3 : 2);
             }
             if (u.busy > 0) return;
         }
@@ -90,7 +144,15 @@ public class QQAI : MonoBehaviour
                 }
             }
             float reach = u.archer ? 9f : u.range + target.radius;
-            if (dist > reach) { Move(d.normalized); }
+            if (!u.archer && dist > reach)
+            {
+                // own slot on a ring round the target (angle fixed per fighter), walk the last metres
+                float a = slotAng * Mathf.Deg2Rad; Vector3 slot = target.transform.position + new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)) * (reach * .92f);
+                Vector3 to = (dist > 6f ? target.transform.position : slot) - transform.position; to.y = 0;
+                float k = dist > 6f ? 1f : Mathf.Clamp(to.magnitude / 3f, .35f, .6f);
+                if (to.magnitude > .25f) Move(to.normalized * k); else { u.Face(d); u.rig.speed = 1f; u.rig.Play("combat", .25f); }
+            }
+            else if (dist > reach) { Move(d.normalized); }
             else if (u.archer && dist < 4f) { Move(-d.normalized * .7f); }
             else
             {
@@ -104,24 +166,27 @@ public class QQAI : MonoBehaviour
                     if (slam) { atk = "slam"; wind = .95f; u.unblockable = true; QQFx.Warn(transform.position, new Color(1f, .2f, .15f), 4f, wind); }
                     u.rig.PlaySeg(atk, wind, .5f, .08f); u.busy = wind + .5f; strikeAt = wind; windup = 0;   // impact on the clip's hit frame
                     if (target == pl) { u.telegraph = wind; u.swingAt = pl; }
-                    cd = (u.archer ? 2.2f : 1.7f) * Random.Range(.85f, 1.25f) * (u.boss ? (phase2 ? .6f : .8f) : 1f);
+                    cd = (u.archer ? 2.2f : 1.7f) * Random.Range(.85f, 1.25f) * tempo * (u.boss ? (phase2 ? .6f : .8f) : 1f);
+                    slotAng += Random.Range(-50f, 50f);   // after the blow, step to a slightly different spot
                 }
                 else if (u.busy <= 0) { u.rig.speed = 1f; u.rig.Play("combat", .25f); if (onPlayer && cd > .6f) u.hasToken = false; }
             }
         }
         else if (u.team == 0 && pl && !pl.Dead)
         {
-            // follow Gúlayım in a loose fan behind her
-            Vector3 slot = pl.transform.position - pl.transform.forward * 2.2f + pl.transform.right * ((GetInstanceID() % 5) - 2) * 1.3f;
-            Vector3 d = slot - transform.position; d.y = 0;
-            if (d.magnitude > 1.2f) Move(d.normalized * Mathf.Clamp01(d.magnitude / 3f + .4f)); else { u.rig.Play("idle", .3f); u.Face(pl.transform.forward, 3f); }
+            // her own loose spot behind Gúlayım; she notices Gúlayım moved only after her own delay
+            if ((pl.transform.position - lastPl).sqrMagnitude > 4f) { if (noticeT <= 0) noticeT = react; noticeT -= dt; if (noticeT <= 0) { lastPl = pl.transform.position; spot = new Vector3(Random.Range(-5.5f, 5.5f), 0, -Random.Range(1.8f, 6.5f)); } }
+            Vector3 slot = lastPl + Quaternion.Euler(0, pl.transform.eulerAngles.y, 0) * spot;
+            Vector3 d = slot - transform.position; d.y = 0; float far = (pl.transform.position - transform.position).magnitude;
+            if (far > 18f + react * 2f) sprinting = true; else if (far < 9f) sprinting = false;
+            if (d.magnitude > 1.2f) Move(d.normalized * (sprinting ? 1f : .5f)); else { u.rig.Play("idle", .3f); u.Face(pl.transform.position - transform.position, 2f); }
         }
         else u.rig.Play("idle", .3f);
     }
 
     void Move(Vector3 dir)
     {
-        float sp = u.speed * dir.magnitude; if (sp < .05f) return;
+        float sp = u.speed * pace * dir.magnitude; if (sp < .05f) return;
         transform.position += dir.normalized * sp * Time.deltaTime; u.Face(dir);
         u.rig.Locomote(sp, .2f);
     }

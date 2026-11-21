@@ -195,7 +195,7 @@ public class QQRig : MonoBehaviour
         }
         // lean into turns while running (bank like a rider): from the root's yaw speed
         { Transform r0 = transform.parent ? transform.parent : transform; float yaw = r0.eulerAngles.y; float yv = Mathf.DeltaAngle(lastYaw, yaw) / rawDt; lastYaw = yaw;
-          float wl = cur == "run" ? Mathf.Clamp(-yv * .05f, -14f, 14f) : 0f; lean = Mathf.Lerp(lean, wl, Mathf.Min(1, rawDt * 8f));
+          float wl = 0f;   // turn lean disabled: it rocked the run left-right lean = Mathf.Lerp(lean, wl, Mathf.Min(1, rawDt * 8f));
           Transform sp = Bone("Spine"); if (sp && Mathf.Abs(lean) > .1f) { Vector3 f = r0.forward; sp.rotation = Quaternion.AngleAxis(lean, f) * sp.rotation; } }
         // head look-at, clamped, eased in and out; split between neck and head
         Transform head = Bone("Head"), neck = Bone("neck");

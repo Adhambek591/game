@@ -787,13 +787,13 @@ public static class QQSetup
         EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
         foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
         var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/posture");
-        foreach (var e in new[] { ("models/R_ona.glb", 1.65f, "ona"), ("chars/L_gulayim.glb", 1.75f, "gulayim"), ("models/R_yigit.glb", 1.78f, "yigit") })
+        foreach (var e in (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-qqenemy") >= 0 ? new[] { ("models/R_askar.glb", 1.85f, "askar"), ("models/R_kamonchi.glb", 1.85f, "kamonchi"), ("chars/A_qashqir.glb", 2.4f, "qashqir") } : new[] { ("models/R_ona.glb", 1.65f, "ona"), ("chars/L_gulayim.glb", 1.75f, "gulayim"), ("models/R_yigit.glb", 1.78f, "yigit") }))
         {
             const int N = 6, W = 200, H = 300; var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
             int col = 0;
             foreach (var clip in new[] { "walk", "run", "idle" })
             {
-                var u = ar.Spawn(Load<GameObject>(ART + e.Item1), Vector3.zero, 0, 100, 10, e.Item2, null, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+                var u = ar.Spawn(Load<GameObject>(ART + e.Item1), Vector3.zero, 0, 100, 10, e.Item2, e.Item3 == "kamonchi" ? ar.bow : ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward);
                 u.rig.desync = false; u.rig.Play(clip, .01f); for (int f = 0; f < 50; f++) u.rig.Tick(1f / 60f);
                 for (int v = 0; v < 2; v++)
                 {
