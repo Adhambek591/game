@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795239978';
-import { t, lang, L } from './i18n.js?v=1795239978';
-import { Sfx } from './audio.js?v=1795239978';
-import { MLIST } from './missions.js?v=1795239978';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795248077';
+import { t, lang, L } from './i18n.js?v=1795248077';
+import { Sfx } from './audio.js?v=1795248077';
+import { MLIST } from './missions.js?v=1795248077';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -60,6 +60,12 @@ const TX = {
   w_qu: ['Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sonda hújim etiń!', 'Qunqarning olovli tanasi qilichni o\'tmas qiladi. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching — shunda hujum qiling!', 'Огонь Кункара тупит меч. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара — и бейте!', 'Qunqar\'s fire dulls your blade. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times — then strike!'],
   w_qg: ['Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń!', 'Qarg\'ashiq olti arshinli dev — oddiy zarba unga chivin chaqqandek. Tumor to\'lganda 🔺 ni bosing yoki zarbasidan ➤ bilan 3 marta qoching!', 'Каргашык — великан в шесть аршин. Жмите 🔺, когда амулет заряжен, или трижды уйдите ➤ от его удара!', 'Qargashiq is a six-arshin giant. Press 🔺 when the amulet is charged, or dodge his strike with ➤ three times!'],
   o_helm: ['Altın dubılǵanı shınjır menen julıp alıń — Surtaysha qasında ⚔ basıń', 'Tilla dubulg\'ani zanjir bilan yulib oling — Surtaysha yonida ⚔ ni bosing', 'Сорвите золотой шлем цепью — жмите ⚔ рядом с Суртайшой', 'Tear off the golden helmet with the chain — press ⚔ near Surtaysha'],
+  o_gate: ['Qorǵan dárwazasın buzıń — dárwaza qasında ⚔ basıń', 'Qal\'a darvozasini buzing — darvoza yonida ⚔ ni bosing', 'Сломайте ворота — жмите ⚔ у ворот', 'Break the gate — press ⚔ next to it'],
+  w4_o_rest: ['Qalǵan dushpandı jeńiń', 'Qolgan dushmanni yenging', 'Добейте оставшихся врагов', 'Defeat the remaining enemies'],
+  w4_o_rein: ['Járdemge kelgen dushpandı qaytarıń', 'Yordamga kelgan dushmanni qaytaring', 'Отбейте подкрепление врага', 'Drive back the enemy reinforcements'],
+  w4_o_stakes: ['Qazıqlar artındaǵı oq-jayshılardı atıń', 'Qoziqlar ortidagi kamonchilarni oting', 'Подстрелите лучников за кольями', 'Shoot the archers behind the stakes'],
+  w4_o_alarm: ['Dabıl qaǵıldı! Dushpanlar kiyatır — jeńiń', 'Xavf signali chalindi! Dushman kelyapti — yenging', 'Тревога! Враги идут — победите их', 'The alarm is raised! Enemies are coming — defeat them'],
+  w4_o_well: ['Qudıq qasında kárwandı qorǵań', 'Quduq yonida karvonni himoya qiling', 'Защитите караван у колодца', 'Defend the caravan at the well'],
   o_totem: ['Qanlı totemlerdi buzıń — totem qasında ⚔ basıń', 'Qonli totemlarni buzing — totem yonida ⚔ ni bosing', 'Разбейте кровавые тотемы — жмите ⚔ у тотема', 'Smash the blood totems — press ⚔ next to a totem'],
   v3h_phal: ['Nayzagerlerdi aldınan buzıp bolmaydı — qaptalınan urıń yamasa ⚔ basıp turıp aylanıp soǵıń', 'Nayzachilarni old tomondan yorib bo\'lmaydi — yonidan uring yoki ⚔ ni bosib turib aylanib uring', 'Копейщиков не пробить в лоб — бейте с фланга или держите ⚔ для удара с разворота', 'Spearmen can\'t be broken from the front — strike their flank or hold ⚔ for the spinning strike'],
   n_bash: ['Qalqan soqqısı', 'Qalqon zarbasi', 'Удар щитом', 'Shield Bash'],
@@ -193,7 +199,7 @@ const isFoe = e => !!e && !e.dead && !e.gone && !e.bg && e.team === 'enemy';
 const misId = () => (G.mis && G.mis.id) || '';
 const chap = () => (G.mis && G.mis.c) || 0;
 // segment p->q blocked by a solid box (walls, closed gates)? ravines and switched-off boxes do not block arrows
-function losOK(p, q) { for (const b of G.colB || []) { if (!b || b.off || b.ravine) continue; const x1 = b.x1 + .15, x2 = b.x2 - .15, z1 = b.z1 + .15, z2 = b.z2 - .15; if (x2 <= x1 || z2 <= z1) continue;
+function losOK(p, q, melee) { for (const b of G.colB || []) { if (!b || b.off || b.ravine || (b.low && !melee)) continue;   /* low stake rows: arrows fly over them (4-2 archers behind the stakes) */ const x1 = b.x1 + .15, x2 = b.x2 - .15, z1 = b.z1 + .15, z2 = b.z2 - .15; if (x2 <= x1 || z2 <= z1) continue;
     if ((p.x > x1 && p.x < x2 && p.z > z1 && p.z < z2) || (q.x > x1 && q.x < x2 && q.z > z1 && q.z < z2)) continue;
     let t0 = 0, t1 = 1; const dx = q.x - p.x, dz = q.z - p.z; let ok = true;
     for (const [d, a, lo, hi] of [[dx, p.x, x1, x2], [dz, p.z, z1, z2]]) { if (Math.abs(d) < 1e-6) { if (a < lo || a > hi) { ok = false; break; } } else { let u = (lo - a) / d, v = (hi - a) / d; if (u > v) [u, v] = [v, u]; t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { ok = false; break; } } }
@@ -204,7 +210,7 @@ function dirOf(p) { const c = C(); const s = c && c.stickDir ? c.stickDir() : nu
 // ================================================================ A) CONTROLS
 // ---- attack: near = sword combo (engine startAtk via doAct('A')), far = bow volley, hold = spinning strong strike
 // QA: can her sword reach him? not across a closed gate, not up on a wall / tower, not through a wall
-function unreach(p, e) { return (G.limitZ > -1e8 && e.z < G.limitZ + .3 && p.z > G.limitZ) || (e.y || 0) > 1.6 || !losOK(p, e); }
+function unreach(p, e) { return (G.limitZ > -1e8 && e.z < G.limitZ + .3 && p.z > G.limitZ) || (e.y || 0) > 1.6 || !losOK(p, e, true); }   /* melee: a low stake row still blocks the blade (the volley takes them) */
 function rangedTargets(p, n) { const f = dirOf(p), out = [];
   for (const e of G.ents) { if (!isFoe(e)) continue; const dx = e.x - p.x, dz = e.z - p.z, d = hyp(dx, dz); if (d > 30) continue; const ur = unreach(p, e); if (d < (ur ? 1.5 : 6.8)) continue; if ((e.asleep || (e.farT || 0) < -1e8) && !ur && d > 16) continue;   /* sleepers: only the near or unreachable ones (an arrow wakes their post) */ const cs = (dx * f.x + dz * f.z) / (d || 1); if (cs < .34) continue; if (!losOK(p, e) && !((e.y || 0) > 1.6)) continue;
     let s = d - cs * 4 - (e.d.ranged ? 4 : 0) - (e.hunt || e.lead ? 3 : 0) - (e === G.boss ? 3 : 0); out.push([s, e]); }
@@ -221,6 +227,7 @@ function attack() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (
   const hm = PW[7] && G.ents.find(e => isFoe(e) && e.onChain && e.helm > 0 && hyp(e.x - p.x, e.z - p.z) < 14);
   if (hm && free0 && sk[7] && sk[7].cd <= 0) { sk[7].on = true; p.act = null; p.rot = Math.atan2(hm.x - p.x, hm.z - p.z); doAct(2); return; }
   const near = meleeTarget(p);
+  if (p.act && p.act.w4v && p.act.w4v.fired < p.act.w4v.n) return;   /* a volley in flight is never restarted by a repeated tap (fast tapping used to reset it before the first arrow: no arrows at all) */
   if (!near) { const a = p.act; const free = !a || a.kind === 'atk' && a.hit || (c.canCancel && c.canCancel(a) && a.kind !== 'block'); const tgs = free ? rangedTargets(p, arrowsN()) : [];
     if (tgs.length) { volley(p, tgs); return; } }
   doAct('A'); const tg = p.act && p.act.kind === 'atk' ? (p.lock && !p.lock.dead ? p.lock : null) : null; if (tg && hyp(tg.x - p.x, tg.z - p.z) < 8) autoLock(p, tg); }
@@ -278,7 +285,7 @@ function pickPower(p) { const PW = G.powers || {}, h = G.hero, n7 = enemiesWithi
   return 4; }
 const PNAME = { 1: 'k1', 2: 'k2', 3: 'k3', 4: 'k4', 5: 'k5', 6: 'pw6', 7: 'pw7', 8: 'pw8', 9: 'pw9', 0: 'pw0' };
 const HNAME = { allayar: { 1: 'n_bash', 2: 'n_cry', 3: 'n_cleave' }, sarbinaz: { 1: 'n_thrust', 2: 'n_sweep', 5: 'n_javelin' } };
-function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + '@' + (G.time || 0).toFixed(1); }; if (!p || p.dead || !c || busy()) return why('busy'); const btn = $('bP');
+function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + '@' + (G.time || 0).toFixed(1); }; if (!p || p.dead || !c || busy()) return why('busy'); if (G.noAmulet) return why('noamulet'); const btn = $('bP');
   if ((G.ulti || 0) < 100) { if (btn) { btn.classList.remove('w4no'); void btn.offsetWidth; btn.classList.add('w4no'); } if (G.time > (amulet.nt || 0)) { amulet.nt = G.time + 1.5; num(p, Math.round(G.ulti || 0) + '%', 'n'); } return why('gauge'); }
   const a = p.act; if (a && !(a.kind === 'atk' || c.canCancel(a))) return why('act:' + a.kind);
   let k = pickPower(p); if (k == null) { if (G.time > (amulet.nt || 0)) { amulet.nt = G.time + 1.5; num(p, '🔺', 'n'); } return why('none'); }
@@ -340,7 +347,7 @@ let buf = null;
 function canStart(k) { const p = P(), c = C(); if (!p || p.dead || !c || busy()) return false; const a = p.act; if (!a) return true; try { return k === 'A' ? (a.kind === 'atk' || !!c.canCancel(a)) : (a.kind === 'dodge' || !!c.canCancel(a)); } catch (e) { return true; } }
 function press(k) { const p = P(); G.stats && (G.stats.w4tap = (G.stats.w4tap || 0) + 1); if (!p || G.qte || p.mounted || canStart(k)) { buf = null; k === 'A' ? attack() : dodge(); return; } buf = { k, t: performance.now() }; }
 function bufTick() { if (!buf) return; if (performance.now() - buf.t > 150) { buf = null; return; } if (canStart(buf.k)) { const k = buf.k; buf = null; G.stats && (G.stats.w4buf = (G.stats.w4buf || 0) + 1); k === 'A' ? attack() : dodge(); } }
-function hudTick() { const b = $('bP'); if (!b) return; const u = clamp(G.ulti || 0, 0, 100); b.style.setProperty('--p', u.toFixed(0)); b.classList.toggle('full', u >= 100); }
+function hudTick() { const b = $('bP'); if (!b) return; { const no = !!G.noAmulet; if (b.__noA !== no) { b.__noA = no; b.style.visibility = no ? 'hidden' : ''; } }   /* 1-1: no amulet button until her mother gives her the amulet */ const u = clamp(G.ulti || 0, 0, 100); b.style.setProperty('--p', u.toFixed(0)); b.classList.toggle('full', u >= 100); }
 
 // ================================================================ B) ARMY + ENEMY SCALING
 const NOARMY = /^(0-0|0-1|0-2|3-1|2-1|4-1|.*-S)$/;   // 7-1: no host while riding (mounted check below), it joins for the battle on foot

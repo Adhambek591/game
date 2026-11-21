@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795239978';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795239978';
-import * as FX from './fx.js?v=1795239978';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795248077';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795248077';
+import * as FX from './fx.js?v=1795248077';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };

@@ -1,0 +1,64 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Blockout K2: ride-out</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="module">
+// K1 BLOCKOUT (docs/video_plan.md). Neutral primitives only: blocking, timing, camera.
+// Legend: BLUE cylinder = Gúlayım, WHITE-TOP cylinder = Sárbinaz, grey cylinders = maidens, brown box horse + DARK-BLUE cylinder = messenger,
+// grey boxes = Miywali fortress walls, white cylinders+cones = yurts, dark strip = river, brown slab = plank bridge, poles = training dummies.
+// Beats: 0-2.5 s maidens train, rider appears beyond the bridge | 2.5-4 Gúlayım notices and turns | 4-6.6 she RUNS to him while he crosses the bridge
+// | 6.6-8 horse stops hard, rider slides off sideways, she CATCHES him and both go down (she kneels holding him) | 8-10 Sárbinaz + 2 maidens run in; camera ends on the pair, Gúlayım on the RIGHT.
+import * as THREE from '/public/assets/vendor/three.module.min.js';
+const W = 1280, H = 720, FPS = 30, SECS = 10;
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setSize(W, H); R.setPixelRatio(1); R.shadowMap.enabled = true; document.body.appendChild(R.domElement);
+const S = new THREE.Scene(); S.background = new THREE.Color(0xdcd6ca); S.fog = new THREE.Fog(0xdcd6ca, 60, 220);
+const cam = new THREE.PerspectiveCamera(38, W / H, .1, 900);
+S.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.1)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-30, 40, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, far: 150 }); S.add(sun);
+const M = c => new THREE.MeshLambertMaterial({ color: c });
+const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+const cyl = (r, h, c, x, y, z, seg = 20) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+const g = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), M(0xb8aa8a)); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; S.add(g);
+box(6, .02, 140, 0xc9bb98, 0, .01, -70); box(200, .05, 6, 0x5a6f86, 0, .02, -79);
+box(6.4, .35, 7, 0x8a6a4a, 0, .3, -79); box(.15, .9, 7, 0x7a5a3a, -3.1, .8, -79); box(.15, .9, 7, 0x7a5a3a, 3.1, .8, -79);
+for (const [x, z, w, d] of [[0, -150, 120, 2], [-60, -95, 2, 110], [60, -95, 2, 110], [-32, -20, 58, 2], [32, -20, 58, 2]]) box(w, 7, d, 0x9c9486, x, 3.5, z);
+for (let x = -60; x <= 60; x += 20) box(4, 10, 4, 0x948c7e, x, 5, -150);
+const yurt = (x, z, r = 2.6) => { cyl(r, 2.2, 0xf2efe8, x, 1.1, z); const c = new THREE.Mesh(new THREE.ConeGeometry(r * 1.05, 1.5, 20), M(0xe8e3d8)); c.position.set(x, 2.95, z); c.castShadow = true; S.add(c); };
+for (const [x, z] of [[14, -50], [22, -42], [-16, -46], [-24, -38], [12, -92], [20, -100], [-14, -96], [-22, -108], [9, -126], [-10, -132], [28, -60], [-30, -62]]) yurt(x, z);
+for (const [x, z] of [[-8, -63], [-10, -64], [11, -64], [12.5, -65]]) cyl(.12, 1.7, 0x8a6a4a, x, .85, z, 8);   // training dummies
+// K2 BLOCKOUT (docs/video_plan.md): the forty maidens ride out of Miywali. Legend: BLUE rider = Gúlayım, WHITE-HEAD rider = Sárbinaz,
+// grey riders = maidens; horse boxes in different colours = different horses; the gate = gap between the two big towers in the south wall (z -20);
+// dark column on the horizon = smoke over Sarkop. Beats: 0-3 s she sits her horse at the gate, looking at the smoke (grief -> resolve), turns and spurs;
+// 3-10 s she, Sárbinaz and the maidens gallop past the camera out through the gate, the camera pans after them.
+for (const x of [-4.5, 4.5]) box(4, 11, 4, 0x948c7e, x, 5.5, -20);   // gate towers
+const smoke = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 4, 40, 16), new THREE.MeshLambertMaterial({ color: 0x2a2a2a, transparent: true, opacity: .5, fog: false })); smoke.position.set(80, 20, 760); S.add(smoke);   // VERY far: a thin column on the horizon (author)
+S.remove(g); const g2 = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), M(0xb8aa8a)); g2.rotation.x = -Math.PI / 2; g2.receiveShadow = true; S.add(g2);   // ground beyond the wall too
+const horseCols = [0x8a5a32, 0x3a2a20, 0xb08a60, 0x6a4a3a, 0xd8d0c0, 0x4a3a30, 0x9a6a3a, 0x2a2420, 0xa07850, 0x5a4030];
+function mkRider(i, bodyCol, headCol) { const gr = new THREE.Group(); S.add(gr); const hc = horseCols[i % horseCols.length];
+  const hb = new THREE.Mesh(new THREE.BoxGeometry(.62, .7, 1.9), M(hc)); hb.position.y = 1.25; const hn = new THREE.Mesh(new THREE.BoxGeometry(.32, .9, .4), M(hc)); hn.position.set(0, 1.75, .95); hn.rotation.x = -.5;
+  const hh = new THREE.Mesh(new THREE.BoxGeometry(.28, .3, .6), M(hc)); hh.position.set(0, 2.15, 1.25); gr.add(hb, hn, hh); const lg = [];
+  for (const [lx, lz] of [[-.22, .7], [.22, .7], [-.22, -.7], [.22, -.7]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(.12, .95, .12), M(hc)); l.geometry.translate(0, -.47, 0); l.position.set(lx, .95, lz); gr.add(l); lg.push(l); }
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(.22, .26, .85, 16), M(bodyCol)); b.position.set(0, 2.05, -.1); const h = new THREE.Mesh(new THREE.SphereGeometry(.13, 16, 12), M(headCol)); h.position.set(0, 2.6, -.1);
+  gr.add(b, h); gr.traverse(m => { if (m.isMesh) m.castShadow = true; }); return { gr, lg, head: h, ph: Math.random() * 6 }; }
+const GU = mkRider(0, 0x2f55b0, 0x2f55b0), SA = mkRider(4, 0x8090a0, 0xf4f1ea);
+const MAIDS = []; for (let i = 0; i < 14; i++) MAIDS.push(mkRider(i + 1, [0x7a7a7a, 0x8c8c8c, 0x828282, 0x777777][i % 4], 0xd8b89a));
+const ss = k => Math.max(0, Math.min(1, k)) ** 2 * (3 - 2 * Math.max(0, Math.min(1, k))), lerp = (a, b, k) => a + (b - a) * k, seg = (t, a, b) => ss((t - a) / (b - a));
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z); let t = 0;
+// path: from inside the fortress (z -32) south through the gate (z -20) out onto the steppe (z +40), toward the smoke
+function place(r, x, z, spd, rot) { const gait = Math.min(1, spd / 9), ph = t * 11 + r.ph; r.gr.position.set(x, Math.abs(Math.sin(ph)) * .09 * gait, z); r.gr.rotation.y = rot; r.lg.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? .8 : 0)) * .7 * gait; }); }
+function step(dt) { t += dt;
+  // Gúlayım: 0-3 s still at (1.2,-26) facing the smoke (south-east), head turns slightly; 3 s spurs -> gallops south
+  const go = seg(t, 2.8, 4.2), gz = -15 + (t > 2.8 ? Math.pow(Math.max(0, t - 2.8), 1.35) * 6.5 : 0);
+  place(GU, 1.4 + Math.max(0, t - 2.8) * .25, gz, go * 10, lerp(Math.PI * .15, 0, go)); GU.head.rotation.y = .3 * (1 - go);
+  const sz = -25 + (t > 3.4 ? Math.pow(Math.max(0, t - 3.4), 1.35) * 6.3 : 0); place(SA, -1.0, sz, seg(t, 3.4, 4.6) * 10, 0);
+  MAIDS.forEach((m, i) => { const t0 = 3.9 + i * .32, row = Math.floor(i / 2), side = i % 2 ? 1 : -1; const z = -27 - row * 2.6 + (t > t0 ? Math.pow(Math.max(0, t - t0), 1.3) * 6.2 : 0); place(m, side * (1.3 + (row % 2) * .5), z, seg(t, t0, t0 + 1.2) * 10, 0); });
+  // camera: low, just outside-left of the path near the gate; medium on her at the start, pans as the column streams past and out
+  cam.position.copy(V3(-4.4, 1.8, -9.5).lerp(V3(-3.4, 2.5, -4.5), seg(t, 3, 10)));   // outside, in front of the gate: she first, the column bursts out behind her and rides past toward the smoke   // inside the fortress, never through the towers
+  const look = V3(GU.gr.position.x - 1.5, 2.0, GU.gr.position.z - 1.5); const look2 = V3(3, 2.2, 40);
+  cam.lookAt(look.lerp(look2, seg(t, 3.5, 7.5))); }
+window.render = async (o = {}) => { const name = o.name || 'k2'; t = 0; let ok = 0;
+  for (let i = 1; i <= FPS * SECS; i++) { step(1 / FPS); R.render(S, cam); const blob = await new Promise(z => R.domElement.toBlob(z, 'image/jpeg', .92));
+    const r = await fetch('/__rec/' + name + '_' + String(i).padStart(4, '0') + '.jpg', { method: 'PUT', body: blob }); if (r.status === 201) ok++; }
+  return { frames: ok }; };
+step(0); R.render(S, cam); window.ready = true;
+</script>
+</body></html>

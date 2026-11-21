@@ -10,7 +10,7 @@ for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m =>
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
 // camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
-const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.2, 3.0], 4: [1.2, 3.2], 5: [1.1, 2.4], 6: [1.4, 6.0], 7: [1.5, 6.0] };   // QA sim at the cap (Nov 21): ch3 [1.25,3.6] -> 9 % HP (too hard) -> [1.2,3.0]; ch4 [1.1,2.4] -> 71 % (too easy) -> [1.2,3.2]; ch6 [1.3,3.6] -> 76 % (easy) -> [1.4,6.0]; ch7 -> [1.5,6.0] (target: the bot loses ~40 %, a player more)
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -144,3 +144,8 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
   try { w4Water(x, z - 27, 90, 30); for (const s of [-1, 1]) w4Water(x + s * 25, z - 2, 30, 22); } catch (e) { } }
 // STORY (author): "Endi Gúlayım bolıp oynaysız" belongs to the start of chapter 1 (after the messenger's tale), not to the end of the tutorial
 { const r11 = RUN['1-1']; RUN['1-1'] = async () => { const M = G.mis, iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); return; } if (M.started && !G.paused && !G.flying) { clearInterval(iv); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + t('tu3_next')); } catch (e) { } }, 1500); } } catch (e) { clearInterval(iv); } }, 500); return r11(); }; }
+// QA (stale objectives, all missions at once): the objective follows the stage. Reinforcements -> 'drive back the reinforcements' until they are dead,
+// then the previous objective comes back; the stealth alarm -> 'the alarm is raised, defeat them'. (Wraps the shared helpers instead of editing every mission.)
+{ const _rein = rein; rein = function (list, who, key) { const es = _rein(list, who, key); try { const M = G.mis, o = $('obj'); if (es && es.length && M && M.started && o) { const prev = o.textContent; H.objective('w4_o_rein'); const mine = o.textContent;
+    const iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); return; } if (es.every(e => e.dead)) { clearInterval(iv); if (o.textContent === mine) o.textContent = prev; } } catch (e) { clearInterval(iv); } }, 400); } } catch (e) { } return es; }; }
+{ const _alarm = alarm; alarm = function (...a) { const S0 = G.mis && G.mis.st, was = !!(S0 && S0.alarm); const r = _alarm(...a); try { if (!was && G.mis.st && G.mis.st.alarm) H.objective('w4_o_alarm'); } catch (e) { } return r; }; }

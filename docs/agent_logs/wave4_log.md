@@ -260,3 +260,13 @@ Fight time = game-s from "Tolqın 1/3" to "Dushman: 0/N" (end banners excluded; 
 Committed table: 1 [1.1, 2.4] · 2 [1.2, 3.4] · 3–6 [1.1, 2.4] · 7 [1.5, 4.2] (the 7-1 foot battle uses ch7 too).
 Left: 3-C1 needs more (try [1.25, 3.6]); 4-C1 / 6-C1 not measured; 7-C1 still slightly above 70 % (try [1.5, 5.5]); L0 measured only for ch1/ch2 (both struggle: 2–4 deaths).
 Army chip: "Safımız: 40 qız + 0 batır" shows in camps (2-C1, 3-C1, 5-C1, 7-C1) once the warrior bodies on the field have fallen, with or without a heroine death (qq_w4.men unchanged). After a death + retry in 2-C1 no allies were present at all (only Gúlayım): the army is not respawned on retry.
+
+## Release pass (Nov 21, main session) — verified with the QA bot at the cap unless noted
+- 6-Q: wave-2 "immune wall archers" = volley restarted by fast taps before the first arrow; fixed (wave4 attack()); 6-Q 3 stars, 0 deaths without god mode.
+- Played to the end screen: 6-2 ★★★, 6-3 ★, 7-1 ★★★, 7-2 ★★, 7-3 ★★★, 3-S ★★, 5-S ★★, 6-S ★★ (archery autoplayer tools/test/qa/arch_bot.js).
+- Archery arrow budgets 3-S 18, 5-S 18, 6-S 22 (was 12/12/14: with the alarm the rushers + ropes left at most one miss).
+- Objectives: reinforcements show w4_o_rein (previous objective restored), stealth alarm shows w4_o_alarm; o_gate without the old "(1 — …)" button.
+- 4-2: volley line of sight ignores low stake rows (melee still blocked); 4-2 ★★★.
+- 1-1: amulet button hidden until the mother gives the amulet.
+- Tutorial player is the recruit Aysuliw (qiz model, green) — not Gúlayım; no change.
+- Camps at the cap: 3-C1 [1.25,3.6] 9 % HP -> [1.2,3.0]; 4-C1 [1.1,2.4] 71 % -> [1.2,3.2]; 6-C1 [1.3,3.6] 76 % -> [1.4,6.0]; 7 -> [1.5,6.0]. Final values not re-measured.

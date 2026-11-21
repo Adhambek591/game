@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795239978';
-import { t } from './i18n.js?v=1795239978';
-import { Sfx, setMusic } from './audio.js?v=1795239978';
-import { applyLight, LIGHTS, place } from './env.js?v=1795239978';
-import { makeHorse } from './horse.js?v=1795239978';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795248077';
+import { t } from './i18n.js?v=1795248077';
+import { Sfx, setMusic } from './audio.js?v=1795248077';
+import { applyLight, LIGHTS, place } from './env.js?v=1795248077';
+import { makeHorse } from './horse.js?v=1795248077';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -51,7 +51,7 @@ let H = null;
 const qs = new URLSearchParams(location.search);
 const FAST = () => G.misFast || 1;
 export function initMissions(h) { H = h; const v0 = h.victory; if (v0 && !v0.rf) { h.victory = async (...a) => { await resFinish(); return v0(...a); }; h.victory.rf = true; } window.__MS = { run: runMission, list: MLIST, auto, win: () => G.mis && (G.mis.force = true) }; }
-export function runMission(id) {
+export function runMission(id) { G.noAmulet = false;   /* set again by 1-1 until the mother scene */
   const i = midx(id), m = MLIST[i]; if (!m) return runMission('0-1');
   try { resCleanup(); } catch (e) { }
   G.mis = { id, m, c: m.c, t0: G.time, d0: 0, flag: false, flag2: false, run: (G.misRun = (G.misRun || 0) + 1) }; G.flying = false; try { hpBar(null); if (stEl) stEl.style.opacity = 0; storm.sv = storm.to = null; $('timer').style.display = 'none'; } catch (e) { }
@@ -541,9 +541,9 @@ RUN['1-1'] = async () => {
   const gC = post([['askar', -6, -74], ['askar', 6, -74], ['askar', -3, -79, 'p', 2], ['askar', 3, -79], ['askar', 0, -82], ['wolf', -9, -72, 'pz', 2], ['wolf', 9, -72, 'pz', 2], ['archer', -8, -83], ['archer', 8, -83]]);
   await H.lore('lore1'); await H.cutscene('v3', 'nar3m'); live();   /* STORY: after the messenger's tale — v3 (Qıran, the ride, smoke on the horizon) = she rides home to Sarkop; nar3 ('she was training at Qıran') was already shown by the tutorial */ setMusic('calm'); await ban(3); mstart();
   G.tick = () => { for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
-  H.objective('o_mother'); H.hint('h_attack', 6); const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
+  G.noAmulet = true; H.objective('o_mother'); H.hint('h_attack', 6);   /* STORY: the amulet (and its button) only after her mother gives it */ const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
   await H.reach(2, -23, 3.6); mm.remove(); mo.face(p.x - mo.x, p.z - mo.z); p.act = null; p.play('Idle');
-  await say([['mo', 'd_mo1'], ['gu', 'd_gu1'], ['mo', 'd_mo2'], ['mo', 'd_mo3'], ['gu', 'd_gu2']]); Sfx.power(); flash(.3);
+  await say([['mo', 'd_mo1'], ['gu', 'd_gu1'], ['mo', 'd_mo2'], ['mo', 'd_mo3'], ['gu', 'd_gu2']]); Sfx.power(); flash(.3); G.noAmulet = false;
   g0.open(); H.setCP(0, -26); H.objective('o_guards'); const g1 = gate(-60); setMusic('battle');
   await clear(gA, g0p);
   G.sk[2].on = G.sk[3].on = G.sk[5].on = true; refreshSkills(); H.hint('', 9, t('h_skill5'));
@@ -1119,13 +1119,13 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795239978';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795248077';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
 // camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
-const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.2, 3.0], 4: [1.2, 3.2], 5: [1.1, 2.4], 6: [1.4, 6.0], 7: [1.5, 6.0] };   // QA sim at the cap (Nov 21): ch3 [1.25,3.6] -> 9 % HP (too hard) -> [1.2,3.0]; ch4 [1.1,2.4] -> 71 % (too easy) -> [1.2,3.2]; ch6 [1.3,3.6] -> 76 % (easy) -> [1.4,6.0]; ch7 -> [1.5,6.0] (target: the bot loses ~40 %, a player more)
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -1259,13 +1259,18 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
   try { w4Water(x, z - 27, 90, 30); for (const s of [-1, 1]) w4Water(x + s * 25, z - 2, 30, 22); } catch (e) { } }
 // STORY (author): "Endi Gúlayım bolıp oynaysız" belongs to the start of chapter 1 (after the messenger's tale), not to the end of the tutorial
 { const r11 = RUN['1-1']; RUN['1-1'] = async () => { const M = G.mis, iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); return; } if (M.started && !G.paused && !G.flying) { clearInterval(iv); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + t('tu3_next')); } catch (e) { } }, 1500); } } catch (e) { clearInterval(iv); } }, 500); return r11(); }; }
+// QA (stale objectives, all missions at once): the objective follows the stage. Reinforcements -> 'drive back the reinforcements' until they are dead,
+// then the previous objective comes back; the stealth alarm -> 'the alarm is raised, defeat them'. (Wraps the shared helpers instead of editing every mission.)
+{ const _rein = rein; rein = function (list, who, key) { const es = _rein(list, who, key); try { const M = G.mis, o = $('obj'); if (es && es.length && M && M.started && o) { const prev = o.textContent; H.objective('w4_o_rein'); const mine = o.textContent;
+    const iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); return; } if (es.every(e => e.dead)) { clearInterval(iv); if (o.textContent === mine) o.textContent = prev; } } catch (e) { clearInterval(iv); } }, 400); } } catch (e) { } return es; }; }
+{ const _alarm = alarm; alarm = function (...a) { const S0 = G.mis && G.mis.st, was = !!(S0 && S0.alarm); const r = _alarm(...a); try { if (!was && G.mis.st && G.mis.st.alarm) H.objective('w4_o_alarm'); } catch (e) { } return r; }; }
 // ---------- TUTORIAL 0-0 "Shınıǵıw maydanı" (training field, before the war) ----------
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795239978';
-import * as tuSCN from './scenery.js?v=1795239978';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795239978';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795248077';
+import * as tuSCN from './scenery.js?v=1795248077';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795248077';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1612,9 +1617,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795239978';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795239978';
-import * as f3SC from './scenery.js?v=1795239978';
+import * as F3X from './fx.js?v=1795248077';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795248077';
+import * as f3SC from './scenery.js?v=1795248077';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1787,7 +1792,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795239978';
+import { runArchery } from './archery.js?v=1795248077';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }
