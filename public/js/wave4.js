@@ -171,7 +171,7 @@ const foeDmK = c => c > 0 ? 1 + .05 * expLv(c) : 1;
 // under-upgrade penalty (balance pass): the enemy is tuned for ~85 % of the chapter cap; every level the sword + armour average is BELOW that makes him hit 22 % harder (max x2.6) and gives him 10 % more HP.
 // ch1 at level 0: dmg x1.56, HP x1.26; ch3 at level 0: dmg x2.3, HP x1.6; at 85-100 % of the cap: no penalty.
 // chapter bosses: [HP x, damage x] on top of the chapter curve — fitted with the QA sim bot so that at the cap the fight lasts ~90–150 s and she ends between 30 and 70 % HP (table in wave4_log)
-const BOSSHP = 3, DEFD = .35, BOSSK = { qashqir: [5, .95], qumdev: [2.8, .45], jallod: [1.9, .55], aydarho: [2.8, .55], qunqar: [1.35, .7], qargashiq: [1.9, .6] };   /* 2c: at the cap the bot ended 66-76 % HP / 64-73 s in 1-4, 4-4, 5-4, 6-4 -> harder */   // tuned with the QA sim bot (see wave4_log balance table)
+const BOSSHP = 3, DEFD = .35, BOSSK = { qashqir: [5, .95], qumdev: [2.8, .45], jallod: [1.9, .55], aydarho: [2.2, .5], qunqar: [1.35, .7], qargashiq: [2.3, .75] };   /* 2c: at the cap the bot ended 66-76 % HP / 64-73 s in 1-4, 4-4, 5-4, 6-4 -> harder */   // tuned with the QA sim bot (see wave4_log balance table)
 const defi = c => c > 0 ? Math.max(0, expLv(c) - (lvl('sword') + lvl('armor')) / 2) : 0;
 const COSTB = { sword: 60, bow: 60, armor: 50, shield: 50, arch: 70 };
 const cost = (k, l) => Math.round(COSTB[k] * (1 + .6 * (l >= 13 ? l - 7 : l)) / 5) * 5;   // the last chapter has no boss purse before it: its two levels are priced so that chapter 7 pays ~90 % of them (agents/w4/econ.js)

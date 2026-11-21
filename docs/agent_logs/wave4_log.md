@@ -221,3 +221,23 @@ New qq lines for the author:
   w4_ms_gu2: Qızlar, atlarǵa minińler! Sarkopqa!
   w4_tale: Shabarmannıń gúrrińi · w4_flash: Tań sáhárde Sarkopta… · w4_play_al: Allayar bay bolıp oynaysız · w4_sarkop: Sarkop batırları hám Allayardıń altı ulı
   also new this round: w4_power "Usınıs etilgen kúsh: {s}" (jetkilikli / shegarada / kúsheytiń!) · w4_canup "Kúsheytiw múmkin!" · w4_e_hero "Gúlayımǵa zıyan −{n}%"
+
+## Balance 2c — boss table at 0 % / ~60 % / 100 % of the cap (Nov 21, local in-browser QA bot tools/test/qa/bot_page.js, one run per cell, high variance esp. 4-4)
+Changes: (1) story.js retry: the boss regains min(50 %, 4 % + 4.5 % x under-upgrade deficit) of max HP on a retry (deficit = wave4 defi(c): 0 at >= 85 % of the cap) -> at the cap unchanged (4 %), far under-upgraded the boss cannot be worn down by retries (author: under-upgraded should lose).
+(2) BOSSK: qashqir [5, .95] (was .75), jallod [1.9, .55] (.45), aydarho [2.2, .5] ([2, .45]), qunqar [1.35, .7] ([1, .5]), qargashiq [2.3, .75] ([1.9, .38]); qumdev, Surtaysha unchanged.
+| boss | level | before 2c | after 2c |
+|---|---|---|---|
+| 1-4 Qasqır | cap 3 | won 112 s, 0 deaths, min HP 66 % | won 104 s, 0 deaths, 53 % |
+| 1-4 Qasqır | 0 | won after 1 death, 133 s | (not re-run; retry now gives 15 % back) |
+| 2-4 Qum dáwi | cap 5 | won 106 s, 0, 37 % | unchanged |
+| 2-4 Qum dáwi | 0 | won after 3 deaths, 225 s | (not re-run) |
+| 3-4 Jallad | cap 7 | won 108 s, 0, 55 % | (dmg x1.22, not re-run) |
+| 3-4 Jallad | 0 | won after 2 deaths, 233 s | (not re-run) |
+| 4-4 Aydarha | cap 9 | won 64 s, 0, 72 % | [2.4,.5]: 153 s, 0, 26 % · [2.8,.55]: 150 s, 1 death · final [2.2,.5] not re-run |
+| 5-4 Qunqar (Sárbinaz) | cap 11 | won 73 s, 0, 70 % | won 104 s, 0, 48 % |
+| 5-4 Qunqar | 7 (64 %) | — | won after 3 deaths, 229 s |
+| 5-4 Qunqar | 0 | won after 4 deaths, 320 s | LOST: 8 deaths in 708 game-s, boss stays 84-94 % |
+| 6-4 Qarǵashıq | cap 13 | won 93 s, 0, 76 % | won 119 s, 0, 31 % |
+| 7-4 Surtaysha | cap 15 | won (totems + QTE), 0, 58 % | unchanged |
+| 7-4 Surtaysha | 0 | won after 2 deaths | (retry rule applies; not re-run) |
+Stagger share in all fights 7-16 % (no stun-lock). The bot dodges better than a player; at the cap it now ends 26-53 % HP.
