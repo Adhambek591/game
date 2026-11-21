@@ -22,7 +22,7 @@ public class QQArena : MonoBehaviour
             for (int i = 0; i < ms.Length; i++)
             {
                 if (!ms[i] || !ms[i].HasProperty("emissiveFactor")) continue;
-                var m = new Material(ms[i]); m.SetColor("emissiveFactor", Color.black); m.SetTexture("emissiveTexture", null);
+                var m = new Material(ms[i]); m.SetColor("emissiveFactor", Color.black); m.SetTexture("emissiveTexture", null); if (m.HasProperty("metallicFactor")) m.SetFloat("metallicFactor", Mathf.Min(m.GetFloat("metallicFactor"), .2f)); if (m.HasProperty("roughnessFactor")) m.SetFloat("roughnessFactor", Mathf.Max(m.GetFloat("roughnessFactor"), .75f));   /* generated maps read as chrome: keep cloth and leather matte, armour only slightly metallic */
                 if (tex && m.HasProperty("baseColorTexture")) m.SetTexture("baseColorTexture", tex);
                 ms[i] = m;
             }
@@ -40,7 +40,7 @@ public class QQArena : MonoBehaviour
 
     void Start()
     {
-        QQHud.Build();
+        QQHud.Build(); DynamicGI.UpdateEnvironment();
         player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620, 34, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;

@@ -1,0 +1,41 @@
+    // ---- character sheet: every model, eye-level studio views (front 3/4 + side), one PNG each in Builds/chars ----
+    public static void Gallery()
+    {
+        EditorSceneManager.OpenScene(SCENE);
+        var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") { foreach (Transform c in t) if ((c.position - Vector3.zero).sqrMagnitude < 64) c.gameObject.SetActive(false); }
+        var saber = ar.saber; var axe = ar.axe; var bow = ar.bow; var spear = Load<GameObject>(ART + "props/W_spear.glb");
+        var list = new (string file, string name, GameObject wpn, float h, string pose)[] {
+            ("R_gulayim", "Gulayim", saber, 1.8f, "combat"), ("R_sarbinaz", "Sarbinaz", spear, 1.8f, "combat"), ("R_qiz", "Qiz", saber, 1.72f, "idle"),
+            ("R_allayar", "Allayar", saber, 1.85f, "idle"), ("R_otbasqan", "Otbasqan", saber, 1.9f, "idle"), ("R_yigit", "Yigit (Allayar ug'li / asir)", saber, 1.8f, "idle"),
+            ("R_ona", "Ona", null, 1.65f, "idle"), ("R_askar", "Qalmoq askari", saber, 1.85f, "combat"), ("R_kamonchi", "Qalmoq kamonchisi", bow, 1.85f, "idle"),
+            ("R_shaman", "Shaman", spear, 1.85f, "idle"), ("R_surtaysha", "Surtaysha", axe, 2.0f, "combat"), ("R_qashqir", "Qasqir", axe, 2.4f, "combat"),
+            ("R_jallod", "Jallad", null, 2.3f, "combat"), ("R_qargashiq", "Qargashiq", axe, 2.3f, "combat"), ("R_qunqar", "Qunqar", null, 4.2f, "idle"),
+            ("R_qumdev", "Qum devi", null, 4.5f, "idle"), ("R_bori4", "Bori", null, 1.2f, "idle"), ("R_aydarho", "Aydarha", null, 5f, "idle") };
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/chars");
+        foreach (var e in list)
+        {
+            var model = Load<GameObject>(ART + "models/" + e.file + ".glb"); if (!model) continue;
+            var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, e.h, e.wpn, e.name);
+            u.transform.rotation = Quaternion.LookRotation(Vector3.back);   // face the camera side
+            if (u.rig.Has(e.pose)) { u.rig.Play(e.pose, .01f); u.rig.SampleAt(.3f); }
+            // frame from the renderers' world bounds (works for the quadruped and the dragon too)
+            var b = new Bounds(u.transform.position + Vector3.up * e.h * .5f, Vector3.one * .1f);
+            foreach (var r in u.GetComponentsInChildren<Renderer>()) b.Encapsulate(r.bounds);
+            float size = Mathf.Max(b.size.y, Mathf.Max(b.size.x, b.size.z) * .75f); var c = b.center;
+            var sheet = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+            float[] yaw = { 28f, 90f };
+            for (int v = 0; v < 2; v++)
+            {
+                cam.fieldOfView = 28; float dist = size * .62f / Mathf.Tan(14f * Mathf.Deg2Rad) + .4f;
+                var dir = Quaternion.Euler(4, 180 + yaw[v], 0) * Vector3.forward;   // slightly above eye level, in front / at the side
+                cam.transform.position = c - dir * dist; cam.transform.LookAt(c);
+                var rt = new RenderTexture(640, 720, 24); cam.targetTexture = rt; cam.aspect = 640f / 720f; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                sheet.ReadPixels(new Rect(0, 0, 640, 720), v * 640, 0); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+            }
+            sheet.Apply(); File.WriteAllBytes("Builds/chars/" + e.file.Substring(2) + ".png", sheet.EncodeToPNG());
+            Object.DestroyImmediate(u.gameObject);
+        }
+        Debug.Log("QQ GALLERY OK");
+    }
+

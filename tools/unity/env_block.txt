@@ -1,0 +1,32 @@
+        // sky + light: the browser build's HDRI (Poly Haven overcast_soil_puresky) as skybox, ambient and reflections; warm low sun
+        var hdr = Load<Texture2D>(ART + "hdr/overcast_soil_puresky_1k.hdr");
+        var sky = new Material(Shader.Find("Skybox/Panoramic")); sky.SetTexture("_MainTex", hdr); sky.SetFloat("_Exposure", 1.05f); sky.SetColor("_Tint", new Color(.86f, .8f, .74f)); AssetDatabase.CreateAsset(sky, ART + "M_sky.mat");
+        RenderSettings.skybox = sky; RenderSettings.ambientMode = AmbientMode.Skybox; RenderSettings.ambientIntensity = 1.1f; RenderSettings.defaultReflectionMode = DefaultReflectionMode.Skybox; RenderSettings.reflectionIntensity = .8f;
+        var sun = new GameObject("Sun").AddComponent<Light>(); sun.type = LightType.Directional; sun.color = new Color(1f, .86f, .7f); sun.intensity = 2.2f;
+        sun.shadows = LightShadows.Soft; sun.shadowStrength = .85f; sun.transform.rotation = Quaternion.Euler(34, -42, 0); RenderSettings.sun = sun;
+        RenderSettings.fog = true; RenderSettings.fogMode = FogMode.Linear; RenderSettings.fogColor = new Color(.66f, .6f, .55f); RenderSettings.fogStartDistance = 34; RenderSettings.fogEndDistance = 120;
+
+        // camera: MSAA from the URP asset (crisp edges), no FXAA blur
+        var camGo = new GameObject("Main Camera"); camGo.tag = "MainCamera"; var cam = camGo.AddComponent<Camera>(); cam.clearFlags = CameraClearFlags.Skybox; cam.farClipPlane = 160; cam.nearClipPlane = .5f; cam.allowMSAA = true;
+        var acd = camGo.AddComponent<UniversalAdditionalCameraData>(); acd.renderPostProcessing = true; acd.antialiasing = AntialiasingMode.None;
+        camGo.AddComponent<QQCam>(); camGo.transform.position = new Vector3(0, 7.4f, -29.4f); camGo.transform.LookAt(new Vector3(0, 1.4f, -14));
+        camGo.AddComponent<AudioListener>();
+
+        // post: ACES, modest bloom, light grade, soft vignette
+        var vol = new GameObject("Post").AddComponent<Volume>(); vol.isGlobal = true; var prof = ScriptableObject.CreateInstance<VolumeProfile>();
+        var tm = prof.Add<Tonemapping>(true); tm.mode.Override(TonemappingMode.ACES);
+        var bl = prof.Add<Bloom>(true); bl.intensity.Override(.35f); bl.threshold.Override(1.15f);
+        var ca = prof.Add<ColorAdjustments>(true); ca.postExposure.Override(.25f); ca.saturation.Override(4f); ca.contrast.Override(12f);
+        var vg = prof.Add<Vignette>(true); vg.intensity.Override(.18f);
+        AssetDatabase.CreateAsset(prof, ART + "Post.asset"); vol.sharedProfile = prof;
+
+        // ground: the browser ground shader (trail with ruts and prints, dark lane, large tint patches) on ash
+        var gm = new Material(Shader.Find("QQ/Ground"));
+        gm.SetTexture("_BaseMap", Load<Texture2D>(ART + "tex/burned_ground_01_diff.jpg")); gm.SetTexture("_BumpMap", Load<Texture2D>(ART + "tex/burned_ground_01_nor.jpg")); gm.SetTexture("_TrailMap", Load<Texture2D>(ART + "tex/trail_det.jpg"));
+        gm.SetColor("_Tint", new Color(1f, .95f, .9f)); gm.SetColor("_RoadTint", new Color(.45f, .37f, .28f)); gm.SetFloat("_Tile", 6f); gm.SetVector("_Lane", new Vector4(13f, .88f, .85f, .2f)); gm.SetVector("_Road", new Vector4(1.6f, 2.6f, 1f, 0f));
+        AssetDatabase.CreateAsset(gm, ART + "M_ground.mat");
+        var g = GameObject.CreatePrimitive(PrimitiveType.Plane); g.name = "Ground"; g.transform.localScale = new Vector3(24, 1, 24); g.GetComponent<Renderer>().sharedMaterial = gm; Object.DestroyImmediate(g.GetComponent<Collider>());
+
+        fireMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fireMat.SetFloat("_Surface", 1); fireMat.SetFloat("_Blend", 2); fireMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fireMat.renderQueue = 3000;
+        fireMat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fireMat.SetInt("_DstBlend", (int)BlendMode.One); fireMat.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fireMat, ART + "M_fire.mat");
+        Dress();
