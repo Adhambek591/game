@@ -17,7 +17,7 @@ function people(list, o = {}) {
   g.x = g.ps.reduce((s, c) => s + c.x, 0) / g.ps.length; g.z = g.ps.reduce((s, c) => s + c.z, 0) / g.ps.length;
   if (g.kind === 'drag') for (const c of g.ps) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1, 4), new THREE.MeshStandardMaterial({ color: 0x7a5a32, roughness: 1 })); world.add(m); g.ropes.push(m); }
   if (o.raid) { let k = 0; for (const e of g.guards) if (k < o.raid && !e.dead) { const r = raidAI(g.ps.filter(c => c.st === 'held')); if (e.grp) e.next = r; else e.custom = r; k++; } }
-  const el = document.createElement('div'); el.style.cssText = 'position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;background:rgba(120,20,10,.55);border:1px solid rgba(255,200,120,.6);padding:3px 7px;border-radius:9px;white-space:nowrap;display:none'; ($('hud') || document.body).appendChild(el); g.el = el;
+  const el = document.createElement('div'); el.className = 'qqtg'; el.style.cssText = 'position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;background:rgba(120,20,10,.55);border:1px solid rgba(255,200,120,.6);padding:3px 7px;border-radius:9px;white-space:nowrap;display:none'; ($('hud') || document.body).appendChild(el); g.el = el;
   (G.mis.res = G.mis.res || []).push(g); (G.mis.groups = G.mis.groups || []).push({ es: g.ps, awake: true, o: {}, x: g.x, z: g.z, label: o.label || 'r_' + g.kind });
   return g; }
 const V3 = new THREE.Vector3();
@@ -41,8 +41,9 @@ function resTick(g, dt) {
   const show = g.on && !g.freed && alive.some(c => c.st === 'held' || c.st === 'taken');
   if (show) { let x = 0, z = 0; for (const c of alive) { x += c.x; z += c.z; } V3.set(x / alive.length, 2.6, z / alive.length).project(camera); if (V3.z > 1) { V3.x = -V3.x; V3.y = -1; }
     const off = Math.abs(V3.x) > .82 || V3.y > .68 || V3.y < -.8; V3.x = clamp(V3.x, -.82, .82); V3.y = clamp(V3.y, -.8, .68);
-    g.el.style.display = 'block'; { const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight; g.el.style.left = ((V3.x + 1) / 2 * W) + 'px'; g.el.style.top = ((1 - V3.y) / 2 * Hh + 14) + 'px'; } g.el.style.opacity = off ? .85 : 1;
-    const s = Math.ceil(g.T); g.el.textContent = (RES_ICON[g.kind] || '⛓') + ' ' + alive.length + (g.kind === 'ride' ? '' : '  ⏳ ' + s); g.el.style.background = s <= 10 ? 'rgba(200,20,10,.75)' : 'rgba(120,20,10,.55)'; }
+    g.el.style.display = 'block'; g.el.style.opacity = off ? .85 : 1;
+    const s = Math.ceil(g.T); g.el.textContent = (RES_ICON[g.kind] || '⛓') + ' ' + alive.length + (g.kind === 'ride' ? '' : '  ⏳ ' + s);
+    { const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight; let lx = (V3.x + 1) / 2 * W, ly = (1 - V3.y) / 2 * Hh + 14; if (window.qqHud) { const cw = g.el.offsetWidth || 70, ch = g.el.offsetHeight || 20, q = window.qqHud.push(lx - cw / 2, ly - ch, cw, ch, ['tg']); lx = q[0] + cw / 2; ly = q[1] + ch; } g.el.style.left = lx + 'px'; g.el.style.top = ly + 'px'; } /* QA 2b HUD: kept off the objective / boss bar / panels */ g.el.style.background = s <= 10 ? 'rgba(200,20,10,.75)' : 'rgba(120,20,10,.55)'; }
   else g.el.style.display = 'none'; }
 function victimAI(c, dt) { const g = c.vict; if (G.flying) { c.play(g.kind === 'fire' || g.kind === 'walk' ? 'Idle' : 'Sit_Floor_Idle'); return true; } if (g.lt !== G.time) { g.lt = G.time; resTick(g, dt); resHud(); } if (G.mis.hazard && G.mis.hzT !== G.time && !G.paused && !G.flying) { G.mis.hzT = G.time; G.mis.hazard(dt); } if (c.saved) { if ((c.ct = (c.ct ?? 0) - dt) <= 0) { c.ct = rnd(1.5, 3); c.play(Math.random() < .5 ? 'Cheer' : 'Idle', { force: true }); } return true; }
   const o = g.o, sp = (c.type === 'elder' ? 3.8 : 4.8) * FAST();   // freed people RUN (fix3)
