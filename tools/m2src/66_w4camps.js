@@ -84,6 +84,7 @@ function siegeCam() { const M = G.mis, t0 = performance.now(); let f0 = 0, last 
     const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s, k = K * Z;
     cam.position.set(lx + (cam.position.x - lx) * k, .8 + (cam.position.y - .8) * k, lz + DZ + (cam.position.z - lz) * k); cam.lookAt(lx, .8, lz + DZ);
     last = 2 * Math.atan(Math.tan(f0 * Math.PI / 360) / K) * 180 / Math.PI; if (Math.abs(cam.fov - last) > .01) { cam.fov = last; cam.updateProjectionMatrix(); } };
+  fn.near = true;   /* engine: keep the follow camera's near-plane cutaway (own wall between camera and hero) */
   G.camFn = fn; iv = setInterval(() => { if (G.mis !== M) off(); }, 300); return off; }
 async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const p = await gu(c, H.moods.DAY, siegeBuild, [], 3, c - 1, 5); G.curCh = c - 1;

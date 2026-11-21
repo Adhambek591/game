@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795248077';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795249975';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);

@@ -3,11 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795248077';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795248077';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795248077';
-import { makeHorse } from './horse.js?v=1795248077';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795248077';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795249975';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795249975';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795249975';
+import { makeHorse } from './horse.js?v=1795249975';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795249975';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -48,11 +48,11 @@ const add = (geo, mat, x, y, z, parent, sh = true) => { const m = new THREE.Mesh
 // =====================================================================================================================
 const UN = 96; let blobs = null, rings = null; const _o = new THREE.Object3D(), _c = new THREE.Color();
 const TEAM = {
-  ally: { rim: 0xffe6b0, k: 1.35, sat: 1.3, tint: [1.22, 1.14, 1.05], ring: 0 },
-  enemy: { rim: 0xff5236, k: .5, sat: .92, tint: [.9, .9, .94], ring: 0 },   // gfx2 r2: thin red-orange rim on the geometric normal (no speckle)   // fix3: was blue rim k 1.25 + blue tint
-  elite: { rim: 0xff3a20, k: 1.0, sat: .95, tint: [.96, .93, .93], ring: 0x8a1810 },
-  hero: { rim: 0xfff0c8, k: .9, sat: 1.12, tint: [1.0, 1.0, 1.03], ring: 0xffc64a },
-  npc: { rim: 0xfff0d0, k: .8, sat: 1.15, tint: [1.12, 1.1, 1.05], ring: 0 },
+  ally: { rim: 0xffe6b0, k: .32, sat: 1.04, tint: [1.04, 1.02, 1.0], ring: 0 },   // gfx3: no glowing halo (was k 1.35, sat 1.3, tint 1.22)
+  enemy: { rim: 0xff5236, k: .3, sat: .95, tint: [.95, .95, .97], ring: 0 },   // gfx2 r2: thin red-orange rim on the geometric normal (no speckle)   // fix3: was blue rim k 1.25 + blue tint
+  elite: { rim: 0xff3a20, k: .55, sat: .97, tint: [.96, .93, .93], ring: 0x8a1810 },
+  hero: { rim: 0xfff0c8, k: .38, sat: 1.04, tint: [1.0, 1.0, 1.02], ring: 0xffc64a },
+  npc: { rim: 0xfff0d0, k: .28, sat: 1.03, tint: [1.03, 1.02, 1.0], ring: 0 },
 };
 function unitMeshes() {
   if (!blobs) {
@@ -508,10 +508,10 @@ function scanBurnt() { const Y = A.props && A.props.B_yurt, H = A.props && A.pro
 // (the Meshy models have mixed winding, so a BackSide hull alone drew over the body), hero only ----------
 const UO = { res: { value: new THREE.Vector2(844, 390) }, w: { value: 1.6 } };
 function outlineHero(e) { if (!e || e._fxOL) return; let sm = null; e.o.traverse(o => { if (o.isSkinnedMesh && !sm && !o.userData.fxOL) sm = o; }); if (!sm || !sm.parent) return; e._fxOL = 1;
-  const m = new THREE.MeshBasicMaterial({ color: 0xffd76e, side: THREE.DoubleSide, fog: false, toneMapped: false, transparent: true, opacity: .85, depthWrite: false });
+  const m = new THREE.MeshBasicMaterial({ color: 0xffd76e, side: THREE.DoubleSide, fog: false, toneMapped: false, transparent: true, opacity: .45, depthWrite: false });   // gfx3: subtler hero line (was .85)
   m.onBeforeCompile = sh => { sh.uniforms.uORes = UO.res; sh.uniforms.uOW = UO.w; sh.vertexShader = 'uniform vec2 uORes; uniform float uOW;\n' + sh.vertexShader.replace('#include <project_vertex>', `#include <project_vertex>
-    { vec4 cn = projectionMatrix * vec4(normalize(transformedNormal), 0.); vec2 d = cn.xy; float l = length(d); if (l > 1e-4) gl_Position.xy += d / l * uOW * 2. / uORes * gl_Position.w; gl_Position.z += .0007 * gl_Position.w; }`); };
-  m.customProgramCacheKey = () => 'fxoutline';
+    { vec4 cn = projectionMatrix * vec4(normalize(transformedNormal), 0.); vec2 d = cn.xy; float l = length(d); if (l > 1e-4) gl_Position.xy += d / l * uOW * 2. / uORes * gl_Position.w; gl_Position.z += .0007 * gl_Position.w * max(1., -projectionMatrix[3][2]); }`); };
+  m.customProgramCacheKey = () => 'fxoutline2';
   const ol = new THREE.SkinnedMesh(sm.geometry, m); ol.bind(sm.skeleton, sm.bindMatrix); ol.bindMode = sm.bindMode; ol.userData.fxOL = 1; ol.frustumCulled = false; ol.castShadow = false; ol.renderOrder = 1;
   ol.position.copy(sm.position); ol.quaternion.copy(sm.quaternion); ol.scale.copy(sm.scale); sm.parent.add(ol); e._fxOLm = ol; }
 // ---------- moods without a scenery preset (prologue / chapter 1 missions use only engine setMood): apply 'pro' / 'ch1' ----------
