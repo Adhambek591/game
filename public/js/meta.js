@@ -2,10 +2,10 @@
 // Systems: hero level/XP · skill upgrade tiers · equipment · maidens roster · daily/weekly quests · achievements · star chests · Camp screen.
 // Public API: window.__META (see bottom). Combat code may read __META.mul('spin.dmg') etc. — every key defaults to 1 (add() to 0).
 // Rules kept on purpose: one currency (the game's coins), no timers/energy, nothing sold for real money, every bonus is small and capped.
-import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795212043';
-import { t, lang } from './i18n.js?v=1795212043';
-import { Sfx } from './audio.js?v=1795212043';
-import { MLIST } from './missions.js?v=1795212043';
+import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795218616';
+import { t, lang } from './i18n.js?v=1795218616';
+import { Sfx } from './audio.js?v=1795218616';
+import { MLIST } from './missions.js?v=1795218616';
 
 const KEY = 'qq_meta', VER = 2, MAXLV = 30, TEAM = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -297,7 +297,7 @@ export function pdMul(kk) {
   return mul('hero.dmg') * k * (B.boss && G.boss && !G.boss.dead ? 1 + B.boss / 100 : 1) * (B.laststand && p.hp < p.maxHp * .35 ? 1 + B.laststand / 100 : 1);
 }
 // if engine.js carries the pdMul hook, the dmgBoost emulation is switched off (self-healing: if the hook disappears, emulation stays on)
-try { fetch(new URL('./engine.js?v=1795212043', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
+try { fetch(new URL('./engine.js?v=1795218616', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
 
 // ---------------------------------------------------------------- rewards
 let goldSeen = SAVE.gold;
@@ -617,7 +617,7 @@ function render() { if (!campEl) return; ensureQuests(); refresh(); head(); cons
 // ---- ui4: plain-words upgrade cards. Each card: what it does now -> after the upgrade, one big button, red/green = weak/good
 const fmt = v => (Math.round(v * 10) / 10).toString().replace('.', LI() === 3 ? '.' : ',');
 const doneN = () => Object.keys(D.done).length;
-const TRAIN = [['life', '🛡', 4], ['squad', '👥', 8], ['horse', '🐴', 10]];   // wave4: sword and maidens' training live once, in the army tab (Gúlayım's sword / maidens' armour)   // [key, icon, missions per recommended level]
+const TRAIN = [];   /* QA 2b: ONE upgrade list — hero armour / squad / horse moved into the army tab too */ const TRAIN_ALL = [['life', '🛡', 4], ['squad', '👥', 8], ['horse', '🐴', 10]];   // wave4: sword and maidens' training live once, in the army tab (Gúlayım's sword / maidens' armour)   // [key, icon, missions per recommended level]
 function heroBase() { const d = (TD && TD.gulayim) || { hp: 500, dmg: [20, 30] }; return { hp: d.hp, att: (d.dmg[0] + d.dmg[1]) / 2 }; }
 function trainVal(k, lv) { const b = heroBase();
   switch (k) { case 'sword': return [tt('dmg'), Math.round(b.att * (1 + .12 * lv) * mul('hero.dmg'))]; case 'life': return [tt('hp'), Math.round(b.hp * (1 + .15 * lv) * mul('hero.hp'))];
@@ -660,7 +660,7 @@ const PANE = {
   },
   hero_old() {
     const L = lvInfo(M.xp), bl = BK.filter(k => B[k]).map(k => `<span class="mt-chip">${esc(bonusTxt([k, B[k]]))}</span>`).join('');
-    const tr = ['life', 'squad', 'horse'].map(k => { const lv = SAVE.up[k] | 0, U = UPG[k]; if (!U) return ''; const c = U.cost(lv), mx = lv >= U.max;
+    const tr = [].map(k => { const lv = SAVE.up[k] | 0, U = UPG[k]; if (!U) return ''; const c = U.cost(lv), mx = lv >= U.max;
       return `<div class="mt-row"><div class="mt-g">${esc(t('u_' + k))} <span class="mt-pips">${'●'.repeat(lv)}${'○'.repeat(Math.max(0, U.max - lv))}</span><small>${esc(t('u_' + k + 'd'))}</small></div><button class="mt-btn${mx ? ' done' : SAVE.gold < c ? ' poor' : ''}" data-a="train" data-v="${k}"${mx ? ' disabled' : ''}>${mx ? tt('max') : '🪙 ' + c}</button></div>`; }).join('');
     return `<div class="mt-cols"><div class="mt-card"><div class="mt-hero"><div class="mt-port" style="background-image:url(./assets/img/p_gu.jpg)"></div><div class="mt-g" style="flex:1;min-width:0"><h3>${esc(t('n_gu'))}</h3><div>${esc(tt('lv', { n: L.lv }))}</div><span class="mt-bar"><i style="width:${L.need ? L.cur / L.need * 100 : 100}%"></i></span><small class="mt-note" style="margin:0">${L.need ? esc(tt('xp')) + ' ' + L.cur + '/' + L.need : esc(tt('lvmax'))}</small></div></div>
       <div style="margin-top:8px"><div class="mt-stat"><span>${esc(tt('hp'))}</span><b>${pct((mul('hero.hp') - 1) * 100)}</b></div><div class="mt-stat"><span>${esc(tt('dmg'))}</span><b>${pct((mul('hero.dmg') - 1) * 100)}</b></div></div>
@@ -728,7 +728,8 @@ function claimChest(n) {
   if (campEl && campEl.classList.contains('open')) render(); mapBits(); labels(); return true;
 }
 // wave4: the ONE upgrade screen — host & arms (sword, bow, armour, shields, archers with chapter caps) is a Camp tab; wave4.js supplies the pane, the old Shop and the separate overlay open this tab
-S.t_army = ["Qo'shin va qurol", 'Safımız hám qural', 'Войско и оружие', 'Host & arms']; PANE.army = () => { try { return (window.__W4 && window.__W4.paneHTML) ? window.__W4.paneHTML() : ''; } catch (e) { return ''; } };
+S.t_army = ["Qo'shin va qurol", 'Safımız hám qural', 'Войско и оружие', 'Host & arms']; const trainRows = () => TRAIN_ALL.map(([k]) => { const lv = SAVE.up[k] | 0, U = UPG[k]; if (!U) return ''; const c = U.cost(lv), mx = lv >= U.max; return `<div class="mt-row"><div class="mt-g">${esc(t('u_' + k))} <span class="mt-pips">${'●'.repeat(lv)}${'○'.repeat(Math.max(0, U.max - lv))}</span><small>${esc(t('u_' + k + 'd'))}</small></div><button class="mt-btn${mx ? ' done' : SAVE.gold < c ? ' poor' : ''}" data-a="train" data-v="${k}"${mx ? ' disabled' : ''}>${mx ? tt('max') : '🪙 ' + c}</button></div>`; }).join('');
+PANE.army = () => { try { return ((window.__W4 && window.__W4.paneHTML) ? window.__W4.paneHTML() : '') + '<div class="w4train">' + trainRows() + '</div>'; } catch (e) { return ''; } };
 export function openCamp(tb, from) { build(); tb = TAB_ALIAS[tb] || tb; if (tb && PANE[tb] && TABS.some(x => x[0] === tb)) tab = tb; if (!TABS.some(x => x[0] === tab)) tab = 'hero'; campFrom = from || ''; render(); campEl.classList.add('open'); }
 function closeCamp() { if (!campEl) return; campEl.classList.remove('open'); if (dirty) save(); labels(); mapBits(); try { hudGold(); } catch (e) { } }
 function toast(s) { const c = $('mt-toasts'); if (!c) return; const el = document.createElement('div'); el.className = 'mt-toast'; el.textContent = s; c.appendChild(el); while (c.children.length > 4) c.firstChild.remove(); setTimeout(() => el.remove(), 2900); }

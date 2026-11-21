@@ -1,0 +1,137 @@
+# Qirq qiz — all remaining cutscenes (video_all agent)
+Started 2026-11-20 16:55 UTC. Unlim ends 18:03 UTC (~70 min) -> prioritised list.
+Shot list reused from /home/user/shots/shots.json (67 shots) + shots2/results.md.
+Account concurrency observed: ~3 jobs total across images+videos (429 rate_limit_reached beyond that).
+## Jobs
+- b_qa_appear video 3a8afc45-d484-46cd-b327-2b0553fc91e3 submitted
+- sheet AL (Allayar) 1c8f4754, sheet QU (Qunqar) bb0effaa submitted
+- Elements created: allayar dadea848-98c4-4633-94fa-0e194caa1bfd (sheet 1c8f4754), qunqar 1b11e3ed-67c3-4188-8faa-5de19c4483ae (sheet bb0effaa). Sheets SU 9fb2d08f, AY 43fe22db pending.
+- Seedance unlim: only ONE video job at a time accepted (2nd -> 429). ~5 min per 8 s clip.
+- b_qa_appear DONE 3a8afc45 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_165114_3a8afc45-d484-46cd-b327-2b0553fc91e3.mp4 — PASS w/ note: wolf strides out of smoke, eyes forward, push-in, raises saber, consistent size, no cuts. Note: burnt background tents look conical (tipi-like), not round yurts.
+- forty_maidens submitted ba0b390f
+- NOTE: unlim actually expires 2026-11-21 18:03 UTC (tomorrow) -> full list feasible; queue in /home/user/va/queue.json (53 shots; v1/p_1 kept/dropped; v4_1..v4_4 and e1_1/e1_2 merged into the b_*_seal shots).
+- More elements: surtaysha 2c0a9c47-8cd3-45da-a3e2-a3e53e102129 (sheet 9fb2d08f), aydarha be673eb9-ad1e-4e12-a37d-2603ccd102df (43fe22db), otbasqan 382a93d6-31e3-41c0-a48e-238bf86dd5c5 (30289050; expression row hatless), qargashiq 8e35a1d1-6561-4e56-b42c-0eca308e01c8 (d1b3bb1c; beard varies between views).
+- forty_maidens ba0b390f https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_165547_ba0b390f-b85f-4456-894d-cfd07854da4f.mp4 — FAIL(colour): Guloyim in burgundy, not blue (guloyim element c8ac9bfe is burgundy). ~35-40 varied riders, drone rise, good otherwise. -> making BLUE guloyim element (recolour of turnaround f20da4a6, job 6b2930a7) and redoing all Guloyim shots with it.
+- b_qa_seal try1 5adafff6 submitted with OLD (burgundy) element — expected colour fail.
+- guloyim-blue element af621a6e-1d36-41be-a6d5-e77f8764b6ad (turnaround 6b2930a7 + expressions a20660f7) used for all Guloyim shots from now. b_qa_seal try1 5adafff6 FAIL: red headscarf + she looks ahead, not at the wolf. b_ay_appear submitted 270eb2d6.
+- b_ay_appear 270eb2d6 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_171051_270eb2d6-d51a-4abd-9e0c-490bbf923312.mp4 — PASS w/ note: dragon rises from storm sea, water pours off, looks toward shore/camera, roars with lightning; same size; no cuts. Note: ships look like European galleons. 
+- b_qa_seal try2 (blue) e63cef09 submitted
+- b_qa_seal (blue) e63cef09 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_171644_e63cef09-3c8e-4c7b-9f18-16a70dc0c334.mp4 — PARTIAL: blue outfit OK, golden stream flows INTO small triangle amulet, round yurts; but wolf does not dissolve away (still there at end), she only glances sideways at him. Kept as candidate; one retry queued at end with 'vanishes completely'.
+- b_qa_talk (blue) b9440ee1 submitted
+- b_qa_talk (blue) b9440ee1 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_172358_b9440ee1-977f-439e-9442-e77ab931827f.mp4 — PASS: Guloyim (blue) and Sarbinaz both look at the wolf, saber + spear thrust at him; wolf's red eyes on her, snarling, raises blade; round yurts; no cuts. Supersedes the burgundy pilot 91518ddb.
+- seal prompts now end with 'vanishes completely, leaving only drifting sparks'. b_su_talk 5daee5f6 submitted
+- b_su_talk 5daee5f6 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_173002_5daee5f6-c88d-4fa4-b0a0-c32eb0a24b6d.mp4 — PASS w/ note: OTS from Guloyim (blue) on horse, saber toward khan; khan looks at her, mocking arms-spread, then grips sword; push-in; no cuts. Note: black camp tents somewhat pointed rather than domed yurts.
+- b_su_seal 0a8f535d submitted
+- b_su_seal try1 0a8f535d https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_173618_0a8f535d-9e9b-49ed-8c7e-4248ed1b9e26.mp4 — FAIL: khan stands beside her instead of kneeling, her eyes mostly forward not on him, he does not vanish (helmet still in frame at end). Stream into amulet OK. Retry with explicit OTS-kneel staging.
+- b_ay_talk 5cf46a67 submitted
+- b_ay_talk 5cf46a67 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_174237_5cf46a67-8edb-4ada-b7a2-716fb902137e.mp4 — PASS: Guloyim (blue) on horse faces the dragon, saber raised, shouting; dragon's eye on her; push-in; dragon stays same scale; no cuts.
+- b_ay_seal 7c4e1751 (OTS staging) done; b_qu_appear submitted
+- b_ay_seal 7c4e1751 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_174854_7c4e1751-e5d1-4c7e-8cee-9b18cfbcaa9c.mp4 — PASS w/ note: dragon lies on the shore, crumbles into gold that flows INTO her small triangle amulet, vanishes fully; amulet flares; clouds part. Notes: dragon reads smaller than in b_ay_appear; she stands far behind it and faces camera rather than looking down at it.
+- b_qu_talk submitted
+- b_qu_appear a45b2c66 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_175452_a45b2c66-9b08-4f6d-b600-46078cff183d.mp4 — PASS w/ note: giant strides out from behind rock toward camera, swings club up to shoulder, roars; low-angle tilt. Note: he walks toward camera so he grows in frame (approach, not scaling).
+- b_qu_seal submitted
+- b_qu_talk try1 a748cbfa https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_180046_a748cbfa-b4f6-446f-80b6-97def89beb7a.mp4 — FAIL: Sarbinaz turns her face to Guloyim mid-shot instead of the giant; giant reads human-sized at distance, weapon changes from mace to club. Retry queued.
+- b_qg_appear submitted
+- b_qu_seal 01c31a85 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_180651_01c31a85-9f28-4d5b-b7c8-d1fa7b70c849.mp4 — PASS w/ note: OTS past kneeling giant; gold streams INTO her small triangle amulet, giant vanishes fully, amulet glows; she faces him/camera, solemn. Note: giant glances back toward camera once.
+- b_qg_talk submitted
+- b_qg_appear try1 9badf185 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_181325_9badf185-8cd3-434e-b4a7-959a4d727215.mp4 — FAIL: gate has a glyph plaque (text) and Chinese-style roofs; king reads normal-sized vs merlons. Retry queued (plain Karakalpak mud-brick, no inscriptions, king towering).
+- b_qg_seal submitted
+- b_qg_talk try1 c364a2d5 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_181917_c364a2d5-daa9-45b6-8f1a-818a83a26cf2.mp4 — FAIL: blue-hooded clones of Guloyim in the foreground, king human-sized, she looks away from him at the start. Retry queued.
+- b_su_appear submitted
+## Continuation agent (started 2026-11-20 19:57 UTC sandbox clock)
+- b_qg_seal e5f728f2 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_182508_e5f728f2-2c2b-47cf-a6ad-f0dfa961f353.mp4 — PASS w/ note: OTS past king's shoulder, gold stream flows INTO small down-triangle amulet, he vanishes, plain mud-brick ruins gate, she is sad/moved. Note: king's kneel not visible (OTS framing).
+- b_su_appear 13ff7ddc https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_183059_13ff7ddc-78d0-4fa8-908a-22368cbae4a4.mp4 — PASS w/ note: khan rides out of black smoke, stops, draws sword, wolf army emerges unevenly. Note: wolf warriors share one design (varied poses, not clones per se).
+- b_qu_talk try2 511c866c submitted (Seedance unlim still 1 job at a time; 2nd -> 429)
+- b_qu_talk try2 511c866c https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_195803_511c866c-f12d-4c63-a198-16eb5451be53.mp4 — PASS w/ note: both women keep eyes on the giant, saber + spear toward him, same spiked club throughout, he snarls down at them, red eyes. Note: giant only ~1.5x horse height (smaller than asked). Final (2 attempts used).
+- b_su_seal try2 2cb2ce4e submitted (OTS-kneel staging)
+- b_su_seal try2 2cb2ce4e https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_200235_2cb2ce4e-541f-4a20-80c2-91b771347610.mp4 — PASS w/ notes: OTS behind khan, he crumbles to gold that streams INTO her down-triangle amulet and vanishes fully, push to her sad face, dawn battlefield. Notes: khan stands rather than kneels; in the final close-up the amulet shows an inner engraved triangle and reads a bit larger. Final (2 attempts used).
+- b_qg_appear try2 b06e98f4 submitted
+- b_qg_appear try2 b06e98f4 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_200721_b06e98f4-e944-4289-a11e-f964c4288bed.mp4 — PARTIAL (best of 2, use this one): king towers on the gate, looks down at camera, laughs, raises weapon, no text, push-in. Problems: weapon changes axe->mace mid-shot; banners carry a round emblem; crenellated walls read somewhat castle-like. 2 attempts used.
+- b_qg_talk try2 bfdeacba submitted
+- b_qg_talk try2 bfdeacba https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_201302_bfdeacba-3183-4030-abb3-f2a1cd430eee.mp4 — PARTIAL (best of 2, use this): no blue clones (maidens in red/green), she watches him and points saber, he grips axe with both hands, same axe throughout, plain mud-brick gate. Problems: king faces sideways/away from her most of the shot (eye-line not on her); he is only ~1.5x a rider's height. 2 attempts used.
+- forty_maidens try2 (blue element) e70edb26 submitted
+- forty_maidens try2 e70edb26 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_201723_e70edb26-a6d8-4f86-b138-0df670fb2022.mp4 — PASS w/ note: Guloyim in BLUE leads, looks ahead, ~35-40 riders galloping unevenly, golden steppe, tracking then drone rise/behind. Note: many background riders share a similar red-brown outfit with fur hats (varied poses, but less outfit variety than asked). Supersedes burgundy ba0b390f.
+- v2_1 14761391 submitted
+- v2_1 14761391 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_202251_14761391-947a-48cb-aae7-31ad8e27a8d6.mp4 — PASS: Allayar faces khan among burning round yurts, swings saber at him, cut to khan close-up grinning unharmed; handheld. Note: contains a cut (wide -> close-up).
+- v2_2 da9861fd submitted
+- v2_2 try1 da9861fd https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_202818_da9861fd-ff99-492f-9ae2-0ad617941072.mp4 — FAIL: amulet flips point-UP in one frame and carries an eye-like dot (Illuminati look); Allayar collapses face-down instead of kneeling defiant, eyes not on khan. Retry queued (plain smooth amulet, point down).
+- v2_3 cd41ad78 submitted
+- v2_3 try1 cd41ad78 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_203250_cd41ad78-1705-4a64-92ca-458623384187.mp4 — FAIL: amulet points UP (apex at top) the whole shot; background is burning block houses, not yurts. Acting OK (reaches, closes eyes, no blood). Retry queued.
+- v2_2 try2 6e1ddff5 submitted
+- v2_2 try2 6e1ddff5 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_203728_6e1ddff5-3d0c-4b62-bb20-d9b6ce420081.mp4 — PASS w/ notes (use this): khan strikes, Allayar sinks to his knees among round burning yurts, small golden amulet drops into the ash, no blood. Notes: he looks down at the ground rather than at the khan once kneeling; amulet is tiny so orientation hard to read. Final.
+- v2_3 try2 fb3518b4 submitted
+- v2_3 try2 fb3518b4 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_204508_fb3518b4-35b2-4068-9c66-7c27b47877e3.mp4 — PARTIAL (use this): round burning yurts now, he reaches, touches the glowing amulet and closes his eyes, peaceful, no blood. Problem: amulet still reads as a point-UP glowing crystal pyramid. 2 attempts used.
+- v2_4 29e3471c submitted
+- v2_4 29e3471c https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_204927_29e3471c-6f10-4c04-a42f-007c271e8616.mp4 — PASS: burning round yurts, chained townspeople (men, women, children, varied) led off by torch riders; camera starts close and pulls back to a very wide dark steppe with the torch line far away.
+- Amulet prop reference image d53ea1c1 (nano_banana, free): https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_205109_d53ea1c1-0a18-449d-9f67-193a08d9fa29.png — plain gold inverted triangle on cord; used as image_references in amulet shots from now.
+- v3_1 f30164ab submitted
+- v3_1 f30164ab https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_205338_f30164ab-634c-4ea5-96a5-75ef9d0dd0a4.mp4 — PASS w/ notes: green plateau, line of maiden archers at full draw, arrow on string, draw hand near cheek, side tracking. Notes: outfits only 2-3 variants (red/white); the straw targets appear in the background while archers aim off-frame right.
+- v3_2 f20cc181 submitted
+- v3_2 f20cc181 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_205802_f20cc181-1cb8-4ca6-9680-e78bb987cd8b.mp4 — PASS w/ note: Guloyim (blue, small down-triangle amulet) walks up, adjusts Aysuliw's draw arm, they look at each other; green plateau, round yurt in background. Note: her smile is subtle (mostly calm).
+- v3_3 ae243456 submitted
+- v3_3 ae243456 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_210331_ae243456-8f3f-4ba3-8ee6-e21ef40a94bf.mp4 — PASS w/ notes: Guloyim (blue) beside horse, then mounted, leads a gallop across green plateau, Gulshad beside her. Notes: the mount itself is skipped (jump from standing to riding); several riders share Gulshad-like orange outfits.
+- v3_4 bdd8c9df submitted
+- v3_4 bdd8c9df https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_211006_bdd8c9df-402a-4c52-8e86-8e88ae24328c.mp4 — PASS w/ note: she looks at distant black smoke over the steppe, face turns worried, push-in; small down-triangle amulet. Note: in the second half she turns toward the camera instead of keeping her eyes on the smoke.
+- v5_1 8b3f2004 submitted
+- v5_1 8b3f2004 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_211429_8b3f2004-15c2-45c7-9a71-ac20ef79c904.mp4 — PASS w/ note: burned wooden gate, Guloyim (blue) rides slowly through it at sunset, grave face, embers drift, camera tracks with her. Note: she rides toward/past the camera rather than away into the steppe.
+- v5_2 78a2e25d submitted
+- v5_2 78a2e25d https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_212001_78a2e25d-0693-4f5f-80c8-966159a75b8f.mp4 — PASS w/ note: low shot of tracks/footprints, tilt up past the horse to Guloyim (blue), she looks down then off to the horizon, sunset. Note: tracks read as footprints/hoofprints rather than deep cart-wheel ruts.
+- v5_3 d7ace465 submitted
+- v5_3 d7ace465 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_212417_d7ace465-d4f1-4955-b0fc-0af9fe6e89ae.mp4 — PASS w/ notes: Guloyim (blue) with saber, Sarbinaz beside her, crane up reveals a big uneven host of riders gathering in golden dust. Notes: saber held low (not raised); host reads larger than forty (~60-80).
+- v5_4 1a75e2f8 submitted
+- v5_4 1a75e2f8 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_212830_1a75e2f8-d0e1-4534-85a7-57456e838168.mp4 — PASS w/ notes: Guloyim (blue) leads ~25-30 riders, golden dust trail, sunset, drone pulls back and rises smoothly. Notes: they gallop toward the camera (away from the sunset horizon) rather than away; fewer than forty visible.
+- c2_1 367c6fb6 submitted
+- c2_1 try1 367c6fb6 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_213515_367c6fb6-0c09-48f6-a360-4572f34e6bfd.mp4 — FAIL: captives are a perfectly spaced conveyor line of identical hunched silhouettes (cloned look); guards only appear at the end. Salt flat itself good. Retry queued.
+- c2_2 59ae16ec submitted
+- c2_2 try1 59ae16ec https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_214041_59ae16ec-a1c4-4c77-9f82-27fd9651b34e.mp4 — FAIL: near-photoreal look, guard is a European plate-armour knight, shirtless captive; not Karakalpak/stylized. Retry queued.
+- c2_1 try2 02936dfd submitted
+- c2_1 try2 02936dfd https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_214455_02936dfd-a73e-48c8-ad63-ab5b6e1d7810.mp4 — PASS w/ note (use this): bunched column of varied captives (adults, children, varied robes) on cracked salt flat in haze, armored riders escorting, slow pan. Note: column is long and dense; little camera sway.
+- c2_2 try2 c5ce540b submitted
+- c2_2 try2 c5ce540b https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_215023_c5ce540b-d954-4adf-8fb9-22b644dfbe91.mp4 — PASS w/ notes (use this): stylized; Karakalpak woman in red dress/white scarf holding child looks at the guard (fur-trimmed pointed helmet, lamellar), young chained man looks up proudly, guard lifts whip; salt flat. Notes: the carried child reads small/bundle-like; a second child pops in briefly at frame ~2s.
+- c2_3 4e9128fb submitted
+- c2_3 try1 4e9128fb https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_215440_4e9128fb-7a72-4cc4-ab2c-c68096c3ddf4.mp4 — FAIL: background riders are an evenly spaced row of identical silhouettes (cloned); no caravan visible; she rides at the camera and ends staring into the lens. Retry queued (OTS from behind her on the crest).
+- c2_4 116a15d1 submitted
+- c2_4 try1 116a15d1 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_215901_116a15d1-102d-47b1-9644-504b9dee99f2.mp4 — FAIL: every rider is a blue-hooded Guloyim clone. (Pointing + ride down dune onto salt flat OK.) Retry queued with 'only she wears blue'.
+- c2_3 try2 3f7e8f2a submitted
+- c2_3 try2 3f7e8f2a https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_220324_3f7e8f2a-7cbe-423b-a2a2-85146c681ece.mp4 — PASS w/ note (use this): she climbs the dune, camera rises past her shoulder, she looks down at the caravan on the salt flat, maidens arrive around her irregularly. Note: a strange blue streak on the dune face in the first ~2 s.
+- c2_4 try2 1427a837 submitted
+- c2_4 try2 1427a837 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_220748_1427a837-51a6-4204-be60-9462f5d36bb8.mp4 — PASS w/ note (use this): only Guloyim in blue, she points forward and charges with saber; maidens in red/green/white on varied horses, uneven, dust, salt flat beside dunes; side tracking. Note: for a moment she seems to hold a saber in each hand.
+- c3_1 11332aae submitted
+- c3_1 11332aae https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_221206_11332aae-ad22-45b2-9dc4-a4bcf6073d20.mp4 — PASS w/ note: golden river with tall reeds, caravan camp with campfires, tied horses, chained prisoners and pointed-helmet guards; camera glides closer. Note: look is a bit more realistic than other shots.
+- c3_2 5d7520dd submitted
+- c3_2 5d7520dd https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_221622_5d7520dd-3da0-4bc5-bf37-3121f00e2d02.mp4 — PASS w/ note: chained Otbasqan sits by campfire on the river bank, lifts his head with a proud, angry stare; push-in to close-up; wrist chains visible. Note: the guard stays off-screen, so he stares just past the lens.
+- c3_3 56998bb7 submitted
+- c3_3 try1 56998bb7 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_222040_56998bb7-dbac-4b90-8bd9-b356693f00a0.mp4 — FAIL: the enemy camp is behind the women while they face the camera (eye-line wrong), no visible whisper, an extra blue-hooded figure at left. Retry queued (camera behind them).
+- c3_4 1b7ada68 submitted
+- c3_4 1b7ada68 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_222455_1b7ada68-1ce6-48f2-8c9d-cf14e9f4333d.mp4 — PASS w/ notes: in the reeds at dusk Guloyim (only one in blue) turns to the crouching maidens, finger to lips, then camera tilts down as she grips the saber hilt. Notes: maidens look very young (childlike faces); her eyes go to the camera side rather than squarely on them.
+- c3_3 try2 1f9ffaa6 submitted
+- c3_3 try2 1f9ffaa6 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_223028_1f9ffaa6-daf2-46d9-8c93-b471b9d69607.mp4 — PASS w/ note (use this): from behind in the reeds, enemy camp fires across the river, Sarbinaz cups her hand and whispers to Guloyim, who listens. Note: Guloyim turns her face toward Sarbinaz/camera late in the shot instead of staying on the camp.
+- c4_1 d32053b9 submitted (prompt strengthened: stylized, steppe boats with plain sails, lamellar guards — to avoid European galleons/knights)
+- c4_1 d32053b9 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_223605_d32053b9-15b9-4a54-bf01-d5025ee5b760.mp4 — PASS w/ note: stormy grey sea, big waves, chained prisoners driven along a wooden pier by pointed-helmet guards toward boats; handheld pan. Note: boats have junk-style batten sails (East-Asian look), and prisoner clothing is drab rather than Karakalpak.
+- c4_3 a8563450 submitted
+- c4_3 a8563450 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_224133_a8563450-a923-4419-be7c-ad33d6daee27.mp4 — PASS: Guloyim (only one in blue) gallops along the stormy shore, splashes, rain, maidens in red/green/white behind at uneven distances; low tracking.
+- c4_4 25640597 submitted
+- c4_4 25640597 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_224550_25640597-da50-448e-aea1-6c7998f4bbaa.mp4 — PASS w/ notes: riding on the stormy shore she looks out to sea, draws her saber and raises it as lightning strikes; handheld tracking. Notes: face mostly in profile/hidden by the hood; horse is black here vs brown in c4_3.
+- c5_1 76d36e48 submitted
+- c5_1 76d36e48 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_225018_76d36e48-00ed-4ede-b5a4-244c7df37aeb.mp4 — PASS w/ notes: high drone over a narrow purple-dusk rocky pass, small file of riders below, drone rises to reveal enemy soldiers on the cliff top. Notes: enemies stand in an even row on the skyline rather than hiding; riders too small to identify Otbasqan.
+- c5_3 6ddffd8b submitted
+- c5_3 6ddffd8b https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_225441_6ddffd8b-57a0-40d0-acbf-39cf08d130db.mp4 — PASS w/ note: Otbasqan braces, is hurled back by an off-screen blow amid flying rocks and dust, lands, pushes himself up glaring forward; no blood. Note: lighting is bright daylight, not dusk (mismatch with c5_1/c5_4).
+- c5_4 d64c472b submitted
+- c5_4 d64c472b https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_225858_d64c472b-2543-4cec-a9ea-a406ae2280e0.mp4 — PASS w/ note: Sarbinaz runs crying out through the dusk pass, then plants herself and levels her spear at the off-screen enemy (toward lens), fierce. Note: one cut mid-shot; the fallen warrior is only a blurred shape behind her.
+- c6_1 94f11927 submitted (prompt strengthened: no domes/minarets/castle)
+- c6_1 try1 94f11927 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_230316_94f11927-4d32-4fec-929d-2fc06070848d.mp4 — PARTIAL: drone rises over the wall to reveal a vast city of round yurts with many smoke columns, sunset, no domes. Problems: wall towers evenly spaced and identical, city flat/uniform (no mud-brick houses or irregular tall towers). One retry queued.
+- c6_2 904bd7aa submitted
+- c6_2 904bd7aa https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_230741_904bd7aa-daae-4d10-9550-a3f7eeb7e009.mp4 — PASS w/ note: wooden cages hang along a red-lit mud-brick wall, women/children in Karakalpak dress inside; side tracking. Note: prisoners are small, few reach through the bars; crenellations are regular.
+- c6_1 try2 6b215601 submitted
+- c6_1 try2 6b215601 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_231316_6b215601-e412-432f-96de-3edbe16d658c.mp4 — PASS w/ note (use this): drone rises over a crooked mud wall to a huge organic city of round yurts, mud-brick blocks, wooden lookout towers and irregular towers of mixed heights, smoke at varied heights, sunset. Note: a few slender towers in the far distance could read as spires.
+- c6_4 fb453882 submitted
+- c6_4 fb453882 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_231737_fb453882-d527-4bd2-af9f-1c984ae16766.mp4 — PASS w/ note: from behind Guloyim (only one in blue) on a hill, camera pulls back/rises to reveal maidens in varied colours beside her and the walled yurt city with smoke in the valley at dusk. Note: only ~10 riders visible, not forty.
+- c7_1 85e4f6dd submitted
+- c7_1 85e4f6dd https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_232310_85e4f6dd-c08e-4146-bfe3-8d63e53e243e.mp4 — PASS w/ note: blood-red dusk over a vast camp of black round yurts, drifting smoke, glide toward carved totems glowing red, small guards moving. Note: yurt sea is very uniform (repeated shape).
+- c7_2 af964b90 submitted
+- c7_2 af964b90 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_232729_af964b90-73bc-4964-99d9-fc997a60e7e6.mp4 — PASS w/ notes: through the bonfire, push to the khan among black yurts at night; he cups his hands, wisps of black smoke rise. Notes: smoke effect is thin; his eyes glow orange at the end (ritual effect - flag if unwanted); he looks into camera rather than into the flames.
+- c7_3 fb0d3fd8 submitted
+- c7_4 3ff5e12f submitted (with amulet image_reference d53ea1c1)
+- c7_3 fb0d3fd8 https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_233149_fb0d3fd8-55b6-43e8-adc8-052e08e90584.mp4 — PASS w/ note: OTS past the khan's shoulder, kneeling chained prisoners (varied, woman holding child) before a giant red-glowing carved totem face, red dust. Note: prisoners mostly look down/straight, few look up at him; the totem is one huge mask rather than several poles.
+- c7_4 try1 3ff5e12f https://d8j0ntlcm91z4.cloudfront.net/user_2wsCBkgEfsP1iulPRs9KFQvqN1w/hf_20261120_233725_3ff5e12f-ee24-44ad-9056-1c6e70a7c0a2.mp4 — FAIL: other riders also wear blue (Guloyim clones), only ~10 riders in an even row, amulet close-up becomes a large engraved diamond shape. Retry queued.
+- e1_3 c064056a submitted

@@ -1,0 +1,1 @@
+for a in "ch=4&x=0&z=-60&hi=3 h4" "ch=7&x=0&z=-60&hi=3 h7" "ch=2&x=0&z=-100&hi=3 h2" "ch=5&x=0&z=-60&hi=3 h5" "ch=6&x=0&z=-120&hi=3 h6" "ch=3&x=0&z=-75&hi=3 h3"; do set -- $a; NAME=$2 PAGE=pv.html timeout 200 node pvrun.cjs "$1" 844 390 ./pv.js > $2.txt 2>&1; done

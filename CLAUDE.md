@@ -2,6 +2,24 @@
 
 Author: Adham Omirzakov (Nukus Animation). **Always reply in Uzbek.** Karakalpak texts must be real Karakalpak (not Kazakh) and sent to him to check.
 
+## Branches — read first
+- `main` = what is live on test.zagara.app (last tested build, "QA-verified build", Nov 21 ~03:55 Tashkent). Every push to `main` deploys.
+- `wip` = EVERYTHING else, nothing lost (Nov 21 05:05 snapshot):
+  - `public/` — latest working copy incl. untested changes made after the last deploy (mechanics round 4: poise/stun-lock rules, watchdog fix, 3-wave camps, Sárbinaz/Qunqar and Surtaysha/totem balance work in progress, graphics round 2). Test before merging to `main`.
+  - `tools/m2src/` — sources of `public/js/missions.js` (build with `build.sh`; adjust paths).
+  - `tools/test/` — headless test harness (rtp.sh, smoke.sh, bust.py, QA bot in `qa/bot2.js` with the fast timer-driven sim: a whole mission in ~95 s).
+  - `docs/agent_logs/` — every agent's log: wave4 (mechanics), qa_log (bug lists PASS 1/2a/2b with repro), bench_log (benchmark + top-20), urgent5, gfx2, ui2, anim, models, audio, video_all/video_v2, qq_strings.txt (345 Karakalpak strings for the author to check).
+  - `docs/author_script_uz_qq.txt` — author's full script (authoritative). `docs/approved_video_frames/` — stills from the 14 approved clips.
+  - `release/` — Play Market materials (store texts 4 langs, TWA draft, icons, feature graphic, checklist).
+
+## Open work at handoff (priority)
+1. BLOCKERS: 5-4 Qunqar (Sárbinaz) and 7-4 Surtaysha not winnable even at cap; 7-4 totems not destroyable with 3 buttons. (qa_log PASS 2b)
+2. Bosses still stun-locked (Qashqir dies in 35–50 s, 2–3 hits taken); balance table for all bosses/camps at 0% and 100% of cap using the QA sim.
+3. STORY FLOW FIX (author, Nov 21): tutorial must end with the MESSENGER arriving at Qıran tawı (no súren alarm); prologue 0-1/0-2 = messenger's tale, player controls ALLAYAR, who loses to Surtaysha; then chapter 1 with Gúlayım in the burnt city. Never show Gúlayım in the Sarkop battle.
+4. HUD in big fights (bars over HUD, barks over the arrow, distance chip over objective), allies lagging >22 m, one upgrade system, map node crowding, 4-1 camera toward the sea, 6-Q scale/catapult visibility, stale objective texts, army chip "+0 batır" bug.
+5. Videos: only the 14 approved clips are usable; next shot = messenger arrives at Qıran training ground. Follow the video rules below strictly.
+6. Release: blue key art done; Play needs signing key + Console upload by the author; assetlinks.json needs the SHA-256.
+
 ## What this is
 three.js browser/mobile action game based on the Karakalpak epic "Qırq qız". Target: 7–8/10 world-market quality, then Google Play (TWA).
 

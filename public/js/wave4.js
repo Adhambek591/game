@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795212043';
-import { t, lang, L } from './i18n.js?v=1795212043';
-import { Sfx } from './audio.js?v=1795212043';
-import { MLIST } from './missions.js?v=1795212043';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795218616';
+import { t, lang, L } from './i18n.js?v=1795218616';
+import { Sfx } from './audio.js?v=1795218616';
+import { MLIST } from './missions.js?v=1795218616';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -68,6 +68,21 @@ const TX = {
   n_sweep: ['Nayza aylanbası', 'Nayza aylanmasi', 'Круговой удар', 'Spear Sweep'],
   n_javelin: ['Nayza ılaqtırıw', 'Nayza otish', 'Бросок копья', 'Javelin'],
   n_cleave: ['Awır soqqı', 'Og\'ir zarba', 'Тяжёлый удар', 'Heavy Cleave'],
+  w4_power: ['Usınıs etilgen kúsh: {s}', 'Tavsiya etilgan kuch: {s}', 'Рекомендуемая сила: {s}', 'Recommended power: {s}'],
+  w4_pw_ok: ['jetkilikli', 'yetarli', 'достаточно', 'enough'],
+  w4_pw_mid: ['shegarada', 'chegarada', 'на грани', 'borderline'],
+  w4_pw_low: ['kúsheytiń!', 'kuchaytiring!', 'усильтесь!', 'upgrade!'],
+  w4_canup: ['Kúsheytiw múmkin!', 'Kuchaytirish mumkin!', 'Можно усилиться!', 'Upgrade available!'],
+  w4_e_hero: ['Gúlayımǵa zıyan −{n}%', 'Guloyimga zarar −{n}%', 'Урон по Гулаим −{n}%', 'Damage to Gulayim −{n}%'],
+  w4_ms1: ['Gúlayım! Men Sarkoptan shabarmanman… Qıran tawına toqtamay shawıp keldim. Tań sáhárde Surtaysha qırq mıń láshker menen Sarkopqa hújim etti!', 'Guloyim! Men Sarkopdan choparman… Qiron tog\'iga to\'xtamay chopib keldim. Tong saharda Surtaysha qirq ming lashkar bilan Sarkopga hujum qildi!', 'Гулаим! Я гонец из Саркопа… Скакал к горе Кыран без остановки. На рассвете Суртайша с сорокатысячным войском напал на Саркоп!', 'Gulayim! I am a messenger from Sarkop… I rode to Mount Qiran without a halt. At dawn Surtaysha attacked Sarkop with forty thousand warriors!'],
+  w4_ms_gu1: ['Ákem… Allayar bay qay jerde? Sóyle!', 'Otam… Allayar bay qayerda? Gapir!', 'Отец… где Аллаяр-бай? Говори!', 'My father… where is Allayar Bay? Speak!'],
+  w4_ms2: ['Allayar bay altı ulı menen dárwaza aldında turdı. Xalıq qalaǵa kirip alǵansha sheginbedi…', 'Allayar bay olti o\'g\'li bilan darvoza oldida turdi. Xalq shaharga kirib olguncha chekinmadi…', 'Аллаяр-бай с шестью сыновьями встал у ворот. Он не отступил, пока люди не укрылись в городе…', 'Allayar Bay stood at the gate with his six sons. He did not step back until the people were inside…'],
+  w4_ms3: ['Keyin Surtayshanıń ózi shıqtı. Men kórgenimdi aytıp bereyin…', 'Keyin Surtayshaning o\'zi chiqdi. Ko\'rganimni aytib beray…', 'Потом вышел сам Суртайша. Я расскажу, что видел…', 'Then Surtaysha himself came forth. Let me tell you what I saw…'],
+  w4_ms_gu2: ['Qızlar, atlarǵa minińler! Sarkopqa!', 'Qizlar, otlarga mining! Sarkopga!', 'Девушки, по коням! В Саркоп!', 'Maidens, mount up! To Sarkop!'],
+  w4_tale: ['Shabarmannıń gúrrińi', 'Choparning hikoyasi', 'Рассказ гонца', 'The messenger\'s tale'],
+  w4_flash: ['Tań sáhárde Sarkopta…', 'Tong saharda Sarkopda…', 'На рассвете в Саркопе…', 'At dawn in Sarkop…'],
+  w4_play_al: ['Allayar bay bolıp oynaysız', 'Allayar bay bo\'lib o\'ynaysiz', 'Вы играете за Аллаяр-бая', 'You play as Allayar Bay'],
+  w4_sarkop: ['Sarkop batırları hám Allayardıń altı ulı', 'Sarkop botirlari va Allayarning olti o\'g\'li', 'Воины Саркопа и шестеро сыновей Аллаяра', 'The warriors of Sarkop and Allayar\'s six sons'],
   w4_loading: ['Júklenip atır…', 'Yuklanmoqda…', 'Загрузка…', 'Loading…'],
   w4_n_siege: ['Qashal qamalı', 'Qashal qamali', 'Осада Кашала', 'Siege of Qashal'],
   w4o_siege: ['Qorǵandı qamań: diywaldaǵı sadaqshılardı atıń, dárwaza buzılǵan soń eki noqattı iyeleń', 'Qo\'rg\'onni qamal qiling: devordagi kamonchilarni oting, darvoza buzilgach ikki nuqtani egallang', 'Осадите крепость: сбейте лучников со стены, после пролома ворот захватите две точки', 'Besiege the fortress: shoot the archers off the wall, then take two points once the gate is breached'],
@@ -155,6 +170,8 @@ const foeHpK = c => c > 0 ? 1 + .085 * expLv(c) : 1;
 const foeDmK = c => c > 0 ? 1 + .05 * expLv(c) : 1;
 // under-upgrade penalty (balance pass): the enemy is tuned for ~85 % of the chapter cap; every level the sword + armour average is BELOW that makes him hit 22 % harder (max x2.6) and gives him 10 % more HP.
 // ch1 at level 0: dmg x1.56, HP x1.26; ch3 at level 0: dmg x2.3, HP x1.6; at 85-100 % of the cap: no penalty.
+// chapter bosses: [HP x, damage x] on top of the chapter curve — fitted with the QA sim bot so that at the cap the fight lasts ~90–150 s and she ends between 30 and 70 % HP (table in wave4_log)
+const BOSSHP = 3, DEFD = .35, BOSSK = { qashqir: [5, .75], qumdev: [2.8, .45], jallod: [1.9, .45], aydarho: [2, .45], qunqar: [1, .5], qargashiq: [1.9, .38] };   // tuned with the QA sim bot (see wave4_log balance table)
 const defi = c => c > 0 ? Math.max(0, expLv(c) - (lvl('sword') + lvl('armor')) / 2) : 0;
 const COSTB = { sword: 60, bow: 60, armor: 50, shield: 50, arch: 70 };
 const cost = (k, l) => Math.round(COSTB[k] * (1 + .6 * (l >= 13 ? l - 7 : l)) / 5) * 5;   // the last chapter has no boss purse before it: its two levels are priced so that chapter 7 pays ~90 % of them (agents/w4/econ.js)
@@ -198,7 +215,8 @@ function attack() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (
   // contextual: stone gate / totems (slam-only) next to her -> Earth slam; Surtaysha's helmet -> chain (both when unlocked; their own cooldowns)
   const PW = G.powers || {}, sk = G.sk || {}, free0 = !p.act || c.canCancel(p.act);
   const so = PW[6] && (G.breakables || []).find(b => !b.dead && b.only === 'slam' && hyp(b.x - p.x, b.z - p.z) < (b.rad || 1) + 3.2);
-  if (so && free0 && sk[6] && sk[6].cd <= 0) { sk[6].on = true; p.act = null; p.rot = Math.atan2(so.x - p.x, so.z - p.z); doAct(1); return; }
+  const so2 = so || (G.breakables || []).find(b => !b.dead && b.only === 'slam' && hyp(b.x - p.x, b.z - p.z) < (b.rad || 1) + 3.4);
+  if (so2 && free0 && G.time > (attack.brT || 0)) { attack.brT = G.time + .5; p.rot = Math.atan2(so2.x - p.x, so2.z - p.z); doAct('A'); setTimeout(() => { try { if (!so2.dead) { so2.hit('slam'); ringFx(so2.x, so2.z, (so2.rad || 1) + 1.2, 0xffc060); burst(so2.x, 1.2, so2.z, 0xc8a070, 2, true); if (G.feel) G.feel.trauma = Math.max(G.feel.trauma || 0, .35); } } catch (e) { } }, 220); return; }   /* QA 2b: totems / stone gates break under plain ⚔ */
   const hm = PW[7] && G.ents.find(e => isFoe(e) && e.onChain && e.helm > 0 && hyp(e.x - p.x, e.z - p.z) < 14);
   if (hm && free0 && sk[7] && sk[7].cd <= 0) { sk[7].on = true; p.act = null; p.rot = Math.atan2(hm.x - p.x, hm.z - p.z); doAct(2); return; }
   const near = meleeTarget(p);
@@ -217,15 +235,16 @@ function strong() { const p = P(), c = C(); if (!p || p.dead || !c || busy() || 
 // ---- dodge: parry + counter when an enemy is winding up a blockable strike at her, else the engine's dodge (double tap = roll)
 function threat(p) { let best = null, bd = 1e9;
   for (const e of G.ents) { if (!isFoe(e) || e.asleep || e.stagger > 0) continue; const d = hyp(e.x - p.x, e.z - p.z) - (e.r || .5) - (p.r || .5); let ok = false, reach = 0;
-    if (e.km && e.km.ph === 0) { if (e.km.D && e.km.D.ub) continue; ok = (e.km.tg === p || d < 3) && e.km.t >= e.km.wd * .3; reach = 6.5; }
-    else if (e.state === 'windup' && !e.d.ranged) { if (e.d.slam) continue; ok = (e.tg === p || d < (e.d.range || 2) + .8) && e.tm <= e.wd * .7;   // parry window: the last 70 % of the wind-up (pressed earlier = a plain dodge)
+    const big = e.d.heavy || e.w4cap || e === G.boss;   /* bosses / captains: the parry window is the last 35 % of the wind-up only — earlier presses are plain dodges */
+    if (e.km && e.km.ph === 0) { if (e.km.D && e.km.D.ub) continue; ok = (e.km.tg === p || d < 3) && e.km.t >= e.km.wd * (big ? .62 : .3); reach = 6.5; }
+    else if (e.state === 'windup' && !e.d.ranged) { if (e.d.slam) continue; ok = (e.tg === p || d < (e.d.range || 2) + .8) && e.tm <= e.wd * (big ? .35 : .7);   // parry window: the last 70 % of the wind-up (pressed earlier = a plain dodge)
       reach = (e.d.range || 2) + 1.8 + (e.d.lane ? 1.2 : 0); }
     if (!ok || d > reach) continue; if (d < bd) { bd = d; best = e; } }
   return best; }
 // bench #12 boss rules: three parries / dodges timed into the boss's wind-ups stagger him for 2.4 s (an opening); at 6 % HP he reels and the next hit is the finisher
 function bossEvade(p) { const b = G.boss; if (!b || b.dead || b.team !== 'enemy' || b.yield || G.time < (b.w4evT || 0)) return; const wind = b.state === 'windup' || (b.km && b.km.ph === 0); if (!wind || hyp(b.x - p.x, b.z - p.z) - (b.r || 1) > 7) return;
-  b.w4evT = G.time + .9; b.w4ev = (b.w4ev || 0) + 1; if (b.w4ev < 3) { num(b, b.w4ev + '/3', 'c'); return; }
-  b.w4ev = 0; b.w4evT = G.time + 12; setTimeout(() => { try { if (b.dead || G.boss !== b) return; openBoss(b, 6); b.state = 'chase'; b.tm = 0; try { b.clearTele(); } catch (e) { } b.km = null; b.stagger = 2.4; b.play('Hit_A', { once: true, force: true }); num(b, '💫 ' + tt('w4_stag'), 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.6, 0xffd050); G.slow = Math.max(G.slow || 0, .25); G.stats.w4stag = (G.stats.w4stag || 0) + 1; } catch (e) { } }, 420); }
+  b.w4evT = G.time + .9; if (!b.poiseMax || b.brokenT > 0 || G.time < (b.pzImm || 0)) return;   // one system: the engine's poise bar. A dodge timed into his wind-up chips 34 % of it (like a parry); the break is the 2.4 s stagger
+  b.poise -= b.poiseMax * .34; b.poiseAt = G.time; num(b, '💢', 'c'); if (b.poise <= 0) { b.poise = 1; b.w4brk = 1; } }
 // finisher: slow-mo + impact through the animation agent's feel system (G.feel.trauma / G.hitStop — no second shake table) + a 0.9 s camera push-in on the boss
 function finisherFx(b) { G.slow = Math.max(G.slow || 0, .9); flash(.35); try { Sfx.big(); Sfx.hit('heavy', { x: b.x, z: b.z }); Sfx.bark && Sfx.bark('maid', 'kill', { x: b.x, z: b.z }); } catch (e) { } try { if (G.feel) G.feel.trauma = Math.max(G.feel.trauma || 0, .85); else G.shake = Math.max(G.shake || 0, .5); G.hitStop = Math.max(G.hitStop || 0, .1); } catch (e) { }
   try { const prev = G.camFn, t0 = performance.now(), tx = b.x, tz = b.z, ty = (b.h || 2) * .6; G.camFn = (cam, dt) => { if (prev) { try { prev(cam, dt); } catch (e) { } } const u = (performance.now() - t0) / 900; if (u >= 1) { G.camFn = prev || null; return; } const k = Math.sin(Math.min(1, u) * Math.PI) * .32; cam.position.x += (tx - cam.position.x) * k; cam.position.z += (tz - cam.position.z) * k; cam.position.y += (ty + 3 - cam.position.y) * k * .6; cam.lookAt(tx, ty, tz); }; } catch (e) { } }
@@ -233,7 +252,9 @@ function finisherFx(b) { G.slow = Math.max(G.slow || 0, .9); flash(.35); try { S
 // opens his weak spot for 7 s (his own onSlam / onChain / onLeap script runs, so the dragon is still dragged ashore etc.). No fight stays at the 0.35x resist for long.
 function openBoss(b, sec = 7) { if (!b || b.dead || !b.weak) return false; b.w4open = G.time + sec; try { if (b.onChain) b.onChain(); else if (b.onSlam) b.onSlam(); else if (b.onLeap) b.onLeap(); else { b.openT = Math.max(b.openT || 0, sec); flash(.25); ringFx(b.x, b.z, 4, 0xffe080); hintRaw(t('w_open')); } } catch (e) { } G.stats.w4open = (G.stats.w4open || 0) + 1; return true; }
 function weakWrap(b) { if (!b || b.w4wk || typeof b.weak !== 'function') return; b.w4wk = 1; const w0 = b.weak; b.weak = (...a) => (b.w4open > G.time ? Math.max(1.6, w0(...a)) : w0(...a)); }
-function bossTick() { weakWrap(G.boss); const b = G.boss, M = G.mis; if (!b || b.dead || !M || !M.started || /^(0-0|0-2|2-2|7-4)$/.test(M.id) || b.yield || b.invuln || b.team !== 'enemy' || b.maxHp > 1e6) return;
+function bossTick() { weakWrap(G.boss); const b = G.boss, M = G.mis;
+  if (b && !b.dead) { if (b.w4brk && !(b.brokenT > 0)) { b.w4brk = 0; try { b.damage(1, P(), { pz: 1e6, nf: 1, silent: 1 }); } catch (e) { } }   /* finish the poise through the engine (breakPoise) */
+    const br = b.brokenT > 0; if (br && !b.w4brOn) { num(b, '💫 ' + tt('w4_stag'), 'c'); G.stats.w4stag = (G.stats.w4stag || 0) + 1; openBoss(b, 6); } b.w4brOn = br; } if (!b || b.dead || !M || !M.started || /^(0-0|0-2|2-2|7-4)$/.test(M.id) || b.yield || b.invuln || b.team !== 'enemy' || b.maxHp > 1e6) return;
   if (b.w4fin === undefined) { if (b.hp > 0 && b.hp < b.maxHp * .06) { b.w4fin = b.hp; b.w4finT = G.time + 5; b.stagger = 5; try { b.clearTele(); } catch (e) { } b.km = null; b.state = 'chase'; b.play('Hit_A', { once: true, force: true }); hintRaw('⚔ ' + tt('w4_finish')); num(b, '⚔', 'c'); ringFx(b.x, b.z, (b.r || 1) + 1.8, 0xff5030); } }
   else if (b.w4fin > 0) { if (b.hp < b.w4fin - .5) { b.w4fin = -1; finisherFx(b); G.stats.w4fin = (G.stats.w4fin || 0) + 1; b.die(); } else if (G.time > b.w4finT) b.w4fin = -1; } }
 function dodge() { const p = P(), c = C(); if (!p || p.dead || !c) return; if (busy()) return; if (!p.mounted) bossEvade(p);
@@ -265,7 +286,7 @@ function amulet() { const p = P(), c = C(); const why = r => { amulet.why = r + 
   if (p.act && p.act.kind === 'block') p.guard = false; p.act = null;
   const u0 = G.ulti; doAct(k === 6 ? 1 : k === 7 ? 2 : k);
   const used = !!p.act || G.ulti < u0 || k === 8;
-  if (!used) return why('fail:' + k); G.ulti = 0; { const b = G.boss; if (b && !b.dead && b.weak && hyp(b.x - p.x, b.z - p.z) < 32) openBoss(b, 7); } const nm = (HNAME[G.hero] && HNAME[G.hero][k]) ? t(HNAME[G.hero][k]) : t(PNAME[k]); num(p, '🔺 ' + nm, 'c'); try { Sfx.power && Sfx.power(); } catch (e) { } G.stats.amulet = (G.stats.amulet || 0) + 1; G.stats.amuK = k; why('ok:' + k); }
+  if (!used) return why('fail:' + k); G.ulti = 0; try { const hl = Math.round(p.maxHp * .12); if (p.hp < p.maxHp) { p.hp = Math.min(p.maxHp, p.hp + hl); num(p, '+' + hl, 'h'); } } catch (e) { }   /* the amulet also mends her: +12 % HP */ { const b = G.boss; if (b && !b.dead && b.weak && hyp(b.x - p.x, b.z - p.z) < 32) openBoss(b, 7); } const nm = (HNAME[G.hero] && HNAME[G.hero][k]) ? t(HNAME[G.hero][k]) : t(PNAME[k]); num(p, '🔺 ' + nm, 'c'); try { Sfx.power && Sfx.power(); } catch (e) { } G.stats.amulet = (G.stats.amulet || 0) + 1; G.stats.amuK = k; why('ok:' + k); }
 // ---- contextual: wolf leap over a ravine when she walks into its edge (no button)
 function ravineAhead(p) { if (G.ravineAhead) return true; for (const b of G.colB || []) if (b && b.ravine && !b.off && b.z2 < p.z + .5 && b.z2 > p.z - 3.2 && p.x > b.x1 - 1 && p.x < b.x2 + 1) return true; return false; }
 let ravT = 0;
@@ -323,7 +344,10 @@ function hudTick() { const b = $('bP'); if (!b) return; const u = clamp(G.ulti |
 // ================================================================ B) ARMY + ENEMY SCALING
 const NOARMY = /^(0-0|0-1|0-2|3-1|2-1|4-1|.*-S)$/;   // 7-1: no host while riding (mounted check below), it joins for the battle on foot
 const RUN = { m: null, bodies: [], rep: 0, lost: 0, start: 0 };
-function armyStart() { const M = G.mis, p = P(); if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.lost = 0; RUN.rep = 0; try { coinsStart(M); } catch (e) { console.warn('[w4 coins]', e); }
+// the maidens' armour track also protects the heroine: -2.5 % damage taken per level (max -40 %); the hero's HP itself never grew while enemy damage does every chapter
+const heroDefK = () => 1 - Math.min(.4, .025 * lvl('armor'));
+function heroGuard(p) { if (!p || p.w4def) return; p.w4def = 1; const d0 = p.damage.bind(p); p.damage = (amt, src, op) => d0(typeof amt === 'number' && src && src.team === 'enemy' ? amt * heroDefK() : amt, src, op); }
+function armyStart() { const M = G.mis, p = P(); try { heroGuard(p); } catch (e) { } if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.lost = 0; RUN.rep = 0; try { coinsStart(M); } catch (e) { console.warn('[w4 coins]', e); }
   const id = M.id || ''; if (NOARMY.test(id) || p.mounted) { chip(); return; }
   const men = W.men | 0, nb = men > 0 ? Math.min(6, Math.ceil(men / 6)) : 0; RUN.rep = nb ? men / nb : 0;
   const z0 = p.z + 9, x0 = clamp(p.x, -4, 4);
@@ -332,17 +356,18 @@ function armyStart() { const M = G.mis, p = P(); if (!M || !p || RUN.m === M) re
   const na = archN(); for (let i = 0; i < na; i++) { const x = clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), z = z0 + 3.4; const e = spawn('w4arc', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI; e.maxHp = e.hp = Math.round(e.maxHp * armorK()); e.w4a = 1; }
   const foe = foeCount(M); chip(); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + tt('w4_foe', { n: foe })); } catch (e) { } }, 600); }   /* the host itself is shown once, in the left chip */
 function foeCount(M) { const c = M.c || 1; const bodies = G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg).length; const ours = 40 + (W.men | 0); return Math.max(Math.round(ours * (1.15 + .05 * c)), bodies * 3); }
-function chip() { const el = $('w4army'); if (!el) return; const M = G.mis, on = !!(M && M.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on') && !archOn() && !NOARMY.test(M.id || ''));
+function chip() { const el = $('w4army'); if (!el) return; { const M0 = G.mis; if (M0 && /^(0-1|0-2)$/.test(M0.id || '') && M0.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on')) { el.style.display = 'block'; const s0 = '⚔ ' + tt('w4_sarkop'); if (el.textContent !== s0) el.textContent = s0; return; } } const M = G.mis, on = !!(M && M.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on') && !archOn() && !NOARMY.test(M.id || ''));
   el.style.display = on ? 'block' : 'none'; if (!on) return; const alive = Math.max(0, Math.round((W.men | 0) - RUN.lost)); const s = '⚔ ' + tt('w4_army', { q: 40, b: alive }); if (el.textContent !== s) el.textContent = s; }
 // per-entity adjustments, once: enemy power curve per chapter, maidens' armour, captains' poise
 function entTick() { const M = G.mis; if (!M) return; const c = M.c || 0, tut = M.id === '0-0';
   for (const e of G.ents) { if (e.w4s || e.dead) continue; e.w4s = 1;
-    if (e.team === 'enemy' && !tut && c > 0 && !e.prop && e.maxHp < 1e6) { const df = defi(c), hk = foeHpK(c) * (1 + .10 * df); e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.round(e.hp * hk); e.dmgMul = (e.dmgMul || 1) * foeDmK(c) * Math.min(2.6, 1 + .22 * df); }
+    if (e.team === 'enemy' && !tut && c > 0 && !e.prop && e.maxHp < 1e6) { const df = defi(c), hk = foeHpK(c) * (1 + .07 * df); e.maxHp = Math.round(e.maxHp * hk); e.hp = Math.round(e.hp * hk); e.dmgMul = (e.dmgMul || 1) * foeDmK(c) * Math.min(2.2, 1 + DEFD * df); }
     else if (e.team === 'ally' && e !== P() && (e.type === 'qiz') && !tut) { e.maxHp = Math.round(e.maxHp * armorK()); e.hp = Math.round(e.hp * armorK()); } }
-  { const b = G.boss; if (b && !b.dead && !b.w4b && c > 0 && b.team === 'enemy' && b.d && b.d.heavy && !/^(0-2|2-2|7-4)$/.test(M.id || '')) { b.w4b = 1; b.d = { ...b.d, cd: (b.d.cd || 2) * .7, windup: (b.d.windup || 1) * .9 }; b.dmgMul = (b.dmgMul || 1) * 1.3; if (!b.weak && !b.weakHint) { b.maxHp = Math.round(b.maxHp * 1.6); b.hp = Math.round(b.hp * 1.6); } }
+  { const b = G.boss; if (b && !b.dead && !b.w4b && c > 0 && b.team === 'enemy' && b.d && b.d.heavy && !/^(0-2|2-2|7-4)$/.test(M.id || '') && G.time > (b.w4see || (b.w4see = G.time + .6))) { b.w4b = 1;   /* 0.6 s after he appears: the mission's own onBoss() has set his HP by then */ b.d = { ...b.d, cd: (b.d.cd || 2) * .7, windup: (b.d.windup || 1) * .9 }; { const K = BOSSK[b.type] || [(!b.weak && !b.weakHint) ? BOSSHP : 1.6, .8], fr = b.hp / b.maxHp; b.maxHp = Math.round(b.maxHp * K[0]); b.hp = Math.round(b.maxHp * fr); b.dmgMul = (b.dmgMul || 1) * K[1]; } }
+    if (b && !b.dead && !b.w4d && M.id === '7-4' && b.team === 'enemy') { b.w4d = 1; b.dmgMul = (b.dmgMul || 1) * .7; }   /* Surtaysha: scripted phases untouched, only his damage (1 death / 6 % HP left at the cap) */
     // QA pass 2: champions (duel) and captains are not stun-locked by ⚔ spam — elite hyper-armour (flinch only with broken poise), a poise bar, more HP (25–40 s fights)
-    const caps = (M.hunt || []).slice(); if (b && !b.dead && b.team === 'enemy' && b.d && !b.d.heavy && !/^(0-0|2-2)$/.test(M.id || '')) caps.push(b);
-    for (const h of caps) if (h && !h.dead && !h.w4cap && h.team === 'enemy' && !tut) { h.w4cap = 1; const k = h === b ? 2.6 : 1.5; h.maxHp = Math.round(h.maxHp * k); h.hp = Math.round(h.hp * k); h.d = { ...h.d, elite: true }; const pm = Math.max(h.poiseMax || 0, clamp(h.maxHp * .22, 160, 900)); h.poiseMax = pm; h.poise = pm; h.dmgMul = (h.dmgMul || 1) * 1.15; }
+    const caps = (M.hunt || []).slice(); if (b && !b.dead && b.team === 'enemy' && b.d && !b.d.heavy && !/^(0-0)$/.test(M.id || '')) caps.push(b);   /* 2-2 Bayimbet (non-lethal duel) included: he fell in 6 s */
+    for (const h of caps) if (h && !h.dead && !h.w4cap && h.team === 'enemy' && !tut) { h.w4cap = 1; const k = h === b ? 5.5 : 2.2; h.maxHp = Math.round(h.maxHp * k); h.hp = Math.round(h.hp * k); h.d = { ...h.d, elite: true }; const pm = Math.max(h.poiseMax || 0, clamp(h.maxHp * .22, 160, 900)); h.poiseMax = pm; h.poise = pm; h.dmgMul = (h.dmgMul || 1) * 1.15; }
     for (const e of G.ents) if (!e.w4h && e.rig && e.rig.proc === 'wolf') { e.w4h = 1; e.h = 1.5 * (e.d.vsK || 1); } }   /* quadruped wolf: HP bar height */
   for (const h of M.hunt || []) if (!h.w4p && !h.dead) { h.w4p = 1; const pm = (h.poiseMax || 80) * (1 + .2 * c); h.poiseMax = pm; h.poise = pm; }
   for (const e of RUN.bodies) if (e.dead && !e.w4dead) { e.w4dead = 1; RUN.lost += RUN.rep; } }
@@ -421,7 +446,7 @@ function upBuild() { if (upEl) return upEl; const st = document.createElement('s
   const st2 = document.createElement('style'); st2.id = 'w4panecss'; st2.textContent = '.w4pane{color:#f3e6c8;font:600 13px/1.25 var(--fu,system-ui),sans-serif;display:flex;flex-direction:column;align-items:center;padding:4px 2px}' + UPCSS.split('\n').slice(1).join('\n').replace(/#w4up\.on\{display:flex\}/, '').replace(/#w4up /g, '.w4pane '); document.head.appendChild(st2);
   document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('.w4pane [data-k]'); if (b) { e.stopPropagation(); buy(b.dataset.k); } }, true);
   upEl.querySelector('.bk').onclick = () => upClose(); upEl.addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) buy(b.dataset.k); }); return upEl; }
-function effTxt(k) { const l = lvl(k); if (k === 'sword') return tt('w4_e_sword', { n: Math.round(10 * l) }); if (k === 'bow') return tt('w4_e_bow', { a: arrowsN(), n: Math.round(12 * l) }); if (k === 'armor') return tt('w4_e_armor', { n: 12 * l }); if (k === 'shield') return tt('w4_e_shield', { n: 12 * l, b: 25 + 3 * l }); return tt('w4_e_arch', { n: archN() }); }
+function effTxt(k) { const l = lvl(k); if (k === 'sword') return tt('w4_e_sword', { n: Math.round(10 * l) }); if (k === 'bow') return tt('w4_e_bow', { a: arrowsN(), n: Math.round(12 * l) }); if (k === 'armor') return tt('w4_e_armor', { n: 12 * l }) + ' · ' + tt('w4_e_hero', { n: Math.round((1 - heroDefK()) * 100) }); if (k === 'shield') return tt('w4_e_shield', { n: 12 * l, b: 25 + 3 * l }); return tt('w4_e_arch', { n: archN() }); }
 function upRender() { const el = upBuild(), cp = cap(), cc = capCh(); el.querySelector('h2').textContent = tt('w4_upT'); el.querySelector('.bk').textContent = tt('w4_close'); el.querySelector('.gd').textContent = '🪙 ' + SAVE.gold;
   el.querySelector('.army').textContent = '⚔ ' + tt('w4_army', { q: 40, b: W.men | 0 });
   el.querySelector('.info').innerHTML = '<b>' + tt('w4_cap', { ch: t('ch' + cc), c: cp }) + '</b> · ' + (cc < 7 ? tt('w4_capN') : '');
@@ -435,7 +460,7 @@ const campRef = () => { try { if (window.__META && __META.refresh) __META.refres
 function upOpen() { if (window.__META && __META.openCamp) { try { upBuild(); __META.openCamp('army'); return; } catch (e) { } } upRender(); upEl.classList.add('on'); }
 function upClose() { if (upEl) upEl.classList.remove('on'); }
 // entry points: end screen, map header, the old shop button
-function endBtn() { const box = document.querySelector('#end .in'); if (!box) return; let b = $('w4upb'); if (!b) { b = document.createElement('button'); b.id = 'w4upb'; b.className = 'btn alt'; b.onclick = () => upOpen(); const ref = $('ereplay'); if (ref) ref.before(b); else box.appendChild(b); } b.textContent = tt('w4_up'); const sh = $('eshop'); if (sh) sh.style.display = 'none'; }
+function endBtn() { const box = document.querySelector('#end .in'); if (!box) return; let b = $('w4upb'); if (!b) { b = document.createElement('button'); b.id = 'w4upb'; b.className = 'btn alt'; b.onclick = () => upOpen(); const ref = $('ereplay'); if (ref) ref.before(b); else box.appendChild(b); } let can = false; try { const cp = cap(); can = TRK.some(([k]) => (W.up[k] | 0) < (k === 'arch' ? Math.min(5, cp) : cp) && SAVE.gold >= cost(k, W.up[k] | 0)); } catch (e) { } const tx3 = can ? '⚒ ' + tt('w4_canup') : tt('w4_up'); if (b.textContent !== tx3) b.textContent = tx3; b.classList.toggle('w4hot', can); const sh = $('eshop'); if (sh) sh.style.display = 'none'; }   /* upgrade prompt after every mission */
 function mapBtn() { const hd = document.querySelector('#map .mh'); if (!hd || $('w4mapb')) return; const b = document.createElement('button'); b.id = 'w4mapb'; b.className = 'bk'; b.style.cssText = 'margin-left:6px'; b.textContent = '⚒'; b.title = tt('w4_upT'); b.onclick = e => { e.stopPropagation(); upOpen(); }; const tot = hd.querySelector('.tot'); if (tot) tot.before(b); else hd.appendChild(b); }
 
 // ================================================================ D) CAMPS ON THE WORLD MAP
@@ -453,7 +478,9 @@ function campMarks() { const ma = document.querySelector('#map .ma'); if (!ma) r
       el.className = 'w4camp' + (dn ? ' done' : '') + (lk ? ' lk' : ''); el.style.left = x + '%'; el.style.top = y + '%'; el.innerHTML = `<div class="ci">${dn ? '✓' : CIC[m.camp.k] || '⛺'}</div>${m === nextCamp ? `<small>${tt('w4_soldiers', { n: m.camp.n })}</small>` : ''}`;
       el.title = t(m.n); el.onclick = ev => { ev.stopPropagation(); const nd = ma.querySelector(`.nd[data-n="${c}"]`); if (nd) nd.click(); }; ma.appendChild(el); }); } }
 // chapter card on the map: our host line above the mission list
-function cardArmy() { const ml = document.querySelector('#map .card .ml'); if (!ml) return; let el = $('w4cardarmy'); if (!el) { el = document.createElement('div'); el.id = 'w4cardarmy'; el.style.cssText = 'margin:2px 0 4px;color:#ffe08a;font:700 12px/1.3 system-ui,sans-serif'; ml.before(el); } const s = '⚔ ' + tt('w4_army', { q: 40, b: W.men | 0 }); if (el.textContent !== s) el.textContent = s; }
+function cardArmy() { const ml = document.querySelector('#map .card .ml'); if (!ml) return; let el = $('w4cardarmy'); if (!el) { el = document.createElement('div'); el.id = 'w4cardarmy'; el.style.cssText = 'margin:2px 0 4px;color:#ffe08a;font:700 12px/1.3 system-ui,sans-serif'; ml.before(el); } const s = '⚔ ' + tt('w4_army', { q: 40, b: W.men | 0 }); if (el.firstChild && el.firstChild.textContent !== s || !el.firstChild) { el.textContent = s; }
+  // recommended power for the current chapter: green >= 80 % of the expected level (85 % of the cap), yellow >= 45 %, red below
+  let pw = $('w4power'); if (!pw) { pw = document.createElement('div'); pw.id = 'w4power'; pw.style.cssText = 'margin:0 0 4px;font:700 12px/1.3 system-ui,sans-serif'; ml.before(pw); } const cc = Math.max(1, (MLIST.find(q => !(q.id in stars())) || { c: capCh() }).c || 1), r = ((lvl('sword') + lvl('armor')) / 2) / expLv(cc), st = r >= .8 ? 'ok' : r >= .45 ? 'mid' : 'low', col = { ok: '#7fe08a', mid: '#ffd24a', low: '#ff6a55' }[st], tx2 = '● ' + tt('w4_power', { s: tt('w4_pw_' + st) }); if (pw.textContent !== tx2) { pw.textContent = tx2; pw.style.color = col; pw.className = 'w4pw-' + st; } }
 let mapObs = null;
 function mapHook() { const m = $('map'); if (!m || mapObs) return; mapObs = new MutationObserver(() => { if (m.classList.contains('on')) { try { campMarks(); mapBtn(); } catch (e) { console.warn(e); } } }); mapObs.observe(m, { attributes: true, attributeFilter: ['class'] }); if (m.classList.contains('on')) { campMarks(); mapBtn(); } }
 
@@ -472,11 +499,11 @@ function loop() { requestAnimationFrame(loop); try { hookMeta(); mapHook();
 const PERF = /[?&]perf=1/.test(location.search); let capT = 0, perfEl = null, capN = 0;
 function bodyCap() { const now = performance.now(); if (now < capT) return; capT = now + 400; const p = P(); if (!p) return; const low = SET && SET.q === 0, L = [];
   for (const e of G.ents) { if (e === p || e.gone || !e.o) continue; if (e.w4hid) { e.w4hid = 0; e.o.visible = true; } if (!e.o.visible) continue; const keep = e === G.boss || e.duel || e.hunt || e.lead || e.vict || e.w4cat; L.push([keep ? -1 : hyp(e.x - p.x, e.z - p.z) + (e.dead ? 40 : e.team === 'enemy' ? 0 : 10), e]   /* corpses go first, then far allies; a living enemy is hidden last */); }
-  capN = L.length; if (low && L.length > 25) { L.sort((a, b) => a[0] - b[0]); for (let i = 25; i < L.length; i++) { const e = L[i][1]; e.w4hid = 1; e.o.visible = false; } capN = 25; }
+  capN = L.length; if (low && L.length > 25) { L.sort((a, b) => a[0] - b[0]); let n = 25; for (let i = 25; i < L.length; i++) { const e = L[i][1]; if (!e.dead && (e.team === 'enemy' || L[i][0] < 14)) { n++; continue; } e.w4hid = 1; e.o.visible = false; } capN = n; }   /* QA 2b: a living enemy and anybody within 14 m is never hidden — only far corpses and distant allies */
   if (PERF) { if (!perfEl) { perfEl = document.createElement('div'); perfEl.id = 'w4perf'; perfEl.style.cssText = 'position:fixed;left:50%;bottom:2px;transform:translateX(-50%);z-index:99;pointer-events:none;font:700 11px/1.2 monospace;color:#9f9;background:rgba(0,0,0,.55);padding:2px 6px;border-radius:4px'; document.body.appendChild(perfEl); }
     const ri = renderer.info.render; perfEl.textContent = (G.fps || 0).toFixed(0) + ' fps · ' + (capN + 1) + '/' + (G.ents.length) + ' bodies · ' + ri.calls + ' calls · ' + Math.round(ri.triangles / 1000) + 'k tris · q' + SET.q; } }
 // bench #3: with no ad provider every "Reklama" reward button is hidden (engine ADS.rewarded() returns false then)
 const adsOn = () => !!((window.ysdk && window.ysdk.adv) || (window.QQ_ADS && window.QQ_ADS.rewarded));
-{ const st = document.createElement('style'); st.id = 'w4noadscss'; st.textContent = 'body.w4noads #drevive,body.w4noads #eadx2,body.w4noads #shad{display:none!important}#btns #bA.dn,#btns #bD.dn,#btns #bP.dn{transform:scale(.92);filter:brightness(1.25)}@media (pointer:coarse){#btns .ab .k,#btns .ab kbd{display:none!important}}'; document.head.appendChild(st); setInterval(() => { try { document.body.classList.toggle('w4noads', !adsOn()); } catch (e) { } }, 1000); document.body.classList.toggle('w4noads', !adsOn()); }
+{ const st = document.createElement('style'); st.id = 'w4noadscss'; st.textContent = 'body.w4noads #drevive,body.w4noads #eadx2,body.w4noads #shad{display:none!important}#btns #bA.dn,#btns #bD.dn,#btns #bP.dn{transform:scale(.92);filter:brightness(1.25)}@media (pointer:coarse){#btns .ab .k,#btns .ab kbd{display:none!important}}#w4upb.w4hot{animation:w4hot 1.1s ease-in-out infinite;box-shadow:0 0 0 2px #ffd24a,0 0 14px rgba(255,200,60,.8)}@keyframes w4hot{50%{filter:brightness(1.35)}}'; document.head.appendChild(st); setInterval(() => { try { document.body.classList.toggle('w4noads', !adsOn()); } catch (e) { } }, 1000); document.body.classList.toggle('w4noads', !adsOn()); }
 hudInit(); loop();
 window.__W4 = { why: () => amulet.why, W, save, cap, capCh, capOf, lvl, cost, attack, dodge, amulet, strong, threat, rangedTargets, pickPower, catapult, catProp, lob, cavalry, paneHTML, upOpen, upClose, foeHpK, foeDmK, defi, arrowsN, RUN, campMarks, TX };

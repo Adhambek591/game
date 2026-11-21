@@ -1,0 +1,6 @@
+module.exports = async (p, shot) => {
+  const L = require('./lib.js')(p); await p.waitForFunction(() => window.__G, null, { timeout: 90000 });
+  const skip = async () => { await p.evaluate(()=>{const b=document.querySelector('#lore.on button'); if(b) b.click(); if(document.getElementById('cut').classList.contains('on')) document.getElementById('cskip').click();}); await L.dlg(300); };
+  for (let k=0;k<30;k++){ await p.waitForTimeout(1000); await skip(); const s = await p.evaluate(()=>JSON.stringify({t:+__G.time.toFixed(1), fps:__G.fps|0, pl:!!__G.player, pa:__G.paused})); console.log(k, s); if (await p.evaluate(()=>!!(__G.player && !__G.paused && !document.getElementById('dlg').classList.contains('on')))) break; }
+  for (let k=0;k<5;k++){ await p.waitForTimeout(1000); console.log(await p.evaluate(()=>new Promise(r=>{let n=0;const t0=performance.now();const f=()=>{n++; if(performance.now()-t0<500) requestAnimationFrame(f); else r(JSON.stringify({t:+__G.time.toFixed(1), fps:__G.fps|0, raf:n, pa:__G.paused, fr:__G.freeze, dlg:document.getElementById('dlg').classList.contains('on'), ev:document.querySelector('.on')&&document.querySelector('.on').id}));}; requestAnimationFrame(f);}))); }
+};

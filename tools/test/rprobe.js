@@ -1,0 +1,2 @@
+module.exports = async (p) => { await p.waitForFunction(() => window.__G && window.__MS && __G.mis && __G.player, null, { timeout: 300000 });
+  for (let i = 0; i < 40; i++) { console.log('[p]', await p.evaluate(() => JSON.stringify({ t: __G.time | 0, fly: !!__G.flying, pa: !!__G.paused, fr: !!__G.freeze, P: [__G.player.x | 0, __G.player.z | 0], res: (__G.mis.res || []).map(g => [g.on ? 1 : 0, g.freed ? 1 : 0, g.guards.length, g.ps.filter(c => c.dead).length]) }))); await p.waitForTimeout(1500); } };

@@ -1,0 +1,367 @@
+# wave4.js (TX, qq column) — these override i18n keys of the same name
+w4_army: Safımız: {q} qız + {b} batır
+w4_foe: Dushpan: ~{n}
+w4_join: +{n} batır safımızǵa qosıldı!
+w4_lost: Urısta qurban bolǵan batırlar: {n}
+w4_bat: Batır
+w4_arc: Mergen qız
+w4_manj: Manjanıq arba
+w4_up: ⚒ Safımız hám qural
+w4_upT: Safımız hám qural
+w4_sword: Gúlayımnıń qılıshı
+w4_bow: Gúlayımnıń sadaǵı
+w4_armor: Qızlardıń sawıtı
+w4_shield: Batırlardıń qalqanı
+w4_archers: Mergen qızlar
+w4_e_sword: Qılısh soqqısı +{n}%
+w4_e_bow: Bir atıwda {a} oq, kúshi +{n}%
+w4_e_armor: Qızlardıń janı +{n}%
+w4_e_shield: Batırlardıń janı +{n}%, qalqan +{b}%
+w4_e_arch: Urısqa {n} mergen qız shıǵadı
+w4_lv: Dáreje {l}/{c}
+w4_cap: {ch}: kúsheytiw shegi — {c}-dáreje
+w4_capN: Keyingi shek bul baptıń sońǵı urısında jeńiske erisgende ashıladı
+w4_buy: Kúsheytiw
+w4_capped: SHEK
+w4_nogold: Altın jetpeydi
+w4_capUp: Jeńis! Kúsheytiw shegi endi {c}-dáreje
+w4_close: ◂ Artqa
+w4_amuR: Tumar ele tolmadı
+f3o_7_1: Dushpan lagerine shawıp jetiń hám onı talqanlań
+w4_dismount: Atlardan túsiń — lagerge hújim!
+w4_hold_o: Diywaldı uslap turıń — xalıq qalaǵa kirip alsın!
+w4_hold_hud: Qalaǵa kirgen xalıq: {n}/{m}
+w4_hold_lost: Dushpan ótip ketti — bir adam qutıla almadı!
+w4_hold_win: Xalıq qalaǵa kirdi. Sarkop dárwazası jabıldı!
+w4_well: Qudıq qasındaǵı qorǵanıs
+w4_well2: Dushpan eki tárepten kiyatır — kárwandı qorǵań!
+w4_well_w: Eki tárepten hújim! {n}/{m}
+w4_stag: Esenkiredi!
+w4_finish: Sońǵı soqqı — ⚔ basıń!
+w4_coin: Áyyemgi teńge {n}/{m}
+w4_coins: Áyyemgi teńgeler: {n}/{m}
+w4_chest: Keyingi juldız sandıǵına: ★ {n}
+w_qd: Qum sawıtı qılısh soqqısın jutadı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sawıtı jarıladı!
+w_ja: Jalladtıń shınjırları ápiwayı soqqını qaytaradı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — ol esenkireydi!
+w_ay: Aydarha suw ishinde jeńilmeydi. Tumar tolǵanda 🔺 basıń — Shınjır onı jaǵaǵa tartıp shıǵaradı!
+w_qu: Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sonda hújim etiń!
+w_qg: Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń!
+o_helm: Altın dubılǵanı shınjır menen julıp alıń — Surtaysha qasında ⚔ basıń
+o_totem: Qanlı totemlerdi buzıń — totem qasında ⚔ basıń
+v3h_phal: Nayzagerlerdi aldınan buzıp bolmaydı — qaptalınan urıń yamasa ⚔ basıp turıp aylanıp soǵıń
+n_bash: Qalqan soqqısı
+n_cry: Uran
+n_thrust: Nayza soqqısı
+n_sweep: Nayza aylanbası
+n_javelin: Nayza ılaqtırıw
+n_cleave: Awır soqqı
+w4_power: Usınıs etilgen kúsh: {s}
+w4_pw_ok: jetkilikli
+w4_pw_mid: shegarada
+w4_pw_low: kúsheytiń!
+w4_canup: Kúsheytiw múmkin!
+w4_e_hero: Gúlayımǵa zıyan −{n}%
+w4_ms1: Gúlayım! Men Sarkoptan shabarmanman… Qıran tawına toqtamay shawıp keldim. Tań sáhárde Surtaysha qırq mıń láshker menen Sarkopqa hújim etti!
+w4_ms_gu1: Ákem… Allayar bay qay jerde? Sóyle!
+w4_ms2: Allayar bay altı ulı menen dárwaza aldında turdı. Xalıq qalaǵa kirip alǵansha sheginbedi…
+w4_ms3: Keyin Surtayshanıń ózi shıqtı. Men kórgenimdi aytıp bereyin…
+w4_ms_gu2: Qızlar, atlarǵa minińler! Sarkopqa!
+w4_tale: Shabarmannıń gúrrińi
+w4_flash: Tań sáhárde Sarkopta…
+w4_play_al: Allayar bay bolıp oynaysız
+w4_sarkop: Sarkop batırları hám Allayardıń altı ulı
+w4_loading: Júklenip atır…
+w4_n_siege: Qashal qamalı
+w4o_siege: Qorǵandı qamań: diywaldaǵı sadaqshılardı atıń, dárwaza buzılǵan soń eki noqattı iyeleń
+w4_wave: Tolqın {n}/{m}
+w4_sg_left: Dushpan: {n}
+w4_sg_hud1: Diywaldaǵı sadaqshılar: {n}
+w4_sg_cat: Manjanıqlarımız diywaldı urıp atır! Qorǵannan shıqqan dushpandı jeńiń
+w4_sg_arch: Diywaldaǵı sadaqshılardı ⚔ penen atıń — alıstan Gúlayım sadaqtan atadı
+w4_sg_gate: Manjanıqlar dárwazanı urıp atır!
+w4_sg_breach: Dárwaza buzıldı! Alǵa!
+w4_sg_pts: Noqatlardı iyeleń — júzbasılardı jeńiń ({n}/{m})
+w4_sg_pt: Noqat iyelendi: {n}/{m}
+w4_qbek: Qorǵan begi
+w4_qbek_t: Qashal qorǵanınıń basshısı
+w4_sg_win: Qashal qorǵanı alındı!
+w4_n_yurt: Dushpan lageri
+w4_n_tower: Qarawıl minarası
+w4_n_ford: Dárya ótkeli
+w4o_camp: Lagerdiń áskerlerin hám olardıń júzbasısın jeńiń
+w4_hud_camp: Dushpan: {n}/{m}
+w4_camp_win: Lager tazalandı!
+w4_camp_out: Shatırlardan jańa áskerler shıqtı!
+w4_camps_first: Áwele joldaǵı lagerlerdi tazalań
+w4_soldiers: {n} ásker
+w4_cav: Atlı áskerler
+tu4_atk: ⚔ HÚJIM túymesin basıń — bir siltew qasıńdaǵı bir neshe quwırshaqqa tiyedi (3 soqqı)
+tu4_spin: Qalqanlı quwırshaq: ⚔ túymesin BASIP TURIŃ — aylanıp kúshli soqqı beresiz
+tu4_dodge: Jerdegi qızıl sheńberden qashıń: ➤ túymesin basıń (2 ret)
+tu4_parry: {n} qılısh kótergende ➤ túymesin basıń — soqqını qaytarıp, óziń soǵasań (2 ret)
+tu4_bow: Nıshanalar alısta — ⚔ túymesin basıń: sadaqtan bir neshe oq atıladı
+tu4_amu: Tumar tolıp jarqıradı — 🔺 TUMAR túymesin basıń!
+tu4_p_amu: Kórdiń be? Tumar ózi kerekli kúshti tańlaydı!
+tu4_p_bow: Alıstaǵı nıshanaǵa da tiydi!
+tu4_p_dodge: Sheńberden shıqtıń — tas tiymedi!
+tu4_p_parry: Qaytarıp, ózi soqtı! Barekelle!
+tu4_demo_parry: Qara: qılısh kóterilgende ➤ — men qaytarıp, ózim soǵaman
+h_attack: ⚔ HÚJIM: jaqındaǵı dushpanǵa — qılısh, alıstaǵıǵa — sadaq; BASIP TURSAŃIZ — aylanıp soǵasız
+h_dodge: Qızıl sheńberden shıǵıń! ➤ — shetke sekiriw; dushpan qılısh kótergende ➤ — soqqını qaytarıw
+h_skill: Tumar tolǵanda 🔺 basıń — ol jaǵdayǵa qaray kerekli kúshti ózi tańlaydı
+h_skill5: Qasqır shaqqanlıǵı endi tumarda: kúshli dushpan qasıńda bolsa 🔺 basıń
+h_ulti: Tumar tolıp jarqıradı! 🔺 basıń — «Qırq qız» shaqırıǵı
+o_gap: Jardıń shetine barıp alǵa júriń — qasqır bolıp sekirip ótesiz
+h_leap: Qazıqlı tosıqlardı aylanıp ótiń — dushpandı ⚔ penen jeńiń
+h_shield: Qanlı jamǵır! Tumar tolǵan bolsa 🔺 — Suw qalqanı saqlaydı; bolmasa ➤ menen qashıń
+h_gate: Dárwazanıń qasında ⚔ basıń — Gúlayım Jer soqqısın ózi qollanadı
+h_helm: Dubılǵaǵa qılısh ótpeydi. Surtaysha qasıńda ⚔ basıń — Shınjır ózi atıladı; úsh ret tiygizip, dubılǵasın julıp alıń
+h_totem: Totemler Surtayshaǵa kúsh hám dawa berip atır — totemniń qasında ⚔ basıń: Jer soqqısı olardı qıyratadı
+pw6d: Jerge urıp átiraptaǵılardı esenkiretedi (tumar; tas dárwaza hám totem qasında ⚔)
+pw7d: Dushpandı tartıp aladı (tumar; Surtayshanıń dubılǵasına ⚔)
+pw8d: Qanlı sıyqır hám oqlardan saqlaydı (tumar 🔺)
+pw9d: Qısqa waqıt dáwge aylanıw (tumar 🔺)
+pw0d: Arwaq-attı jiberiw (tumar 🔺)
+tu4_ctl: ⚔ hújim · ➤ qashıw / qaytarıw · 🔺 tumar
+
+# i18n.js qq — fix3 / tutorial / v3 keys (lines 230-456)
+tu3_o: Gúlayımnan batırlıq ónerin úyreniń
+tu2_watch: Qara — áwele men kórsetemen
+tu2_you: Endi sen!
+tu2_p: Barekelle!
+tu2_easy: Jaqsı! Keyin úyrenip alasań.
+tu2_move: Joystikti jılıstırıń — altın sheńberge barıń
+tu2_combo: ⚔ túymesin 3 ret tez basıń — quwırshaqqa 3 soqqı
+tu2_heavy: Qalqanlı quwırshaq: KÚSHLI soqqı túymesin basıń
+tu2_heavyH: Qalqanlı quwırshaq: ⚔ túymesin BASIP TURIŃ — kúshli soqqı
+tu2_dodge: {n} qılısh kóterse — ➤ túymesin basıń (2 ret)
+tu2_block: Qalqan túymesin BASIP TURIŃ — soqqını toqtatıń (2 ret)
+tu2_parry: Endi qılısh túskende qalqan túymesin basıń — soqqını qaytarıń!
+tu2_lock: Nıshan túymesin basıń — {n} nıshanǵa alınadı
+tu2_bow: Sadaq penen nıshanalarǵa atıń
+tu3_d1: Qayırlı tań, Aysulıw! Búgin saǵan batırdıń tiykarǵı ónerlerin úyretemen.
+tu3_d2: Tayarman, Gúlayım ájapa!
+tu3_d3: Men kórsetemen — sen qaytalaysań. Qáne, basladıq!
+tu3_spar: Al endi men menen, Aysulıw. Qorıqpa — aqırın uraman.
+tu3_ok: Tayarman!
+tu3_duel1: Sońǵı sınaw: Sárbinaz benen jekpe-jek. Úyrengenlerińniń hámmesin isle!
+tu3_win: Barekelle, Aysulıw! Endi sen haqıyqıy qırq qızdıń birisiń.
+tu3_horn: Esitip tursızlar ma… súren! Kópir tárepten!
+tu3_next: Endi Gúlayım bolıp oynaysız
+f3_h_ride: Atlınıń qasına barıń — ol tutqındı taslap qashadı. Altın saqıynalar arasınan ótiń.
+f3_h_ride7: Altın saqıynalar arasınan shawıp ótiń hám waqıtında jetiń
+f3_caught: Jetip aldıńız! Tutqın azat.
+f3_esc: Bir atlı tutqını menen qashıp ketti…
+f3_late: Keshiktińiz — biraq jol dawam etedi!
+f3_s_time: Waqıtında jetip keldińiz
+f3_s_rings: Barlıq saqıynalar arasınan óttińiz
+f3_ride_end: Jetip keldik!
+f3_cv_go: Kárwan jolǵa shıqtı. Onıń qasında júriń.
+f3_cv_m: Qudıqqa shekem {n} m
+f3_amb_l: Shep tárepten hújim!
+f3_amb_r: Oń tárepten hújim!
+f3_amb_b: Arttan hújim!
+f3_amb_f: Aldıda jol tosıldı!
+f3_cv_stop: Kárwan toqtadı — hújimshilerdi jeńiń!
+f3_cv_on: Jol ashıq — kárwan dawam etedi
+f3_33b: Qayıqlar jaǵaǵa kelip atır — kópirdi qorǵań!
+ar_n_3: Dáryanıń arǵı betindegi lager
+ar_o_3: Lagerdiń 6 saqshısın sadaq penen, dabıl kótertpey joq etiń
+ar_n_5: Darbent diywalı
+ar_o_5: Dárwazaǵa jasırın baratırǵan qızlardı qorǵań — olardı kórgen hár bir saqshını atıń
+ar_n_6: Qashal dárwazası aldında
+ar_o_6: Shıǵıs diywaldıń saqshıların joq etiń, belgi otın jaqtırmań, keyin arqanlardı úzip dárwazanı túsiriń
+ar_s_noal: Dabıl kóterilmedi
+ar_s_cap: Lagerdiń júzbası da jıǵıldı
+ar_s_west: Batıs diywal da tazalandı, belgi otı janbadı
+ar_alarm: DABÍL! Súren shalındı!
+ar_rush: Olar sizge qaray juwırıp kiyatır — toqtatıń!
+ar_head: Basqa tiydi!
+ar_kill: Jıǵıldı!
+ar_miss: Tiymedi — olar estidi
+ar_noarrow: Oqlar tawsıldı
+ar_skip: Ótkiziw ushın basıń
+ar_cam: Oq kamerası
+ar_found: Jasırınǵan jerińizdi tawıp aldı!
+ar_cap: Júzbası
+ar_capt: Lagerdiń júzbası shıqtı — qosımsha nıshan
+ar_capt2: Júzbası ele tiri — úshinshi juldız ushın onı atıń
+ar_t1: Átirapqa qaraw ushın barmaǵıńızdı súyreń
+ar_t2: 🏹 túymesin basıp turıń — sadaq tartıladı, jiberseńiz — atıladı
+ar_t3: Oq tómenleydi: aralıq belgisin (50–150 m) nıshanǵa tuwrılań
+ar_t4: Júrip baratırǵan saqshınıń aldına qaratıń, samaldı da esapqa alıń
+ar_t5: 🫁 túymesin basıp turıń — demińizdi tutasız, nıshan tınıshlanadı
+ar_beacon: Belgi otın jaǵıwshı otqa qaray juwırıp baratır!
+ar_lit: Belgi otı janıp ketti — Qashal xabar taptı!
+ar_ropes: Endi dárwaza kópirin uslap turǵan eki arqandı úziń
+ar_rope: Arqan úzildi!
+ar_gate: Dárwaza tústi — qızlar, alǵa!
+ar_go: Alǵa!
+ar_mgo: Qızlar panada — jol ashıq bolǵanda «Alǵa!» túymesin basıń
+ar_spot: Saqshı qızlardı kórip atır — onı atıń!
+ar_mlost: Bir qız qolǵa tústi!
+ar_mallost: Barlıq qızlar qolǵa tústi
+ar_d3a: Lager dáryanıń arǵı betinde. Bir saqshı súren shalsa, pútkil lager oyanadı. Bir oq — bir saqshı.
+ar_d3b: Ot basındaǵı ekewi gápten tınbaydı. Birin atqannan keyin dárhal ekinshisin atıń.
+ar_d5a: Qızlar jartas boylap kishi dárwazaǵa jasırın baradı. Men qırdan qarap turaman — olardı kórgen saqshı tiri qalmaydı.
+ar_d6a: Dárwaza minarasındaǵı ot — belgi otı. Ol jansa, pútkil Qashal juwırıp keledi. Keyin arqanlar — kópir bizdiki.
+ar_d6b: Qızlar diywal astında kútip tur. Belgi beriń, Gúlayım.
+tu_n: Shınıǵıw maydanı
+tu_o: Urıs aldınan qırq qızdı shınıqtırıń
+tu_skip: Shınıǵıwdı ótkerip jiberiw ▸▸
+tu_done: Shınıǵıw tamamlandı
+tu_s1: Sárbinazdı bir soqqı da jemey jeńiń
+tu_s2: Barlıq qosımsha sınawlar
+tu_duel_t: Shınıǵıw jekpe-jegi — ólimge shekem emes
+tu_shieldblk: Qalqan!
+tu_d_sa1: Qayırlı tań, Gúlayım! Qızlar tań azannan beri maydanda — seni kútip tur.
+tu_d_gu0: Onda baslayıq. Búgin dushpan qapı aldında turǵanday shınıǵamız.
+tu_d_sa1b: Ha! Onda qızlarǵa áwele óziń kórsetip ber!
+tu_d_ays1: Gúlayım, men menen sınasıp kór! Ayap otırmayman.
+tu_d_gu1: Qáne onda, Aysulıw. Soqqı ber — qızlarǵa qılıshtan qalay qashıwdı kórsetemen.
+tu_d_aqm1: Qılısh jeter! Nıshanalarǵa júriń — qızdıń birinshi dostı onıń sadaǵı.
+tu_d_sa2: Aq atıń erlendi! Saqıynalar arasınan shawıp ót — batırdıń qalay at shabatuǵının kórset.
+tu_d_sa3: Al endi — men menen. Úyrengenleriń hámmesi — birden.
+tu_d_gu3: Meni ayama, Sárbinaz.
+tu_d_sa4: Qashan ayaǵan edim? Qızlar, sheńber bolıp turıń!
+tu_d_sa6: Jeter, jeter — jeńildim! Iynim muni bir hápte umıtpaydı.
+tu_d_ms1: Gúlayım! Surtaysha qırq mıń láshkeri menen Sarkopqa basıp keldi! Allayar bay qala diywalların uslap tur — meni saǵan jiberdi!
+tu_d_gu4: Áke…
+tu_d_sa5: Qızlar tayar, Gúlayım. Tek buyrıq ber.
+tu_d_gu5: Atlanıń, qızlar! Sarkopqa shabamız!
+tu_t_move: Joystik penen shınıǵıw quwırshaqlarına barıń
+tu_t_light: ⚔ túymesin tez-tez basıń — quwırshaqqa 3 soqqılı kombo beriń
+tu_t_heavy: Qalqan tez soqqılardı toqtatadı. Kúshli soqqı ushın ⚔ túymesin BASIP TURIŃ
+tu_t_heavyS: Qalqan tez soqqılardı toqtatadı — KÚSHLI soqqı túymesin basıń
+tu_t_dodge: Qızıl sektor tolǵanda ➤ basıp shetke qashıń
+tu_t_roll: ➤ túymesin eki ret tez basıń — soqqısı astınan domalap ótiń
+tu_t_block: Qalqan túymesin basıp turıp, soqqıların toqtatıń
+tu_t_parry: Qılıshı túsip kiyatırǵanda qalqan túymesin basıń — soqqını QAYTARIŃ!
+tu_t_jump: Sekiriń, hawada ⚔ basıń — quwırshaqqa sekirip soqqı beriń
+tu_t_lock: Nıshan túymesin basıp nıshanǵa alıń — jáne bassańız Juparǵa ótedi
+tu_t_amu: Tumardı basıń — nur qalqanı — Aysulıw oǵan soqqı bersin
+tu_t_range: Oq atıw sızıǵına barıń
+tu_t_rain: 🏹 basıń — nıshanalarǵa oq jamǵırın jawdırıń
+tu_t_bow1: Sadaqtı tartıp, nıshanǵa alıń hám qoyıp jiberiń — nıshanaǵa tiygiziń
+tu_t_bow2: Endi qozǵalıp baratırǵan nıshana — azǵana aldın alıń
+tu_t_bow3: Alıstaǵı nıshana: oqtıń tómenlewin hám samaldı esapqa alıń — altın ortasına
+tu_t_ride: Barlıq altın saqıynalar arasınan shawıp ótiń
+tu_t_duel: Sońǵı sınaw: úyrengenlerińiz benen Sárbinazdı jeńiń
+tu_p_move: Jol beriń, qızlar — Gúlayım keldi!
+tu_p_light: Suńqarday shaqqan!
+tu_p_heavy: Ha! Aǵash sınıqları hár tárepke ushtı!
+tu_p_dodge: Samalday — tiyip te almayman!
+tu_p_roll: Tuwrı qılıshımnıń astınan!
+tu_p_block: Tas diywalday!
+tu_p_parry: Qaytardı! Qılıshım shetke ushıp ketti!
+tu_p_jump: Qıyadan sekirgen qaplanday!
+tu_p_lock: Ekewimiz de nıshanańdamız!
+tu_p_amu: Qılıshım nurdan tayıp ketti!
+tu_p_rain: Bir de bir nıshana pútin qalmadı!
+tu_p_bow1: Dál tiydi!
+tu_p_bow2: Qozǵalısta urdıń!
+tu_p_bow3: Sonsha alıstan ba? Isenip bolmaydı!
+tu_p_ride: Dalada ushqan oqtay!
+tu_b_hold: Qalqan shıdadı! Túymeni uzaǵıraq basıp tur!
+tu_b_hit: Tiydi! Jáne bir ret!
+tu_b_amu: Bul ákeńniń tumarı! Qáne, kúshin kóreyik.
+tu_b_miss: Saqıynanı ótkerip jiberdiń — artqa qayt!
+tu_b_horn: Esitip tursızlar ma… súren! Kópir tárepten!
+tu_b_ms: Gúlayım! Gúlayım!
+tu_bonus_pd: Bonus: minsiz qashıw!
+tu_bonus_rings: Bonus: barlıq saqıynalar birinshi urınıwda!
+tu_bonus_bull: Bonus: dál ortasına!
+tu_a1: Shıntaǵıńdı joqarıraq! Joqarıraq!
+tu_a2: Jáne! Jáne bir ret!
+tu_a3: Qolım úzilip túsetuǵın boldı…
+tu_a4: Qarańlar — Gúlayım bizge qarap tur!
+tu_a5: Oqlarımdı kim aldı?!
+tu_a6: Qılıshqa emes — iynine qara!
+tu_a7: Tezirek, tezirek!
+tu_a8: Búgin azanda dárya qanday shıraylı…
+v3n_0_1: Sarkop dárwazası
+v3o_0_1: Diywaldı uslap turıń — qala xalqı dárwaza ishine kirsin
+v3n_1_1: Janıp atırǵan awıl
+v3o_1_1: Arqanǵa baylap súyrelip baratırǵanlardı qaytarıp alıń hám júzbasını jeńiń
+v3n_1_2: Atxana qamalı
+v3o_1_2: Janıp atırǵan atxanadaǵı hayallar menen balalardı qutqarıń
+v3n_1_3: Tar kópir
+v3o_1_3: Nayzagerler qatarın buzıp ótiń — tutqınlar kárwanı alıp ketilmesin
+v3n_2_1: Atlı quwǵın
+v3o_2_1: Tutqın alıp qashıp baratırǵan atlılarǵa jetip alıń
+v3n_2_2: Bayımbettiń sınawı
+v3o_2_2: Bayımbet penen sınaw jekpe-jegi
+v3n_2_3: Qudıq ushın sawash
+v3o_2_3: Qum boranında azat etilgenlerdi qudıqqa shekem qorǵań
+v3n_3_1: Túngi lager
+v3o_3_1: Otawlardaǵı baylanǵan tutqınlardı birme-bir azat etiń
+v3n_3_2: Qul kárwanı
+v3o_3_2: Nayzagerler qorǵap baratırǵan qul kárwanın azat etiń
+v3n_3_3: Kópirdi uslap tur
+v3o_3_3: Tutqınlar dáryadan ótkenshe kópirdi uslap turıń
+v3n_4_1: Jaǵadaǵı atlılar
+v3o_4_1: Kemelerge aydalıp baratırǵan tutqınlardı tartıp alıń
+v3n_4_2: Keme palubası
+v3o_4_2: Keme ishindegi tutqınlardı shıǵarıń hám keme basshısın jeńiń
+v3n_4_3: Qasqırlar basshısı
+v3o_4_3: Balıqshılar awılın qasqırlar toparınan qutqarıń
+v3n_5_1: Taw darasındaǵı duzaq
+v3o_5_1: Jaralanǵan qızlardı tas qulawı hám oqlar astınan alıp shıǵıń
+v3n_5_2: Sárbinaz jalǵız
+v3o_5_2: Úsh qalmaq batırın izbe-iz jeńiń
+v3n_5_3: Sadaqshılar minarası
+v3o_5_3: Minara astındaǵı shopanlardı azat etiń
+v3n_6_1: Tar kósheler
+v3o_6_1: Úylerge qamalǵan qala xalqın birme-bir qutqarıń
+v3n_6_2: Dárwaza qamalı
+v3o_6_2: Oq hám ot jawını astında dárwazanı buzıń
+v3n_6_3: Qapaslar
+v3o_6_3: Shınjırshı batır qorǵaǵan qapaslardı waqıt pitkenshe ashıń
+v3n_7_2: Sıyqırshılar sheńberi
+v3o_7_2: Qurbanlıqqa tayarlanǵan tutqınlardı qutqarıń, totemlerdi buzıń
+v3n_7_3: Úsh qasqır batır
+v3o_7_3: Surtayshanıń úsh qasqır batırın maydan jekpe-jeginde jeńiń
+v3c_yuz: Qalmaq júzbası
+v3t_yuz: Awıldı órtegen basshı
+v3c_sham: Qasqır sıyqırshısı
+v3c_phal: Nayzagerler qatarı
+v3c_kap: Keme basshısı
+v3t_kap: Jaǵa qaraqshılarınıń basshısı
+v3t_bay: Sınaw — ólimge shekem emes
+v3c_ch1: Nayzager batır
+v3c_ch2: Qılıshker batır
+v3c_ch3: Palwan batır
+v3t_ch1: Birinshi qalmaq batırı
+v3t_ch2: Ekinshi qalmaq batırı
+v3t_ch3: Úshinshi qalmaq batırı
+v3c_w1: Kúlreń qasqır batır
+v3c_w2: Qara qasqır batır
+v3c_w3: Qanlı qasqır batır
+v3t_w: Surtaysha batırı
+v3c_arch: Sadaqshılar basshısı
+v3c_tow: Minara sadaqshıları
+v3c_chain: Shınjırshı batır
+v3d_yuz: Sen awılımdı órtediń. Endi men menen jekpe-jekke shıq!
+v3d_13: Kópirden arjaqta tutqınlardı aydap ketip baratır. Tezirek!
+v3d_bay: Kúshińdi kórset, Gúlayım. Qılısh penen, biraq ólimge shekem emes.
+v3d_bay2: Jeter! Sen haqıyqıy batırsań.
+v3d_33: Hámme kópirden ótkenshe bir adım da sheginbeymiz!
+v3d_cap: Tutqınlar kemede! Basshısın jıqsaq, qalǵanları qashadı.
+v3d_cap2: Onda men onıń menen jekpe-jekke shıǵaman.
+v3d_52: Qızlar artta qaldı. Batırlarǵa jalǵız ózim shıǵaman.
+v3d_ch1: Nayzası uzın, biraq soqqısınan keyin ashılıp qaladı.
+v3d_ch2: Bul tez. Asıqpayman — kútemen.
+v3d_ch3: Eń kúshlisi. Jerge ursa, shetke sekiremen.
+v3d_53: Shopanlar minara astında. Esikti buzsaq, sadaqshılar túsedi.
+v3d_63: Qapaslardı shınjırshı batır qorǵap tur. Waqıt az!
+v3d_73: Surtayshanıń qasqır batırları maydanda kútip tur.
+v3d_73b: Birme-bir shıqsın. Qırq qız gúwa bolsın!
+v3d_w1: Birinshisi. Shaqqan, biraq kúshsiz.
+v3d_w2: Ekinshisi jerdi silkindiredi.
+v3d_w3: Aqırǵısı — eń jawızı. Onnan keyin topar hújim etedi!
+v3b_phal: Nayzagerler qatarı! Qaptaldan yamasa sekirip ótiń!
+v3b_boat: Qayıqlar! Eki jaǵadan da túsip atır!
+v3b_arch: Qırdaǵı sadaqshılar basshısı — áwele onı!
+v3b_tow: Esik buzıldı! Sadaqshılar túsip atır!
+v3b_chain: Shınjırshı batır oyandı!
+v3h_tow: Minara esigin buzıń — sadaqshılar tómenge túsedi
