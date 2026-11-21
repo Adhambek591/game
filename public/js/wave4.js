@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247421';
-import { t, lang, L } from './i18n.js?v=1795247421';
-import { Sfx } from './audio.js?v=1795247421';
-import { MLIST } from './missions.js?v=1795247421';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795247575';
+import { t, lang, L } from './i18n.js?v=1795247575';
+import { Sfx } from './audio.js?v=1795247575';
+import { MLIST } from './missions.js?v=1795247575';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -199,7 +199,7 @@ const isFoe = e => !!e && !e.dead && !e.gone && !e.bg && e.team === 'enemy';
 const misId = () => (G.mis && G.mis.id) || '';
 const chap = () => (G.mis && G.mis.c) || 0;
 // segment p->q blocked by a solid box (walls, closed gates)? ravines and switched-off boxes do not block arrows
-function losOK(p, q) { for (const b of G.colB || []) { if (!b || b.off || b.ravine) continue; const x1 = b.x1 + .15, x2 = b.x2 - .15, z1 = b.z1 + .15, z2 = b.z2 - .15; if (x2 <= x1 || z2 <= z1) continue;
+function losOK(p, q, melee) { for (const b of G.colB || []) { if (!b || b.off || b.ravine || (b.low && !melee)) continue;   /* low stake rows: arrows fly over them (4-2 archers behind the stakes) */ const x1 = b.x1 + .15, x2 = b.x2 - .15, z1 = b.z1 + .15, z2 = b.z2 - .15; if (x2 <= x1 || z2 <= z1) continue;
     if ((p.x > x1 && p.x < x2 && p.z > z1 && p.z < z2) || (q.x > x1 && q.x < x2 && q.z > z1 && q.z < z2)) continue;
     let t0 = 0, t1 = 1; const dx = q.x - p.x, dz = q.z - p.z; let ok = true;
     for (const [d, a, lo, hi] of [[dx, p.x, x1, x2], [dz, p.z, z1, z2]]) { if (Math.abs(d) < 1e-6) { if (a < lo || a > hi) { ok = false; break; } } else { let u = (lo - a) / d, v = (hi - a) / d; if (u > v) [u, v] = [v, u]; t0 = Math.max(t0, u); t1 = Math.min(t1, v); if (t0 > t1) { ok = false; break; } } }
@@ -210,7 +210,7 @@ function dirOf(p) { const c = C(); const s = c && c.stickDir ? c.stickDir() : nu
 // ================================================================ A) CONTROLS
 // ---- attack: near = sword combo (engine startAtk via doAct('A')), far = bow volley, hold = spinning strong strike
 // QA: can her sword reach him? not across a closed gate, not up on a wall / tower, not through a wall
-function unreach(p, e) { return (G.limitZ > -1e8 && e.z < G.limitZ + .3 && p.z > G.limitZ) || (e.y || 0) > 1.6 || !losOK(p, e); }
+function unreach(p, e) { return (G.limitZ > -1e8 && e.z < G.limitZ + .3 && p.z > G.limitZ) || (e.y || 0) > 1.6 || !losOK(p, e, true); }   /* melee: a low stake row still blocks the blade (the volley takes them) */
 function rangedTargets(p, n) { const f = dirOf(p), out = [];
   for (const e of G.ents) { if (!isFoe(e)) continue; const dx = e.x - p.x, dz = e.z - p.z, d = hyp(dx, dz); if (d > 30) continue; const ur = unreach(p, e); if (d < (ur ? 1.5 : 6.8)) continue; if ((e.asleep || (e.farT || 0) < -1e8) && !ur && d > 16) continue;   /* sleepers: only the near or unreachable ones (an arrow wakes their post) */ const cs = (dx * f.x + dz * f.z) / (d || 1); if (cs < .34) continue; if (!losOK(p, e) && !((e.y || 0) > 1.6)) continue;
     let s = d - cs * 4 - (e.d.ranged ? 4 : 0) - (e.hunt || e.lead ? 3 : 0) - (e === G.boss ? 3 : 0); out.push([s, e]); }
