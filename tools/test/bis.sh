@@ -1,0 +1,1 @@
+for q in "nolight,noflora,noterr" "noflora,nosky,noterr" ; do SCN=3 ZS="-60" NAME=b3 ./rt.sh "lang=uz&fast=1&start=ch3&scdbg=$q" sc2.js bis_$q.txt 844 390 130; echo "== $q"; grep -v "no dialog" bis_$q.txt | grep "rafs\|R {\|pageerror" | head -3; done

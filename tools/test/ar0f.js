@@ -1,0 +1,9 @@
+module.exports = async (p, shot) => {
+  const t0 = Date.now(); while (Date.now() - t0 < 150000) { const ok = await p.evaluate(() => !!(window.__MS && window.__G && document.getElementById('tplay') && document.getElementById('tplay').style.display === 'block')).catch(() => false); if (ok) break; await p.waitForTimeout(1500); }
+  await p.evaluate(async id => { window.__ARCH_NOINTRO = true; document.getElementById('title').style.display = 'none';
+    const v = (await (await fetch('./js/missions.js')).text()).match(/engine\.js\?v=(\d+)/)[1]; window.__E = await import('/js/engine.js?v=' + v); window.__MS.run(id); }, process.env.MID || '3-S');
+  await p.waitForTimeout(9000);
+  console.log('[p]', await p.evaluate(() => { const E = __E, r = E.renderer, cam = E.camera; cam.updateMatrixWorld(); const fr = new E.THREE.Frustum().setFromProjectionMatrix(new E.THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse)); const L = [];
+    E.scene.traverseVisible(o => { if (!o.isMesh) return; const g = o.geometry; const n = (g.index ? g.index.count : g.attributes.position.count) / 3 * (o.isInstancedMesh ? o.count : 1); let inF = true; try { if (!o.isInstancedMesh && o.frustumCulled) { if (!g.boundingSphere) g.computeBoundingSphere(); const s = g.boundingSphere.clone().applyMatrix4(o.matrixWorld); inF = fr.intersectsSphere(s); } } catch (e) { } L.push([Math.round(n), inF, (o.name || o.parent && o.parent.name || '') + '|' + g.type + '|' + (o.material && o.material.type) + (o.isInstancedMesh ? '|I' + o.count : '') + '|sh' + (o.castShadow ? 1 : 0)]); });
+    L.sort((a, b) => b[0] - a[0]); const tot = L.reduce((s, x) => s + (x[1] ? x[0] : 0), 0); const shTot = L.reduce((s, x) => s + (x[2].endsWith('sh1') ? x[0] : 0), 0); return JSON.stringify({ tot, shTot, n: L.length, top: L.slice(0, 18), shadow: r.shadowMap.enabled, ms: r.getPixelRatio(), size: [r.domElement.width, r.domElement.height] }); }));
+};

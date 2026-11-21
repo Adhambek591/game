@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795212043';
-import { t } from './i18n.js?v=1795212043';
-import { Sfx, setMusic } from './audio.js?v=1795212043';
-import { applyLight, LIGHTS, place } from './env.js?v=1795212043';
-import { makeHorse } from './horse.js?v=1795212043';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795218616';
+import { t } from './i18n.js?v=1795218616';
+import { Sfx, setMusic } from './audio.js?v=1795218616';
+import { applyLight, LIGHTS, place } from './env.js?v=1795218616';
+import { makeHorse } from './horse.js?v=1795218616';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -475,7 +475,8 @@ function freeRun(es) { for (const c of es) { c.play('Cheer', { force: true }); b
 const obj = s => { H.objective(''); $('obj').textContent = s; };
 // ===== PROLOGUE (Allayar) — teaches: move, attack, dodge (safe practice), skills =====
 RUN['0-1'] = async () => { const { NIGHT } = H.moods;
-  await H.fadeTo(true); await H.lore('lore0'); clearLevel(); setMood(NIGHT); G.emberDown = false; H.buildProlog(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; setBoss(null); G.chGold = 0;
+  await H.fadeTo(true); try { await H.bannerShow('📜 ' + t('w4_tale'), t('w4_flash'), t('w4_play_al'), 3.2); } catch (e) { }   /* flashback card: the messenger's tale, the player is Allayar */
+  await H.lore('lore0'); clearLevel(); setMood(NIGHT); G.emberDown = false; H.buildProlog(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; setBoss(null); G.chGold = 0;
   const p = makePlayer('allayar', 0, 3); G.sk[1].on = true; G.sk[2].on = true; G.sk[3].on = true; refreshSkills(); H.setHero('al'); H.setDeath(); H.setCP(0, 3); H.objective('');
   $('hud').classList.add('on'); G.paused = true;
   spawn('son', -2.8, 1); spawn('son', 2.8, 1); H.skirmish(-9, -8); H.skirmish(9, -24); H.skirmish(-9.5, -44); H.skirmish(9, -66);
@@ -1114,7 +1115,7 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795212043';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795218616';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
@@ -1145,7 +1146,8 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
   const capt = leader(gC, 0, CZ - 11, 'mb_cap'); capt.maxHp = capt.hp = Math.round(capt.maxHp * (1.2 + .1 * c));
   if (c >= 4) for (const e of gA.es.slice(0, 2)) if (window.__W4) window.__W4.cavalry(e);
   if (c >= 5 && window.__W4) for (const x of [-5.5, 5.5].slice(0, c >= 6 ? 2 : 1)) { const cat = window.__W4.catapult(x, CZ - 17); cat.grp = gC; cat.next = cat.custom; cat.custom = sleepAI; cat.pose = 'g'; cat.hx = cat.x; cat.hz0 = cat.z; cat.seed = 1; cat.rot = cat.rot0 = 0; cat.farT = -1e9; gC.es.push(cat); }
-  const all = [...gA.es, ...gB.es, ...gC.es]; let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
+  const cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * 1.35); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * 1.2; };   /* sim: 1-C1 at the cap took 2.0 min with 68 % HP left -> tougher camp soldiers */
+  const all = [...gA.es, ...gB.es, ...gC.es]; all.forEach(cbuff); let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
   const full = ['askar', 'qalqan', 'archer', 'qilich', 'nayza'], wpool = w => { const q = pool.filter(x => x !== 'manj' && x !== 'cav'); for (const x of full.slice(0, Math.min(full.length, c + w))) if (!q.includes(x)) q.push(x); return q; }, upN = () => all.filter(e => !e.dead && e !== capt && !e.w4cat).length;
   const exits = k === 'tower' ? [[-2, CZ - 23], [2, CZ - 23], [0, CZ - 25]] : k === 'ford' ? [[-3.5, CZ - 24], [3.5, CZ - 24], [0, CZ - 26]] : [[-3, CZ - 26], [3, CZ - 27], [0, CZ - 28]];
   live(); setMusic('calm'); if (!m.keep) await ban(3); mstart(); H.objective('w4o_camp'); G.mis.camp = { N, B };
@@ -1158,7 +1160,7 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
       else if (wave === 2 && left <= 0 && up <= 3) { wave = 2.5; pause = 5; }
       else if (wave === 1.5 || wave === 2.5) { pause -= dt; if (pause <= 0) { wave += .5; waveT = 0; } }
       else if (left > 0) { waveT -= dt; if (up < 12 && waveT <= 0) { waveT = 5; const n = Math.min(5, left), wp = wpool(wave); reserve -= n;
-          for (let i = 0; i < n; i++) { const [x, z] = exits[i % exits.length]; const e = sp(TY(wp[(i + reserve) % wp.length]), x + rnd(-1, 1), z + rnd(-1, 1)); e.state = 'chase'; e.farT = 0; e.rot = 0; all.push(e); } try { Sfx.horn(); } catch (er) { } } } }
+          for (let i = 0; i < n; i++) { const [x, z] = exits[i % exits.length]; const e = sp(TY(wp[(i + reserve) % wp.length]), x + rnd(-1, 1), z + rnd(-1, 1)); e.state = 'chase'; e.farT = 0; e.rot = 0; cbuff(e); all.push(e); } try { Sfx.horn(); } catch (er) { } } } }
     const wn = wv(); if (wn !== wLast) { wLast = wn; hintRaw('⛺ ' + t('w4_wave', { n: wn, m: 3 })); try { Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } } const s = '⛺ ' + t('w4_wave', { n: wn, m: 3 }) + ' · ' + t('w4_hud_camp', { n: left(), m: N }) + (capt.dead ? '' : '   🎯 ' + t('mb_cap')); if (s !== lp) { lp = s; $('obj').textContent = s; } };
   await until(() => (reserve <= 0 && all.every(e => e.dead)) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die();
   G.tick = null; G.mis.aim = null; G.mis.need = null; setMusic('off'); addGold(60 + 30 * c, G.player.x, G.player.z); if (m.keep) m.keep(); await H.bannerShow('', '⛺ ' + t('w4_camp_win'), '', 1.8); await H.victory(); return win(); }
@@ -1239,13 +1241,15 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
   g.position.set(x, 0, z); world.add(g); G.colC.push({ x, z: z - 8.6, r: .5 });
   { const M = G.mis, iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); Sfx.surface && Sfx.surface(null); return; } const P = G.player; Sfx.surface && Sfx.surface(P && Math.abs(P.x - x) < 8.2 && Math.abs(P.z - z) < 8.2 ? 'wood' : null); } catch (e) { } }, 400); }   /* audio: wooden steps on the deck */
   try { w4Water(x, z - 27, 90, 30); for (const s of [-1, 1]) w4Water(x + s * 25, z - 2, 30, 22); } catch (e) { } }
+// STORY (author): "Endi Gúlayım bolıp oynaysız" belongs to the start of chapter 1 (after the messenger's tale), not to the end of the tutorial
+{ const r11 = RUN['1-1']; RUN['1-1'] = async () => { const M = G.mis, iv = setInterval(() => { try { if (G.mis !== M) { clearInterval(iv); return; } if (M.started && !G.paused && !G.flying) { clearInterval(iv); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + t('tu3_next')); } catch (e) { } }, 1500); } } catch (e) { clearInterval(iv); } }, 500); return r11(); }; }
 // ---------- TUTORIAL 0-0 "Shınıǵıw maydanı" (training field, before the war) ----------
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795212043';
-import * as tuSCN from './scenery.js?v=1795212043';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795212043';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795218616';
+import * as tuSCN from './scenery.js?v=1795218616';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795218616';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1533,8 +1537,8 @@ const TUT = (() => {
     await say([['sa', 'tu_d_sa6'], ['gu', 'tu3_win']]); if (!alive(R)) return;
     // ---- story hook: the alarm horn, a rider over the bridge, smoke over Sarkop ----
     for (const c of A.ring.crowd) c.play('Cheer', { force: true }); await wait(1.4); if (!alive(R)) return;
-    Sfx.horn(); G.shake = .35; bubble(S.sa, 'tu3_horn', 2.8, 'gu'); setMusic('off');
-    for (const [x, z, s] of [[-15, -112, 3.6], [17, -121, 3.2], [-5, -134, 4.2], [27, -104, 2.8], [-26, -126, 3]]) { try { fire(x, z, s); } catch (e) { } }
+    // STORY (author): no alarm and no smoke here — Gúlayım trains at Qıran mountain and knows nothing; the battle of Sarkop is already lost. A wounded, dust-covered messenger gallops in and tells her.
+    setMusic('off'); try { Sfx.hoof && Sfx.hoof(); } catch (e) { }
     const pz = P().z, rd = npc('son', 1.4, -104, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4 }; S.mes = rd; G.mis.aim = () => rd;
     // short cinematic: the camera lifts and looks past the bridge — the rider and smoke columns over the far bank
     const cv = { k: 0, on: true }, V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
@@ -1545,11 +1549,11 @@ const TUT = (() => {
     for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) { c.rot = Math.atan2(rd.x - c.x, -90 - c.z); c.play('Idle', { force: true }); }
     const tR = G.time; await until(() => !alive(R) || G.mis.force || S.rider.arrived || G.time - tR > 9); if (!alive(R)) return;
     bubble(rd, 'tu_b_ms', 2, 'ms'); await wait(1.1); if (!alive(R)) return;
-    await say([['ms', 'tu_d_ms1'], ['gu', 'tu_d_gu4'], ['sa', 'tu_d_sa5'], ['gu', 'tu_d_gu5']]); if (!alive(R)) return;
+    await say([['ms', 'w4_ms1'], ['gu', 'w4_ms_gu1'], ['ms', 'w4_ms2'], ['ms', 'w4_ms3'], ['gu', 'w4_ms_gu2']]); if (!alive(R)) return;
     R.camOff(); G.mis.aim = null;
-    for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) c.play('Cheer', { force: true }); Sfx.horn(); setMusic('battle');
+    for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) c.play('Idle', { force: true }); setMusic('calm');
     G.mis.flag = R.duelClean; G.mis.flag2 = R.optHave.every(k => R.opt[k]); R.log.push('end@' + G.time.toFixed(1) + ' clean=' + R.duelClean + ' opt=' + JSON.stringify(R.opt));
-    hintRaw(t('tu3_next')); await H.bannerShow(t('tu_n'), t('tu_done'), t('tu3_next'), 2.6); if (!alive(R)) return;
+    await H.bannerShow(t('tu_n'), t('tu_done'), t('w4_tale'), 2.6); if (!alive(R)) return;   /* next: the messenger's tale = prologue 0-1 / 0-2 played as Allayar */
     markDone(); cleanup(); return win(); }
   // (re)build the training field: 'start' = the opening, 'after' = back from the sniper-bow range (ride, duel and the hook follow)
   async function field(R, phase) { const { DAY } = H.moods, st = phase === 'start';
@@ -1590,9 +1594,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795212043';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795212043';
-import * as f3SC from './scenery.js?v=1795212043';
+import * as F3X from './fx.js?v=1795218616';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795218616';
+import * as f3SC from './scenery.js?v=1795218616';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1701,7 +1705,7 @@ RUN['2-3'] = async () => { const { HOT } = H.moods;
     { s: 134, side: 'front', key: 'f3_amb_f', w: [['heavy', 0, -15], ['askar', -4, -14], ['askar', 4, -14], ['askar', -2, -18], ['askar', 2, -18]], cap: true } ];
   chest(-9.6, -96, 80);
   setMusic('calm'); await ban(3); mstart(); await say([['sa', 'cv_d1'], ['gu', 'cv_d2']]); setMusic('calm'); H.hint('', 6, t('f3_cv_go'));
-  let lp = ''; const prog = () => { const s = cv.amb ? '⚔ ' + t('f3_cv_stop') : '🛒 ' + t('f3o_2_3') + '  ·  ' + t('f3_cv_m', { n: Math.max(0, Math.round(LEN - cv.s)) }); if (s !== lp) { lp = s; H.objective(''); $('obj').textContent = s; } };
+  let lp = ''; const prog = () => { const s = cv.well ? '🛡 ' + t('w4_well') + ' — ' + t('w4_wave', { n: cv.well, m: 2 }) : cv.amb ? '⚔ ' + t('f3_cv_stop') : '🛒 ' + t('f3o_2_3') + '  ·  ' + t('f3_cv_m', { n: Math.max(0, Math.round(LEN - cv.s)) }); if (s !== lp) { lp = s; H.objective(''); $('obj').textContent = s; } };
   G.mis.aim = () => { if (cv.amb) { const e = near(cv.amb.filter(e => !e.dead)); if (e) return e; } const P = G.player; return hyp(P.x - cv.x, P.z - cv.z) > 14 ? { x: cv.x + 3, z: cv.z } : null; };
   let ai = 0;
   G.tick = dt => { const P = G.player; if (!P) return;
@@ -1722,7 +1726,7 @@ RUN['2-3'] = async () => { const { HOT } = H.moods;
   if (!G.mis.force) { const x0 = cv.x, z0 = cv.z; await H.bannerShow('', '🛡 ' + t('w4_well'), t('w4_well2'), 2.2);
     for (let w = 0; w < 2 && !G.mis.force; w++) { const L = []; for (let i = 0; i < 3 + w; i++) { L.push([i % 3 === 2 ? 'archer' : 'askar', -11, z0 - 5 + i * 3]); L.push([i % 3 === 1 ? 'archer' : 'askar', 11, z0 - 4 + i * 3]); }
       const es = rein(L.map(([ty, dx, z]) => [ty, f3cl(x0 + dx, -G.W - .5, G.W + .5), z]), 'sa', w ? null : 'bk_amb'); for (const e of es) { e.f3amb = true; e.state = 'chase'; e.farT = 0; burst(e.x, .6, e.z, 0xd8b070, 2.4); } es.filter(e => e.type !== 'archer').slice(0, 3).forEach(e => { e.custom = raidAI(cv.mem); });
-      sideAlert(w ? 'right' : 'left', t('w4_well_w', { n: w + 1, m: 2 }), 4.5); setMusic('battle'); try { Sfx.loop && Sfx.loop('cart', false); Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } G.mis.aim = aimOf(es);
+      cv.well = w + 1; sideAlert(w ? 'right' : 'left', t('w4_well_w', { n: w + 1, m: 2 }), 4.5); setMusic('battle'); try { Sfx.loop && Sfx.loop('cart', false); Sfx.stinger && Sfx.stinger('wave'); } catch (er) { } G.mis.aim = aimOf(es);
       await until(() => es.every(e => e.dead) || G.mis.force); sideOff(); cp(); await wait(1.2); } if (G.mis.force) for (const e of enemies()) e.die(); }
   G.tick = null; G.mis.aim = null; sideOff(); try { Sfx.loop && Sfx.loop('cart', false); } catch (er) { } for (const c of cv.carts) c.speed = 0; for (const e of cv.mem) e.custom = e2 => { e2.play('Cheer'); return true; };
   G.mis.flag = !cv.everFailed; setMusic('off'); await wait(.8); await say([['gu', 'cv_d3']]); hpBar(null); await H.victory(); return win(); };
@@ -1759,7 +1763,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795212043';
+import { runArchery } from './archery.js?v=1795218616';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }

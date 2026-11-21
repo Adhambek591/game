@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795212043';
-import { t, setLang, lang, L, has } from './i18n.js?v=1795212043';
-import { place } from './env.js?v=1795212043';
-import * as SC from './scenery.js?v=1795212043';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795212043';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795212043';
-import { initMissions, runMission } from './missions.js?v=1795212043';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795218616';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795218616';
+import { place } from './env.js?v=1795218616';
+import * as SC from './scenery.js?v=1795218616';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795218616';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795218616';
+import { initMissions, runMission } from './missions.js?v=1795218616';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -54,7 +54,7 @@ async function wave(list) { const es = list.map(([ty, x, z]) => ty === 'potion' 
 let checkpoint = { x: 0, z: 2 };
 function setDeath() {
   G.onPlayerDeath = () => { G.stats.deaths++; setTimeout(() => { $('dh').textContent = t('fallen'); $('dretry').textContent = t('retry'); $('drevive').textContent = t('adRevive'); $('drevive').onclick = async () => { if (!(await ADS.rewarded())) return; const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.act = null; p.iframe = 3; p.play('Idle', { force: true }); G.stats.deaths--; G.paused = false; }; $('dead').classList.add('on'); G.paused = true; }, 900); };
-  $('dretry').onclick = () => { const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.x = checkpoint.x; p.z = checkpoint.z; p.act = null; p.y = 0; p.leaping = false; p.iframe = 2; p.play('Idle', { force: true }); if (G.boss && !G.boss.invuln && !G.boss.dead) G.boss.hp = Math.min(G.boss.maxHp, G.boss.hp + G.boss.maxHp * .2 * [0, .5, 1][SET.diff]); G.paused = false; };
+  $('dretry').onclick = () => { const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.x = checkpoint.x; p.z = checkpoint.z; p.act = null; p.y = 0; p.leaping = false; p.iframe = 2; p.play('Idle', { force: true }); if (G.boss && !G.boss.invuln && !G.boss.dead) G.boss.hp = Math.min(G.boss.maxHp, G.boss.hp + G.boss.maxHp * .08 * [0, .5, 1][SET.diff]);   /* QA 2b: a retry gives the boss 4 % back on normal (was 10 %) */ G.paused = false; };
 }
 function street(z0, z1, burnt, fireEvery) {
   let i = 0; for (let z = z0; z > z1; z -= rnd(7.5, 9.5), i++) for (const s of [-1, 1]) { const x = s * (G.W + rnd(5.5, 7.5)); const b = burnt && Math.random() < .8; if (Math.random() < .55) yurt(x, z + rnd(-1, 1), b, false); else house(x + s * .5, z + rnd(-1, 1), rnd(4.5, 6), rnd(4, 6), rnd(2.8, 3.8), b); if ((i + (s > 0 ? 1 : 0)) % fireEvery === 0) fire(s * (G.W + 1.2), z - 3, rnd(1.1, 1.7)); if (Math.random() < .5) debris(s * (G.W - rnd(.5, 2)), z - 4.5, 3); }

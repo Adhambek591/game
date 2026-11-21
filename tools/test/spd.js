@@ -1,0 +1,7 @@
+module.exports = async (p, shot) => {
+  const L = require('./lib.js')(p); await p.waitForFunction(() => window.__G, null, { timeout: 90000 });
+  const skip = async () => { await p.evaluate(()=>{const b=document.querySelector('#lore.on button'); if(b) b.click(); if(document.getElementById('cut').classList.contains('on')) document.getElementById('cskip').click();}); await L.dlg(400); };
+  for (let k=0;k<20;k++){ await p.waitForTimeout(1000); await skip(); if (await p.evaluate(()=>!!(__G.player && !__G.paused))) break; }
+  const r = await p.evaluate(()=>{ const P=__G.player; const out={}; for (const t of ['sarbinaz','askar','archer','mage','qashqir','gulayim']) { const e=__T.spawn(t, P.x, P.z-3, 'npc'); e.spawnT=0; e.o.scale.setScalar(e.vs); e.o.updateMatrixWorld(true); const R=e.rig; if(!R.B) {out[t]='noB';continue;} const V=()=>new R.root.position.constructor(); const h=R.B.RightHand.getWorldPosition(V()), f=R.B.RightForeArm.getWorldPosition(V()); const res={hand:h.toArray().map(v=>+v.toFixed(2)), fa:f.toArray().map(v=>+v.toFixed(2))}; if(R.wpn){ const g=R.wpn.getWorldPosition(V()); res.g=g.toArray().map(v=>+v.toFixed(2)); res.dg=+g.distanceTo(h).toFixed(3); const ax=V().set(0,1,0).transformDirection(R.wpn.matrixWorld); res.wy=ax.toArray().map(v=>+v.toFixed(2)); res.wmpos=R.wm.position.toArray(); res.gscale=R.wpn.getWorldScale(V()).toArray().map(v=>+v.toFixed(3)); } res.hgt=R.hgt; res.vs=e.vs; out[t]=res; } return out; });
+  console.log(JSON.stringify(r,null,0));
+};

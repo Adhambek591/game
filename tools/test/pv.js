@@ -1,0 +1,2 @@
+module.exports = async (p, shot) => { await p.waitForFunction(() => window.__PV, null, { timeout: 120000 }); await p.evaluate(() => { for (const e of document.querySelectorAll('body > *')) if (/Rotate your phone/.test(e.textContent || '') && e.tagName !== 'SCRIPT' && !e.querySelector('canvas')) e.style.display = 'none'; }); await p.waitForTimeout(+(process.env.WT || 4000));
+  console.log('R', await p.evaluate(() => JSON.stringify(window.__R && window.__R()))); const t1 = Date.now(); await shot(process.env.NAME || 'pv'); console.log('shot ms', Date.now() - t1); };
