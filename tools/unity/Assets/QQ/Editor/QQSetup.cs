@@ -245,6 +245,7 @@ public static class QQSetup
             var model = Load<GameObject>(ART + "models/" + e.file + ".glb"); if (!model) continue;
             var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, e.h, e.wpn, e.name);
             u.transform.rotation = Quaternion.LookRotation(Vector3.back);   // face the camera side
+            if (e.file == "R_bori4") QQArena.Look(u.gameObject, Load<Texture2D>(ART + "tex/var/bori_g.jpg"));   // the wolf mesh ships untextured; the browser paints it with this atlas
             if (u.rig.Has(e.pose)) { u.rig.Play(e.pose, .01f); u.rig.SampleAt(.3f); }
             // frame from the renderers' world bounds (works for the quadruped and the dragon too)
             var b = new Bounds(u.transform.position + Vector3.up * e.h * .5f, Vector3.one * .1f);
@@ -255,7 +256,7 @@ public static class QQSetup
             for (int v = 0; v < 2; v++)
             {
                 cam.fieldOfView = 28; float dist = size * .62f / Mathf.Tan(14f * Mathf.Deg2Rad) + .4f;
-                var dir = Quaternion.Euler(4, 180 + yaw[v], 0) * Vector3.forward;   // slightly above eye level, in front / at the side
+                var dir = Quaternion.Euler(4, yaw[v], 0) * Vector3.forward;   /* camera looks along +z-ish at a character facing -z: in front of her */   // slightly above eye level, in front / at the side
                 cam.transform.position = c - dir * dist; cam.transform.LookAt(c);
                 var rt = new RenderTexture(640, 720, 24); cam.targetTexture = rt; cam.aspect = 640f / 720f; cam.Render(); cam.Render(); RenderTexture.active = rt;
                 sheet.ReadPixels(new Rect(0, 0, 640, 720), v * 640, 0); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
