@@ -7,7 +7,8 @@ public class QQArena : MonoBehaviour
 {
     public static QQArena I;
     [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain;
-    [Header("Weapons")] public GameObject saber, bow, axe;
+    [Header("Weapons")] public GameObject saber, bow, axe, spear;
+    [Header("Rigged Meshy models (tools/blender/chars.py)")] public GameObject sarbinaz; public GameObject[] maidens;
     public Texture2D gulayimBlue;
     public Material arrowMat, fxMat;   // made in the editor so their shaders ship in the build (Shader.Find fails in players)
     public Texture2D[] qizVar, askarVar, kamonchiVar;   // outfit atlases (browser build's props/var)
@@ -44,7 +45,13 @@ public class QQArena : MonoBehaviour
         player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620, 34, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;
-        for (int i = 0; i < 5; i++) { var q = Spawn(qiz, new Vector3(-4 + i * 2, 0, -19), 0, 300, 16, 1.72f, saber, "qiz"); q.gameObject.AddComponent<QQAI>(); q.speed = 4.4f; }
+        for (int i = 0; i < 5; i++)
+        {
+            bool sb = i == 2 && sarbinaz;   // Sárbinaz, Gúlayım's deputy, fights with a spear in the middle of the line
+            var mdl = sb ? sarbinaz : (maidens != null && maidens.Length > 0 ? maidens[i % maidens.Length] : qiz);
+            var q = Spawn(mdl, new Vector3(-4 + i * 2, 0, -19), 0, sb ? 420 : 300, sb ? 22 : 16, sb ? 1.74f : 1.7f, sb && spear ? spear : saber, sb ? "Sárbinaz" : "qiz");
+            q.gameObject.AddComponent<QQAI>(); q.speed = 4.4f;
+        }
         StartCoroutine(Run());
     }
 
@@ -72,7 +79,9 @@ public class QQArena : MonoBehaviour
         float h = any ? b.size.y : height; if (h > .01f) m.transform.localScale *= height / h;
         Look(m, VariantFor(model));
         var rig = m.AddComponent<QQRig>();
-        var grip = weapon ? QQFist.Apply(m, rig, height) : null;
+        Vector3? grip = null;
+        if (weapon && rig.HasFingers) { rig.SampleBind(); var f1 = rig.Bone("RightMiddle1") ?? rig.Bone("RightFingers1"); var hd = rig.Bone("RightHand"); if (f1 && hd) grip = Vector3.Lerp(hd.position, f1.position, .8f); }   // real finger bones: hold at the knuckles
+        else if (weapon) grip = QQFist.Apply(m, rig, height);   // older models: bend the open hand into a fist in the mesh
         if (weapon) Arm(rig, weapon, root.transform, height, grip);
         var u = root.AddComponent<Unit>(); u.team = team; u.maxHp = u.hp = hp; u.dmg = dmg; u.displayName = name; u.rig = rig;
         rig.Play("idle", .01f);

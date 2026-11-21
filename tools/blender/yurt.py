@@ -7,6 +7,8 @@ from mathutils import Vector, Matrix
 
 argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 OUT = argv[0] if len(argv) > 0 else 'yurt.glb'; PNG = argv[1] if len(argv) > 1 else 'yurt.png'; TEX = argv[2] if len(argv) > 2 else ''
+STATE = argv[3] if len(argv) > 3 else 'intact'   # intact | burnt (charred felt with holes) | frame (bare lattice, felt burnt away, poles fallen)
+import random as _r; _r.seed({'intact': 1, 'burnt': 2, 'frame': 3}.get(STATE, 1))
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
@@ -29,10 +31,10 @@ def mat(name, color, rough=.8, tex=None, scale=1.0, normal=None):
     return m
 
 T = lambda n: os.path.join(TEX, n)
-wood = mat('wood', (.42, .27, .15), .65, T('brown_planks_09_diff.jpg'), 2, T('brown_planks_09_nor.jpg'))
-woodRed = mat('wood_red', (.36, .07, .04), .5)
-felt = mat('felt', (.7, .64, .55), 1.0, T('curly_teddy_natural_diff.jpg'), 3, T('curly_teddy_natural_nor.jpg'))
-feltRoof = mat('felt_roof', (.6, .55, .47), 1.0, T('curly_teddy_natural_diff.jpg'), 3, T('curly_teddy_natural_nor.jpg'))
+wood = mat('wood', (.42, .27, .15) if STATE == 'intact' else (.14, .1, .07), .65, T('brown_planks_09_diff.jpg'), 2, T('brown_planks_09_nor.jpg'))
+woodRed = mat('wood_red', (.36, .07, .04) if STATE == 'intact' else (.1, .05, .035), .5)
+felt = mat('felt', (.7, .64, .55) if STATE == 'intact' else (.13, .11, .1), 1.0, T('curly_teddy_natural_diff.jpg'), 3, T('curly_teddy_natural_nor.jpg'))
+feltRoof = mat('felt_roof', (.6, .55, .47) if STATE == 'intact' else (.09, .08, .07), 1.0, T('curly_teddy_natural_diff.jpg'), 3, T('curly_teddy_natural_nor.jpg'))
 rope = mat('rope', (.32, .24, .15), .9)
 band = mat('band', (1, 1, 1), .8)
 
@@ -67,13 +69,15 @@ for i in range(U):
     for t in (0, .33, .66, 1):
         rr = R + (CROWN_R - R) * t; z = WALL + ROOF * (t ** .85) + math.sin(t * math.pi) * .05
         pts.append(Vector((math.cos(a) * rr, math.sin(a) * rr, z)))
+    if STATE == 'frame' and _r.random() < .45: continue
     for j in range(3): parts.append(cyl_between(pts[j], pts[j + 1], .02, woodRed, 'uyk'))
 # --- felt wall cover (cylinder, gentle wave) and roof cover (cone section), leaving the crown open
-def surface(name, fn, nu, nv, m):
+def surface(name, fn, nu, nv, m, keep=None):
     bm = bmesh.new(); verts = [[bm.verts.new(fn(u / nu, v / nv)) for u in range(nu + 1)] for v in range(nv + 1)]
     uvl = bm.loops.layers.uv.new('UVMap')
     for v in range(nv):
         for u in range(nu):
+            if keep and not keep(u / nu, v / nv): continue
             f = bm.faces.new((verts[v][u], verts[v][u + 1], verts[v + 1][u + 1], verts[v + 1][u]))
             for l, (uu, vv) in zip(f.loops, ((u, v), (u + 1, v), (u + 1, v + 1), (u, v + 1))): l[uvl].uv = (uu / nu * 8, vv / nv * 2)
     me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); o = bpy.data.objects.new(name, me); link(o); o.data.materials.append(m)
@@ -87,8 +91,13 @@ def roof_fn(u, v):
     a = u * 2 * math.pi; t = v; rr = R + .12 + (CROWN_R + .06 - R - .12) * t
     z = WALL + ROOF * (t ** .85) + .05 + math.sin(t * math.pi) * .03 - (1 - abs(math.cos(a * U / 2))) * .035 * math.sin(t * math.pi)
     return Vector((math.cos(a) * rr, math.sin(a) * rr, z))
-parts.append(surface('felt_wall', wall_fn, 96, 6, felt))
-parts.append(surface('felt_roof', roof_fn, 128, 10, feltRoof))
+import math as _m
+def burnt_keep(u, v, k=1.0):   # ragged burnt-away patches, more of them high on the roof
+    n = _m.sin(u * 37.0 + _m.sin(v * 9.0) * 2) * _m.sin(v * 13.0 + u * 21.0) + _m.sin(u * 91.0) * .3
+    return n < .35 - v * .5 * k
+if STATE != 'frame':
+    parts.append(surface('felt_wall', wall_fn, 96, 6, felt, (lambda u, v: burnt_keep(u, v, .4)) if STATE == 'burnt' else None))
+    parts.append(surface('felt_roof', roof_fn, 128, 10, feltRoof, burnt_keep if STATE == 'burnt' else None))
 # --- patterned band (basqur) around the wall top: red with a white zigzag drawn into a small texture
 img = bpy.data.images.new('band_tex', 256, 32); px = []
 for y in range(32):
@@ -101,27 +110,31 @@ nt = band.node_tree; t = nt.nodes.new('ShaderNodeTexImage'); t.image = img; nt.l
 def band_fn(u, v):
     a = DOOR_A + DOOR_W / 2 + u * (2 * math.pi - DOOR_W); rr = R + .045
     return Vector((math.cos(a) * rr, math.sin(a) * rr, WALL - .22 + v * .26))
-b = surface('band', band_fn, 96, 1, band)
+b = surface('band', band_fn, 96, 1, band, (lambda u, v: burnt_keep(u, .3)) if STATE == 'burnt' else ((lambda u, v: False) if STATE == 'frame' else None))
 for l in b.data.uv_layers[0].data: l.uv = (l.uv[0] * 3, l.uv[1] / 2)
-print('band uv v range', min(l.uv[1] for l in b.data.uv_layers[0].data), max(l.uv[1] for l in b.data.uv_layers[0].data))
-parts.append(b)
+
+if len(b.data.polygons): parts.append(b)
+else: bpy.data.objects.remove(b)
 # --- ropes: two around the wall, one around the roof
 for z, rr in ((WALL * .35, R + .05), (WALL * .7, R + .05)):
     bpy.ops.mesh.primitive_torus_add(major_radius=rr, minor_radius=.018, location=(0, 0, z), major_segments=96, minor_segments=6)
     o = bpy.context.active_object; o.data.materials.append(rope); parts.append(o)
+    if STATE == 'frame': parts.pop(); bpy.data.objects.remove(o)
 # --- roof ropes (crown to eaves) and a patterned band along the roof edge
 for k in range(8):
     ang = k / 8 * 2 * math.pi + .2; pts = []
     for t in (0, .25, .5, .75, 1):
         rr = R + .14 + (CROWN_R + .08 - R - .14) * t; z = WALL + ROOF * (t ** .85) + .07 + math.sin(t * math.pi) * .03
         pts.append(Vector((math.cos(ang) * rr, math.sin(ang) * rr, z)))
+    if STATE != 'intact': continue
     for j in range(4): parts.append(cyl_between(pts[j], pts[j + 1], .016, rope, 'roofrope'))
 def edge_fn(u, v):
     a = u * 2 * math.pi; t = v * .12; rr = R + .13 + (CROWN_R - R) * t
     return Vector((math.cos(a) * rr, math.sin(a) * rr, WALL + ROOF * (t ** .85) + .06))
-eb = surface('roof_band', edge_fn, 128, 1, band)
+eb = surface('roof_band', edge_fn, 128, 1, band, (lambda u, v: STATE == 'intact'))
 for l in eb.data.uv_layers[0].data: l.uv = (l.uv[0] * 4, l.uv[1] / 2)
-parts.append(eb)
+if len(eb.data.polygons): parts.append(eb)
+else: bpy.data.objects.remove(eb)
 # --- door: frame + two painted leaves
 dc = Vector((math.cos(DOOR_A) * (R + .04), math.sin(DOOR_A) * (R + .04), 0)); tang = Vector((-math.sin(DOOR_A), math.cos(DOOR_A), 0)); nrm = Vector((math.cos(DOOR_A), math.sin(DOOR_A), 0))
 DW = math.sin(DOOR_W / 2) * R * .95
@@ -165,6 +178,8 @@ try:
 except TypeError:
     bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_apply=True, export_colors=True)
 
+if PNG == '-':
+    print('YURT DONE'); raise SystemExit
 # --- preview render: ground, sun, sky, camera at eye level
 bpy.ops.mesh.primitive_plane_add(size=40); g = bpy.context.active_object; g.data.materials.append(mat('ground', (.45, .36, .26), .95, T('brown_mud_dry_diff.jpg'), 8, T('brown_mud_dry_nor.jpg')))
 for p in g.data.uv_layers[0].data: p.uv = (p.uv[0] * 1, p.uv[1] * 1)

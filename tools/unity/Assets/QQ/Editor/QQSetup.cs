@@ -1,3 +1,4 @@
+using System.Linq;
 // Batch entry points (run with: unity run <project> -- -executeMethod QQSetup.Build / QQSetup.Shot / QQSetup.Apk)
 //  Build : texture import settings, ground/props materials, the Arena scene (lights, post, burnt Sarkop dressing), build settings, Android player settings.
 //  Shot  : render the scene from the game camera with the fighters posed (edit mode) to Builds/shot.png, to check the look headless.
@@ -80,6 +81,13 @@ public static class QQSetup
         ar.kamonchi = Load<GameObject>(ART + "models/R_kamonchi.glb"); ar.captain = Load<GameObject>(ART + "models/R_qashqir.glb");
         ar.saber = Load<GameObject>(ART + "props/W_saber.glb"); ar.bow = Load<GameObject>(ART + "props/W_bow.glb"); ar.axe = Load<GameObject>(ART + "props/W_axe.glb");
         ar.gulayimBlue = Load<Texture2D>(ART + "tex/gulayim_blue.jpg"); ar.campGate = gate.transform;
+        // rigged models with finger bones from the Blender pipeline, when present
+        // P_ = Meshy body + MakeHuman/MPFB hands with 15 finger bones (tools/blender/hands_mpfb.py); C_ = older 2-bone fingers
+        System.Func<string, GameObject> pick = n => AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/P_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_" + n + ".glb");
+        var cg = pick("gulayim"); if (cg) { ar.gulayim = cg; ar.gulayimBlue = null; }
+        var cq = AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_qashqir.glb") ?? Load<GameObject>(ART + "meshy/M_qashqir.glb"); if (cq) ar.captain = cq;
+        ar.sarbinaz = pick("sarbinaz_low"); ar.spear = Load<GameObject>(ART + "props/W_spear.glb");
+        ar.maidens = new[] { "aysuliw_low", "qalbiyke_low", "gulshad_low" }.Select(pick).Where(g => g).ToArray();
         var am = new Material(Shader.Find("Universal Render Pipeline/Unlit")); am.SetColor("_BaseColor", new Color(.25f, .18f, .1f)); AssetDatabase.CreateAsset(am, ART + "M_arrow.mat"); ar.arrowMat = am;
         var fm = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fm.SetFloat("_Surface", 1); fm.SetFloat("_Blend", 2); fm.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fm.renderQueue = 3000;
         fm.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fm.SetInt("_DstBlend", (int)BlendMode.One); fm.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fm, ART + "M_fx.mat"); ar.fxMat = fm;
@@ -134,7 +142,17 @@ public static class QQSetup
             var p = new Vector3(rr(-13, 13), 0, rr(-30, 30)); if (Mathf.Abs(p.x - Mathf.Sin(p.z * .045f) * 1.6f) < 2.6f) continue;
             if (i % 3 == 0) put(E + "namaqualand_stones_01/namaqualand_stones_01.glb", p, rr(.8f, 1.4f), 3); else put(E + "grass_medium_01/grass_medium_01.glb", p, rr(.6f, 1.1f), 3);
         }
-        for (int i = 0; i < 5; i++) put(ART + "props/R_arava.glb", new Vector3(rr(14, 24) * (i % 2 == 0 ? 1 : -1), 0, rr(-28, 24)), 2.1f, 8);
+        string BE = ART + "blender/";
+        bool nb = AssetDatabase.LoadAssetAtPath<GameObject>(BE + "yurt.glb") != null;   // Blender env pack present
+        for (int i = 0; i < 5; i++) put(nb ? BE + "E_arava.glb" : ART + "props/R_arava.glb", new Vector3(rr(14, 24) * (i % 2 == 0 ? 1 : -1), 0, rr(-28, 24)), nb ? 1f : 2.1f, 8);
+        if (nb)
+        {
+            // camp of the Qalmaq at the far end: palisade with a gap for the gate, two watch towers; our side: banners with the amulet sign
+            for (int k = -4; k <= 4; k++) { if (Mathf.Abs(k) <= 1) continue; put(BE + "E_fence.glb", new Vector3(k * 4.1f, 0, 33), 1f, 0); }
+            put(BE + "E_tower.glb", new Vector3(-21, 0, 35), 1f, 0); put(BE + "E_tower.glb", new Vector3(21, 0, 35), 1f, 0);
+            put(BE + "E_banner.glb", new Vector3(-6, 0, -24), 1f, 0); put(BE + "E_banner.glb", new Vector3(6, 0, -24), 1f, 0);
+            for (int k = 0; k < 6; k++) { var cp = new Vector3(rr(-26, 26), 0, rr(-20, 28)); if (Mathf.Abs(cp.x) < 9) cp.x += 18 * Mathf.Sign(cp.x + .01f); put(BE + "E_campfire.glb", cp, 1f, 0); Fire(cp + Vector3.up * .2f, root); }
+        }
         var ysrc = Load<GameObject>(ART + "props/B_yurt.glb");
         for (int c = 0; c < 9; c++)
         {
@@ -143,9 +161,18 @@ public static class QQSetup
             for (int j = 0; j < n && ysrc; j++)
             {
                 var p = cc + new Vector3(rr(-7, 7), 0, rr(-7, 7)); bool burnt = R.NextDouble() < .6;
-                var y = (GameObject)PrefabUtility.InstantiatePrefab(ysrc, root); y.transform.position = p; y.transform.rotation = Quaternion.Euler(0, rr(0, 360), burnt ? rr(-5, 5) : 0);
-                y.transform.localScale = new Vector3(1.2f, burnt ? rr(.7f, .95f) * 1.2f : 1.2f, 1.2f);
-                if (burnt) { Burn(y); if (R.NextDouble() < .5) Fire(p + Vector3.up * .5f, root); }
+                if (nb)
+                {
+                    double q = R.NextDouble(); string v = q < .45 ? "yurt_burnt" : q < .65 ? "yurt_frame" : "yurt";
+                    var y = (GameObject)PrefabUtility.InstantiatePrefab(Load<GameObject>(BE + v + ".glb"), root); y.transform.position = p; y.transform.rotation = Quaternion.Euler(0, rr(0, 360), 0);
+                    if (v != "yurt" && R.NextDouble() < .45) Fire(p + Vector3.up * .4f, root);
+                }
+                else
+                {
+                    var y = (GameObject)PrefabUtility.InstantiatePrefab(ysrc, root); y.transform.position = p; y.transform.rotation = Quaternion.Euler(0, rr(0, 360), burnt ? rr(-5, 5) : 0);
+                    y.transform.localScale = new Vector3(1.2f, burnt ? rr(.7f, .95f) * 1.2f : 1.2f, 1.2f);
+                    if (burnt) { Burn(y); if (R.NextDouble() < .5) Fire(p + Vector3.up * .5f, root); }
+                }
             }
         }
         put(ART + "props/B_tower.glb", new Vector3(-30, 0, 34), 1.4f, 0); put(ART + "props/B_house.glb", new Vector3(32, 0, 30), 1.3f, 0);
@@ -205,7 +232,7 @@ public static class QQSetup
         var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
         var units = new System.Collections.Generic.List<Unit>();
         var gu = ar.Spawn(ar.gulayim, new Vector3(0, 0, -16), 0, 600, 30, 1.8f, ar.saber, "Gúlayım"); units.Add(gu);
-        for (int i = 0; i < 4; i++) units.Add(ar.Spawn(ar.qiz, new Vector3(-3 + i * 2, 0, -18.5f), 0, 100, 10, 1.72f, ar.saber, "qiz"));
+        for (int i = 0; i < 4; i++) units.Add(ar.Spawn(i == 1 && ar.sarbinaz ? ar.sarbinaz : (ar.maidens != null && ar.maidens.Length > 0 ? ar.maidens[i % ar.maidens.Length] : ar.qiz), new Vector3(-3 + i * 2, 0, -18.5f), 0, 100, 10, 1.72f, i == 1 && ar.spear ? ar.spear : ar.saber, "qiz"));
         for (int i = 0; i < 6; i++) units.Add(ar.Spawn(i < 2 ? ar.kamonchi : ar.askar, new Vector3(-5 + i * 2, 0, -9 + (i % 2)), 1, 100, 10, 1.85f, i < 2 ? ar.bow : ar.saber, "askar"));
         string[] poses = { "combat", "slash", "run", "attack", "idle", "heavy" }; int k = 0;
         foreach (var u in units) { u.rig.Play(poses[k++ % poses.Length], .01f); u.rig.SampleAt(.35f); }
@@ -283,6 +310,41 @@ public static class QQSetup
             sheet.Apply(); File.WriteAllBytes(outDir + "/" + e.file.Substring(2) + ".png", sheet.EncodeToPNG());
             Object.DestroyImmediate(u.gameObject);
         }
+    }
+
+    // close-up of the right hand: open (grip 0) and gripping the saber (grip 1), bind pose and combat pose
+    public static void HandShot()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var model = Load<GameObject>(ART + "chars/P_gulayim.glb"); var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds");
+        var sheet = new Texture2D(1280, 720, TextureFormat.RGB24, false); int k = 0;
+        foreach (var grip in new[] { 0f, 1f })
+            foreach (var pose in new[] { "", "combat" })
+            {
+                var u = ar.Spawn(model, Vector3.zero, 0, 100, 10, 1.75f, grip > 0 ? ar.saber : null, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+                u.rig.gripRight = grip; u.rig.gripLeft = grip;
+                if (pose != "") u.rig.Play(pose, .01f); else u.rig.Play("idle", .01f);
+                u.rig.SampleAt(pose == "" ? 0f : .3f);
+                if (pose == "") { u.rig.speed = 0; }
+                var hand = u.rig.Bone("RightHand"); var mid = u.rig.Bone("RightMiddle2") ?? hand; var c = Vector3.Lerp(hand.position, mid.position, .6f);
+                cam.nearClipPlane = .02f; cam.fieldOfView = 30; cam.transform.position = c + (u.transform.forward * .32f - u.transform.right * .22f + Vector3.up * .05f); cam.transform.LookAt(c);
+                var rt = new RenderTexture(640, 360, 24); cam.targetTexture = rt; cam.aspect = 640f / 360f; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                sheet.ReadPixels(new Rect(0, 0, 640, 360), (k % 2) * 640, (1 - k / 2) * 360); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); k++;
+                Object.DestroyImmediate(u.gameObject);
+            }
+        sheet.Apply(); File.WriteAllBytes("Builds/hand_unity.png", sheet.EncodeToPNG()); Debug.Log("QQ HANDSHOT OK");
+    }
+
+    public static void GalleryP()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var list = new (string file, string name, GameObject wpn, float h, string pose)[] { ("P_gulayim", "Gulayim", null, 1.75f, "") };
+        RenderSheet(ar, list, "chars/", "Builds/pchk");
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/P_gulayim.glb"), Vector3.zero, 0, 1, 1, 1.75f, null, "g");
+        var h = u.rig.Bone("RightHand"); Debug.Log("QQ PCHK hand " + (h ? h.position.ToString("F3") : "none") + " fingers " + u.rig.HasFingers + " bounds " + u.GetComponentInChildren<SkinnedMeshRenderer>().bounds);
+        Debug.Log("QQ GALLERY OK");
     }
 
     public static void Win()

@@ -14,6 +14,11 @@ public class QQRig : MonoBehaviour
     Transform hips; Vector3 hipsBind;
     string cur, prev; float tCur, tPrev, fade = 1f, fadeDur = .15f; bool loopCur = true, loopPrev = true;
     public float speed = 1f;
+    // finger chains added by tools/blender/chars.py (two bones per hand); 0 = open, 1 = fist round a grip
+    public float gripRight = .85f, gripLeft = .25f;
+    class Fing { public Transform t; public Quaternion bind; public Vector3 axis; public float deg; public bool right; }
+    readonly List<Fing> fingers = new List<Fing>();
+    public bool HasFingers { get { return fingers.Count > 0; } }
     public string Current { get { return cur; } }
     public float ClipTime { get { return tCur; } }
     public float Duration { get { RClip r; return cur != null && rc.TryGetValue(cur, out r) ? r.src.dur : 1f; } }
@@ -29,6 +34,7 @@ public class QQRig : MonoBehaviour
         foreach (var t in GetComponentsInChildren<Transform>(true)) if (!B.ContainsKey(t.name)) B[t.name] = t;
         foreach (var n in BONES) { Transform b; if (B.TryGetValue(n, out b)) bind[b] = b.localRotation; }
         hips = Bone("Hips"); if (hips) hipsBind = hips.localPosition;
+        SetupFingers();
     }
 
     RClip Get(string name)
@@ -46,6 +52,31 @@ public class QQRig : MonoBehaviour
         }
         if (c.hipsT != null && hips) { float k = hipsBind.y / QQAnimLib.hipsY; int n = c.hipsT.t.Length; r.ht = c.hipsT.t; r.hy = new float[n]; for (int i = 0; i < n; i++) r.hy[i] = c.hipsT.v[i * 3 + 1] * k; }
         rc[name] = r; return r;
+    }
+
+    public void SampleBind() { Init(); }
+
+    // Five 3-joint fingers per hand (tools/blender/hands.py). The curl axis of every joint is derived from the bind pose:
+    // fingers bend from their own direction toward the palm; in the A-pose the palms face the body, so "palm" = toward the hips.
+    // The thumb bends toward the middle knuckle instead. Stored in each bone's local space.
+    void SetupFingers()
+    {
+        string[] names = { "Thumb", "Index", "Middle", "Ring", "Pinky", "Fingers" }; float[] fdeg = { 72, 95, 75 }, tdeg = { 25, 38, 30 };   // "Fingers1/2" = the 2-bone chain of tools/blender/chars.py
+        foreach (var side in new[] { "Right", "Left" })
+        {
+            Transform hand = Bone(side + "Hand"); Transform mid1; if (!hand) continue; if (!B.TryGetValue(side + "Middle1", out mid1)) mid1 = Bone(side + "Fingers1"); if (!mid1) continue;
+            Vector3 palm = (hips ? hips.position : transform.position) - hand.position;
+            foreach (var n in names)
+                for (int j = 1; j <= 3; j++)
+                {
+                    Transform b, next; if (!B.TryGetValue(side + n + j, out b)) continue;
+                    Vector3 dir = B.TryGetValue(side + n + (j + 1), out next) ? next.position - b.position : b.position - b.parent.position;
+                    Vector3 toward = n == "Thumb" ? mid1.position - b.position : palm;
+                    toward -= dir.normalized * Vector3.Dot(toward, dir.normalized);
+                    Vector3 axisW = Vector3.Cross(dir, toward); if (axisW.sqrMagnitude < 1e-10f) continue;
+                    fingers.Add(new Fing { t = b, bind = b.localRotation, axis = (Quaternion.Inverse(b.rotation) * axisW).normalized, deg = n == "Thumb" ? tdeg[j - 1] : fdeg[j - 1], right = side == "Right" });
+                }
+        }
     }
 
     public bool Has(string name) { return Get(name) != null; }
@@ -98,5 +129,7 @@ public class QQRig : MonoBehaviour
             if (p != null) { float py = p.hy != null ? SampleF(p.ht, p.hy, tp) : hipsBind.y; y = Mathf.Lerp(py, y, fade); }
             hips.localPosition = new Vector3(hipsBind.x, y, hipsBind.z);
         }
+        // curl the fingers about their local X (the axis the Blender pipeline built them around)
+        for (int i = 0; i < fingers.Count; i++) { var f = fingers[i]; f.t.localRotation = f.bind * Quaternion.AngleAxis(f.deg * (f.right ? gripRight : gripLeft), f.axis); }
     }
 }
