@@ -16,7 +16,7 @@ public class QQSpring : MonoBehaviour
 
     public static bool Wants(GameObject root)
     {
-        foreach (var t in root.GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Skirt") || t.name.StartsWith("Braid")) return true;
+        foreach (var t in root.GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Skirt") || t.name.StartsWith("Braid") || t.name == "Tail1" || t.name == "Plume1") return true;
         return false;
     }
 
@@ -30,10 +30,13 @@ public class QQSpring : MonoBehaviour
         scale = hips && foot ? Vector3.Distance(hips.position, foot.position) / .87f : 1f;   // ~1 for a 1.75 m character
         for (int k = 0; k < 16; k++) Add(map, "Skirt" + k + "_", 1, 3, true, .55f, .35f, .25f);
         foreach (var s in new[] { "L", "R", "FL", "FR" }) Add(map, "Braid" + s, 1, 5, false, .3f, .3f, .7f);
+        Add(map, "Tail", 1, 4, false, .22f, .25f, .5f);    // Qasqir's tail (tools/blender/appendage.py)
+        Add(map, "Plume", 1, 4, false, .35f, .3f, .3f);
         System.Action<string, string, float> cap = (a, b, r) => { Transform ta, tb; if (map.TryGetValue(a, out ta) && map.TryGetValue(b, out tb)) cols.Add(new Capsule { a = ta, b = tb, r = r * scale }); };
         cap("LeftUpLeg", "LeftLeg", .095f); cap("RightUpLeg", "RightLeg", .095f);
         cap("LeftLeg", "LeftFoot", .075f); cap("RightLeg", "RightFoot", .075f);
         cap("Hips", "Spine02", .135f); cap("Spine02", "neck", .14f);
+        Transform h2; if (map.TryGetValue("Hips", out h2) && map.ContainsKey("Tail1")) { cols.Add(new Capsule { a = map["LeftUpLeg"], b = map["LeftLeg"], r = .12f * scale }); cols.Add(new Capsule { a = map["RightUpLeg"], b = map["RightLeg"], r = .12f * scale }); }
     }
 
     void Add(Dictionary<string, Transform> map, string prefix, int from, int to, bool skirt, float stiff, float drag, float grav)

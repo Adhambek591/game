@@ -86,7 +86,7 @@ public static class QQSetup
         // L_ = layered rebuild (tools/blender/layered.py: free coat skirt on spring chains, trousers, separate braids)
         System.Func<string, GameObject> pick = n => AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/L_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/P_" + n + ".glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_" + n + ".glb");
         var cg = pick("gulayim"); if (cg) { ar.gulayim = cg; ar.gulayimBlue = null; }
-        var cq = AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_qashqir.glb") ?? Load<GameObject>(ART + "meshy/M_qashqir.glb"); if (cq) ar.captain = cq;
+        var cq = AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/A_qashqir.glb") ?? AssetDatabase.LoadAssetAtPath<GameObject>(ART + "chars/C_qashqir.glb") ?? Load<GameObject>(ART + "meshy/M_qashqir.glb"); if (cq) ar.captain = cq;
         ar.sarbinaz = pick("sarbinaz_low"); ar.spear = Load<GameObject>(ART + "props/W_spear.glb");
         ar.maidens = new[] { "aysuliw_low", "qalbiyke_low", "gulshad_low" }.Select(pick).Where(g => g).ToArray();
         var am = new Material(Shader.Find("Universal Render Pipeline/Unlit")); am.SetColor("_BaseColor", new Color(.25f, .18f, .1f)); AssetDatabase.CreateAsset(am, ART + "M_arrow.mat"); ar.arrowMat = am;
@@ -489,10 +489,10 @@ public static class QQSetup
         EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
         foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
         var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
-        var hs = new System.Collections.Generic.Dictionary<string, float> { { "qargashiq", 3.2f }, { "qunqar", 3.5f }, { "surtaysha", 1.95f }, { "otbasqan", 1.85f }, { "gulshad", 1.65f } };
-        foreach (var g in AssetDatabase.FindAssets("L_ t:GameObject", new[] { ART + "chars" }))
+        var hs = new System.Collections.Generic.Dictionary<string, float> { { "qashqir", 2.4f }, { "qargashiq", 3.2f }, { "qunqar", 3.5f }, { "surtaysha", 1.95f }, { "otbasqan", 1.85f }, { "gulshad", 1.65f } };
+        foreach (var g in AssetDatabase.FindAssets("t:GameObject", new[] { ART + "chars" }))
         {
-            var path = AssetDatabase.GUIDToAssetPath(g); var nm = Path.GetFileNameWithoutExtension(path); if (nm.EndsWith("_low") || !nm.StartsWith("L_")) continue;
+            var path = AssetDatabase.GUIDToAssetPath(g); var nm = Path.GetFileNameWithoutExtension(path); if (nm.EndsWith("_low") || !(nm.StartsWith("L_") || nm.StartsWith("A_")) || (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-qqonly") >= 0 && !nm.Contains(System.Environment.GetCommandLineArgs()[System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-qqonly") + 1]))) continue;
             float h; if (!hs.TryGetValue(nm.Substring(2), out h)) h = 1.75f;
             const int N = 8, W = 180, H = 300; var sheet = new Texture2D(W * N, H * 2, TextureFormat.RGB24, false);
             int row = 0;
