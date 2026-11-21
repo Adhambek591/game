@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795248077';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795248077';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795248077';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795248077';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795248077';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795248077';
-import { t } from './i18n.js?v=1795248077';
-import { Sfx, initAudio } from './audio.js?v=1795248077';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795248077';
-import * as FX from './fx.js?v=1795248077';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795248077';
-import { GlbRig, PROPS } from './glbrig.js?v=1795248077';
-import { makeHorse, horseBase } from './horse.js?v=1795248077';
+import { Rig, TX } from './rig.js?v=1795249975';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795249975';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795249975';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795249975';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795249975';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795249975';
+import { t } from './i18n.js?v=1795249975';
+import { Sfx, initAudio } from './audio.js?v=1795249975';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795249975';
+import * as FX from './fx.js?v=1795249975';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795249975';
+import { GlbRig, PROPS } from './glbrig.js?v=1795249975';
+import { makeHorse, horseBase } from './horse.js?v=1795249975';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -42,7 +42,7 @@ scene.add(sun, sun.target);
 const fireLights = [0, 1, 2].map(() => { const l = new THREE.PointLight(0xff7a2a, 0, 22, 1.8); l.position.set(0, -50, 0); scene.add(l); return l; });
 const heroLight = new THREE.PointLight(0xffd9a8, 22, 9, 1.4); scene.add(heroLight);
 let portrait = false;
-let composer = null; export let gradePass = null; if (SET.q > 0) try { composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(640, 360), .5, .7, .8)); composer.addPass(new OutputPass()); gradePass = new ShaderPass({ uniforms: { tDiffuse: { value: null }, res: { value: new THREE.Vector2(1280, 720) }, sat: { value: 1.36 }, warm: { value: .035 }, tilt: { value: SET.q > 1 ? .4 : 0 } },
+let composer = null; export let gradePass = null; if (SET.q > 0) try { composer = new EffectComposer(renderer); composer.addPass(new RenderPass(scene, camera)); composer.addPass(new UnrealBloomPass(new THREE.Vector2(640, 360), .5, .7, .8)); composer.addPass(new OutputPass()); gradePass = new ShaderPass({ uniforms: { tDiffuse: { value: null }, res: { value: new THREE.Vector2(1280, 720) }, sat: { value: 1.12 }, warm: { value: .035 }, tilt: { value: SET.q > 1 ? .4 : 0 } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }',
   fragmentShader: `uniform sampler2D tDiffuse; uniform vec2 res; uniform float sat, warm, tilt; varying vec2 vUv;
   void main(){ float d = clamp((abs(vUv.y - .48) - .2) * 2.6, 0., 1.) * tilt; vec3 c = vec3(0.); float w = 0.;
@@ -652,7 +652,7 @@ export function clearLevel() { G.clrT = performance.now(); G.decks = null; G.due
   while (fxg.children.length) fxg.remove(fxg.children[0]); fx.length = 0; sparkL.length = 0;
   G.colC = []; G.colB = []; G.proj = []; G.tele = []; G.rains = []; G.picks = []; G.fires = []; G.markers = []; G.limitZ = -1e9; G.waits = []; G.untils = []; G.noDeath = false; G.onPlayerDeath = null; G.tick = null; G.fol = 0; G.vc = null; G.front = null; G.tok = []; G.rtok = []; G.zones = []; G.spirits = []; G.buf = null; G.riders = []; G.breakables = []; G.chunks = []; G.souls = []; G.corpses = []; waterMats.length = 0; nums.innerHTML = '';
 }
-export function ground(zNear, zFar, key) { const L = zNear - zFar; const night = key === 'ground2'; const pm = ENV.ok && groundMat(L, night); if (pm) { const m = new THREE.Mesh(new THREE.PlaneGeometry(80, L), pm); m.rotation.x = -Math.PI / 2; m.position.set(0, 0, (zNear + zFar) / 2); m.receiveShadow = true; world.add(m); dressGround(world, zNear, zFar, G.W, night); return; } const tx = A.tex[key].clone(); tx.needsUpdate = true; tx.repeat.set(80 / 6.5, L / 6.5); const m = new THREE.Mesh(new THREE.PlaneGeometry(80, L), new THREE.MeshStandardMaterial({ map: tx, bumpMap: tx, bumpScale: 2, roughness: 1, color: 0x8f877c })); m.rotation.x = -Math.PI / 2; m.position.set(0, 0, (zNear + zFar) / 2); m.receiveShadow = true; world.add(m); }
+export function ground(zNear, zFar, key) { const L = zNear - zFar; const night = key === 'ground2'; const pm = ENV.ok && groundMat(L, night, G.mis && G.mis.c); if (pm) { const m = new THREE.Mesh(new THREE.PlaneGeometry(80, L), pm); m.rotation.x = -Math.PI / 2; m.position.set(0, 0, (zNear + zFar) / 2); m.receiveShadow = true; world.add(m); dressGround(world, zNear, zFar, G.W, night); return; } const tx = A.tex[key].clone(); tx.needsUpdate = true; tx.repeat.set(80 / 6.5, L / 6.5); const m = new THREE.Mesh(new THREE.PlaneGeometry(80, L), new THREE.MeshStandardMaterial({ map: tx, bumpMap: tx, bumpScale: 2, roughness: 1, color: 0x8f877c })); m.rotation.x = -Math.PI / 2; m.position.set(0, 0, (zNear + zFar) / 2); m.receiveShadow = true; world.add(m); }
 const darkCache = new Map();
 function placeProp(n, x, y, z, sx, sy, sz, ry = 0, burnt = false, parent) { const src = A.props[n]; if (!src) return null; const o = src.clone(true); o.position.set(x, y, z); o.scale.set(sx, sy, sz); o.rotation.y = ry; if (burnt) o.traverse(m => { if (m.isMesh) { let d = darkCache.get(m.material); if (!d) { d = m.material.clone(); d.color = new THREE.Color(0x2a2420); d.roughness = 1; darkCache.set(m.material, d); } m.material = d; } }); (parent || world).add(o); return o; }
 export function decor(n, x, z, ry = 0, burnt = false) { const S = { R_horse: 1.45, R_arava: 2.1 }[n] || 1; const o = FX.prop(n, x, z, ry, burnt) || placeProp(n, x, 0, z, S, S, S, ry, burnt); if (o) G.colC.push({ x, z, r: n === 'R_arava' ? 1.8 : 1.0 }); return o; }
@@ -1401,6 +1401,7 @@ function update(dt) {
   if (G.tick) G.tick(dt);
   hud();
 }
+const _nv = new THREE.Vector3(), _nd = new THREE.Vector3();
 function render(dt, anim) {
   separate(); const still = G.paused || G.freeze; for (const e of G.ents) { if (e.gone) continue; if (e.mounted && e.hz && dt > 0 && !still) horseTick(e, dt); if (still && !e.dead && /Running|Walking/.test(e.curName)) { e.loco = 'Idle'; e._play('Idle'); } if (e.rig.motion && dt > 0) { let dr = e.rot - (e.pr ?? e.rot); while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI; e.rig.motion((e.x - (e.px ?? e.x)) / dt, (e.z - (e.pz ?? e.z)) / dt, dr / dt, e.rot, e.vs); } e.px = e.x; e.pz = e.z; e.pr = e.rot; if (anim) { /* bench #5: bodies far from the camera animate every 2nd frame (time is accumulated, so speed is unchanged) */ const lodFar = e !== G.player && !e.duel && e !== G.boss && ((e.x - camera.position.x) ** 2 + (e.z - camera.position.z) ** 2) > (SET.q === 0 ? 480 : 1100); if (lodFar && ((G.frameN + (e.lodPh ?? (e.lodPh = (Math.random() * 2) | 0))) & 1)) e.lodAcc = (e.lodAcc || 0) + dt; else { e.mixer.update(dt + (e.lodAcc || 0)); e.lodAcc = 0; } } e.o.position.set(e.x, e.y + (e.dead && e.deadT > 2.2 ? e.o.position.y : deckY(e.x, e.z)), e.z); if (e.dead && e.deadT > 2.2) e.o.position.y -= 0; e.o.rotation.y = e.rot; if (e.ln > 0 && !e.mounted && dt > 0) { e.ln -= dt; const a = Math.max(0, e.ln) / .3 * .3, f = e.lnx * Math.sin(e.rot) + e.lnz * Math.cos(e.rot), r = e.lnx * Math.cos(e.rot) - e.lnz * Math.sin(e.rot); e.o.rotation.order = 'YXZ'; e.o.rotation.x = f * a; e.o.rotation.z = -r * a; } if (e.aura) { e.aura.position.set(e.x, .06, e.z); e.aura.rotation.y += dt * 1.5; e.aura.material.opacity = .55 + Math.sin(G.time * 5 + e.x) * .2; } if (e.flash > 0) { e.flash -= dt; const v = e.flash > 0 ? 1.2 : 0; for (const m of e.mats) { const z = m.userData.em0; if (z && v === 0) m.emissive.copy(z); else m.emissive.setRGB(v, v * .8, v * .6); } } if (e.bar) { e.bar.position.set(e.x, e.h + .35 + (e.y || 0) * .8, e.z); e.bar.quaternion.copy(camera.quaternion); const k = clamp(e.hp / e.maxHp, 0, 1), BW = e.barW || 1.24; e.barFg.scale.x = Math.max(.001, BW * k); e.barFg.position.x = -BW / 2 * (1 - k); if (e.barLag) { let L = e.barLagK ?? 1; if (L < k) L = k; else if (G.time - (e.hitT || 0) > .2) L = Math.max(k, L - dt * (.35 + (L - k) * 1.6)); e.barLagK = L; e.barLag.scale.x = Math.max(.001, BW * L); e.barLag.position.x = -BW / 2 * (1 - L); } { /* QA 2b HUD: enemy bars only for the target, captains / bosses and damaged enemies within 8 m; ally bars only below 50 %; never over the HUD panels */ const P_ = G.player; let vis = !e.bg && (e.team === 'ally' ? e.hp < e.maxHp * .5 : (e === G.boss || e.hunt || e.lead || e.duel || (P_ && (e === P_.lock || e === P_.hl)) || (e.hp < e.maxHp && P_ && Math.hypot(e.x - P_.x, e.z - P_.z) < 8)));
       if (vis && window.qqHud) { /* the bar's whole on-screen box (frame + captain name) is tested against the live HUD panels (index.html #qqhud) */ _bv.copy(e.bar.position).project(camera); if (_bv.z < 1) { const W_ = innerWidth, H_ = innerHeight, sx = (_bv.x * .5 + .5) * W_, sy = (-_bv.y * .5 + .5) * H_; _bcr.setFromMatrixColumn(camera.matrixWorld, 0); _bv2.copy(e.bar.position).add(_bcr).project(camera); const u = Math.hypot((_bv2.x - _bv.x) * .5 * W_, (_bv2.y - _bv.y) * .5 * H_), pl = BW >= 2, hw = (pl ? 2.0 : BW / 2 + .08) * u; if (window.qqHud.hit(sx - hw, sy - (pl ? .75 : .16) * u, sx + hw, sy + (pl ? .3 : .16) * u)) vis = false; } } e.bar.visible = vis; } if (e.barPz) { const q = e.brokenT > 0 ? 0 : clamp(e.poise / e.poiseMax, 0, 1); e.barPz.scale.x = Math.max(.001, BW * q); e.barPz.position.x = -BW / 2 * (1 - q); } } }
@@ -1410,8 +1411,10 @@ function render(dt, anim) {
   for (const f of G.fires) for (let i = 0; i < f.sp.length; i++) { const s = f.sp[i], k = 1 + Math.sin(tm * (7 + i * 2.3) + f.ph + i) * .18; s.scale.set(f.size * 1.5 * k, f.size * 2.6 * (2 - k) * .8, 1); }
   for (const m of G.markers) { m.g.children[0].scale.setScalar(m.r * (1 + Math.sin(tm * 4) * .08)); }
   const p = G.player; const cx = p ? p.x + (G.lkx || 0) : G.cam.x, cz = p ? p.z + (G.lkz || 0) : G.cam.z; G.cam.x += (cx - G.cam.x) * Math.min(1, dt * 6); G.cam.z += (cz - G.cam.z) * Math.min(1, dt * 6);
-  G.zk = Math.max(0, (G.zk || 0) - dt * .22); G.zs = (G.zs || 0) + (Math.min(.14, G.zk) - (G.zs || 0)) * Math.min(1, dt * 7); const CK = (G.camK || 1) * (1 - G.zs) * (G.ck3 || 1), H = (portrait ? 17.5 : 10.6) * CK, D = (portrait ? 15.5 : 11.4) * CK, F = G.cam.z - (portrait ? 2 : .2); let sx = 0, sy = 0; if (G.shake > 0) { G.shake -= dt * 1.6; sx = rnd(-1, 1) * G.shake * .6; sy = rnd(-1, 1) * G.shake * .6; }
-  const CY = G.camY || 0, YW = G.camYaw || 0; camera.position.set(G.cam.x * .85 + sx + Math.sin(YW) * (D + .9), H + sy + CY, F - .9 + Math.cos(YW) * (D + .9)); camera.lookAt(G.cam.x * .85, .8 + CY, F - .9); if (G.camFn) G.camFn(camera, dt);
+  G.zk = Math.max(0, (G.zk || 0) - dt * .22); G.zs = (G.zs || 0) + (Math.min(.14, G.zk) - (G.zs || 0)) * Math.min(1, dt * 7); const CK = (G.camK || 1) * (1 - G.zs) * (G.ck3 || 1), H = (portrait ? 15 : 7.4) * CK, D = (portrait ? 16.8 : 13.4) * CK, F = G.cam.z - (portrait ? 2 : .2); let sx = 0, sy = 0; if (G.shake > 0) { G.shake -= dt * 1.6; sx = rnd(-1, 1) * G.shake * .6; sy = rnd(-1, 1) * G.shake * .6; }
+  const CY = G.camY || 0, YW = G.camYaw || 0; camera.position.set(G.cam.x * .85 + sx + Math.sin(YW) * (D + .9), H + sy + CY, F - .9 + Math.cos(YW) * (D + .9)); camera.lookAt(G.cam.x * .85, 1.4 + CY, F - 1.8); if (G.camFn) G.camFn(camera, dt);
+  { /* low follow camera: walls/merlons between the camera and the hero are cut away by the near plane (ground at the frame bottom is ~10 m away); cutscene cameras keep a tiny near plane */ camera.getWorldDirection(_nd); const gb = _nd.y < -.05 ? camera.position.y / Math.max(.2, Math.sin(Math.asin(-_nd.y) + camera.fov * Math.PI / 360)) : 1;   /* distance to the ground at the frame's bottom edge */
+    const nr = G.camFn && !G.camFn.near ? .5 : Math.max(.5, Math.min(gb * .75, (p ? camera.position.distanceTo(_nv.set(p.x, 1, p.z)) : 14) - 6)); if (Math.abs(camera.near - nr) > .05) { camera.near = nr; camera.updateProjectionMatrix(); } }
   if (p) { lockTick(p); heroLight.position.set(p.x, 3.2, p.z + 1.5); if (p.mark) { p.mark.g.position.set(p.x, 0, p.z); p.mark.ring.rotation.z += dt * 1.2; p.mark.tri.position.y = (p.mounted ? 4.3 : 3.3) + Math.sin(tm * 4) * .15; p.mark.tri.rotation.y += dt * 2; p.mark.g.visible = !p.dead; } }
   if (G.sunDir) { sun.position.set(G.cam.x + G.sunDir.x * 30, G.sunDir.y * 30, G.cam.z + G.sunDir.z * 30); sun.target.position.set(G.cam.x, 0, G.cam.z - 2); }
   // nearest fires get the 3 lights

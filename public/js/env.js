@@ -1,7 +1,7 @@
 // Real PBR environment from Poly Haven (CC0): HDRI lighting, PBR ground/wall/wood textures, scanned props.
 import * as THREE from 'three';
-import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795248077';
-import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795248077';
+import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795249975';
+import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795249975';
 export const ENV = { pbr: {}, mod: {}, day: null, night: null, ok: false };
 const B = './assets/env/';
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -42,7 +42,11 @@ export function place(world, name, x, z, s, idx) {
 // radial alpha for ground decals
 let decalAlpha = null;
 function alphaTex() { if (decalAlpha) return decalAlpha; const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); const r = g.createRadialGradient(64, 64, 8, 64, 64, 64); r.addColorStop(0, '#fff'); r.addColorStop(.55, '#bbb'); r.addColorStop(1, '#000'); g.fillStyle = r; g.fillRect(0, 0, 128, 128); return decalAlpha = new THREE.CanvasTexture(c); }
-export function groundMat(L, night) { const m = pbrMat(night ? 'aerial_ground_rock' : 'brown_mud_dry', 80 / 7, L / 7, { color: night ? 0xc8b49a : 0xcfae82 }); if (m && !m._road) roadify(m, night ? { dark: .8, desat: .8, tint: [.36, .32, .28], gt: [1, 1, 1] } : {}); return m; }
+// per-chapter ground look (graphics pass): every chapter used to share one orange dirt. [texture, base colour, grade tint, road tint]
+const BIOME = { 0: ['brown_mud_dry', 0xb4b088, [.9, 1.06, .8], [.4, .36, .27]], 1: ['burned_ground_01', 0xa69a8e, [.9, .88, .86], [.3, .27, .24]], 2: ['brown_mud_dry', 0xf2e6d0, [1.06, 1.04, .98], [.6, .55, .46]],
+  3: ['brown_mud_dry', 0xa8a882, [.9, 1.03, .86], [.36, .33, .26]], 4: ['brown_mud_dry', 0xead8b0, [1.04, 1.0, .92], [.55, .5, .4]], 5: ['aerial_ground_rock', 0xbdb4a6, [.96, .96, .96], [.4, .38, .35]],
+  6: ['brown_mud_dry', 0xbca082, [.94, .9, .84], [.4, .34, .27]], 7: ['burned_ground_01', 0xa08070, [.95, .86, .8], [.32, .26, .22]] };
+export function groundMat(L, night, ch) { const b = !night && BIOME[ch]; const m = pbrMat(night ? 'aerial_ground_rock' : b ? b[0] : 'brown_mud_dry', 80 / 7, L / 7, { color: night ? 0xc8b49a : b ? b[1] : 0xcfae82 }); if (m && !m._road) roadify(m, night ? { dark: .8, desat: .8, tint: [.36, .32, .28], gt: [1, 1, 1] } : b ? { gt: b[2], tint: b[3] } : {}); return m; }
 // ---------- lane readability + caravan trail, added to a ground material's shader ----------
 // The play lane is darkened / desaturated so units stand out; a meandering packed-earth trail (wheel ruts, hoof and foot prints from
 // assets/env/tex/trail_det.jpg, a mean-0.5 detail map) runs along it. o: { amp, hw, k, dark, desat, lane, tint:[r,g,b], off }
