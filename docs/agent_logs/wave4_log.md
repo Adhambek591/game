@@ -222,7 +222,6 @@ New qq lines for the author:
   w4_tale: Shabarmannıń gúrrińi · w4_flash: Tań sáhárde Sarkopta… · w4_play_al: Allayar bay bolıp oynaysız · w4_sarkop: Sarkop batırları hám Allayardıń altı ulı
   also new this round: w4_power "Usınıs etilgen kúsh: {s}" (jetkilikli / shegarada / kúsheytiń!) · w4_canup "Kúsheytiw múmkin!" · w4_e_hero "Gúlayımǵa zıyan −{n}%"
 
-<<<<<<< HEAD
 ## Balance 2c — boss table at 0 % / ~60 % / 100 % of the cap (Nov 21, local in-browser QA bot tools/test/qa/bot_page.js, one run per cell, high variance esp. 4-4)
 Changes: (1) story.js retry: the boss regains min(50 %, 4 % + 4.5 % x under-upgrade deficit) of max HP on a retry (deficit = wave4 defi(c): 0 at >= 85 % of the cap) -> at the cap unchanged (4 %), far under-upgraded the boss cannot be worn down by retries (author: under-upgraded should lose).
 (2) BOSSK: qashqir [5, .95] (was .75), jallod [1.9, .55] (.45), aydarho [2.2, .5] ([2, .45]), qunqar [1.35, .7] ([1, .5]), qargashiq [2.3, .75] ([1.9, .38]); qumdev, Surtaysha unchanged.
@@ -242,7 +241,6 @@ Changes: (1) story.js retry: the boss regains min(50 %, 4 % + 4.5 % x under-upgr
 | 7-4 Surtaysha | cap 15 | won (totems + QTE), 0, 58 % | unchanged |
 | 7-4 Surtaysha | 0 | won after 2 deaths | (retry rule applies; not re-run) |
 Stagger share in all fights 7-16 % (no stun-lock). The bot dodges better than a player; at the cap it now ends 26-53 % HP.
-=======
 ## Camp balance 2c (Nov 21; QA sim bot bot_page.js in the built-in browser, threaded local server; one run each)
 Camp soldiers now get a per-chapter [HP x, damage x] from `W4CAMPK` in tools/m2src/66_w4camps.js (was a flat HP x1.35 / damage x1.2), on top of the chapter curve + under-upgrade penalty.
 Fight time = game-s from "Tolqın 1/3" to "Dushman: 0/N" (end banners excluded; "end" = bot clock at the end screen). min HP = heroine's lowest HP share (the bot uses the 🔺 12 % heal often).
@@ -262,4 +260,3 @@ Fight time = game-s from "Tolqın 1/3" to "Dushman: 0/N" (end banners excluded; 
 Committed table: 1 [1.1, 2.4] · 2 [1.2, 3.4] · 3–6 [1.1, 2.4] · 7 [1.5, 4.2] (the 7-1 foot battle uses ch7 too).
 Left: 3-C1 needs more (try [1.25, 3.6]); 4-C1 / 6-C1 not measured; 7-C1 still slightly above 70 % (try [1.5, 5.5]); L0 measured only for ch1/ch2 (both struggle: 2–4 deaths).
 Army chip: "Safımız: 40 qız + 0 batır" shows in camps (2-C1, 3-C1, 5-C1, 7-C1) once the warrior bodies on the field have fallen, with or without a heroine death (qq_w4.men unchanged). After a death + retry in 2-C1 no allies were present at all (only Gúlayım): the army is not respawned on retry.
->>>>>>> worktree-agent-a8644864fd6acad79
