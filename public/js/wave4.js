@@ -464,7 +464,7 @@ function endBtn() { const box = document.querySelector('#end .in'); if (!box) re
 function mapBtn() { const hd = document.querySelector('#map .mh'); if (!hd || $('w4mapb')) return; const b = document.createElement('button'); b.id = 'w4mapb'; b.className = 'bk'; b.style.cssText = 'margin-left:6px'; b.textContent = '⚒'; b.title = tt('w4_upT'); b.onclick = e => { e.stopPropagation(); upOpen(); }; const tot = hd.querySelector('.tot'); if (tot) tot.before(b); else hd.appendChild(b); }
 
 // ================================================================ D) CAMPS ON THE WORLD MAP
-const NODE = [[7.5, 70], [22.5, 30], [35, 67], [43.5, 28], [58.5, 70], [63, 37], [72.5, 78], [86, 44]];
+const NODE = [[8, 68], [22, 30], [32, 68], [44.5, 30], [56, 70], [67.5, 30], [79, 68], [91, 32]];   // first guess only; map.js layout() moves the markers
 const CIC = { yurt: '⛺', tower: '🗼', ford: '🌊' };
 const MAPCSS = `.w4camp{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;align-items:center;cursor:pointer;pointer-events:auto}
 .w4camp .ci{width:clamp(18px,3.2vw,26px);height:clamp(18px,3.2vw,26px);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(13px,2.4vw,18px);background:radial-gradient(circle,#5a1a12,#2a0806);box-shadow:0 0 0 2px #c0392b,0 2px 6px rgba(0,0,0,.7)}
@@ -475,8 +475,9 @@ function campMarks() { const ma = document.querySelector('#map .ma'); if (!ma) r
   const nextCamp = MLIST.find(q => q.camp && !(q.id in S));   // "N ásker" only on the next uncleared camp
   for (let c = 1; c <= 7; c++) { const cs = MLIST.filter(m => m.c === c && m.camp); const [ax, ay] = NODE[c - 1], [bx, by] = NODE[c];
     const curC = (MLIST.find(q => !(q.id in S)) || {}).c; cs.forEach((m, i) => { const f = cs.length > 1 ? .38 + .24 * i / (cs.length - 1) : .5,   /* middle of the road only: >= 40 px away from the node labels */ x = ax + (bx - ax) * f, y = ay + (by - ay) * f; const el = document.createElement('div'); const dn = m.id in S, prev = MLIST[MLIST.indexOf(m) - 1], lk = !dn && !(prev && prev.id in S) && capCh() < c;
-      el.className = 'w4camp' + (dn ? ' done' : '') + (lk ? ' lk' : ''); el.style.left = x + '%'; el.style.top = y + '%'; el.innerHTML = `<div class="ci">${dn ? '✓' : CIC[m.camp.k] || '⛺'}</div>${m === nextCamp ? `<small>${tt('w4_soldiers', { n: m.camp.n })}</small>` : ''}`;
-      el.title = t(m.n); el.onclick = ev => { ev.stopPropagation(); const nd = ma.querySelector(`.nd[data-n="${c}"]`); if (nd) nd.click(); }; ma.appendChild(el); }); } }
+      el.className = 'w4camp' + (dn ? ' done' : '') + (lk ? ' lk' : ''); el.dataset.c = c; el.dataset.i = i; el.dataset.k = cs.length; el.style.left = x + '%'; el.style.top = y + '%'; el.innerHTML = `<div class="ci">${dn ? '✓' : CIC[m.camp.k] || '⛺'}</div>${m === nextCamp ? `<small>${tt('w4_soldiers', { n: m.camp.n })}</small>` : ''}`;
+      el.title = t(m.n); el.onclick = ev => { ev.stopPropagation(); const nd = ma.querySelector(`.nd[data-n="${c}"]`); if (nd) nd.click(); }; ma.appendChild(el); }); }
+  try { window.__MAPL && window.__MAPL(); } catch (e) { console.warn(e); } }   /* map.js lays the markers out beside the road, clear of nodes / HUD */
 // chapter card on the map: our host line above the mission list
 function cardArmy() { const ml = document.querySelector('#map .card .ml'); if (!ml) return; let el = $('w4cardarmy'); if (!el) { el = document.createElement('div'); el.id = 'w4cardarmy'; el.style.cssText = 'margin:2px 0 4px;color:#ffe08a;font:700 12px/1.3 system-ui,sans-serif'; ml.before(el); } const s = '⚔ ' + tt('w4_army', { q: 40, b: W.men | 0 }); if (el.firstChild && el.firstChild.textContent !== s || !el.firstChild) { el.textContent = s; }
   // recommended power for the current chapter: green >= 80 % of the expected level (85 % of the cap), yellow >= 45 %, red below
