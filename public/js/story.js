@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795225258';
-import { t, setLang, lang, L, has } from './i18n.js?v=1795225258';
-import { place } from './env.js?v=1795225258';
-import * as SC from './scenery.js?v=1795225258';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795225258';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795225258';
-import { initMissions, runMission } from './missions.js?v=1795225258';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795226050';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795226050';
+import { place } from './env.js?v=1795226050';
+import * as SC from './scenery.js?v=1795226050';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795226050';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795226050';
+import { initMissions, runMission } from './missions.js?v=1795226050';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -27,6 +27,9 @@ function dialog(lines) {
     d.onpointerdown = e => { e.preventDefault(); next(); }; G.onEnter = next; show();
   });
 }
+// Videos: only the author's 14 approved clips may be shown (CLAUDE.md). v2 = 03+07, c2 = 11, c3 = 08+12, c4 = 13, c6 = 14, e1 = 09 (cut before the amulet close-up) + 05 (cut before the red-dress shot), v1 = 01.
+// Slots without an approved clip play the still + narration until a new clip is approved. VIDV busts the browser cache when a clip file is replaced.
+const NOVID = new Set(['v3', 'v4', 'c5', 'c7', 'e2']), VIDV = 2;
 function cutscene(key, narKey, still) {
   // urgent5: narration (baqsı voice) and video are sequential/cooperative — a cutscene waits for a narration line that is still being spoken, the line plays on the
   // WebAudio voice bus (an iOS <video> with sound no longer pauses it), the video's own sound is lowered while the line plays, and the cutscene only ends when BOTH the
@@ -40,7 +43,8 @@ function cutscene(key, narKey, still) {
     const soft = () => { mEnd = true; if (vEnd) fin(); };   /* video over: if the line is still being spoken, hold the still + subtitle until it ends */
     if (narKey && !fast) { preloadVoice(narKey); setTimeout(() => { if (done) return; voice = playVoice(narKey); ready(); voice.done.then(() => { vEnd = true; if (done) return; bindMedia(v, 'music', 1); if (mEnd) setTimeout(fin, 700); }); }, 900); }
     const fallback = () => { ready(); v.style.display = 'none'; to = setTimeout(soft, fast ? 300 : 6500); };
-    if (key && !fast) { v.style.display = 'block'; v.muted = false; bindMedia(v, 'music', narKey ? .35 : 1); const src = `./assets/video/${key}.mp4`; if ((v.getAttribute('src') || '') !== src) v.src = src; else { try { v.currentTime = 0; } catch (e) { } } v.onended = soft; v.onerror = fallback; v.onplaying = () => { v.onplaying = null; ready(); }; const pr = v.play(); if (pr) pr.catch(() => { v.muted = true; v.play().catch(fallback); }); } else fallback();
+    if (key && NOVID.has(key)) key = null;   /* no author-approved clip for this slot yet: still + narration only */
+    if (key && !fast) { v.style.display = 'block'; v.muted = false; bindMedia(v, 'music', narKey ? .35 : 1); const src = `./assets/video/${key}.mp4?v=${VIDV}`; if ((v.getAttribute('src') || '') !== src) v.src = src; else { try { v.currentTime = 0; } catch (e) { } } v.onended = soft; v.onerror = fallback; v.onplaying = () => { v.onplaying = null; ready(); }; const pr = v.play(); if (pr) pr.catch(() => { v.muted = true; v.play().catch(fallback); }); } else fallback();
     const skip = () => { if (!tReady || performance.now() - tReady < 800) return;   /* a double Enter/tap from the lore card (or a key queued during a long first frame) must not kill the cutscene: skips count only once it is really playing */
       if (!vEnd && skips === 0) { skips = 1; mEnd = true; clearTimeout(to); try { v.pause(); } catch (e) { } v.style.display = 'none'; return; } fin(); };
     $('cskip').onclick = skip; G.onEnter = skip;
@@ -419,5 +423,5 @@ loadAssets(f => { $('loadbar').firstChild.style.width = (f * 100) + '%'; }).then
   const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-([0-4]|C[1-4]|Q|S)$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
 }).catch(e => { $('loadtxt').textContent = 'Error: ' + e.message; console.error(e); });
 // urgent5: prefetch the prologue cutscene (v1 + nar1) when Start leads to 0-1, so it does not open on a black frame; fill the title buttons' texts before the load finishes
-$('tplay').addEventListener('click', () => { try { const tut = localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); if (!tut || qs.get('fast')) return; const v = $('cut').querySelector('video'); if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = './assets/video/v1.mp4'; v.load(); } preloadVoice('nar1'); } catch (e) { } });
+$('tplay').addEventListener('click', () => { try { const tut = localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); if (!tut || qs.get('fast')) return; const v = $('cut').querySelector('video'); if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = './assets/video/v1.mp4?v=' + VIDV; v.load(); } preloadVoice('nar1'); } catch (e) { } });
 try { texts(); } catch (e) { }

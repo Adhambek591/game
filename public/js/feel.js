@@ -1,8 +1,8 @@
 // Combat feel layer (anim agent). Hooks the engine from outside: wraps Ent.damage / Ent.die and runs its own per-frame pass.
 // Nothing here changes game rules: lunge limits, duel ring, damage numbers and AI are the engine's.
 import * as THREE from 'three';
-import * as ENG from './engine.js?v=1795225258';
-import { SkinRig } from './skinrig.js?v=1795225258';
+import * as ENG from './engine.js?v=1795226050';
+import { SkinRig } from './skinrig.js?v=1795226050';
 const G = ENG.G, Ent = ENG.Ent, cam = ENG.camera, scene = ENG.scene;
 const cl = (v, a, b) => Math.max(a, Math.min(b, v)), wrap = a => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
 // ---- THE hit-stop / shake table (single owner; stacking is max, never sum). stop = seconds, tr = trauma 0..1; camera offset = trauma^2 x 0.35 m, trauma decays 2.2/s.

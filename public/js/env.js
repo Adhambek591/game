@@ -1,7 +1,7 @@
 // Real PBR environment from Poly Haven (CC0): HDRI lighting, PBR ground/wall/wood textures, scanned props.
 import * as THREE from 'three';
-import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795225258';
-import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795225258';
+import { RGBELoader } from '../assets/vendor/jsm/loaders/RGBELoader.js?v=1795226050';
+import { GLTFLoader } from '../assets/vendor/jsm/loaders/GLTFLoader.js?v=1795226050';
 export const ENV = { pbr: {}, mod: {}, day: null, night: null, ok: false };
 const B = './assets/env/';
 const rnd = (a, b) => a + Math.random() * (b - a);
