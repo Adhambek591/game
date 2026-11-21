@@ -770,7 +770,7 @@ public static class QQSetup
         EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
         var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g");
         var lf = u.rig.Bone("LeftFoot"); var rf = u.rig.Bone("RightFoot"); var hips = u.rig.Bone("Hips");
-        foreach (var clip in new[] { "walk", "run", "combat" })
+        foreach (var clip in new[] { "walk", "run", "walk_m", "run_m" })
         {
             float dur = QQAnimLib.clips[clip].dur; int n = 240; float minL = 1e9f, maxL = -1e9f, minR = 1e9f, maxR = -1e9f; Vector3 fw = u.transform.forward;
             for (int i = 0; i < n; i++) { u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)n); float l = Vector3.Dot(lf.position - hips.position, fw), r = Vector3.Dot(rf.position - hips.position, fw); minL = Mathf.Min(minL, l); maxL = Mathf.Max(maxL, l); minR = Mathf.Min(minR, r); maxR = Mathf.Max(maxR, r); }

@@ -68,7 +68,8 @@ public class QQPlayer : MonoBehaviour
         }
         var mv = InputMove(); rollDir = mv.sqrMagnitude > .04f ? CamDir(mv) : -transform.forward;
         strikeAt = -1; pending = Strike.None; lungeT = 0; bufT = 0;   // a roll cancels the swing
-        u.rig.PlaySeg("roll", .25f, .25f, .05f); u.inv = .5f; u.busy = .5f; rollT = .5f; dodgeCd = .6f;
+        { Vector3 lr = transform.InverseTransformDirection(rollDir); string dc = Mathf.Abs(lr.x) > Mathf.Abs(lr.z) ? (lr.x > 0 ? "dodge_r" : "dodge_l") : (lr.z > 0 ? "dodge_f" : "roll"); u.rig.PlaySeg(u.rig.Has(dc) ? dc : "roll", .22f, .3f, .05f); }   // dodge in the pushed direction
+        u.inv = .5f; u.busy = .5f; rollT = .5f; dodgeCd = .6f;
         QQFeel.Sfx("roll", null, .7f);
         if (redClose) { QQFeel.SlowMo(.35f, .6f); QQHud.Toast("Mukammal chetlanish!"); u.inv = .8f; AddChain(1); }
     }
@@ -133,7 +134,7 @@ public class QQPlayer : MonoBehaviour
         }
         if (comboT <= 0) combo = 0;
         bool fin = combo % 4 == 3;
-        string[] seq = { "slash", "attack", "triple", "heavy" };
+        string[] seq = { "slash", "attack2", "slash3", "heavy" };   // Mixamo sword strings: cross slash, thrust, return slash, power slash
         if (t)
         {
             lastTarget = t; u.Face(t.transform.position - transform.position, 99);

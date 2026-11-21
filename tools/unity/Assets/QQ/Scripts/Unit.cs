@@ -46,13 +46,13 @@ public class Unit : MonoBehaviour
         if (hp <= 0) { Die(from); return; }
         // poise (author: no stun-lock): after a flinch a fighter cannot be flinched again for a while, so fast combos
         // do not freeze him and he swings back; bosses flinch only on heavy blows, then shrug off hits for 3 s
-        if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; telegraph = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play("hit", .05f, false, true); }
+        if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; telegraph = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play(heavy && rig.Has("hit2") ? "hit2" : "hit", .05f, false, true); }
         if (from && !boss && stun > 0) transform.position += away.normalized * (heavy ? .6f : .12f);   // only a flinching fighter is pushed (and plays 'hit'); bosses stand their ground
     }
 
     void Die(Unit from)
     {
-        hp = 0; telegraph = 0; hasToken = false; if (rig) { rig.Play("dead", .08f, false, true); rig.lookAt = null; }
+        hp = 0; telegraph = 0; hasToken = false; if (rig) { rig.Play(Random.value < .5f && rig.Has("dead2") ? "dead2" : "dead", .08f, false, true); rig.lookAt = null; }
         QQFeel.Sfx(boss ? "roar" : "death", transform.position, boss ? 1f : .6f);
         All.Remove(this);
         if (QQArena.I) QQArena.I.OnDeath(this);

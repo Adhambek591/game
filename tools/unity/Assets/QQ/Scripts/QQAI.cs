@@ -15,7 +15,7 @@ public class QQAI : MonoBehaviour
     // only when left far behind; at most 2 allies per ordinary foe; foes spread over targets; around a target each attacker
     // takes its own slot on a ring, so nobody runs in one clump
     float pace, tempo, react, slotAng; int comboLeft; float pounceT = -1, pounceCd = 4f; Vector3 pounceFrom, pounceTo; Vector3 spot; Vector3 lastPl; float noticeT; bool sprinting;
-    static readonly string[] MELEE = { "slash", "attack", "heavy" };
+    static readonly string[] MELEE = { "attack", "slash2", "attack3", "heavy" };
     static int MaxTokens { get { return QQArena.I && QQArena.I.Wave >= 2 ? 3 : 2; } }
 
     void Start()
@@ -83,7 +83,7 @@ public class QQAI : MonoBehaviour
             if (pd > 5f && pd < 11f)
             {
                 pounceCd = Random.Range(5f, 8f) * (phase2 ? .7f : 1f); pounceT = 0; pounceFrom = transform.position; pounceTo = pl.transform.position;
-                QQFx.Warn(pounceTo, new Color(1f, .2f, .15f), 2.6f, .9f); u.rig.PlaySeg(u.rig.Has("slam") ? "slam" : "heavy", .55f, .5f, .06f); u.busy = 1.4f; u.telegraph = .9f; u.unblockable = true; u.swingAt = pl;
+                QQFx.Warn(pounceTo, new Color(1f, .2f, .15f), 2.6f, .9f); u.rig.PlaySeg(u.rig.Has("leap") ? "leap" : "slam", .55f, .5f, .06f); u.busy = 1.4f; u.telegraph = .9f; u.unblockable = true; u.swingAt = pl;
                 QQFeel.Sfx("howl", transform.position, .8f, 0); return;
             }
         }
@@ -159,7 +159,7 @@ public class QQAI : MonoBehaviour
                 u.Face(d);
                 if (cd <= 0)
                 {
-                    atk = u.archer ? "attack" : MELEE[Random.Range(0, u.boss ? 3 : 2)];
+                    atk = u.archer ? (u.rig.Has("bow") ? "bow" : "attack") : u.boss ? (Random.value < .35f && u.rig.Has("combo_b1") ? (Random.value < .5f ? "combo_b1" : "combo_b2") : MELEE[Random.Range(0, 4)]) : MELEE[Random.Range(0, 3)];
                     float wind = u.archer ? .55f : u.boss ? (phase2 ? .55f : .7f) : .62f;
                     u.unblockable = u.boss && atk == "heavy";
                     slam = phase2 && Random.value < .35f && u.rig.Has("slam");

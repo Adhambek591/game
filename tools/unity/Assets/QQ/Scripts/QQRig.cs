@@ -15,14 +15,17 @@ public class QQRig : MonoBehaviour
     string cur, prev; float tCur, tPrev, fade = 1f, fadeDur = .15f; bool loopCur = true, loopPrev = true;
     public float speed = 1f;
     // measured ground speed of the in-place mocap at x1 for a 1.75 m character (QQSetup.ClipStride): feet sweep vs time
-    public const float WALK_MS = .80f, RUN_MS = 3.78f;
+    // Mixamo locomotion (QQMixamo.Bake) measured with QQSetup.ClipStride: female walk / run, male walk / run
+    public const float WALK_MS = 1.44f, RUN_MS = 2.12f, WALK_M_MS = 1.23f, RUN_M_MS = 2.54f;
+    public bool male;   // men use the male walk / run / idle
     public bool desync = true;   // crowds: each fighter starts a loop at its own phase and pace (author: nobody moves in unison)
     float pace = 1f, sizeK = 1f;
     // walk / run with the clip speed matched to the real movement speed: no foot sliding (animation principle: solid drawing / weight)
     public void Locomote(float metersPerSec, float fade = .18f)
     {
-        bool run = metersPerSec > 2.1f * sizeK; Play(run ? "run" : "walk", fade);
-        speed = Mathf.Clamp(metersPerSec / ((run ? RUN_MS : WALK_MS) * sizeK), run ? .55f : .5f, run ? 1.9f : 3.2f) * pace;
+        bool run = metersPerSec > 2.0f * sizeK; string c = (run ? "run" : "walk") + (male && Has("run_m") ? "_m" : ""); Play(c, fade);
+        float baseMs = run ? (male ? RUN_M_MS : RUN_MS) : (male ? WALK_M_MS : WALK_MS);
+        speed = Mathf.Clamp(metersPerSec / (baseMs * sizeK), run ? .6f : .5f, run ? 2.4f : 1.8f) * pace;
     }
     // finger chains added by tools/blender/chars.py (two bones per hand); 0 = open, 1 = fist round a grip
     public float gripRight = .85f, gripLeft = .25f;
@@ -65,12 +68,12 @@ public class QQRig : MonoBehaviour
         foreach (var kv in c.rot)
         {
             Transform b; Quaternion rest;
-            if (!B.TryGetValue(kv.Key, out b) || !bind.ContainsKey(b) || !QQAnimLib.restR.TryGetValue(kv.Key, out rest)) continue;
+            if (!B.TryGetValue(kv.Key, out b) || !bind.ContainsKey(b) || !(c.rest ?? QQAnimLib.restR).TryGetValue(kv.Key, out rest)) continue;
             var qS = Quaternion.Inverse(QQAnimLib.Conv(rest)); var qT = bind[b]; var tr = kv.Value; int n = tr.t.Length; var qs = new Quaternion[n];
             for (int i = 0; i < n; i++) qs[i] = qT * qS * QQAnimLib.Conv(new Quaternion(tr.v[i * 4], tr.v[i * 4 + 1], tr.v[i * 4 + 2], tr.v[i * 4 + 3]));
             var rt = new RTrack { t = tr.t, q = qs }; r.rot.Add(new KeyValuePair<Transform, RTrack>(b, rt)); r.map[b] = rt;
         }
-        if (c.hipsT != null && hips) { float k = hipsBind.y / QQAnimLib.hipsY; int n = c.hipsT.t.Length; r.ht = c.hipsT.t; r.hy = new float[n]; for (int i = 0; i < n; i++) r.hy[i] = c.hipsT.v[i * 3 + 1] * k; }
+        if (c.hipsT != null && hips) { float k = hipsBind.y / (c.hipsY > 0 ? c.hipsY : QQAnimLib.hipsY); int n = c.hipsT.t.Length; r.ht = c.hipsT.t; r.hy = new float[n]; for (int i = 0; i < n; i++) r.hy[i] = c.hipsT.v[i * 3 + 1] * k; }
         rc[name] = r; return r;
     }
 
@@ -112,6 +115,7 @@ public class QQRig : MonoBehaviour
 
     public void Play(string name, float fadeTime = .15f, bool loop = true, bool restart = false)
     {
+        if (male && name == "idle" && Has("idle_m")) name = "idle_m";
         segOn = false;
         if (name == cur && !restart) return;
         if (Get(name) == null) return;
@@ -178,7 +182,7 @@ public class QQRig : MonoBehaviour
         // posture: the shared mocap run is a sprinter's crouch (trunk ~55° forward) and the walk stoops; on locomotion clips the
         // trunk tilt (hips -> neck, in the forward/up plane) is measured and anything past the limit is straightened over the three
         // spine joints, the head counter-rotated so the eyes stay level (the author marked bent backs)
-        if (cur == "run" || cur == "walk" || cur == "idle")
+        if ((cur == "run" || cur == "walk" || cur == "idle") && a.src.rest == null)   // only the old browser mocap needs straightening; Mixamo clips stand upright
         {
             Transform r0p = transform.parent ? transform.parent : transform; Transform nk = Bone("neck"), s0 = Bone("Spine"), s1 = Bone("Spine01"), s2 = Bone("Spine02"), hd = Bone("Head");
             if (hips && nk && s0 && s1 && s2)
