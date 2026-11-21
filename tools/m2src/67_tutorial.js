@@ -294,7 +294,9 @@ const TUT = (() => {
     for (const c of A.ring.crowd) c.play('Cheer', { force: true }); await wait(1.4); if (!alive(R)) return;
     // STORY (author): no alarm and no smoke here — Gúlayım trains at Qıran mountain and knows nothing; the battle of Sarkop is already lost. A wounded, dust-covered messenger gallops in and tells her.
     setMusic('off'); try { Sfx.hoof && Sfx.hoof(); } catch (e) { }
-    const pz = P().z, rd = npc('son', 1.4, -104, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4 }; S.mes = rd; G.mis.aim = () => rd;
+    // VIDEO K1 (docs/video_plan.md): the messenger's arrival is told by the cutscene; afterwards he is already here, so the in-engine ride is skipped
+    try { await H.cutscene('k1', null, 'keyart'); } catch (e) { } if (!alive(R)) return;
+    const pz = P().z, rd = npc('son', 1.4, pz - 3.4, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4, arrived: true }; S.mes = rd; G.mis.aim = () => rd;
     // short cinematic: the camera lifts and looks past the bridge at the arriving rider
     const cv = { k: 0, on: true }, V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
     tuCam((cam, dt) => { cv.k = Math.min(1, Math.max(0, cv.k + (cv.on ? 1 : -1) * Math.min(dt, .05) * .7)); if (cv.k <= 0 && !cv.on) { tuCam(null); return; } const s = cv.k * cv.k * (3 - 2 * cv.k), p = P(); if (!p) return;
