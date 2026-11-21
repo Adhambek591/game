@@ -3,11 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795247727';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795247727';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795247727';
-import { makeHorse } from './horse.js?v=1795247727';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795247727';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795248077';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795248077';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795248077';
+import { makeHorse } from './horse.js?v=1795248077';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795248077';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };

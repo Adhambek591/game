@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795247727';
-import { t } from './i18n.js?v=1795247727';
-import { Sfx, setMusic } from './audio.js?v=1795247727';
-import { applyLight, LIGHTS, place } from './env.js?v=1795247727';
-import { makeHorse } from './horse.js?v=1795247727';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795248077';
+import { t } from './i18n.js?v=1795248077';
+import { Sfx, setMusic } from './audio.js?v=1795248077';
+import { applyLight, LIGHTS, place } from './env.js?v=1795248077';
+import { makeHorse } from './horse.js?v=1795248077';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -1119,13 +1119,13 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795247727';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795248077';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
 // camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
-const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.2, 3.0], 4: [1.2, 3.2], 5: [1.1, 2.4], 6: [1.4, 6.0], 7: [1.5, 6.0] };   // QA sim at the cap (Nov 21): ch3 [1.25,3.6] -> 9 % HP (too hard) -> [1.2,3.0]; ch4 [1.1,2.4] -> 71 % (too easy) -> [1.2,3.2]; ch6 [1.3,3.6] -> 76 % (easy) -> [1.4,6.0]; ch7 -> [1.5,6.0] (target: the bot loses ~40 %, a player more)
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -1268,9 +1268,9 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795247727';
-import * as tuSCN from './scenery.js?v=1795247727';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795247727';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795248077';
+import * as tuSCN from './scenery.js?v=1795248077';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795248077';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1617,9 +1617,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795247727';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795247727';
-import * as f3SC from './scenery.js?v=1795247727';
+import * as F3X from './fx.js?v=1795248077';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795248077';
+import * as f3SC from './scenery.js?v=1795248077';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1792,7 +1792,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795247727';
+import { runArchery } from './archery.js?v=1795248077';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }

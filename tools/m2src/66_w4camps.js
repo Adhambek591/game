@@ -10,7 +10,7 @@ for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m =>
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
 // camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
-const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.2, 3.0], 4: [1.2, 3.2], 5: [1.1, 2.4], 6: [1.4, 6.0], 7: [1.5, 6.0] };   // QA sim at the cap (Nov 21): ch3 [1.25,3.6] -> 9 % HP (too hard) -> [1.2,3.0]; ch4 [1.1,2.4] -> 71 % (too easy) -> [1.2,3.2]; ch6 [1.3,3.6] -> 76 % (easy) -> [1.4,6.0]; ch7 -> [1.5,6.0] (target: the bot loses ~40 %, a player more)
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
