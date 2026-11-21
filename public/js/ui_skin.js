@@ -52,7 +52,7 @@
   /* ---- world map: camp markers never sit on a chapter node/label; "stars to the next chest" ---- */
   function hit(a, b, m) { return a.left < b.right + m && a.right > b.left - m && a.top < b.bottom + m && a.bottom > b.top - m; }
   var mapKey = '';
-  function mapFix() { var map = $('map'); if (!map || !map.offsetWidth) return; var cs = map.querySelectorAll('.w4camp'); if (!cs.length) return; var nds = [].slice.call(map.querySelectorAll('.nd')); var key = cs.length + '|' + innerWidth + 'x' + innerHeight + '|' + nds.length + '|' + (cs[0].style.left + cs[0].style.top); if (key === mapKey && cs[0]._ui2) return; mapKey = key;
+  function mapFix() { var map = $('map'); if (!map || !map.offsetWidth || map.dataset.lay) return;   /* map.js layout() places the markers itself now */ var cs = map.querySelectorAll('.w4camp'); if (!cs.length) return; var nds = [].slice.call(map.querySelectorAll('.nd')); var key = cs.length + '|' + innerWidth + 'x' + innerHeight + '|' + nds.length + '|' + (cs[0].style.left + cs[0].style.top); if (key === mapKey && cs[0]._ui2) return; mapKey = key;
     var boxes = []; nds.forEach(function (n) { [].forEach.call(n.children, function (ch) { var r = ch.getBoundingClientRect(); if (r.width > 4 && r.height > 4) boxes.push(r); }); });
     var placed = [];
     [].forEach.call(cs, function (c) { c._ui2 = 1; c.style.translate = ''; var r0 = c.getBoundingClientRect(), best = null, R = [0, 14, 28, 42, 56, 70, 84];

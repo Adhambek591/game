@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795218616';
-import { t, lang, L } from './i18n.js?v=1795218616';
-import { Sfx } from './audio.js?v=1795218616';
-import { MLIST } from './missions.js?v=1795218616';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795225258';
+import { t, lang, L } from './i18n.js?v=1795225258';
+import { Sfx } from './audio.js?v=1795225258';
+import { MLIST } from './missions.js?v=1795225258';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
@@ -122,6 +122,7 @@ const TX = {
   tu4_demo_parry: ['Qara: qılısh kóterilgende ➤ — men qaytarıp, ózim soǵaman', 'Qara: qilich ko\'tarilganda ➤ — men qaytarib, o\'zim uraman', 'Смотри: замах — ➤ — я отбиваю и бью сама', 'Watch: wind-up — ➤ — I parry and strike back'],
   // hints that named removed buttons (1–5, ▼, K) now describe the 3-button scheme
   h_attack: ['⚔ HÚJIM: jaqındaǵı dushpanǵa — qılısh, alıstaǵıǵa — sadaq; BASIP TURSAŃIZ — aylanıp soǵasız', '⚔ HUJUM: yaqindagi dushmanga — qilich, uzoqdagiga — kamon; BOSIB TURSANGIZ — aylanib urasiz', '⚔ АТАКА: вблизи — меч, вдали — лук; ДЕРЖИТЕ — удар с разворота', '⚔ ATTACK: near — sword, far — bow; HOLD — spinning strike'],
+  h_attack_al: ['⚔ HÚJIM: jaqındaǵı dushpandı qılısh penen urıń; BASIP TURSAŃIZ — aylanıp soǵasız', '⚔ HUJUM: yaqindagi dushmanni qilich bilan uring; BOSIB TURSANGIZ — aylanib urasiz', '⚔ АТАКА: рубите ближнего врага мечом; ДЕРЖИТЕ — удар с разворота', '⚔ ATTACK: cut down the nearest foe with your sword; HOLD — spinning strike'],   /* 0-1 Allayar: no bow */
   h_dodge: ['Qızıl sheńberden shıǵıń! ➤ — shetke sekiriw; dushpan qılısh kótergende ➤ — soqqını qaytarıw', 'Qizil doiradan chiqing! ➤ — chetga sakrash; dushman qilich ko\'targanda ➤ — zarbani qaytarish', 'Уходите из красного круга! ➤ — отскок; при замахе врага ➤ — парирование', 'Get out of the red circle! ➤ — dodge; when an enemy winds up, ➤ — parry'],
   h_skill: ['Tumar tolǵanda 🔺 basıń — ol jaǵdayǵa qaray kerekli kúshti ózi tańlaydı', 'Tumor to\'lganda 🔺 ni bosing — u vaziyatga qarab kerakli kuchni o\'zi tanlaydi', 'Когда амулет заряжен — жмите 🔺: он сам выберет нужную силу', 'When the amulet is charged, press 🔺 — it picks the right power itself'],
   h_skill5: ['Qasqır shaqqanlıǵı endi tumarda: kúshli dushpan qasıńda bolsa 🔺 basıń', 'Bo\'ri chaqqonligi endi tumorda: kuchli dushman yoningda bo\'lsa 🔺 ni bosing', 'Волчья ловкость теперь в амулете: жмите 🔺 рядом с сильным врагом', 'Wolf agility now lives in the amulet: press 🔺 next to a strong enemy'],
@@ -171,7 +172,7 @@ const foeDmK = c => c > 0 ? 1 + .05 * expLv(c) : 1;
 // under-upgrade penalty (balance pass): the enemy is tuned for ~85 % of the chapter cap; every level the sword + armour average is BELOW that makes him hit 22 % harder (max x2.6) and gives him 10 % more HP.
 // ch1 at level 0: dmg x1.56, HP x1.26; ch3 at level 0: dmg x2.3, HP x1.6; at 85-100 % of the cap: no penalty.
 // chapter bosses: [HP x, damage x] on top of the chapter curve — fitted with the QA sim bot so that at the cap the fight lasts ~90–150 s and she ends between 30 and 70 % HP (table in wave4_log)
-const BOSSHP = 3, DEFD = .35, BOSSK = { qashqir: [5, .75], qumdev: [2.8, .45], jallod: [1.9, .45], aydarho: [2, .45], qunqar: [1, .5], qargashiq: [1.9, .38] };   // tuned with the QA sim bot (see wave4_log balance table)
+const BOSSHP = 3, DEFD = .35, BOSSK = { qashqir: [5, .95], qumdev: [2.8, .45], jallod: [1.9, .55], aydarho: [2.2, .5], qunqar: [1.35, .7], qargashiq: [2.3, .75] };   /* 2c: at the cap the bot ended 66-76 % HP / 64-73 s in 1-4, 4-4, 5-4, 6-4 -> harder */   // tuned with the QA sim bot (see wave4_log balance table)
 const defi = c => c > 0 ? Math.max(0, expLv(c) - (lvl('sword') + lvl('armor')) / 2) : 0;
 const COSTB = { sword: 60, bow: 60, armor: 50, shield: 50, arch: 70 };
 const cost = (k, l) => Math.round(COSTB[k] * (1 + .6 * (l >= 13 ? l - 7 : l)) / 5) * 5;   // the last chapter has no boss purse before it: its two levels are priced so that chapter 7 pays ~90 % of them (agents/w4/econ.js)
@@ -343,18 +344,29 @@ function hudTick() { const b = $('bP'); if (!b) return; const u = clamp(G.ulti |
 
 // ================================================================ B) ARMY + ENEMY SCALING
 const NOARMY = /^(0-0|0-1|0-2|3-1|2-1|4-1|.*-S)$/;   // 7-1: no host while riding (mounted check below), it joins for the battle on foot
-const RUN = { m: null, bodies: [], rep: 0, lost: 0, start: 0 };
+const RUN = { m: null, bodies: [], arcs: [], rep: 0, lost: 0, start: 0, pDead: false };
 // the maidens' armour track also protects the heroine: -2.5 % damage taken per level (max -40 %); the hero's HP itself never grew while enemy damage does every chapter
 const heroDefK = () => 1 - Math.min(.4, .025 * lvl('armor'));
 function heroGuard(p) { if (!p || p.w4def) return; p.w4def = 1; const d0 = p.damage.bind(p); p.damage = (amt, src, op) => d0(typeof amt === 'number' && src && src.team === 'enemy' ? amt * heroDefK() : amt, src, op); }
-function armyStart() { const M = G.mis, p = P(); try { heroGuard(p); } catch (e) { } if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.lost = 0; RUN.rep = 0; try { coinsStart(M); } catch (e) { console.warn('[w4 coins]', e); }
+function armyStart() { const M = G.mis, p = P(); try { heroGuard(p); } catch (e) { } if (!M || !p || RUN.m === M) return; RUN.m = M; RUN.bodies = []; RUN.arcs = []; RUN.lost = 0; RUN.rep = 0; try { coinsStart(M); } catch (e) { console.warn('[w4 coins]', e); }
   const id = M.id || ''; if (NOARMY.test(id) || p.mounted) { chip(); return; }
   const men = W.men | 0, nb = men > 0 ? Math.min(6, Math.ceil(men / 6)) : 0; RUN.rep = nb ? men / nb : 0;
-  const z0 = p.z + 9, x0 = clamp(p.x, -4, 4);
-  for (let i = 0; i < nb; i++) { const x = clamp(x0 + (i % 3 - 1) * 1.7, -G.W + 1, G.W - 1), z = z0 + Math.floor(i / 3) * 1.6; const e = spawn('w4bat', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI;
-    e.maxHp = e.hp = Math.round(e.maxHp * shieldK()); e.d = { ...e.d, block: Math.min(.6, .25 + .03 * lvl('shield')) }; e.w4b = 1; RUN.bodies.push(e); }
-  const na = archN(); for (let i = 0; i < na; i++) { const x = clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), z = z0 + 3.4; const e = spawn('w4arc', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI; e.maxHp = e.hp = Math.round(e.maxHp * armorK()); e.w4a = 1; }
+  /* allies lag fix: the host forms up behind her but on HER side of any wall behind the start (1-1: the city wall at z 12.2 trapped every body spawned at p.z + 9 — 58-74 % "ally > 22 m") */
+  let lim = p.z + 14; for (const c of G.colB || []) if (!c.off && c.z1 > p.z + .5 && c.z1 < lim && c.x1 < p.x + 5 && c.x2 > p.x - 5) lim = c.z1;
+  const z0 = p.z + clamp(lim - p.z - 5.6, 2, 9), x0 = clamp(p.x, -4, 4);
+  for (let i = 0; i < nb; i++) spawnBat(clamp(x0 + (i % 3 - 1) * 1.7, -G.W + 1, G.W - 1), z0 + Math.floor(i / 3) * 1.6);
+  const na = archN(); for (let i = 0; i < na; i++) spawnArc(clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), Math.min(z0 + 3.4, lim - .7));
   const foe = foeCount(M); chip(); setTimeout(() => { try { if (G.mis === M) hintRaw('⚔ ' + tt('w4_foe', { n: foe })); } catch (e) { } }, 600); }   /* the host itself is shown once, in the left chip */
+function spawnBat(x, z) { const e = spawn('w4bat', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI;
+  e.maxHp = e.hp = Math.round(e.maxHp * shieldK()); e.d = { ...e.d, block: Math.min(.6, .25 + .03 * lvl('shield')) }; e.w4b = 1; RUN.bodies.push(e); return e; }
+function spawnArc(x, z) { const e = spawn('w4arc', x, z, 'ally', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = Math.PI; e.maxHp = e.hp = Math.round(e.maxHp * armorK()); e.w4a = 1; RUN.arcs.push(e); return e; }
+// QA 5-C1: after a death + retry the chip read "+ 0 batır" for the rest of the mission (every body had fallen before she died and the retry never brought them back; onEnd then also struck all of them off W.men).
+// A retry rewinds the fight: the fallen host bodies come back behind her (off-screen spots when possible) and the losses of the failed attempt are forgiven.
+function armyRetry() { const M = G.mis, p = P(); if (!M || RUN.m !== M || !p || NOARMY.test(M.id || '') || p.mounted) return; const nb = RUN.bodies.filter(e => e.dead).length, na = RUN.arcs.filter(e => e.dead).length; if (!nb && !na) { RUN.lost = 0; return; }
+  RUN.bodies = RUN.bodies.filter(e => !e.dead); RUN.arcs = RUN.arcs.filter(e => !e.dead); RUN.lost = 0;
+  let lim = p.z + 14; for (const c of G.colB || []) if (!c.off && c.z1 > p.z + .5 && c.z1 < lim && c.x1 < p.x + 5 && c.x2 > p.x - 5) lim = c.z1; const z0 = Math.min(p.z + 5, lim - 1.4), x0 = clamp(p.x, -4, 4);
+  for (let i = 0; i < nb; i++) spawnBat(clamp(x0 + (i % 3 - 1) * 1.7, -G.W + 1, G.W - 1), z0 + Math.floor(i / 3) * .9);
+  for (let i = 0; i < na; i++) spawnArc(clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), Math.min(z0 + 1.8, lim - .7)); chip(); }
 function foeCount(M) { const c = M.c || 1; const bodies = G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg).length; const ours = 40 + (W.men | 0); return Math.max(Math.round(ours * (1.15 + .05 * c)), bodies * 3); }
 function chip() { const el = $('w4army'); if (!el) return; { const M0 = G.mis; if (M0 && /^(0-1|0-2)$/.test(M0.id || '') && M0.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on')) { el.style.display = 'block'; const s0 = '⚔ ' + tt('w4_sarkop'); if (el.textContent !== s0) el.textContent = s0; return; } } const M = G.mis, on = !!(M && M.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on') && !archOn() && !NOARMY.test(M.id || ''));
   el.style.display = on ? 'block' : 'none'; if (!on) return; const alive = Math.max(0, Math.round((W.men | 0) - RUN.lost)); const s = '⚔ ' + tt('w4_army', { q: 40, b: alive }); if (el.textContent !== s) el.textContent = s; }
@@ -464,7 +476,7 @@ function endBtn() { const box = document.querySelector('#end .in'); if (!box) re
 function mapBtn() { const hd = document.querySelector('#map .mh'); if (!hd || $('w4mapb')) return; const b = document.createElement('button'); b.id = 'w4mapb'; b.className = 'bk'; b.style.cssText = 'margin-left:6px'; b.textContent = '⚒'; b.title = tt('w4_upT'); b.onclick = e => { e.stopPropagation(); upOpen(); }; const tot = hd.querySelector('.tot'); if (tot) tot.before(b); else hd.appendChild(b); }
 
 // ================================================================ D) CAMPS ON THE WORLD MAP
-const NODE = [[7.5, 70], [22.5, 30], [35, 67], [43.5, 28], [58.5, 70], [63, 37], [72.5, 78], [86, 44]];
+const NODE = [[8, 68], [22, 30], [32, 68], [44.5, 30], [56, 70], [67.5, 30], [79, 68], [91, 32]];   // first guess only; map.js layout() moves the markers
 const CIC = { yurt: '⛺', tower: '🗼', ford: '🌊' };
 const MAPCSS = `.w4camp{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;align-items:center;cursor:pointer;pointer-events:auto}
 .w4camp .ci{width:clamp(18px,3.2vw,26px);height:clamp(18px,3.2vw,26px);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(13px,2.4vw,18px);background:radial-gradient(circle,#5a1a12,#2a0806);box-shadow:0 0 0 2px #c0392b,0 2px 6px rgba(0,0,0,.7)}
@@ -475,8 +487,9 @@ function campMarks() { const ma = document.querySelector('#map .ma'); if (!ma) r
   const nextCamp = MLIST.find(q => q.camp && !(q.id in S));   // "N ásker" only on the next uncleared camp
   for (let c = 1; c <= 7; c++) { const cs = MLIST.filter(m => m.c === c && m.camp); const [ax, ay] = NODE[c - 1], [bx, by] = NODE[c];
     const curC = (MLIST.find(q => !(q.id in S)) || {}).c; cs.forEach((m, i) => { const f = cs.length > 1 ? .38 + .24 * i / (cs.length - 1) : .5,   /* middle of the road only: >= 40 px away from the node labels */ x = ax + (bx - ax) * f, y = ay + (by - ay) * f; const el = document.createElement('div'); const dn = m.id in S, prev = MLIST[MLIST.indexOf(m) - 1], lk = !dn && !(prev && prev.id in S) && capCh() < c;
-      el.className = 'w4camp' + (dn ? ' done' : '') + (lk ? ' lk' : ''); el.style.left = x + '%'; el.style.top = y + '%'; el.innerHTML = `<div class="ci">${dn ? '✓' : CIC[m.camp.k] || '⛺'}</div>${m === nextCamp ? `<small>${tt('w4_soldiers', { n: m.camp.n })}</small>` : ''}`;
-      el.title = t(m.n); el.onclick = ev => { ev.stopPropagation(); const nd = ma.querySelector(`.nd[data-n="${c}"]`); if (nd) nd.click(); }; ma.appendChild(el); }); } }
+      el.className = 'w4camp' + (dn ? ' done' : '') + (lk ? ' lk' : ''); el.dataset.c = c; el.dataset.i = i; el.dataset.k = cs.length; el.style.left = x + '%'; el.style.top = y + '%'; el.innerHTML = `<div class="ci">${dn ? '✓' : CIC[m.camp.k] || '⛺'}</div>${m === nextCamp ? `<small>${tt('w4_soldiers', { n: m.camp.n })}</small>` : ''}`;
+      el.title = t(m.n); el.onclick = ev => { ev.stopPropagation(); const nd = ma.querySelector(`.nd[data-n="${c}"]`); if (nd) nd.click(); }; ma.appendChild(el); }); }
+  try { window.__MAPL && window.__MAPL(); } catch (e) { console.warn(e); } }   /* map.js lays the markers out beside the road, clear of nodes / HUD */
 // chapter card on the map: our host line above the mission list
 function cardArmy() { const ml = document.querySelector('#map .card .ml'); if (!ml) return; let el = $('w4cardarmy'); if (!el) { el = document.createElement('div'); el.id = 'w4cardarmy'; el.style.cssText = 'margin:2px 0 4px;color:#ffe08a;font:700 12px/1.3 system-ui,sans-serif'; ml.before(el); } const s = '⚔ ' + tt('w4_army', { q: 40, b: W.men | 0 }); if (el.firstChild && el.firstChild.textContent !== s || !el.firstChild) { el.textContent = s; }
   // recommended power for the current chapter: green >= 80 % of the expected level (85 % of the cap), yellow >= 45 %, red below
@@ -491,6 +504,7 @@ function loop() { requestAnimationFrame(loop); try { hookMeta(); mapHook();
     const p = P(); const gt = G.time || 0, dt = clamp(gt - lastT, 0, .1); lastT = gt;
     hudTick(); bufTick(); bodyCap(); if (!G.paused) bossTick(); if (p) volleyTick(p);
     if (G.mis && G.mis.started && RUN.m !== G.mis) armyStart();
+    { const dd = !!(p && p.dead); if (RUN.pDead && !dd && p && G.mis === RUN.m) { try { armyRetry(); } catch (e) { console.warn('[w4 retry]', e); } } RUN.pDead = dd; }
     if (G.mis) entTick(); chip(); if (!G.paused) { rockTick(dt); propTick(dt); coinTick(dt); ctxTick(dt); }
     const e = $('end'); if (e && e.classList.contains('on')) endBtn(); const mp = $('map'); if (mp && mp.classList.contains('on')) cardArmy();
     const ct = $('w4ctl'); if (ct) { const on = !!(p && !G.paused && $('hud') && $('hud').classList.contains('on') && G.mis && G.mis.started && !archOn() && (!TOUCH || (G.time - (G.mis.t0 || 0)) < 10) && !$('tuc'));   /* touch: first 10 s only; mouse / keyboard: always */ ct.style.display = on ? 'block' : 'none'; if (on && ct._l !== lang) { ct._l = lang; ct.textContent = tt('tu4_ctl'); } }

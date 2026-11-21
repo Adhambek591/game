@@ -1,9 +1,9 @@
 // Level scenery for "Qirq qiz": terrain relief, animated sea + beach, rivers + bridge, Central-Asian flora (instanced),
 // procedural wooden ships, Khorezm-style walled city, black-yurt horde camp. Everything outside the play lane |x| < G.W;
 // the lane itself stays at height 0 (except the river channel under the bridge, which is walled off by colliders).
-import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795218616';
-import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795218616';
-import * as FX from './fx.js?v=1795218616';
+import { THREE, G, SET, world, scene, renderer, gradePass, woodMat, yurt, decor, banner, fire } from './engine.js?v=1795225258';
+import { ENV, pbrMat, place, applyLight, redress, roadify, roadX } from './env.js?v=1795225258';
+import * as FX from './fx.js?v=1795225258';
 
 const Q = Math.max(0, Math.min(2, SET.q ?? 1));
 let sd = 1; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647; const rr = (a, b) => a + R() * (b - a); const seed = s => { sd = Math.abs(Math.floor(s * 7919 + 13)) % 2147483646 + 1; for (let i = 0; i < 5; i++) R(); };
@@ -611,11 +611,14 @@ function _ch7() { begin(7, 'ch7');
 
 // ---- horseback ride levels (story.rideLevel): rolling steppe; ch4 ride runs along the coast ----
 function _ride(ci) { const ch = (ci || 1) + 1; begin(ch * 10, 'ch' + ch);
-  if (ch === 4) { const sd2 = (x, z) => x - (13 + Math.sin(z * .04) * 1.1 + Math.sin(z * .13) * .5); const SDg = 'return p.x - (13. + sin(p.y * .04) * 1.1 + sin(p.y * .13) * .5);'; // gfx2 r2: shoreline 1.5 m closer and less straight, so the sea is in the gameplay view
-    terrain({ h: (x, z) => Math.min(laneF(x) * steppeH(x, z) * sst(-3, -14, sd2(x, z)), beachH(sd2(x, z))), col: (x, z, h) => { const s = sd2(x, z); let c = mixc(tint(x, z, h, [1, .96, .82]), SAND, sst(-12, -4, s)); if (s > -2.6) c = mixc(c, WETS, sst(-2.6, -.6, s)); return c; }, tint: (x, z, h) => { const s = sd2(x, z); return s > -.8 ? [.42, .36, .27, .85] : s > -2.4 ? [.62, .52, .38, .8] : [.96, .82, .58, .75 * sst(-10, -4, s) + .15]; } });
-    settle(); const S = sea(SDg); S.P(10, 92, 30, -230, S.r); S.P(90, 340, 30, -230, 12, WATER - .03);
-    ship(22, -60, .1, { dark: true, drift: 1.2 }); ship(24, -150, -.05, { dark: true, drift: 1 }); ship(70, -110, .2, { s: 1.2, drift: .8 });
-    plant('reeds', scatter(dens(300), G.W + 1, 40, 8, -210, (x, z) => { const s = sd2(x, z); return s > -2.2 && s < .4 && Math.abs(x) > G.W + .3 ? rr(.7, 1.1) : 0; }), { shadow: Q > 1 });
+  if (ch === 4) { // 4-1 (author): the sea must be clearly visible on the right during the ride -> waterline at x ~8.2 (the riders stop at x 5.2, the hero at 6.8: wet sand between), and the sea runs the whole 460 m ride
+    const zEnd = Math.min(-230, ...groundMeshes().map(g => g.position.z - g.geometry.parameters.height / 2)) - 10;
+    const sd2 = (x, z) => x - (8.2 + Math.sin(z * .04) * .7 + Math.sin(z * .13) * .35); const SDg = 'return p.x - (8.2 + sin(p.y * .04) * .7 + sin(p.y * .13) * .35);';
+    terrain({ laneDip: (x, z) => sd2(x, z) > -1.6, h: (x, z) => Math.min(laneF(x) * steppeH(x, z) * sst(-3, -14, sd2(x, z)), beachH(sd2(x, z))), col: (x, z, h) => { const s = sd2(x, z); let c = mixc(tint(x, z, h, [1, .96, .82]), SAND, sst(-12, -4, s)); if (s > -2.6) c = mixc(c, WETS, sst(-2.6, -.6, s)); return c; }, tint: (x, z, h) => { const s = sd2(x, z); return s > -.8 ? [.42, .36, .27, .85] : s > -2.4 ? [.62, .52, .38, .8] : [.96, .82, .58, .75 * sst(-10, -4, s) + .15]; } });
+    settle(); const S = sea(SDg); S.m.roughness = .5; S.m.envMapIntensity = .2;   /* at .24 the bright sky reflection washed the strip out to a white sheet in the ride camera */ S.P(6, 92, 30, zEnd, S.r); S.P(90, 340, 30, zEnd, 12, WATER - .03);
+    ship(19, -60, .1, { dark: true, drift: 1.2 }); ship(21, -150, -.05, { dark: true, drift: 1 }); ship(70, -110, .2, { s: 1.2, drift: .8 });
+    for (let z = -250; z > zEnd + 30; z -= 95) ship(18 + (z % 2 ? 3 : 0), z, (z % 3) * .05, { dark: true, drift: 1 }); ship(60, -330, -.15, { s: 1.2, drift: .8 });
+    plant('reeds', scatter(dens(300), 5.5, 40, 8, zEnd + 10, (x, z) => { const s = sd2(x, z); return x > 7 && s > -2.2 && s < .4 ? rr(.7, 1.1) : 0; }, false), { shadow: Q > 1 });
   } else { terrain({ h: (x, z) => laneF(x) * (ch === 2 ? dunes(x, z, .8) : steppeH(x, z)), col: (x, z, h) => tint(x, z, h, ch === 2 ? SAND : [.95, .92, .82]), tint: (x, z, h) => (ch === 2 ? [.95, .78, .52, .45 + .3 * laneF(x)] : [.5, .5, .34, .55 * sst(.4, .65, fbm(x * .08, z * .08, 3)) + .2]) }); settle(); }
   plant('saxaul', scatter(dens(90), G.W + 3, 40, 10, -212, (x, z) => (heightAt(x, z) > WATER + .3 ? rr(.75, 1.25) : 0)));
   plant('tamarisk', scatter(dens(ch === 2 ? 20 : 60), G.W + 2.5, 40, 10, -212, (x, z) => (heightAt(x, z) > 0 ? rr(.75, 1.15) : 0)));

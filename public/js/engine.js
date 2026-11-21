@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795218616';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795218616';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795218616';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795218616';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795218616';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795218616';
-import { t } from './i18n.js?v=1795218616';
-import { Sfx, initAudio } from './audio.js?v=1795218616';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795218616';
-import * as FX from './fx.js?v=1795218616';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795218616';
-import { GlbRig, PROPS } from './glbrig.js?v=1795218616';
-import { makeHorse, horseBase } from './horse.js?v=1795218616';
+import { Rig, TX } from './rig.js?v=1795225258';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795225258';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795225258';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795225258';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795225258';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795225258';
+import { t } from './i18n.js?v=1795225258';
+import { Sfx, initAudio } from './audio.js?v=1795225258';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795225258';
+import * as FX from './fx.js?v=1795225258';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795225258';
+import { GlbRig, PROPS } from './glbrig.js?v=1795225258';
+import { makeHorse, horseBase } from './horse.js?v=1795225258';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -81,7 +81,7 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
   pos.needsUpdate = true; sm.geometry.computeVertexNormals(); }
 const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
 const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'mother', 'archer', 'mage']);
-export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795218616').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795225258').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -89,9 +89,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const realL = Object.entries(REAL).filter(([t]) => !LAZY.has(t)), NT = 2 + PROPN.length + realL.length, BOOT_MB = 7.7; const step = () => { n++; const f = Math.min(1, n / NT); try { window.__LOAD = { mb: +(f * BOOT_MB).toFixed(1), total: BOOT_MB, done: n, files: NT }; } catch (e) { } onp(f); };   // window.__LOAD: the loading line can show "X / Y MB"
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795218616').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795218616').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795218616').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795225258').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795225258').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795225258').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
@@ -229,15 +229,15 @@ export function spawn(type, x, z, team, raw) {
   if (!raw && !G.noVar && (!team || team === 'enemy') && T[type] && !T[type].team) { const V = G.vc || (G.vc = { a: 0, w: 0 }); if (type === 'askar') { ++V.a; if (V.a % 4 === 0) type = 'nayza'; else if (V.a % 6 === 3) type = 'qilich'; else if (V.a % 10 === 7) type = 'qalqan'; } else if (type === 'wolf') { V.w++; if (V.w === 5 || (V.w > 5 && (V.w - 5) % 9 === 0)) type = 'boribasi'; } }
   const e = new Ent(type, x, z, team); if (type === 'qiz') { const b = maidBuff(); e.maxHp = e.hp = Math.round(e.maxHp * b.hp); e.dmgMul = b.dmg; } G.ents.push(e); if (e.team === 'enemy' && !raw) e.spChk = 1; decorate(e); return e; }  /* no pop-in: a reinforcement spawned in view is moved off-screen and walks in (arrive) */
 export function separate() { const L = G.ents; for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead || a.team === 'npc') continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead || b.team === 'npc') continue; const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || .01, m = sepR(a) + sepR(b); if (d < m) { const k = (m - d) / d * .5, ha = a.d.heavy || a === G.player ? 0 : 1, hb = b.d.heavy || b === G.player ? 0 : 1, t = ha + hb || 1; a.x -= dx * k * 2 * ha / t; a.z -= dz * k * 2 * ha / t; b.x += dx * k * 2 * hb / t; b.z += dz * k * 2 * hb / t; } } } }
-export function hintRaw(s) { const h = $('hint'); h.textContent = s; h.classList.add('show'); clearTimeout(hintRaw.to); hintRaw.to = setTimeout(() => h.classList.remove('show'), 5000); }
+export function hintRaw(s) { const h = $('hint'); if (h.textContent !== s || !h.classList.contains('show')) h.textContent = s; h.classList.add('show');  /* same text already up: only extend it (re-setting re-ran the emoji->icon swap = flicker) */ clearTimeout(hintRaw.to); hintRaw.to = setTimeout(() => h.classList.remove('show'), 5000); }
 export const enemies = () => G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg);
 function nearest(x, z, team, maxd = 1e9) { let b = null, bd = maxd; for (const e of G.ents) { if (e.dead || !hostile(team, e.team)) continue; const d = Math.hypot(e.x - x, e.z - z) - e.r; if (d < bd) { bd = d; b = e; } } return b; }
 export function hitCircle(x, z, r, dmg, team, src, op) { let n = 0; for (const e of G.ents) { if (e.dead || !hostile(team, e.team)) continue; if (Math.hypot(e.x - x, e.z - z) < r + e.r) { if (e.damage(typeof dmg === 'function' ? dmg() : dmg, src, op)) n++; } } return n; }
 function hitArc(src, range, minDot, dmg, op) { let n = 0; const fx = Math.sin(src.rot), fz = Math.cos(src.rot); for (const e of G.ents) { if (e.dead || !hostile(src.team, e.team)) continue; const dx = e.x - src.x, dz = e.z - src.z, d = Math.hypot(dx, dz); if (d > range + e.r) continue; if (d > .6 && (dx * fx + dz * fz) / d < minDot) continue; if (e.damage(dmg(), src, op)) n++; } return n; }
 function collide(e) {
-  e.bump = null; const ox = e.x, oz = e.z;
+  e.bump = null; e.bumpB = null; const ox = e.x, oz = e.z;
   for (const c of G.colC) { const dx = e.x - c.x, dz = e.z - c.z, rr = c.r + e.r, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); e.x = c.x + dx / d * rr; e.z = c.z + dz / d * rr; e.bump = { nx: dx / d, nz: dz / d }; } }
-  for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
+  for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { e.bumpB = b; const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
   for (const f of G.fires) { if (f.y - f.size > 1.2) continue; const rr = f.size * .62 + e.r, dx = e.x - f.x, dz = e.z - f.z, d2 = dx * dx + dz * dz; if (d2 < rr * rr) { const d = Math.sqrt(d2) || .01; e.x = f.x + dx / d * rr; e.z = f.z + dz / d * rr; if (!e.bump) e.bump = { nx: dx / d, nz: dz / d }; } }
   e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && (e._lz ?? e.z) >= G.limitZ + .8 && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
   if (e.bump) { const n = e.bump, vn = (e.kx || 0) * n.nx + (e.kz || 0) * n.nz; if (vn < 0) { const fast = vn < -3; e.kx -= 1.6 * vn * n.nx; e.kz -= 1.6 * vn * n.nz; e.kx *= .6; e.kz *= .6; if (fast && !e.wallT) { e.wallT = .3; burst(e.x - n.nx * e.r, e.h * .5, e.z - n.nz * e.r, 0xbfa58a, 1.2, true); G.shake = Math.max(G.shake, .18); Sfx.hit(); if (e !== G.player && e.team === 'enemy' && !e.d.heavy) e.damage(6, null, { silent: true }); } } }
@@ -490,15 +490,39 @@ function idleAct(e, dt) {
 }
 // no enemies: each ally keeps her own loose spot near the player. She notices the player has moved on only after
 // her own delay (0.5-3 s), picks a new random spot, walks there, and sprints only when left far behind (>20 m).
+// allies lag fix: the hero leaps a ravine (colB.ravine) — a follower standing at its edge leaps after her instead of running on the spot forever (1-1 / 1-4: whole host stuck at z -159)
+function ravineHop(e, P) { if (e.alp) return true;
+  for (const b of G.colB) { if (b.off || !b.ravine) continue; const r = (e.r || .5) + .9; let z1 = null;
+    if (e.z > b.z2 && e.z < b.z2 + r + .6 && P.z < b.z1) z1 = b.z1 - r; else if (e.z < b.z1 && e.z > b.z1 - r - .6 && P.z > b.z2) z1 = b.z2 + r; if (z1 === null) continue;
+    const x1 = clamp(e.x + (P.x - e.x) * .25, -G.W + 1, G.W - 1); e.alp = { x0: e.x, z0: e.z, x1, z1, t: 0, dur: .45 + Math.abs(z1 - e.z) * .035 }; e.leaping = true; e.face(x1 - e.x, z1 - e.z, 1); e.play('Jump_Full_Long', { once: true, force: true, ts: 1.5 }); return true; }
+  return false; }
+function allyLeap(e, dt) { const a = e.alp; a.t += dt; const u = clamp(a.t / a.dur, 0, 1); e.x = a.x0 + (a.x1 - a.x0) * u; e.z = a.z0 + (a.z1 - a.z0) * u; e.y = Math.sin(u * Math.PI) * 1.6;
+  if (u >= 1) { e.y = 0; e.alp = null; e.leaping = false; e.curName = ''; e.play('Running_A', { force: true }); } return true; }
+// allies lag fix: a follower pressed against a wall / house / yurt slides along it toward its nearer open end (1-1: maidens stuck behind the gate wall at z -122 with the gap 5 m aside)
+function slideDir(e, dx, dz) { const n = e.bump; if (!n || dx * n.nx + dz * n.nz > -.2) { e.slS = 0; return { x: dx, z: dz }; }
+  const tx = -n.nz, tz = n.nx; if (!e.slS) { const b = e.bumpB; let sg = (tx * dx + tz * dz) >= 0 ? 1 : -1;
+    if (b) { const ax = Math.abs(tx) > .5, lo = ax ? b.x1 : b.z1, hi = ax ? b.x2 : b.z2, c = ax ? e.x : e.z, okLo = !ax || lo > -G.W + .8, okHi = !ax || hi < G.W - .8, pick = okLo && okHi ? (c - lo < hi - c ? -1 : 1) : okHi ? 1 : okLo ? -1 : sg; sg = pick * Math.sign((ax ? tx : tz) || 1); }
+    e.slS = sg; }
+  return { x: tx * e.slS * .92 + n.nx * .08, z: tz * e.slS * .92 + n.nz * .08 }; }
+function blockedAt(x, z, r) { for (const b of G.colB) if (!b.off && x > b.x1 - r && x < b.x2 + r && z > b.z1 - r && z < b.z2 + r) return true; for (const c of G.colC) if (Math.hypot(x - c.x, z - c.z) < c.r + r) return true; return false; }
+// last resort: a follower left > 30 m behind for 5 s (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
+function rejoin(e, P, pdist, dt) { if (pdist < 30 || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < 5) return false;
+  if (onScreen(e.x, e.z, 1.2)) return false; for (let i = 0; i < 6; i++) { const x = clamp(P.x + rnd(-5, 5), -G.W + 1, G.W - 1), z = P.z + rnd(14, 20); if (z > 5.5 || onScreen(x, z, 1.2) || barrierBetween(P.z, z) || blockedAt(x, z, (e.r || .5) + .3)) continue; let ok = true; for (const b of G.colB) if (b.ravine && !b.off && ((z > b.z2 && P.z < b.z1) || (z < b.z1 && P.z > b.z2))) ok = false; if (!ok) continue;
+    e.x = e._lx = x; e.z = e._lz = z; e.o.position.set(x, 0, z); e.alT = 0; e.hm = null; G.rejoined = (G.rejoined || 0) + 1; return true; }
+  return false; }
 function drift(e, dt) {
   const P = G.player, pe = pers(e); relSlot(e); if (!P || P.dead) { e.play('Idle'); return; } const mt = e.mounted, k = mt ? 1.7 : 1, pdist = Math.hypot(P.x - e.x, P.z - e.z);
   let h = e.hm; if (!h) h = e.hm = { x: e.x, z: e.z, ax: P.x, az: P.z, tol: rnd(3.5, 7) * k, at: undefined };
   if (pdist > (pe.far || (pe.far = rnd(9, 12.5))) && !e.sprint) { e.sprint = true; h.at = G.time + rnd(0, .5); pe.far = rnd(9, 12.5); }   /* QA 2b: the host keeps up — catch-up run starts at 9–12 m (was 18–25) and is faster than her own run */ else if (pdist < pe.far * .42) e.sprint = false;
-  if (h.at === undefined && Math.hypot(P.x - h.ax, P.z - h.az) > h.tol) h.at = G.time + rnd(.5, 3);
-  if (h.at !== undefined && G.time >= h.at) { let ox, oz, n = 0; do { ox = rnd(-5.5, 5.5) * k; oz = rnd(1.8, 6.5) * k; } while (Math.hypot(ox, oz) < 2.6 * k && n++ < 8);  /* a loose group BEHIND her: she leads */ h.x = clamp(P.x + ox, -G.W + 1, G.W - 1); h.z = Math.min(P.z + oz, 5.5); h.ax = P.x; h.az = P.z; h.tol = rnd(4, 7.5) * k; h.at = undefined; e.ib = null; }
+  const pv = Math.hypot(P.vx || 0, P.vz || 0), hMov = pv > 2.5;   /* allies lag fix: while she is on the move the spot is re-picked quickly and then tracks her (offset kept), so nobody walks to a spot the hero left 3 s ago */
+  if (h.at === undefined && Math.hypot(P.x - h.ax, P.z - h.az) > h.tol) h.at = G.time + (hMov ? rnd(.1, .6) : rnd(.5, 3));
+  if (h.at !== undefined && G.time >= h.at) { let ox, oz, n = 0; do { ox = rnd(-5.5, 5.5) * k; oz = rnd(1.8, 6.5) * k; } while (Math.hypot(ox, oz) < 2.6 * k && n++ < 8);  /* a loose group BEHIND her: she leads */ h.x = clamp(P.x + ox, -G.W + 1, G.W - 1); h.z = Math.min(P.z + oz, 5.5); h.ox = ox; h.oz = oz; h.ax = P.x; h.az = P.z; h.tol = rnd(4, 7.5) * k; h.at = undefined; e.ib = null; }
+  if ((hMov || e.sprint) && h.ox !== undefined) { h.x = clamp(P.x + h.ox + (P.vx || 0) * .35, -G.W + 1, G.W - 1); h.z = Math.min(P.z + h.oz + (P.vz || 0) * .35, 5.5); h.ax = P.x; h.az = P.z; }
+  if (!mt && ravineHop(e, P)) return;
+  if (rejoin(e, P, pdist, dt)) return;
   const gx = h.x - e.x, gz = h.z - e.z, gl = Math.hypot(gx, gz);
-  if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.25 : 1.08)) * (mt ? 2 : 1) : (mt ? 4.6 : 2.3) * pe.pace;
-    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6); e.face(gx, gz, dt * 6); e.x += gx / gl * s * dt; e.z += gz / gl * s * dt; e.play(e.sprint ? 'Running_A' : 'Walking_A'); } }
+  if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.35 : 1.12), pv * 1.15) * (mt ? 2 : 1) : (hMov ? Math.max(e.speed * pe.pace, pv) * (pdist > 7 ? 1.1 : .95) : (mt ? 4.6 : 2.3) * pe.pace);
+    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
   else { e.mv = 0; if (mt && e.cav && e.cav.v > .1) steer(e, e.x + Math.sin(e.rot), e.z + Math.cos(e.rot), 0, dt); idleAct(e, dt); }
 }
 // generic boss phases (66% / 33%): roar + shockwave moment, then faster and with new ground attacks
@@ -544,11 +568,12 @@ function bossPhase(e, dt) {
   return false;
 }
 REAL.wolfman = ['R_bori', null, 0, .95]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman' }; NOFIST.add('wolfman'); LAZY.add('wolfman');   // animation agent: the potion brute stays a wolf-man
-const _bv = new THREE.Vector3();
+const _bv = new THREE.Vector3(), _bv2 = new THREE.Vector3(), _bcr = new THREE.Vector3();
 const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
 function ai(e, dt) {
   const d = e.d; if (e.spawnT > 0) { e.spawnT -= dt; e.o.scale.setScalar((e.vs || d.scale || 1) * clamp(1 - e.spawnT / .45, .01, 1)); return; }
   if (e.team === 'npc' || e.air) { if (e.team === 'npc' && CIVT.has(e.type) && !e.duel) civAvoid(e, dt); return; }
+  if (e.alp) { allyLeap(e, dt); return; }
   // QA: a closed gate blocks enemies both ways — an awake enemy on the far side neither fights nor shoots (the missions watchdog walks him back in)
   if (e.team === 'enemy' && G.limitZ > -1e8 && e.z < G.limitZ - .2 && e !== G.boss && !e.custom && (e.farT || 0) > -1e8) { if (e.state !== 'chase') { e.state = 'chase'; e.clearTele(); } const P_ = G.player, tx_ = P_ ? Math.max(-G.W + 1.5, Math.min(G.W - 1.5, P_.x + (e.x - P_.x) * .5)) : e.x, sp_ = (e.speed || 3.5) * 1.15; e.x += Math.sign(tx_ - e.x) * Math.min(Math.abs(tx_ - e.x), sp_ * .5 * dt); e.z += sp_ * dt; e.rot = 0; e.play('Running_A'); return; }   /* walks in (reinforcements spawned beyond the gate used to stand there until the watchdog moved them) */
   if (e.downT > 0) { e.downT -= dt; if (e.downT <= 0) { e.curName = ''; e.inLoco = false; e.play('Idle_Combat', { force: true }); e.stagger = .2; } return; }
@@ -1378,7 +1403,7 @@ function update(dt) {
 }
 function render(dt, anim) {
   separate(); const still = G.paused || G.freeze; for (const e of G.ents) { if (e.gone) continue; if (e.mounted && e.hz && dt > 0 && !still) horseTick(e, dt); if (still && !e.dead && /Running|Walking/.test(e.curName)) { e.loco = 'Idle'; e._play('Idle'); } if (e.rig.motion && dt > 0) { let dr = e.rot - (e.pr ?? e.rot); while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI; e.rig.motion((e.x - (e.px ?? e.x)) / dt, (e.z - (e.pz ?? e.z)) / dt, dr / dt, e.rot, e.vs); } e.px = e.x; e.pz = e.z; e.pr = e.rot; if (anim) { /* bench #5: bodies far from the camera animate every 2nd frame (time is accumulated, so speed is unchanged) */ const lodFar = e !== G.player && !e.duel && e !== G.boss && ((e.x - camera.position.x) ** 2 + (e.z - camera.position.z) ** 2) > (SET.q === 0 ? 480 : 1100); if (lodFar && ((G.frameN + (e.lodPh ?? (e.lodPh = (Math.random() * 2) | 0))) & 1)) e.lodAcc = (e.lodAcc || 0) + dt; else { e.mixer.update(dt + (e.lodAcc || 0)); e.lodAcc = 0; } } e.o.position.set(e.x, e.y + (e.dead && e.deadT > 2.2 ? e.o.position.y : deckY(e.x, e.z)), e.z); if (e.dead && e.deadT > 2.2) e.o.position.y -= 0; e.o.rotation.y = e.rot; if (e.ln > 0 && !e.mounted && dt > 0) { e.ln -= dt; const a = Math.max(0, e.ln) / .3 * .3, f = e.lnx * Math.sin(e.rot) + e.lnz * Math.cos(e.rot), r = e.lnx * Math.cos(e.rot) - e.lnz * Math.sin(e.rot); e.o.rotation.order = 'YXZ'; e.o.rotation.x = f * a; e.o.rotation.z = -r * a; } if (e.aura) { e.aura.position.set(e.x, .06, e.z); e.aura.rotation.y += dt * 1.5; e.aura.material.opacity = .55 + Math.sin(G.time * 5 + e.x) * .2; } if (e.flash > 0) { e.flash -= dt; const v = e.flash > 0 ? 1.2 : 0; for (const m of e.mats) { const z = m.userData.em0; if (z && v === 0) m.emissive.copy(z); else m.emissive.setRGB(v, v * .8, v * .6); } } if (e.bar) { e.bar.position.set(e.x, e.h + .35 + (e.y || 0) * .8, e.z); e.bar.quaternion.copy(camera.quaternion); const k = clamp(e.hp / e.maxHp, 0, 1), BW = e.barW || 1.24; e.barFg.scale.x = Math.max(.001, BW * k); e.barFg.position.x = -BW / 2 * (1 - k); if (e.barLag) { let L = e.barLagK ?? 1; if (L < k) L = k; else if (G.time - (e.hitT || 0) > .2) L = Math.max(k, L - dt * (.35 + (L - k) * 1.6)); e.barLagK = L; e.barLag.scale.x = Math.max(.001, BW * L); e.barLag.position.x = -BW / 2 * (1 - L); } { /* QA 2b HUD: enemy bars only for the target, captains / bosses and damaged enemies within 8 m; ally bars only below 50 %; never over the HUD panels */ const P_ = G.player; let vis = !e.bg && (e.team === 'ally' ? e.hp < e.maxHp * .5 : (e === G.boss || e.hunt || e.lead || e.duel || (P_ && (e === P_.lock || e === P_.hl)) || (e.hp < e.maxHp && P_ && Math.hypot(e.x - P_.x, e.z - P_.z) < 8)));
-      if (vis) { _bv.set(e.x, (e.h || 2) + .4, e.z).project(camera); const W_ = innerWidth, H_ = innerHeight, sx = (_bv.x * .5 + .5) * W_, sy = (-_bv.y * .5 + .5) * H_; if ((sx < 260 && sy < 125) || (sx < 185 && sy > H_ - 185) || (sx > W_ - 215 && sy > H_ - 215) || (sx > W_ - 80 && sy < 70) || (Math.abs(sx - W_ / 2) < 190 && sy < 58)) vis = false; } e.bar.visible = vis; } if (e.barPz) { const q = e.brokenT > 0 ? 0 : clamp(e.poise / e.poiseMax, 0, 1); e.barPz.scale.x = Math.max(.001, BW * q); e.barPz.position.x = -BW / 2 * (1 - q); } } }
+      if (vis && window.qqHud) { /* the bar's whole on-screen box (frame + captain name) is tested against the live HUD panels (index.html #qqhud) */ _bv.copy(e.bar.position).project(camera); if (_bv.z < 1) { const W_ = innerWidth, H_ = innerHeight, sx = (_bv.x * .5 + .5) * W_, sy = (-_bv.y * .5 + .5) * H_; _bcr.setFromMatrixColumn(camera.matrixWorld, 0); _bv2.copy(e.bar.position).add(_bcr).project(camera); const u = Math.hypot((_bv2.x - _bv.x) * .5 * W_, (_bv2.y - _bv.y) * .5 * H_), pl = BW >= 2, hw = (pl ? 2.0 : BW / 2 + .08) * u; if (window.qqHud.hit(sx - hw, sy - (pl ? .75 : .16) * u, sx + hw, sy + (pl ? .3 : .16) * u)) vis = false; } } e.bar.visible = vis; } if (e.barPz) { const q = e.brokenT > 0 ? 0 : clamp(e.poise / e.poiseMax, 0, 1); e.barPz.scale.x = Math.max(.001, BW * q); e.barPz.position.x = -BW / 2 * (1 - q); } } }
   for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; const u = clamp(f.t / f.dur, 0, 1); if (f.line) { const [A0, B0] = f.line; const ax = A0.x, az = A0.z, bx = B0.x, bz = B0.z, l = Math.hypot(bx - ax, bz - az); f.m.position.set((ax + bx) / 2, 1.3, (az + bz) / 2); f.m.scale.set(1, l, 1); f.m.rotation.set(Math.PI / 2, 0, 0); f.m.rotation.order = 'YXZ'; f.m.rotation.y = Math.atan2(bx - ax, bz - az); } else if (f.fall) f.m.position.y = f.fall * (1 - u); else { const s = f.s0 + (f.s1 - f.s0) * u; if (f.xz) f.m.scale.set(1 - u * .8, 1, 1 - u * .8); else f.m.scale.setScalar(s); f.m.material.opacity = (1 - u) * .9; } if (u >= 1) { fxg.remove(f.m); fx.splice(i, 1); } }
   tickBreakables(dt);
   const tm = performance.now() / 1000; tickWater(tm); tickSparks(dt);

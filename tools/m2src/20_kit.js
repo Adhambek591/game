@@ -42,7 +42,7 @@ async function resFinish() { const M = G.mis; if (!M || M.force || !resPend().le
 function resAim(any) { const P = G.player; if (!P || !G.mis || !G.mis.res) return null; let b = null, bd = 1e9; for (const g of G.mis.res) { if (!g.on || g.freed || g.done) continue; const tgt = g.door && !g.door.dead ? { x: g.door.x - Math.sign(g.door.x || 1) * 1.2, z: g.door.z } : g.kind === 'wound' ? { x: g.x, z: g.z } : any ? near([...g.guards, ...g.hand]) : null; if (!tgt) continue; const d = hyp(tgt.x - P.x, tgt.z - P.z); if (!any && tgt.z > P.z + 25) continue; const sc = d + (g.T || 0) * .3; if (sc < bd) { bd = sc; b = tgt; } } return b; }
 // arrow focus (fix3): the nearest enemy within 25 m, else the nearest GROUP (an enemy with company within 8 m), never a lone far straggler (the engine walks those in)
 const focusOf = (list, P = G.player) => { const L = list.filter(e => !e.dead && !e.gone); if (!L.length || !P) return null; let b = null, bd = 1e9; for (const e of L) { const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; b = e; } } if (bd <= 25) return b;
-  let best = null, bs = -1e9; for (const e of L) { let n = 0; for (const f of L) if (f !== e && hyp(f.x - e.x, f.z - e.z) < 8) n++; const s = n * 12 - hyp(e.x - P.x, e.z - P.z); if (n >= 1 && s > bs) { bs = s; best = e; } } return best || (bd <= 40 ? b : null); };
+  let best = null, bs = -1e9; for (const e of L) { let n = 0; for (const f of L) if (f !== e && hyp(f.x - e.x, f.z - e.z) < 8) n++; const s = n * 12 - hyp(e.x - P.x, e.z - P.z); if (n >= 1 && s > bs) { bs = s; best = e; } } return best || (bd <= 40 || L.every(e => e.w4cat) ? b : null); };   /* QA 5-1: a lone catapult cart left behind never moves (no watchdog) -> the arrow must lead back to it */
 const aimOf = all => () => { const r = resAim(); if (r) { const P = G.player, ne = near(all); if (!ne || hyp(ne.x - P.x, ne.z - P.z) > 6) return r; } const h = near(all.filter(e => e.hunt)), P = G.player; if (h && P && hyp(h.x - P.x, h.z - P.z) < 35) return h; return focusOf(all); };
 async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = aimOf(all); G.mis.need = all;
   await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
@@ -88,7 +88,8 @@ function dirTick() { const P = G.player; if (!dirEl) { dirEl = document.createEl
     if (!tg && G.markers) for (let i = G.markers.length - 1; i >= 0; i--) { const m = G.markers[i]; if (m.opt || m.z > P.z + 8) continue; tg = m; break; } }  // optional side markers (hidden children) and markers left behind never drive the arrow
   if (M0) M0.dirTg = tg; if (!tg) { dirEl.style.display = 'none'; return; } const dx = tg.x - P.x, dz = tg.z - P.z, d = hyp(dx, dz); if (d < 7) { dirEl.style.display = 'none'; return; }
   const ux = dx / d, uy = dz / d, W = innerWidth, Hh = innerHeight, k = Math.min(1, d / 26), cx = W / 2 + ux * W * (.2 + .16 * k), cy = Math.max(Hh * .2, Hh * .5 + uy * Hh * (.22 + .12 * k));
-  dirEl.style.display = 'block'; dirEl.style.transform = `translate(${cx - 13}px,${cy - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
+  let ax = cx, ay = cy; if (window.qqHud) { const q = window.qqHud.push(cx - 26, cy - 15, 52, 48); ax = q[0] + 26; ay = q[1] + 15; }  // QA 2b HUD: the arrow + distance never sit on the objective, bars, barks or buttons
+  dirEl.style.display = 'block'; dirEl.style.transform = `translate(${ax - 13}px,${ay - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
 // sleeping groups far from the camera focus are not drawn (phones: never more than one or two camps of skinned units on screen)
 function cullTick() { const cz = G.cam ? G.cam.z : 0; for (const e of G.ents) { if (e.custom === sleepAI || e.asleep) e.o.visible = Math.abs(e.z - cz + 6) < 46; else if (e.grp && !e.o.visible) e.o.visible = true; } }
 // a group the mission waits on must never sit asleep far away: wake it (the engine then brings stragglers to the fight)
@@ -121,8 +122,8 @@ function huntTick() { const M = G.mis, P = G.player; if (!huEl) { huEl = documen
   let k = 0; if (on) { huEl.textContent = '🎯 ' + M.hunt.filter(e => e.dead).length + '/' + M.hunt.length;
     const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight;
     for (const e of M.hunt) { if (e.dead || e.gone || k >= 3) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d > 28 || e.z < G.limitZ) continue; V3.set(e.x, (e.h || 2) + .6, e.z).project(camera); const back = V3.z > 1; if (back) { V3.x = -V3.x; V3.y = -1; }
-      if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
-      c.style.display = 'block'; c.style.left = ((clamp(V3.x, -.88, .88) + 1) / 2 * W) + 'px'; c.style.top = ((1 - clamp(V3.y, -.82, .8)) / 2 * Hh) + 'px'; c.textContent = '🎯 ' + Math.round(d) + ' m'; k++; } }
+      if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.className = 'qqtg'; c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
+      c.style.display = 'block'; c.textContent = '🎯 ' + Math.round(d) + ' m'; let lx = (clamp(V3.x, -.88, .88) + 1) / 2 * W, ly = (1 - clamp(V3.y, -.82, .8)) / 2 * Hh; if (window.qqHud) { const cw = c.offsetWidth || 60, ch = c.offsetHeight || 20, q = window.qqHud.push(lx - cw / 2, ly - ch / 2, cw, ch, ['tg']); lx = q[0] + cw / 2; ly = q[1] + ch / 2; } c.style.left = lx + 'px'; c.style.top = ly + 'px'; k++; } }
   for (let i = k; i < huChips.length; i++) huChips[i].style.display = 'none'; }
 // QA watchdog: an enemy that is awake (or was displaced from his post) but stands beyond a closed gate or outside the lane for 8 s is brought back: behind the camera, awake, walking in. Mission ends never wait for an unreachable enemy.
 let wdL = 0;
@@ -185,7 +186,7 @@ async function duel(o) {
   P.x = o.x; P.z = o.z + R * .45; P.act = null; P.face(e.x - P.x, e.z - P.z); e.rot = Math.atan2(P.x - e.x, P.z - e.z); if (G.cam) { G.cam.x = P.x; G.cam.z = P.z; }
   H.setCP(P.x, P.z); G.freeze = true; P.play('Idle'); e.play(o.mounted ? 'Idle' : 'Cheer', { once: true, force: true }); Sfx.horn();
   await H.bannerShow(t('duelT'), t(o.name), t(o.title || ''), 2.6); if (o.intro) await say(o.intro);
-  G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
+  const obj0 = $('obj').textContent; G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
   let last = P.hp, hit = false, d0 = G.stats.deaths; const t0 = G.time, prev = G.tick;
   G.mis.aim = () => e.dead ? null : e;
   G.tick = dt => { if (prev) prev(dt); if (P.hp < last - .5 || G.stats.deaths > d0) hit = true; last = P.hp;
@@ -194,7 +195,7 @@ async function duel(o) {
       if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
     for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
   await until(() => e.dead || e.yield || G.mis.force);
-  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { $('obj').textContent = t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays as the objective */
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { if (M.winning) H.objective(''); else $('obj').textContent = obj0 || t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays; a final duel (beforeWin) clears it instead of re-showing the mission text */
   if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
   const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
   Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));

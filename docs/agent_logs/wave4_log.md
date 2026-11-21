@@ -221,3 +221,42 @@ New qq lines for the author:
   w4_ms_gu2: Qızlar, atlarǵa minińler! Sarkopqa!
   w4_tale: Shabarmannıń gúrrińi · w4_flash: Tań sáhárde Sarkopta… · w4_play_al: Allayar bay bolıp oynaysız · w4_sarkop: Sarkop batırları hám Allayardıń altı ulı
   also new this round: w4_power "Usınıs etilgen kúsh: {s}" (jetkilikli / shegarada / kúsheytiń!) · w4_canup "Kúsheytiw múmkin!" · w4_e_hero "Gúlayımǵa zıyan −{n}%"
+
+## Balance 2c — boss table at 0 % / ~60 % / 100 % of the cap (Nov 21, local in-browser QA bot tools/test/qa/bot_page.js, one run per cell, high variance esp. 4-4)
+Changes: (1) story.js retry: the boss regains min(50 %, 4 % + 4.5 % x under-upgrade deficit) of max HP on a retry (deficit = wave4 defi(c): 0 at >= 85 % of the cap) -> at the cap unchanged (4 %), far under-upgraded the boss cannot be worn down by retries (author: under-upgraded should lose).
+(2) BOSSK: qashqir [5, .95] (was .75), jallod [1.9, .55] (.45), aydarho [2.2, .5] ([2, .45]), qunqar [1.35, .7] ([1, .5]), qargashiq [2.3, .75] ([1.9, .38]); qumdev, Surtaysha unchanged.
+| boss | level | before 2c | after 2c |
+|---|---|---|---|
+| 1-4 Qasqır | cap 3 | won 112 s, 0 deaths, min HP 66 % | won 104 s, 0 deaths, 53 % |
+| 1-4 Qasqır | 0 | won after 1 death, 133 s | (not re-run; retry now gives 15 % back) |
+| 2-4 Qum dáwi | cap 5 | won 106 s, 0, 37 % | unchanged |
+| 2-4 Qum dáwi | 0 | won after 3 deaths, 225 s | (not re-run) |
+| 3-4 Jallad | cap 7 | won 108 s, 0, 55 % | (dmg x1.22, not re-run) |
+| 3-4 Jallad | 0 | won after 2 deaths, 233 s | (not re-run) |
+| 4-4 Aydarha | cap 9 | won 64 s, 0, 72 % | [2.4,.5]: 153 s, 0, 26 % · [2.8,.55]: 150 s, 1 death · final [2.2,.5] not re-run |
+| 5-4 Qunqar (Sárbinaz) | cap 11 | won 73 s, 0, 70 % | won 104 s, 0, 48 % |
+| 5-4 Qunqar | 7 (64 %) | — | won after 3 deaths, 229 s |
+| 5-4 Qunqar | 0 | won after 4 deaths, 320 s | LOST: 8 deaths in 708 game-s, boss stays 84-94 % |
+| 6-4 Qarǵashıq | cap 13 | won 93 s, 0, 76 % | won 119 s, 0, 31 % |
+| 7-4 Surtaysha | cap 15 | won (totems + QTE), 0, 58 % | unchanged |
+| 7-4 Surtaysha | 0 | won after 2 deaths | (retry rule applies; not re-run) |
+Stagger share in all fights 7-16 % (no stun-lock). The bot dodges better than a player; at the cap it now ends 26-53 % HP.
+## Camp balance 2c (Nov 21; QA sim bot bot_page.js in the built-in browser, threaded local server; one run each)
+Camp soldiers now get a per-chapter [HP x, damage x] from `W4CAMPK` in tools/m2src/66_w4camps.js (was a flat HP x1.35 / damage x1.2), on top of the chapter curve + under-upgrade penalty.
+Fight time = game-s from "Tolqın 1/3" to "Dushman: 0/N" (end banners excluded; "end" = bot clock at the end screen). min HP = heroine's lowest HP share (the bot uses the 🔺 12 % heal often).
+| camp | level / cap | camp K [HP, dmg] | result | fight time | deaths | min HP |
+|---|---|---|---|---|---|---|
+| 1-C1 (60) | 3 / 3 | old 1.35 / 1.2 | won | end 265 s | 0 | 75 % |
+| 1-C1 | 0 / 3 | old 1.35 / 1.2 | won | end 344 s | 0 | 78 % (too easy at L0) |
+| 1-C1 | 3 / 3 | 1.1 / 2.4 | won | end 227 s | 0 | 54 % |
+| 1-C1 | 0 / 3 | 1.1 / 2.4 | won after 2 deaths | end 370 s | 2 | 2 % |
+| 2-C1 (80) | 5 / 5 | 1.1 / 2.4 | won | ~166 s | 0 | 85 % |
+| 2-C1 | 0 / 5 | 1.1 / 2.4 | won after 4 deaths | 284 s | 4 | 2 % |
+| 2-C1 | 5 / 5 | 1.2 / 3.4 | won | 140 s | 0 | 66 % |
+| 3-C1 (90) | 7 / 7 | 1.1 / 2.4 | won | 157 s | 0 | 82 % (still easy) |
+| 5-C1 (110) | 11 / 11 | 1.1 / 2.4 | won | 262 s | 0 | 55 % |
+| 7-C1 (140) | 15 / 15 | 1.1 / 2.4 | won | 157 s | 0 | 92 % |
+| 7-C1 | 15 / 15 | 1.5 / 4.2 | won | 167 s | 0 | 73 % |
+Committed table: 1 [1.1, 2.4] · 2 [1.2, 3.4] · 3–6 [1.1, 2.4] · 7 [1.5, 4.2] (the 7-1 foot battle uses ch7 too).
+Left: 3-C1 needs more (try [1.25, 3.6]); 4-C1 / 6-C1 not measured; 7-C1 still slightly above 70 % (try [1.5, 5.5]); L0 measured only for ch1/ch2 (both struggle: 2–4 deaths).
+Army chip: "Safımız: 40 qız + 0 batır" shows in camps (2-C1, 3-C1, 5-C1, 7-C1) once the warrior bodies on the field have fallen, with or without a heroine death (qq_w4.men unchanged). After a death + retry in 2-C1 no allies were present at all (only Gúlayım): the army is not respawned on retry.

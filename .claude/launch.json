@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "qq-public", "runtimeExecutable": "python", "runtimeArgs": ["tools/test/qa/serve.py", "8765"], "port": 8765 }
+  ]
+}

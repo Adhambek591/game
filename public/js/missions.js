@@ -1,10 +1,10 @@
 // Qirq qiz — missions (prologue 2 + 7 chapters × 4 = 30), v2: posted enemy groups, convoy, direction arrow, secrets, checkpoints. Each chapter: first mission plays the chapter intro cutscene,
 // the last one is the chapter boss and ends the chapter (saveProg / epilogue). Story helpers come from story.js via initMissions(H).
-import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795218616';
-import { t } from './i18n.js?v=1795218616';
-import { Sfx, setMusic } from './audio.js?v=1795218616';
-import { applyLight, LIGHTS, place } from './env.js?v=1795218616';
-import { makeHorse } from './horse.js?v=1795218616';
+import { G, $, T, THREE, breakable, num, SET, spawn, enemies, gate, marker, setBoss, wait, until, qte, world, refreshSkills, makePlayer, SAVE, addGold, ADS, flash, burst, ringFx, hintRaw, decor, clearLevel, setMood, ensureReal, scene, renderer, gradePass, A, fire, telegraph, toggleMount, camera, markHunt } from './engine.js?v=1795225258';
+import { t } from './i18n.js?v=1795225258';
+import { Sfx, setMusic } from './audio.js?v=1795225258';
+import { applyLight, LIGHTS, place } from './env.js?v=1795225258';
+import { makeHorse } from './horse.js?v=1795225258';
 
 // ---------- mission table ----------
 // id, c = chapter, ty = type (map icon), n = name key, o = objective key, s = 3 star rules, fl = label of the 'flag' rule, boss = chapter boss (ends chapter)
@@ -73,7 +73,7 @@ function starAll() { const S = resStats(); const cv = G.mis.cv; if (cv && !S.tot
 // mission complete → stars + end screen (boss missions also finish the chapter)
 async function win() {
   await resFinish();
-  if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
+  G.mis.winning = true; if (G.mis.beforeWin) { const f = G.mis.beforeWin; G.mis.beforeWin = null; await f(); }
   for (const g of (G.mis && G.mis.res) || []) for (const c of g.ps) if (!c.dead && !c.lostP && (c.st === 'run' || g.freed)) c.saved = true;  // freed and on their way = saved (before the stars are counted)
   const M = G.mis, m = M.m, st = starsOf(), k = st.filter(Boolean).length, i = midx(m.id), next = MLIST[i + 1];
   try { window.__META && window.__META.missionEnd(m.id, k); } catch (e) { }
@@ -156,7 +156,7 @@ async function resFinish() { const M = G.mis; if (!M || M.force || !resPend().le
 function resAim(any) { const P = G.player; if (!P || !G.mis || !G.mis.res) return null; let b = null, bd = 1e9; for (const g of G.mis.res) { if (!g.on || g.freed || g.done) continue; const tgt = g.door && !g.door.dead ? { x: g.door.x - Math.sign(g.door.x || 1) * 1.2, z: g.door.z } : g.kind === 'wound' ? { x: g.x, z: g.z } : any ? near([...g.guards, ...g.hand]) : null; if (!tgt) continue; const d = hyp(tgt.x - P.x, tgt.z - P.z); if (!any && tgt.z > P.z + 25) continue; const sc = d + (g.T || 0) * .3; if (sc < bd) { bd = sc; b = tgt; } } return b; }
 // arrow focus (fix3): the nearest enemy within 25 m, else the nearest GROUP (an enemy with company within 8 m), never a lone far straggler (the engine walks those in)
 const focusOf = (list, P = G.player) => { const L = list.filter(e => !e.dead && !e.gone); if (!L.length || !P) return null; let b = null, bd = 1e9; for (const e of L) { const d = hyp(e.x - P.x, e.z - P.z); if (d < bd) { bd = d; b = e; } } if (bd <= 25) return b;
-  let best = null, bs = -1e9; for (const e of L) { let n = 0; for (const f of L) if (f !== e && hyp(f.x - e.x, f.z - e.z) < 8) n++; const s = n * 12 - hyp(e.x - P.x, e.z - P.z); if (n >= 1 && s > bs) { bs = s; best = e; } } return best || (bd <= 40 ? b : null); };
+  let best = null, bs = -1e9; for (const e of L) { let n = 0; for (const f of L) if (f !== e && hyp(f.x - e.x, f.z - e.z) < 8) n++; const s = n * 12 - hyp(e.x - P.x, e.z - P.z); if (n >= 1 && s > bs) { bs = s; best = e; } } return best || (bd <= 40 || L.every(e => e.w4cat) ? b : null); };   /* QA 5-1: a lone catapult cart left behind never moves (no watchdog) -> the arrow must lead back to it */
 const aimOf = all => () => { const r = resAim(); if (r) { const P = G.player, ne = near(all); if (!ne || hyp(ne.x - P.x, ne.z - P.z) > 6) return r; } const h = near(all.filter(e => e.hunt)), P = G.player; if (h && P && hyp(h.x - P.x, h.z - P.z) < 35) return h; return focusOf(all); };
 async function clear(...gs) { const all = gs.flatMap(g => g.es); G.mis.aim = aimOf(all); G.mis.need = all;
   await until(() => all.every(e => e.dead) || G.mis.force); if (G.mis.force) for (const e of all) if (!e.dead) e.die(); G.mis.aim = null; G.mis.need = null; cp(); }
@@ -202,7 +202,8 @@ function dirTick() { const P = G.player; if (!dirEl) { dirEl = document.createEl
     if (!tg && G.markers) for (let i = G.markers.length - 1; i >= 0; i--) { const m = G.markers[i]; if (m.opt || m.z > P.z + 8) continue; tg = m; break; } }  // optional side markers (hidden children) and markers left behind never drive the arrow
   if (M0) M0.dirTg = tg; if (!tg) { dirEl.style.display = 'none'; return; } const dx = tg.x - P.x, dz = tg.z - P.z, d = hyp(dx, dz); if (d < 7) { dirEl.style.display = 'none'; return; }
   const ux = dx / d, uy = dz / d, W = innerWidth, Hh = innerHeight, k = Math.min(1, d / 26), cx = W / 2 + ux * W * (.2 + .16 * k), cy = Math.max(Hh * .2, Hh * .5 + uy * Hh * (.22 + .12 * k));
-  dirEl.style.display = 'block'; dirEl.style.transform = `translate(${cx - 13}px,${cy - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
+  let ax = cx, ay = cy; if (window.qqHud) { const q = window.qqHud.push(cx - 26, cy - 15, 52, 48); ax = q[0] + 26; ay = q[1] + 15; }  // QA 2b HUD: the arrow + distance never sit on the objective, bars, barks or buttons
+  dirEl.style.display = 'block'; dirEl.style.transform = `translate(${ax - 13}px,${ay - 13}px)`; dirEl.firstChild.style.transform = `rotate(${Math.atan2(ux, -uy)}rad)`; dirEl.firstChild.style.borderBottomColor = tg.team === 'enemy' ? '#ff6a4a' : '#ffd060'; dirEl.lastChild.textContent = Math.round(d) + ' m'; }
 // sleeping groups far from the camera focus are not drawn (phones: never more than one or two camps of skinned units on screen)
 function cullTick() { const cz = G.cam ? G.cam.z : 0; for (const e of G.ents) { if (e.custom === sleepAI || e.asleep) e.o.visible = Math.abs(e.z - cz + 6) < 46; else if (e.grp && !e.o.visible) e.o.visible = true; } }
 // a group the mission waits on must never sit asleep far away: wake it (the engine then brings stragglers to the fight)
@@ -235,8 +236,8 @@ function huntTick() { const M = G.mis, P = G.player; if (!huEl) { huEl = documen
   let k = 0; if (on) { huEl.textContent = '🎯 ' + M.hunt.filter(e => e.dead).length + '/' + M.hunt.length;
     const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight;
     for (const e of M.hunt) { if (e.dead || e.gone || k >= 3) continue; const d = hyp(e.x - P.x, e.z - P.z); if (d > 28 || e.z < G.limitZ) continue; V3.set(e.x, (e.h || 2) + .6, e.z).project(camera); const back = V3.z > 1; if (back) { V3.x = -V3.x; V3.y = -1; }
-      if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
-      c.style.display = 'block'; c.style.left = ((clamp(V3.x, -.88, .88) + 1) / 2 * W) + 'px'; c.style.top = ((1 - clamp(V3.y, -.82, .8)) / 2 * Hh) + 'px'; c.textContent = '🎯 ' + Math.round(d) + ' m'; k++; } }
+      if (!back && Math.abs(V3.x) < .9 && V3.y < .85 && V3.y > -.9) continue; let c = huChips[k]; if (!c) { c = huChips[k] = document.createElement('div'); c.className = 'qqtg'; c.style.cssText = 'position:absolute;z-index:6;pointer-events:none;transform:translate(-50%,-50%);font:800 12px/1 system-ui,sans-serif;color:#ffe08a;text-shadow:0 1px 3px #000;background:rgba(60,30,0,.6);border:1px solid #ffd040;padding:3px 6px;border-radius:9px;white-space:nowrap'; ($('hud') || document.body).appendChild(c); }
+      c.style.display = 'block'; c.textContent = '🎯 ' + Math.round(d) + ' m'; let lx = (clamp(V3.x, -.88, .88) + 1) / 2 * W, ly = (1 - clamp(V3.y, -.82, .8)) / 2 * Hh; if (window.qqHud) { const cw = c.offsetWidth || 60, ch = c.offsetHeight || 20, q = window.qqHud.push(lx - cw / 2, ly - ch / 2, cw, ch, ['tg']); lx = q[0] + cw / 2; ly = q[1] + ch / 2; } c.style.left = lx + 'px'; c.style.top = ly + 'px'; k++; } }
   for (let i = k; i < huChips.length; i++) huChips[i].style.display = 'none'; }
 // QA watchdog: an enemy that is awake (or was displaced from his post) but stands beyond a closed gate or outside the lane for 8 s is brought back: behind the camera, awake, walking in. Mission ends never wait for an unreachable enemy.
 let wdL = 0;
@@ -299,7 +300,7 @@ async function duel(o) {
   P.x = o.x; P.z = o.z + R * .45; P.act = null; P.face(e.x - P.x, e.z - P.z); e.rot = Math.atan2(P.x - e.x, P.z - e.z); if (G.cam) { G.cam.x = P.x; G.cam.z = P.z; }
   H.setCP(P.x, P.z); G.freeze = true; P.play('Idle'); e.play(o.mounted ? 'Idle' : 'Cheer', { once: true, force: true }); Sfx.horn();
   await H.bannerShow(t('duelT'), t(o.name), t(o.title || ''), 2.6); if (o.intro) await say(o.intro);
-  G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
+  const obj0 = $('obj').textContent; G.freeze = false; setBoss(e); setMusic('boss'); H.objective(''); $('obj').textContent = '⚔ ' + t('duelO', { n: t(o.name) });
   let last = P.hp, hit = false, d0 = G.stats.deaths; const t0 = G.time, prev = G.tick;
   G.mis.aim = () => e.dead ? null : e;
   G.tick = dt => { if (prev) prev(dt); if (P.hp < last - .5 || G.stats.deaths > d0) hit = true; last = P.hp;
@@ -308,7 +309,7 @@ async function duel(o) {
       if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.4, 3.4); c.play(CHEER[(Math.random() * 3) | 0], { force: true }); } c.rot = Math.atan2((e.dead ? o.x : (e.x + P.x) / 2) - c.x, (e.dead ? o.z : (e.z + P.z) / 2) - c.z); }
     for (const c of ring.keep) { if (c.dead || c.team !== 'npc' || c.wasEnemy) continue; if ((c.cT = (c.cT ?? rnd(0, 2)) - dt) <= 0) { c.cT = rnd(1.5, 3.5); c.play(Math.random() < .45 ? 'Cheer' : 'Idle', { force: true }); } c.rot = Math.atan2(P.x - c.x, P.z - c.z); } };
   await until(() => e.dead || e.yield || G.mis.force);
-  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { $('obj').textContent = t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays as the objective */
+  if (G.mis.force && !e.dead && !o.nonLethal) e.die(); setBoss(null); G.mis.aim = null; try { if (M.winning) H.objective(''); else $('obj').textContent = obj0 || t(G.mis.m.o); } catch (er) { }   /* QA: the duel line no longer stays; a final duel (beforeWin) clears it instead of re-showing the mission text */
   if (e.yield) { e.team = 'npc'; e.custom = null; e.play('Sit_Floor_Idle', { force: true }); } else if (!e.dead) e.die();
   const clean = !hit; if (!clean) M.duelClean = false; else if (M.duelClean === undefined) M.duelClean = true;
   Sfx.big(); flash(.3); hintRaw(t(clean ? 'duelClean' : 'duelWon'));
@@ -415,7 +416,7 @@ function people(list, o = {}) {
   g.x = g.ps.reduce((s, c) => s + c.x, 0) / g.ps.length; g.z = g.ps.reduce((s, c) => s + c.z, 0) / g.ps.length;
   if (g.kind === 'drag') for (const c of g.ps) { const m = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1, 4), new THREE.MeshStandardMaterial({ color: 0x7a5a32, roughness: 1 })); world.add(m); g.ropes.push(m); }
   if (o.raid) { let k = 0; for (const e of g.guards) if (k < o.raid && !e.dead) { const r = raidAI(g.ps.filter(c => c.st === 'held')); if (e.grp) e.next = r; else e.custom = r; k++; } }
-  const el = document.createElement('div'); el.style.cssText = 'position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;background:rgba(120,20,10,.55);border:1px solid rgba(255,200,120,.6);padding:3px 7px;border-radius:9px;white-space:nowrap;display:none'; ($('hud') || document.body).appendChild(el); g.el = el;
+  const el = document.createElement('div'); el.className = 'qqtg'; el.style.cssText = 'position:absolute;z-index:5;pointer-events:none;transform:translate(-50%,-100%);font:800 13px/1 system-ui,sans-serif;color:#fff;text-shadow:0 1px 3px #000,0 0 6px #000;background:rgba(120,20,10,.55);border:1px solid rgba(255,200,120,.6);padding:3px 7px;border-radius:9px;white-space:nowrap;display:none'; ($('hud') || document.body).appendChild(el); g.el = el;
   (G.mis.res = G.mis.res || []).push(g); (G.mis.groups = G.mis.groups || []).push({ es: g.ps, awake: true, o: {}, x: g.x, z: g.z, label: o.label || 'r_' + g.kind });
   return g; }
 const V3 = new THREE.Vector3();
@@ -439,14 +440,17 @@ function resTick(g, dt) {
   const show = g.on && !g.freed && alive.some(c => c.st === 'held' || c.st === 'taken');
   if (show) { let x = 0, z = 0; for (const c of alive) { x += c.x; z += c.z; } V3.set(x / alive.length, 2.6, z / alive.length).project(camera); if (V3.z > 1) { V3.x = -V3.x; V3.y = -1; }
     const off = Math.abs(V3.x) > .82 || V3.y > .68 || V3.y < -.8; V3.x = clamp(V3.x, -.82, .82); V3.y = clamp(V3.y, -.8, .68);
-    g.el.style.display = 'block'; { const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight; g.el.style.left = ((V3.x + 1) / 2 * W) + 'px'; g.el.style.top = ((1 - V3.y) / 2 * Hh + 14) + 'px'; } g.el.style.opacity = off ? .85 : 1;
-    const s = Math.ceil(g.T); g.el.textContent = (RES_ICON[g.kind] || '⛓') + ' ' + alive.length + (g.kind === 'ride' ? '' : '  ⏳ ' + s); g.el.style.background = s <= 10 ? 'rgba(200,20,10,.75)' : 'rgba(120,20,10,.55)'; }
+    g.el.style.display = 'block'; g.el.style.opacity = off ? .85 : 1;
+    const s = Math.ceil(g.T); g.el.textContent = (RES_ICON[g.kind] || '⛓') + ' ' + alive.length + (g.kind === 'ride' ? '' : '  ⏳ ' + s);
+    { const W = renderer.domElement.clientWidth, Hh = renderer.domElement.clientHeight; let lx = (V3.x + 1) / 2 * W, ly = (1 - V3.y) / 2 * Hh + 14; if (window.qqHud) { const cw = g.el.offsetWidth || 70, ch = g.el.offsetHeight || 20, q = window.qqHud.push(lx - cw / 2, ly - ch, cw, ch, ['tg']); lx = q[0] + cw / 2; ly = q[1] + ch; } g.el.style.left = lx + 'px'; g.el.style.top = ly + 'px'; } /* QA 2b HUD: kept off the objective / boss bar / panels */ g.el.style.background = s <= 10 ? 'rgba(200,20,10,.75)' : 'rgba(120,20,10,.55)'; }
   else g.el.style.display = 'none'; }
 function victimAI(c, dt) { const g = c.vict; if (G.flying) { c.play(g.kind === 'fire' || g.kind === 'walk' ? 'Idle' : 'Sit_Floor_Idle'); return true; } if (g.lt !== G.time) { g.lt = G.time; resTick(g, dt); resHud(); } if (G.mis.hazard && G.mis.hzT !== G.time && !G.paused && !G.flying) { G.mis.hzT = G.time; G.mis.hazard(dt); } if (c.saved) { if ((c.ct = (c.ct ?? 0) - dt) <= 0) { c.ct = rnd(1.5, 3); c.play(Math.random() < .5 ? 'Cheer' : 'Idle', { force: true }); } return true; }
   const o = g.o, sp = (c.type === 'elder' ? 3.8 : 4.8) * FAST();   // freed people RUN (fix3)
   const go = (tx, tz, v, anim) => { const dx = tx - c.x, dz = tz - c.z, l = hyp(dx, dz); if (l < .3) return l; c.x += dx / l * Math.min(v * dt, l); c.z += dz / l * Math.min(v * dt, l); c.face(dx, dz, dt * 8); c.play(anim, { ts: v / 2.2 / FAST() }); return l; };
   if (c.st === 'run') { const s = o.safe || G.mis.safe || { x: c.x, z: c.z + 30 }, sd = Math.sign(s.x || c.x || Math.sin(c.seed)) || 1; const l = go(sd * (G.W - 1.3 - Math.abs(Math.sin(c.seed * 3.1)) * 1.6), s.z + Math.cos(c.seed) * 2.5, sp, 'Running_A'); if (l < 1.2) { c.saved = true; c.st = 'safe'; c.rot = Math.PI; } return true; }
-  if (c.st === 'taken') { const ex = o.exit || { x: c.x > 0 ? G.W + 4 : -G.W - 4, z: c.z - 8 }; const l = go(ex.x + Math.sin(c.seed) * 1.2, ex.z, 1.35 * FAST(), 'Walking_A'); if (l < 1 || Math.abs(c.x) > G.W + 2) { c.lostP = true; c.o.visible = false; c.gone = true; } return true; }
+  // QA (5-1 soft-lock): the exit is fixed once (it used to slide with c.z) and clamped into the lane (the engine keeps everyone inside ±G.W,
+  // so an exit beyond the lane edge was never reached: taken people walked forever, the group never ended and resFinish waited forever)
+  if (c.st === 'taken') { const ex = c.exT || (c.exT = o.exit || { x: c.x > 0 ? G.W + 4 : -G.W - 4, z: c.z - 8 }); const tx = clamp(ex.x + Math.sin(c.seed) * 1.2, -G.W + .2, G.W - .2); const l = go(tx, ex.z, 1.35 * FAST(), 'Walking_A'); c.tkT = (c.tkT || 0) + dt; if (l < 1 || c.tkT > 40) { c.lostP = true; c.o.visible = false; c.gone = true; } return true; }
   if (g.kind === 'drag') { const h = g.hand.find(e => !e.dead); if (h) { const i = g.ps.indexOf(c), bx = h.x - Math.sin(h.rot) * (1.6 + i * 1.1), bz = h.z - Math.cos(h.rot) * (1.6 + i * 1.1); if (go(bx, bz, 2.4 * FAST(), 'Walking_A') < .3) c.play('Idle'); return true; } }
   if (g.kind === 'walk') { const s = o.safe, i = g.ps.indexOf(c); if (go(s.x + ((i % 3) - 1) * 1.3, s.z + (i / 3 | 0) * 1.2, (g.halt ? 0 : (o.speed || 1)) * FAST() + 1e-4, 'Walking_A') < 1) { c.saved = true; c.st = 'safe'; } else if (g.halt) c.play('Idle'); return true; }
   if (g.kind === 'ride') { const f = g.guards[0]; if (f && !f.dead) { c.x = f.x - Math.sin(f.rot) * .75; c.z = f.z - Math.cos(f.rot) * .75; c.y = 1.15; c.rot = f.rot; } c.play('Sit_Floor_Idle'); return true; }
@@ -484,10 +488,10 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
   const g3 = post([['askar', -6, -66], ['askar', 6, -66], ['archer', -9, -72], ['archer', 9, -72]], { nofly: true, wake: 0 }); chest(9.3, -17, 50);
   // wave4 / missions audit: no Camel Dev here (off-plan). The finale is the plan's beat: Allayar holds the line while the townsfolk flee past him into the town.
   const folk = ['mother', 'child', 'elder', 'asir', 'mother', 'child', 'elder', 'asir', 'mother', 'asir'].map((ty, i) => { const sd = i % 2 ? 1 : -1, e = spawn(ty, sd * (7.2 + (i % 3) * .9), -53 - (i >> 1) * 1.7, 'npc', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = 0; e.farT = -1e9; e.w4folk = 1; e.play('Sit_Floor_Idle'); return e; });
-  await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
+  await H.cutscene('v1', 'nar1', 'p_su'); live();   /* STORY: the still behind the clip must not be the keyart (Gúlayım is not in Sarkop) */ setMusic('battle'); await ban(3); mstart();
   await wait(.6); await say([['al', 'd_al1']]);
   H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
-  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7); wake(g1);
+  await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7, t('h_attack_al')); wake(g1);   /* Allayar has no bow */
   await clear(g1); await practiceDodge(); await wait(.8);
   H.hint('h_skill', 7); await dead(rein([['askar', -6, -30], ['askar', 6, -30], ['wolf', 0, -35], ['wolf', -9, -27], ['wolf', 9, -27], ['askar', 2, -37]]));
   g1g.open(); H.setCP(0, -34); p.hp = Math.min(p.maxHp, p.hp + 250); H.objective('o_square'); const g2 = gate(-78);
@@ -522,7 +526,7 @@ RUN['0-2'] = async () => { const { NIGHT } = H.moods;
   flash(.9); Sfx.big(); G.shake = 1; p.play('Death_A', { once: true, force: true }); await wait(1.3);
   G.freeze = false; await say([['al', 'd_al3']]);
   await H.fadeTo(true); setBoss(null); $('hud').classList.remove('on'); setMusic('off'); G.paused = true;
-  await H.cutscene('v2', 'nar2'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
+  await H.cutscene('v2', 'nar2', 'p_al'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
 
 // ===== CHAPTER 1 =====
 async function ch1Start(z, sk, mood) { const { DAY } = H.moods; await H.fadeTo(true); await ensureReal(['qashqir', 'sarbinaz']); clearLevel(); setMood(mood || DAY); G.emberDown = true; H.buildMission(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; G.chGold = 0;
@@ -535,7 +539,7 @@ RUN['1-1'] = async () => {
   const g0p = post([['askar', 4.5, -12, 'p', 2]], { nofly: true, wake: 7 });
   const gA = post([['askar', -2.2, -46.4, 's'], ['askar', 1.4, -47.2, 's'], ['askar', 5, -50, 'p', 2.5], ['archer', -8, -54], ['archer', 8, -54]], { fire: [-.5, -48.4] });
   const gC = post([['askar', -6, -74], ['askar', 6, -74], ['askar', -3, -79, 'p', 2], ['askar', 3, -79], ['askar', 0, -82], ['wolf', -9, -72, 'pz', 2], ['wolf', 9, -72, 'pz', 2], ['archer', -8, -83], ['archer', 8, -83]]);
-  await H.lore('lore1'); await H.cutscene('v3', 'nar3'); live(); setMusic('calm'); await ban(3); mstart();
+  await H.lore('lore1'); await H.cutscene('v3', 'nar3m'); live();   /* STORY: after the messenger's tale — v3 (Qıran, the ride, smoke on the horizon) = she rides home to Sarkop; nar3 ('she was training at Qıran') was already shown by the tutorial */ setMusic('calm'); await ban(3); mstart();
   G.tick = () => { for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
   H.objective('o_mother'); H.hint('h_attack', 6); const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
   await H.reach(2, -23, 3.6); mm.remove(); mo.face(p.x - mo.x, p.z - mo.z); p.act = null; p.play('Idle');
@@ -1115,11 +1119,13 @@ RUN['7-3'] = async () => { const { NIGHT } = H.moods;
 // In the level: three posted groups and the captain stand in the camp from the start (fly-over shows them); the rest come out of the
 // tents / tower gate in waves while fewer than 14 are up. One body stands for 3 soldiers; the engine's 40-active cap is never reached.
 // ======================================================================
-import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795218616';
+import { yurt as w4Yurt, wall as w4Wall, banner as w4Banner, water as w4Water, crate as w4Crate, house as w4House, ground as w4Ground, shoot as w4Shoot } from './engine.js?v=1795225258';
 const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 90]], 3: [['ford', 90], ['yurt', 100]], 4: [['tower', 100], ['ford', 110], ['yurt', 110]], 5: [['yurt', 110], ['tower', 120], ['ford', 120]], 6: [['tower', 130], ['yurt', 130], ['ford', 140]], 7: [['yurt', 140], ['tower', 150], ['yurt', 150]] };
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
+// camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -1146,7 +1152,7 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
   const capt = leader(gC, 0, CZ - 11, 'mb_cap'); capt.maxHp = capt.hp = Math.round(capt.maxHp * (1.2 + .1 * c));
   if (c >= 4) for (const e of gA.es.slice(0, 2)) if (window.__W4) window.__W4.cavalry(e);
   if (c >= 5 && window.__W4) for (const x of [-5.5, 5.5].slice(0, c >= 6 ? 2 : 1)) { const cat = window.__W4.catapult(x, CZ - 17); cat.grp = gC; cat.next = cat.custom; cat.custom = sleepAI; cat.pose = 'g'; cat.hx = cat.x; cat.hz0 = cat.z; cat.seed = 1; cat.rot = cat.rot0 = 0; cat.farT = -1e9; gC.es.push(cat); }
-  const cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * 1.35); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * 1.2; };   /* sim: 1-C1 at the cap took 2.0 min with 68 % HP left -> tougher camp soldiers */
+  const CK = W4CAMPK[c] || W4CAMPK[7], cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * CK[0]); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * CK[1]; };   /* camp balance 2c (wave4_log): per-chapter soldier [HP x, damage x] */
   const all = [...gA.es, ...gB.es, ...gC.es]; all.forEach(cbuff); let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
   const full = ['askar', 'qalqan', 'archer', 'qilich', 'nayza'], wpool = w => { const q = pool.filter(x => x !== 'manj' && x !== 'cav'); for (const x of full.slice(0, Math.min(full.length, c + w))) if (!q.includes(x)) q.push(x); return q; }, upN = () => all.filter(e => !e.dead && e !== capt && !e.w4cat).length;
   const exits = k === 'tower' ? [[-2, CZ - 23], [2, CZ - 23], [0, CZ - 25]] : k === 'ford' ? [[-3.5, CZ - 24], [3.5, CZ - 24], [0, CZ - 26]] : [[-3, CZ - 26], [3, CZ - 27], [0, CZ - 28]];
@@ -1184,10 +1190,20 @@ function wallArcher(x, z, y) { const e = sp('w4wa', x, z); e.spawnT = 0; e.o.sca
     const d = hyp(P.x - e.x, P.z - e.z); if (d > 34 || P.z < e.z - 2) { e.play('Idle'); return true; } e.rot = Math.atan2(P.x - e.x, P.z - e.z); e.cdw -= dt;
     if (e.cdw <= 0) { e.cdw = rnd(3.4, 4.8); e.play('1H_Ranged_Shoot', { once: true, force: true }); w4Shoot(e, { x: P.x + rnd(-1.3, 1.3), z: P.z + rnd(-1.3, 1.3) }, rnd(e.d.dmg[0], e.d.dmg[1]) * (e.dmgMul || 1)); e.shT = .7; }
     else if ((e.shT = (e.shT || 0) - dt) <= 0) e.play('Idle_Combat'); return true; }; return e; }
+// QA 2b "hero ~1.5x taller than the spearman": no model-scale bug (world heights: Gúlayım 1.90 m, askar 2.08, nayza 2.42 — she is the smallest);
+// it is perspective: with the 34° camera 15 m from her, a soldier 20 m ahead (the wall line) drew at ~0.65x her size. The siege camera backs off 1.59x
+// with a 1.3x narrower lens (her size stays ~80 %): a soldier 14 m ahead now draws at ~0.85x, and the view reaches ~17 m ahead (catapults, wall sooner).
+function siegeCam() { const M = G.mis, t0 = performance.now(); let f0 = 0, last = -1, iv = 0;   // installed after mstart(): the fly-over owns G.camFn until then; eases in over 1.2 s
+  const off = () => { clearInterval(iv); if (G.camFn === fn) G.camFn = null; try { if (f0 && G.camT && Math.abs(G.camT.fov - last) < 3) { G.camT.fov = f0; G.camT.updateProjectionMatrix(); } } catch (e) { } };
+  const fn = cam => { if (G.mis !== M) { off(); return; } G.camT = cam; const u = Math.min(1, (performance.now() - t0) / 1200), K = 1 + .3 * u, Z = 1 + .22 * u, DZ = -1.5 * u; f0 = innerHeight > innerWidth ? 44 : 34;   // the engine's own lens (resize()). Absolute, never read back from cam.fov: feel.js's kill punch reads it back too and the two fed each other down to a 0.4° lens
+    const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s, k = K * Z;
+    cam.position.set(lx + (cam.position.x - lx) * k, .8 + (cam.position.y - .8) * k, lz + DZ + (cam.position.z - lz) * k); cam.lookAt(lx, .8, lz + DZ);
+    last = 2 * Math.atan(Math.tan(f0 * Math.PI / 360) / K) * 180 / Math.PI; if (Math.abs(cam.fov - last) > .01) { cam.fov = last; cam.updateProjectionMatrix(); } };
+  G.camFn = fn; iv = setInterval(() => { if (G.mis !== M) off(); }, 300); return off; }
 async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const p = await gu(c, H.moods.DAY, siegeBuild, [], 3, c - 1, 5); G.curCh = c - 1;
   const gt = H.gateDoor(0, WZ); flyPt(0, WZ, 'e_gate');
-  const cats = W4 && W4.catProp ? [W4.catProp(-7.6, -20), W4.catProp(7.6, -23)] : [];
+  const cats = W4 && W4.catProp ? [W4.catProp(-6.4, -3.5), W4.catProp(6.4, -5.5)] : [];   /* QA 2b: 6.5-8.5 m ahead of the start, in the opening frame (at -20 / -23 they were above the top edge) */
   const wa = [-9.6, -6.3, 6.3, 9.6].map(x => wallArcher(x, WZ, 4.8));
   const pool = w4Pool(c).filter(q => q !== 'manj' && q !== 'cav'), pick = i => pool[i % pool.length];
   const L1 = []; for (let i = 0; i < 8; i++) L1.push([pick(i), (i % 4 - 1.5) * 2.5, WZ + 9 + (i > 3 ? 2.6 : 0), i % 2 ? 'p' : 'g', 1.4]);
@@ -1197,7 +1213,7 @@ async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const pts = [[-5.5, WZ - 26], [5.5, WZ - 48]].map(([x, z], i) => { const L = []; for (let k = 0; k < 5; k++) { const a = k / 5 * 6.283 + .4; L.push([pick(k + i), x + Math.cos(a) * 2.8, z + Math.sin(a) * 2.8]); }
     const g = post(L, { label: 'mb_cap', wake: 11, noExtra: true }); const cap = leader(g, x, z, 'mb_cap'); const mk = marker(x, z, 0xff4030, 3.4); try { w4Banner(x + (i ? 2.6 : -2.6), z - 2.4, 0x1a1a1a); } catch (e) { } return { g, cap, mk, x, z, done: false }; });
   const BO = { x: 0, z: WZ - 74, R: 8, type: TY('heavy'), hp: 4200, dmg: 1.45, scale: 1.22, name: 'w4_qbek', title: 'w4_qbek_t', crowd: [['askar', 4], ['archer', 2]], after: 'flee' }; BO.arena = arena(BO);
-  live(); setMusic('battle'); await ban(3); mstart(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
+  live(); setMusic('battle'); await ban(3); mstart(); siegeCam(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
   let ph = 1, lobT = 1.5, side = 0, lp = '', w2 = [], ptsN = 0; const up = L => L.filter(e => !e.dead), hud = s => { if (s !== lp) { lp = s; $('obj').textContent = s; } };
   const lobAt = (x, z, o) => { const cg = cats[side++ % Math.max(1, cats.length)]; if (!cg || !W4) { if (o.cb) o.cb(); return; } cg.fire(); W4.lob(cg.x, cg.z, x, z, o); };
   G.mis.aim = () => ph === 1 ? near(up(g1.es)) : ph === 2 ? (near(up(w2)) || near(up(wa)) || { x: 0, z: WZ + 12 }) : ph === 3 ? { x: 0, z: WZ + 9 } : ph === 4 ? (near(up(g3.es)) || near(pts.filter(q => !q.done).map(q => q.cap)) || null) : null;
@@ -1247,9 +1263,9 @@ function w4Boat(x, z) { const g = new THREE.Group(), wd = new THREE.MeshStandard
 // Gúlayım trains the forty maidens on the river field by Miywali. One mechanic per step, advance only on success, coins + praise per step.
 // Steps that need a combat feature (roll, block, parry, jump, lock-on, sniper bow) are feature-detected at run time (TU_FEAT) and skipped if missing.
 // Owns: MLIST entry '0-0' (unshifted here), RUN['0-0'], window.__TUT (test/debug hook). Stars: win | flag (final duel without a hit) | flag2 (all optional challenges).
-import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795218616';
-import * as tuSCN from './scenery.js?v=1795218616';
-import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795218616';
+import { yurt as tuYurt, banner as tuBanner, ground as tuGround, wall as tuWall, water as tuWater, sparks as tuSparks, camOverride as tuCam } from './engine.js?v=1795225258';
+import * as tuSCN from './scenery.js?v=1795225258';
+import { runArchery as tuRunArch, LEVELS as tuArchLv } from './archery.js?v=1795225258';
 MLIST.unshift({ id: '0-0', c: 0, ty: 'train', n: 'tu_n', o: 'tu3_o', s: ['win', 'flag', 'flag2'], fl: 'tu_s1', fl2: 'tu_s2' });
 TYICON.train = '🎯';
 const TUT = (() => {
@@ -1535,12 +1551,12 @@ const TUT = (() => {
     const res = await duel({ arena: A, x: DX, z: DZ, R: DR, name: 'n_sa', title: 'tu_duel_t', nonLethal: .3, after: 'stay', intro: [['gu', 'tu3_duel1'], ['sa', 'tu_d_sa3'], ['ays', 'tu_d_gu3'], ['sa', 'tu_d_sa4']] });
     if (!alive(R)) return; G.tick = tick; R.duelCard = 0; R.duelClean = !!(res && res.clean); cardOk(); reward(40, null); card(''); obj('');
     await say([['sa', 'tu_d_sa6'], ['gu', 'tu3_win']]); if (!alive(R)) return;
-    // ---- story hook: the alarm horn, a rider over the bridge, smoke over Sarkop ----
+    // ---- story hook: a lone messenger rides in over the bridge (no horn, no smoke) ----
     for (const c of A.ring.crowd) c.play('Cheer', { force: true }); await wait(1.4); if (!alive(R)) return;
     // STORY (author): no alarm and no smoke here — Gúlayım trains at Qıran mountain and knows nothing; the battle of Sarkop is already lost. A wounded, dust-covered messenger gallops in and tells her.
     setMusic('off'); try { Sfx.hoof && Sfx.hoof(); } catch (e) { }
     const pz = P().z, rd = npc('son', 1.4, -104, 0); try { toggleMount(rd, true); } catch (e) { } S.rider = { e: rd, tz: pz - 3.4 }; S.mes = rd; G.mis.aim = () => rd;
-    // short cinematic: the camera lifts and looks past the bridge — the rider and smoke columns over the far bank
+    // short cinematic: the camera lifts and looks past the bridge at the arriving rider
     const cv = { k: 0, on: true }, V1 = new THREE.Vector3(), V2 = new THREE.Vector3(), V3 = new THREE.Vector3();
     tuCam((cam, dt) => { cv.k = Math.min(1, Math.max(0, cv.k + (cv.on ? 1 : -1) * Math.min(dt, .05) * .7)); if (cv.k <= 0 && !cv.on) { tuCam(null); return; } const s = cv.k * cv.k * (3 - 2 * cv.k), p = P(); if (!p) return;
       V1.set(p.x + 3.4, 3.2, p.z + 5.2); V3.set(p.x, .8, p.z - .9); V2.set((p.x + rd.x) / 2, 2.4, Math.min(rd.z, p.z - 8) - 10); cam.position.lerp(V1, s); cam.lookAt(V3.lerp(V2, s)); });
@@ -1549,7 +1565,7 @@ const TUT = (() => {
     for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) { c.rot = Math.atan2(rd.x - c.x, -90 - c.z); c.play('Idle', { force: true }); }
     const tR = G.time; await until(() => !alive(R) || G.mis.force || S.rider.arrived || G.time - tR > 9); if (!alive(R)) return;
     bubble(rd, 'tu_b_ms', 2, 'ms'); await wait(1.1); if (!alive(R)) return;
-    await say([['ms', 'w4_ms1'], ['gu', 'w4_ms_gu1'], ['ms', 'w4_ms2'], ['ms', 'w4_ms3'], ['gu', 'w4_ms_gu2']]); if (!alive(R)) return;
+    await say([['ms', 'w4_ms1'], ['gu', 'w4_ms_gu1'], ['ms', 'w4_ms2'], ['gu', 'w4_ms_gu2'], ['ms', 'w4_ms3']]);   /* STORY: the messenger's 'let me tell you what I saw' is the last line -> it leads straight into his tale (0-1 / 0-2 as Allayar) */ if (!alive(R)) return;
     R.camOff(); G.mis.aim = null;
     for (const c of [...A.ring.crowd, S.sa, R.jup, R.aqm]) if (c && !c.dead) c.play('Idle', { force: true }); setMusic('calm');
     G.mis.flag = R.duelClean; G.mis.flag2 = R.optHave.every(k => R.opt[k]); R.log.push('end@' + G.time.toFixed(1) + ' clean=' + R.duelClean + ' opt=' + JSON.stringify(R.opt));
@@ -1594,9 +1610,9 @@ RUN['0-0'] = () => TUT.run();
 // boss fights strictly one-on-one, 3-3 bridge reworked (freed captives run across the bridge, the objective is done when they are freed),
 // enemy budget per mission (sp()/rein() stop at F3_CAP).
 // ======================================================================
-import * as F3X from './fx.js?v=1795218616';
-import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795218616';
-import * as f3SC from './scenery.js?v=1795218616';
+import * as F3X from './fx.js?v=1795225258';
+import { ground as f3Ground, wall as f3Wall } from './engine.js?v=1795225258';
+import * as f3SC from './scenery.js?v=1795225258';
 const f3cl = (v, a, b) => Math.max(a, Math.min(b, v));
 // ---------- big side alert: where the attack comes from ----------
 let f3SideEl = null, f3SideT = 0;
@@ -1650,6 +1666,11 @@ async function rideRun(o) { const R = { rings: [], riders: [] }; f3D = Math.max(
   R.riders = (o.riders || []).map(([x, z, v, wt]) => { const f = spawn('askar', x, z, 'npc', true); f.spawnT = 0; f.o.scale.setScalar(f.vs || f.d.scale || 1); toggleMount(f, true); f.rot = Math.PI; f.d = { ...f.d, name: '' }; f.seed = rnd(0, 9); f.v0 = v; f.wait = !!wt; f.farT = -1e9;
     const g = people([['asir', x, z + .8]], { kind: 'ride', guards: [f], auto: true, T: 999, label: 'r_drag' }); f.g3 = g; return f; });   // team npc: driven from G.tick below
   const mk = marker(0, -193 - f3D, 0x66ff88, 2.2); live(); setMusic('calm'); await ban(3); mstart(); for (const f of R.riders) if (!f.wait) f.go = true;
+  if (o.shore) { const M = G.mis, t0 = G.time; let k = 0; const fn = (cam, dt) => { if (G.mis !== M) { if (G.camFn === fn) G.camFn = null; return; }   // 4-1 (author): the camera turns toward the sea on the right: orbit ~24° to the left of the hero and look past him toward the water
+      k = Math.min(1, (G.time - t0) / 1.5); const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s;
+      const ox = cam.position.x - lx, oz = cam.position.z - lz, a = -.42 * k, c = Math.cos(a), sn = Math.sin(a), sh = 4 * k;
+      cam.position.x = lx + sh + ox * c + oz * sn; cam.position.z = lz - ox * sn + oz * c; cam.lookAt(lx + sh, .8, lz); };
+    G.camFn = fn; R.camFn = fn; }
   setMusic('battle'); H.hint('', 7, t(o.hint || 'f3_h_ride'));
   const tm = $('timer'); let T0 = o.T || 0, late = false; if (T0) tm.style.display = 'block';
   const ringNext = () => R.rings.find(r => !r.done && r.z < G.player.z + 1.5);
@@ -1660,7 +1681,7 @@ async function rideRun(o) { const R = { rings: [], riders: [] }; f3D = Math.max(
       if (hyp(P.x - r.x, P.z - r.z) < 2.3) { r.done = true; Sfx.pick(); burst(r.x, 2.6, r.z, 0xffd060, 2.2); ringFx(r.x, r.z, 2.4, 0xffd060); r.tor.material.color.set(0x7fe08a); r.glow.material.opacity = 0; addGold(5, r.x, r.z); } }
     if (T0 > 0) { T0 -= dt * FAST(); tm.textContent = '⏳ ' + Math.max(0, Math.ceil(T0)); if (T0 <= 0) { late = true; hintRaw(t('f3_late')); tm.style.display = 'none'; } } };
   await until(() => (G.player.z < -189 - f3D && R.riders.every(f => f.caught || f.escaped)) || G.mis.force); mk.remove();
-  G.tick = null; G.mis.aim = null; tm.style.display = 'none'; G.mis.flag = !!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
+  G.tick = null; G.mis.aim = null; if (R.camFn && G.camFn === R.camFn) G.camFn = null; tm.style.display = 'none'; G.mis.flag =!!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
   setMusic('off'); await wait(.6); for (const m of G.ents) if (m.mounted) toggleMount(m, false); p.speed = sp0;
   const ok = R.riders.every(f => f.caught); await H.bannerShow('', R.riders.length ? t(ok ? 'rideWin' : 'rideMiss') : t('f3_ride_end'), '', 2.2); if (ok || !R.riders.length) addGold(80, p.x, p.z); return ok; }
 const RL = [[-5, -34], [5, -58], [-4, -84], [4.5, -110], [-5, -136], [3, -162]];
@@ -1673,9 +1694,10 @@ RUN['2-1'] = async () => { const { HOT } = H.moods; await H.chapterIntro(2, 'nar
 RUN['4-1'] = async () => { const { DAY } = H.moods; await H.chapterIntro(4, 'nar8', 'ruins'); G.curCh = 3;
   // 460 m along the shore (~70 s): the sea closes the right side of the road, driftwood and crates instead of rocks, two pairs of riders driving captives to the boats at the far end
   const SX = 5.2; await rideRun({ mood: DAY, obj: 'f3o_4_1', len: 460, shore: true, xMax: SX,
-    build: () => { try { w4Water((SX + 34) / 2 + 1.2, -225, 34 - SX, 480); } catch (e) { } G.colB.push({ x1: SX + 1.6, x2: 40, z1: -480, z2: 14 });
+    build: () => { if (window.__SCN !== 'r4') { try { const w = w4Water((SX + 60) / 2 + 2.6, -225, 60 - SX, 480); w.position.y = .06; } catch (e) { } }   /* the scenery sea (waterline x ~8.2) is the real one; this plane is only the fallback when the scenery module failed (at -0.25 it lay under the ground) */
+      G.colB.push({ x1: SX + 1.6, x2: 60, z1: -480, z2: 14 });
       for (let z = -30; z > -440; z -= 41) { try { w4Crate(SX - .4 + rnd(-.5, .3), z + rnd(-5, 5)); } catch (e) { } }
-      for (const [x, z, r] of [[SX + 4.5, -438, .5], [SX + 5, -449, -.3]]) { try { decor('R_arava', x, z, r); } catch (e) { } } },
+      for (const [x, z, r] of [[SX + 1.2, -436, .5], [SX + 1.4, -447, -.3]]) { try { decor('R_arava', x, z, r); } catch (e) { } } },
     riders: [[-6, -24, 5.8], [1, -30, 5.6], [-3, -205, 6.1, 1], [2.5, -212, 6.0, 1]],
     rings: f3Zig(-40, -430, 36, [-7, 1.5, -4, 3, -8, 0]), rocks: f3Zig(-52, -430, 31, [-2, -8.5, 2.5, -5.5, 0.5, -9]).map(([x, z], i) => [x, z, 1.3 + (i % 2) * .3]) }); return win(); };
 RUN['7-1'] = async () => { const { DUSK } = H.moods; await H.chapterIntro(7, 'nar11', 'ruins'); G.curCh = 6;
@@ -1763,7 +1785,7 @@ export const flyStart = on => { G.flying = !!on; };
 // ---------- ARCHERY "SNIPER" MISSIONS (archery agent; the mode itself lives in js/archery.js) ----------
 // 3-S Dáryanıń arǵı betindegi lager (after 3-2), 5-S Darbent diywalı (after 5-1, Sárbinaz), 6-S Qashal dárwazası aldında (after 6-1, before the gate siege).
 // Stars: win · no alarm (flag) · mission bonus (flag2: 3-S the camp captain too, 5-S no maiden lost, 6-S the western wall too and no beacon).
-import { runArchery } from './archery.js?v=1795218616';
+import { runArchery } from './archery.js?v=1795225258';
 for (const [id, after, o] of [['3-S', '3-2', { n: 'ar_n_3', o: 'ar_o_3', fl: 'ar_s_noal', fl2: 'ar_s_cap' }], ['5-S', '5-1', { n: 'ar_n_5', o: 'ar_o_5', fl: 'ar_s_noal', fl2: 's_allq' }], ['6-S', '6-1', { n: 'ar_n_6', o: 'ar_o_6', fl: 'ar_s_noal', fl2: 'ar_s_west' }]])
   if (midx(id) < 0 && midx(after) >= 0) { MLIST.splice(midx(after) + 1, 0, { id, c: +id[0], ty: 'archer', s: ['win', 'flag', 'flag2'], ...o }); RUN[id] = () => archMission(id); }
 async function archMission(id) { const run = G.mis.run; mstart(); let r = null; try { r = await runArchery(id, H); } catch (e) { console.error('[archery]', e); }

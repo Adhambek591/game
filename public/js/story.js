@@ -1,27 +1,27 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795218616';
-import { t, setLang, lang, L, has } from './i18n.js?v=1795218616';
-import { place } from './env.js?v=1795218616';
-import * as SC from './scenery.js?v=1795218616';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795218616';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795218616';
-import { initMissions, runMission } from './missions.js?v=1795218616';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795225258';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795225258';
+import { place } from './env.js?v=1795225258';
+import * as SC from './scenery.js?v=1795225258';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795225258';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795225258';
+import { initMissions, runMission } from './missions.js?v=1795225258';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
 const NIGHT = { bg: 0xd08a5a, fog: [40, 110], hemi: [0xffd2a8, 0x6a4630, 1.9], sun: [0xffb878, 4.2], sunDir: [-.8, .5, -.5], exp: 1.15, fireI: 20, ember: 0xffa040, emberA: .8, dawn: true };
 const DAY = { bg: 0xc9d8e0, fog: [50, 130], hemi: [0xf2ecd8, 0x6a5232, 1.9], sun: [0xffe6b8, 4.6], sunDir: [.6, 1, .45], exp: 1.05, fireI: 10, ember: 0x5a5550, emberA: .45, ash: true };
-const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay', ays: 'md_aysuliw', aqm: 'md_aqmaral', jup: 'md_jupar', ms: 'keyart' };
+const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay', ays: 'md_aysuliw', aqm: 'md_aqmaral', jup: 'md_jupar', ms: null };   /* STORY: no messenger portrait yet (keyart showed Gúlayım while the messenger spoke) -> plain frame */
 
 // ---------- UI helpers ----------
-const objective = (k, v) => { $('obj').textContent = k ? t(k, v) : ''; };
-let hintTo; function hint(k, dur = 5, raw) { { const m = { h_move: 'joy', h_attack: 'bA', h_dodge: 'bD', h_skill: 'b1', h_ulti: 'b2' }[k]; document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); if (m && $(m)) { $(m).classList.add('tutor'); setTimeout(() => $(m) && $(m).classList.remove('tutor'), dur * 1000); } } const h = $('hint'); h.textContent = (raw || t(k)).replace(TOUCH ? /\s*\([^)]*WASD\)/ : /$^/, ''); h.classList.add('show'); clearTimeout(hintTo); hintTo = setTimeout(() => h.classList.remove('show'), dur * 1000); }
+const objective = (k, v) => { const o = $('obj'), s = k ? t(k, v) : ''; if (o.textContent !== s) o.textContent = s; };
+let hintTo; function hint(k, dur = 5, raw) { { const m = { h_move: 'joy', h_attack: 'bA', h_dodge: 'bD', h_skill: 'b1', h_ulti: 'b2' }[k]; document.querySelectorAll('.tutor').forEach(e => e.classList.remove('tutor')); if (m && $(m)) { $(m).classList.add('tutor'); setTimeout(() => $(m) && $(m).classList.remove('tutor'), dur * 1000); } } const h = $('hint'), s = (raw || t(k)).replace(TOUCH ? /\s*\([^)]*WASD\)/ : /$^/, ''); if (h.textContent !== s || !h.classList.contains('show')) h.textContent = s;  /* same text already up: only extend it */ h.classList.add('show'); clearTimeout(hintTo); hintTo = setTimeout(() => h.classList.remove('show'), dur * 1000); }
 function bannerShow(a, b, c, dur = 3) { const fly = flyFor(a); if (fly) return fly.then(() => bannerShow(a, b, c, dur)); $('hint').classList.remove('show'); $('ban1').textContent = a || ''; $('ban2').textContent = b || ''; $('ban3').textContent = c || ''; const e = $('ban'); e.classList.add('show'); const hold = !!(G.mis && !G.mis.started && G.player); if (hold) G.freeze = true; return new Promise(r => setTimeout(() => { e.classList.remove('show'); if (hold) G.freeze = false; r(); }, dur * 1000)); }  /* start banner: nobody moves (the player cannot run past the first gate / wake a camp early) */
 function fadeTo(on) { const f = $('fade'); f.dataset.l = t('loading'); f.classList.toggle('in', on); return new Promise(r => setTimeout(r, 550)); }
 function setHero(k) { $('pport').style.backgroundImage = `url(./assets/img/${PORT[k]}.jpg)`; $('pname').textContent = t('n_' + k); }
 function dialog(lines) {
   return new Promise(res => {
     const was = G.paused; G.paused = true; let i = 0; const d = $('dlg'); d.classList.add('on'); $('dtap').textContent = t('tap');
-    const show = () => { const [who, key] = lines[i]; $('dport').style.backgroundImage = `url(./assets/img/${PORT[who]}.jpg)`; $('dname').textContent = t('n_' + who); $('dline').textContent = t(key); };
+    const show = () => { const [who, key] = lines[i]; $('dport').style.backgroundImage = PORT[who] ? `url(./assets/img/${PORT[who]}.jpg)` : 'none'; $('dname').textContent = t('n_' + who); $('dline').textContent = t(key); };
     let lock = performance.now() + 350;
     const next = () => { if (performance.now() < lock) return; lock = performance.now() + 250; Sfx.ui(); if (++i >= lines.length) { d.classList.remove('on'); d.onpointerdown = null; G.onEnter = null; G.paused = was; res(); } else show(); };
     d.onpointerdown = e => { e.preventDefault(); next(); }; G.onEnter = next; show();
@@ -54,7 +54,7 @@ async function wave(list) { const es = list.map(([ty, x, z]) => ty === 'potion' 
 let checkpoint = { x: 0, z: 2 };
 function setDeath() {
   G.onPlayerDeath = () => { G.stats.deaths++; setTimeout(() => { $('dh').textContent = t('fallen'); $('dretry').textContent = t('retry'); $('drevive').textContent = t('adRevive'); $('drevive').onclick = async () => { if (!(await ADS.rewarded())) return; const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.act = null; p.iframe = 3; p.play('Idle', { force: true }); G.stats.deaths--; G.paused = false; }; $('dead').classList.add('on'); G.paused = true; }, 900); };
-  $('dretry').onclick = () => { const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.x = checkpoint.x; p.z = checkpoint.z; p.act = null; p.y = 0; p.leaping = false; p.iframe = 2; p.play('Idle', { force: true }); if (G.boss && !G.boss.invuln && !G.boss.dead) G.boss.hp = Math.min(G.boss.maxHp, G.boss.hp + G.boss.maxHp * .08 * [0, .5, 1][SET.diff]);   /* QA 2b: a retry gives the boss 4 % back on normal (was 10 %) */ G.paused = false; };
+  $('dretry').onclick = () => { const p = G.player; $('dead').classList.remove('on'); p.dead = false; p.hp = p.maxHp; p.x = checkpoint.x; p.z = checkpoint.z; p.act = null; p.y = 0; p.leaping = false; p.iframe = 2; p.play('Idle', { force: true }); if (G.boss && !G.boss.invuln && !G.boss.dead) { let df = 0; try { df = window.__W4 ? __W4.defi((G.mis && G.mis.m && G.mis.m.c) || 0) : 0; } catch (e) { } G.boss.hp = Math.min(G.boss.maxHp, G.boss.hp + G.boss.maxHp * Math.min(.5, .04 + .045 * df) * [0, 1, 2][SET.diff]); }   /* balance 2c: a retry gives the boss 4 % back at >= 85 % of the chapter cap, up to 50 % when far under-upgraded (author: under-upgraded should lose) */ G.paused = false; };
 }
 function street(z0, z1, burnt, fireEvery) {
   let i = 0; for (let z = z0; z > z1; z -= rnd(7.5, 9.5), i++) for (const s of [-1, 1]) { const x = s * (G.W + rnd(5.5, 7.5)); const b = burnt && Math.random() < .8; if (Math.random() < .55) yurt(x, z + rnd(-1, 1), b, false); else house(x + s * .5, z + rnd(-1, 1), rnd(4.5, 6), rnd(4, 6), rnd(2.8, 3.8), b); if ((i + (s > 0 ? 1 : 0)) % fireEvery === 0) fire(s * (G.W + 1.2), z - 3, rnd(1.1, 1.7)); if (Math.random() < .5) debris(s * (G.W - rnd(.5, 2)), z - 4.5, 3); }
@@ -139,7 +139,7 @@ async function mission1(from) {
     if (door) { doorT -= dt; $('timer').textContent = Math.max(0, Math.ceil(doorT)); doorHp = bk ? bk.hp : 0; }
   };
   G.dbg = () => ({ doorHp, doorT, door: !!door });
-  if (!from) { await lore('lore1'); await cutscene('v3', 'nar3'); }
+  if (!from) { await lore('lore1'); await cutscene('v3', 'nar3m'); }
   $('fade').classList.remove('in'); G.paused = false; setMusic('calm'); bannerShow(t('ch1'), t('ch1n'), '', 3);
   const skip = z => { p.x = 0; p.z = z; G.cam.z = z; checkpoint = { x: 0, z }; G.sk[2].on = G.sk[3].on = G.sk[4].on = true; refreshSkills(); };
   if (!from) {

@@ -9,6 +9,8 @@ const W4CAMPS = { 1: [['yurt', 60], ['tower', 80]], 2: [['yurt', 80], ['tower', 
 for (const c of Object.keys(W4CAMPS)) { const cc = +c, bi = MLIST.findIndex(m => m.c === cc && m.boss); if (bi < 0) continue;
   W4CAMPS[c].forEach(([k, n], i) => MLIST.splice(bi + i, 0, { id: cc + '-C' + (i + 1), c: cc, ty: 'camp', n: 'w4_n_' + k, o: 'w4o_camp', s: ['win', 'most', 'all'], camp: { k, n } })); }
 TYICON.camp = '⛺';
+// camp balance 2c: camp soldiers' [HP x, damage x] per chapter on top of the chapter curve (QA sim bot: ~150–240 game-s at the cap, she ends at 30–70 % HP)
+const W4CAMPK = { 1: [1.1, 2.4], 2: [1.2, 3.4], 3: [1.1, 2.4], 4: [1.1, 2.4], 5: [1.1, 2.4], 6: [1.1, 2.4], 7: [1.5, 4.2] };   // only measured values (wave4_log "Camp balance 2c"); ch3 still easy (82 % HP), ch4/ch6 not measured
 const W4MOOD = { 1: 'DAY', 2: 'HOT', 3: 'DAY', 4: 'DAY', 5: 'DUSK', 6: 'DAY', 7: 'DUSK' };
 // models agent's camp / ford sets (js/models_ext.js, window.__MXB.put); every call is optional — without the module the old props stay
 const w4mx = (name, x, z, ry = 0, ...a) => { try { const B = window.__MXB; if (!B) return null; return B.put(world, name, x, z, ry, ...a) || true; } catch (e) { return null; } };
@@ -35,7 +37,7 @@ async function campRun(m) { const c = m.c, k = m.camp.k, N = m.camp.n, CZ = -62,
   const capt = leader(gC, 0, CZ - 11, 'mb_cap'); capt.maxHp = capt.hp = Math.round(capt.maxHp * (1.2 + .1 * c));
   if (c >= 4) for (const e of gA.es.slice(0, 2)) if (window.__W4) window.__W4.cavalry(e);
   if (c >= 5 && window.__W4) for (const x of [-5.5, 5.5].slice(0, c >= 6 ? 2 : 1)) { const cat = window.__W4.catapult(x, CZ - 17); cat.grp = gC; cat.next = cat.custom; cat.custom = sleepAI; cat.pose = 'g'; cat.hx = cat.x; cat.hz0 = cat.z; cat.seed = 1; cat.rot = cat.rot0 = 0; cat.farT = -1e9; gC.es.push(cat); }
-  const cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * 1.35); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * 1.2; };   /* sim: 1-C1 at the cap took 2.0 min with 68 % HP left -> tougher camp soldiers */
+  const CK = W4CAMPK[c] || W4CAMPK[7], cbuff = e => { if (e.w4cat || e === capt) return; e.maxHp = Math.round(e.maxHp * CK[0]); e.hp = e.maxHp; e.dmgMul = (e.dmgMul || 1) * CK[1]; };   /* camp balance 2c (wave4_log): per-chapter soldier [HP x, damage x] */
   const all = [...gA.es, ...gB.es, ...gC.es]; all.forEach(cbuff); let reserve = Math.max(0, B - all.length), waveT = 0, told = false, wave = 1, pause = 0; const R0 = reserve, R3 = Math.floor(R0 / 2), wv = () => Math.min(3, Math.ceil(wave)); let wLast = 1;
   const full = ['askar', 'qalqan', 'archer', 'qilich', 'nayza'], wpool = w => { const q = pool.filter(x => x !== 'manj' && x !== 'cav'); for (const x of full.slice(0, Math.min(full.length, c + w))) if (!q.includes(x)) q.push(x); return q; }, upN = () => all.filter(e => !e.dead && e !== capt && !e.w4cat).length;
   const exits = k === 'tower' ? [[-2, CZ - 23], [2, CZ - 23], [0, CZ - 25]] : k === 'ford' ? [[-3.5, CZ - 24], [3.5, CZ - 24], [0, CZ - 26]] : [[-3, CZ - 26], [3, CZ - 27], [0, CZ - 28]];
@@ -73,10 +75,20 @@ function wallArcher(x, z, y) { const e = sp('w4wa', x, z); e.spawnT = 0; e.o.sca
     const d = hyp(P.x - e.x, P.z - e.z); if (d > 34 || P.z < e.z - 2) { e.play('Idle'); return true; } e.rot = Math.atan2(P.x - e.x, P.z - e.z); e.cdw -= dt;
     if (e.cdw <= 0) { e.cdw = rnd(3.4, 4.8); e.play('1H_Ranged_Shoot', { once: true, force: true }); w4Shoot(e, { x: P.x + rnd(-1.3, 1.3), z: P.z + rnd(-1.3, 1.3) }, rnd(e.d.dmg[0], e.d.dmg[1]) * (e.dmgMul || 1)); e.shT = .7; }
     else if ((e.shT = (e.shT || 0) - dt) <= 0) e.play('Idle_Combat'); return true; }; return e; }
+// QA 2b "hero ~1.5x taller than the spearman": no model-scale bug (world heights: Gúlayım 1.90 m, askar 2.08, nayza 2.42 — she is the smallest);
+// it is perspective: with the 34° camera 15 m from her, a soldier 20 m ahead (the wall line) drew at ~0.65x her size. The siege camera backs off 1.59x
+// with a 1.3x narrower lens (her size stays ~80 %): a soldier 14 m ahead now draws at ~0.85x, and the view reaches ~17 m ahead (catapults, wall sooner).
+function siegeCam() { const M = G.mis, t0 = performance.now(); let f0 = 0, last = -1, iv = 0;   // installed after mstart(): the fly-over owns G.camFn until then; eases in over 1.2 s
+  const off = () => { clearInterval(iv); if (G.camFn === fn) G.camFn = null; try { if (f0 && G.camT && Math.abs(G.camT.fov - last) < 3) { G.camT.fov = f0; G.camT.updateProjectionMatrix(); } } catch (e) { } };
+  const fn = cam => { if (G.mis !== M) { off(); return; } G.camT = cam; const u = Math.min(1, (performance.now() - t0) / 1200), K = 1 + .3 * u, Z = 1 + .22 * u, DZ = -1.5 * u; f0 = innerHeight > innerWidth ? 44 : 34;   // the engine's own lens (resize()). Absolute, never read back from cam.fov: feel.js's kill punch reads it back too and the two fed each other down to a 0.4° lens
+    const d = new THREE.Vector3(); cam.getWorldDirection(d); if (d.y > -.05) return; const s = (.8 - cam.position.y) / d.y, lx = cam.position.x + d.x * s, lz = cam.position.z + d.z * s, k = K * Z;
+    cam.position.set(lx + (cam.position.x - lx) * k, .8 + (cam.position.y - .8) * k, lz + DZ + (cam.position.z - lz) * k); cam.lookAt(lx, .8, lz + DZ);
+    last = 2 * Math.atan(Math.tan(f0 * Math.PI / 360) / K) * 180 / Math.PI; if (Math.abs(cam.fov - last) > .01) { cam.fov = last; cam.updateProjectionMatrix(); } };
+  G.camFn = fn; iv = setInterval(() => { if (G.mis !== M) off(); }, 300); return off; }
 async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const p = await gu(c, H.moods.DAY, siegeBuild, [], 3, c - 1, 5); G.curCh = c - 1;
   const gt = H.gateDoor(0, WZ); flyPt(0, WZ, 'e_gate');
-  const cats = W4 && W4.catProp ? [W4.catProp(-7.6, -20), W4.catProp(7.6, -23)] : [];
+  const cats = W4 && W4.catProp ? [W4.catProp(-6.4, -3.5), W4.catProp(6.4, -5.5)] : [];   /* QA 2b: 6.5-8.5 m ahead of the start, in the opening frame (at -20 / -23 they were above the top edge) */
   const wa = [-9.6, -6.3, 6.3, 9.6].map(x => wallArcher(x, WZ, 4.8));
   const pool = w4Pool(c).filter(q => q !== 'manj' && q !== 'cav'), pick = i => pool[i % pool.length];
   const L1 = []; for (let i = 0; i < 8; i++) L1.push([pick(i), (i % 4 - 1.5) * 2.5, WZ + 9 + (i > 3 ? 2.6 : 0), i % 2 ? 'p' : 'g', 1.4]);
@@ -86,7 +98,7 @@ async function siegeRun(m) { const c = 6, WZ = SGZ, W4 = window.__W4;
   const pts = [[-5.5, WZ - 26], [5.5, WZ - 48]].map(([x, z], i) => { const L = []; for (let k = 0; k < 5; k++) { const a = k / 5 * 6.283 + .4; L.push([pick(k + i), x + Math.cos(a) * 2.8, z + Math.sin(a) * 2.8]); }
     const g = post(L, { label: 'mb_cap', wake: 11, noExtra: true }); const cap = leader(g, x, z, 'mb_cap'); const mk = marker(x, z, 0xff4030, 3.4); try { w4Banner(x + (i ? 2.6 : -2.6), z - 2.4, 0x1a1a1a); } catch (e) { } return { g, cap, mk, x, z, done: false }; });
   const BO = { x: 0, z: WZ - 74, R: 8, type: TY('heavy'), hp: 4200, dmg: 1.45, scale: 1.22, name: 'w4_qbek', title: 'w4_qbek_t', crowd: [['askar', 4], ['archer', 2]], after: 'flee' }; BO.arena = arena(BO);
-  live(); setMusic('battle'); await ban(3); mstart(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
+  live(); setMusic('battle'); await ban(3); mstart(); siegeCam(); H.objective('w4o_siege'); hintRaw('🏰 ' + t('w4_sg_cat'));
   let ph = 1, lobT = 1.5, side = 0, lp = '', w2 = [], ptsN = 0; const up = L => L.filter(e => !e.dead), hud = s => { if (s !== lp) { lp = s; $('obj').textContent = s; } };
   const lobAt = (x, z, o) => { const cg = cats[side++ % Math.max(1, cats.length)]; if (!cg || !W4) { if (o.cb) o.cb(); return; } cg.fire(); W4.lob(cg.x, cg.z, x, z, o); };
   G.mis.aim = () => ph === 1 ? near(up(g1.es)) : ph === 2 ? (near(up(w2)) || near(up(wa)) || { x: 0, z: WZ + 12 }) : ph === 3 ? { x: 0, z: WZ + 9 } : ph === 4 ? (near(up(g3.es)) || near(pts.filter(q => !q.done).map(q => q.cap)) || null) : null;
