@@ -9,11 +9,11 @@
 // so nothing of the melee game (AI, collisions, player) touches them. Missions: LEVELS at the bottom; started from
 // missions.js (m2/src/75_archery.js) through runArchery(id, H) → resolves { ok, noAlarm, all, why }.
 // =====================================================================================================================
-import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795239978';
-import { torch, banner } from './fx.js?v=1795239978';
-import { heightAt } from './scenery.js?v=1795239978';
-import { t, lang, has } from './i18n.js?v=1795239978';
-import { Sfx, setMusic, volOf } from './audio.js?v=1795239978';
+import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795247251';
+import { torch, banner } from './fx.js?v=1795247251';
+import { heightAt } from './scenery.js?v=1795247251';
+import { t, lang, has } from './i18n.js?v=1795247251';
+import { Sfx, setMusic, volOf } from './audio.js?v=1795247251';
 
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => v < a ? a : v > b ? b : v, hyp = Math.hypot, lerp = (a, b, k) => a + (b - a) * k;
 const GRAV = 0, V0 = 150, KW = 0, ZFOV = 11, WFOV = 52, SIM = 120, WATER = -.32;
@@ -518,7 +518,7 @@ ARCH.draw = (on) => { if (on) { S.drawing = true; S.drawT = 1; } else S.drawing 
 // =====================================================================================================================
 export const LEVELS = {
   // ch3 — the Kalmyk camp across the river (palisade, 2 watchtowers, yurts, fires). 6 sentries + the camp's captain (bonus).
-  '3-S': { id: '3-S', ch: 3, mood: 'DUSK', cam: [1, -10], camH: 8.4, yaw: 0, pitch: -.05, yawLim: [-.75, .75], focus: [0, -100], wind: [.8, 3.2], arrows: 12, wallZ: -100,
+  '3-S': { id: '3-S', ch: 3, mood: 'DUSK', cam: [1, -10], camH: 8.4, yaw: 0, pitch: -.05, yawLim: [-.75, .75], focus: [0, -100], wind: [.8, 3.2], arrows: 18 /* QA: was 12 — with the alarm the rushers + ropes left at most one miss */, wallZ: -100,
     intro: [['gu', 'ar_d3a'], ['sa', 'ar_d3b']],
     build(K, S) { K.hide({ col: 0x8c7a58 });
       K.palisade(-17, 17, -100, 3.3, [-2.6, 2.6]); const tl = K.wtower(-9, -98.5, 5.6, { flag: 0x1a1a1a, torch: 1 }), tr = K.wtower(9, -98.5, 5.6, { flag: 0x1a1a1a, torch: 1 });
@@ -536,7 +536,7 @@ export const LEVELS = {
     allStar() { const L = this.state; return L.cap.dead; } },
 
   // ch5 — Darbent: a wall across the pass. 4 maidens slip along the cliff to the postern; shoot every guard who spots them.
-  '5-S': { id: '5-S', ch: 5, mood: 'DUSK', cam: [-5.5, -12], camH: 8.5, yaw: -.08, pitch: -.08, yawLim: [-.6, .5], focus: [3, -95], wind: [.5, 2.6], arrows: 12, wallZ: -108,
+  '5-S': { id: '5-S', ch: 5, mood: 'DUSK', cam: [-5.5, -12], camH: 8.5, yaw: -.08, pitch: -.08, yawLim: [-.6, .5], focus: [3, -95], wind: [.5, 2.6], arrows: 18 /* QA: was 12 — with the alarm the rushers + ropes left at most one miss */, wallZ: -108,
     intro: [['sa', 'ar_d5a']],
     build(K, S) { K.hide({ col: 0x9a7a66, w: 7, d: 6 }); const L = this.state;
       K.wall(-12, 12, -108, 3.6, 1.6); const wt = K.top(-4, -108, 5.4), towL = K.top(-12, -108, 7), towR = K.top(12, -108, 7); L.tops = [wt, towL, towR, groundY(12, -108), groundY(-12, -108)];
@@ -565,7 +565,7 @@ export const LEVELS = {
     allStar() { return !this.state.lost; } },
 
   // ch6 — before the Qashal gate: the eastern wall's sentries, the beacon keeper on the gate tower, then the two ropes of the gate bridge.
-  '6-S': { id: '6-S', ch: 6, mood: 'DAY', cam: [-16, -26], camY: 9.6, yaw: -.2, pitch: -.06, yawLim: [-.8, .6], focus: [6, -116], wind: [.6, 3], arrows: 14, wallZ: -120,
+  '6-S': { id: '6-S', ch: 6, mood: 'DAY', cam: [-16, -26], camY: 9.6, yaw: -.2, pitch: -.06, yawLim: [-.8, .6], focus: [6, -116], wind: [.6, 3], arrows: 22 /* QA: was 14 — with the alarm the rushers + ropes left at most one miss */, wallZ: -120,
     intro: [['gu', 'ar_d6a'], ['sa', 'ar_d6b']],
     build(K, S) { const L = this.state;
       // rooftop hide: flat roof + parapet under the camera
