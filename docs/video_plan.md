@@ -20,7 +20,7 @@ Personajlar: **faqat** muallifning Higgsfield Elements'lari (pastda ro'yxat). Mo
 | Surtaysha | surtaysha-ok | qora sovut, oltin dubılǵa |
 | Qizlar | aysuliw, qalbiyke, gulshad | kamonchi, qalqonli, yosh qiz |
 | Bosslar | qashqir, qunqar, aydarha, qargashiq | |
-| **Shabarman** | **YO'Q** | muallifdan so'raladi (pastda) |
+| Shabarman, Sarkop askarlari | qoraqalpoq-askar | muallifning qoraqalpoq askari 3D rasmidan (qora qalpoq, to'q ko'k to'n, charm sovut) |
 
 ## Qaysi videolar bor, qaysilari kerak
 | Joy | Ssenariy | Hozir | Kerak |
@@ -40,7 +40,7 @@ Personajlar: **faqat** muallifning Higgsfield Elements'lari (pastda ro'yxat). Mo
 | Tizer | 60 s reklama | yo'q | keyin (tayyor kadrlardan yig'iladi) |
 
 ## Yangi kadrlar (har biri ~10 s)
-**K1. Shabarman keladi** (v3, 1-qism). Miywali qo'rg'oni ichidagi mashq maydoni, kunduz. Fonda qizlar mashq qilyapti (juft-juft qilichbozlik, kamon otish), har biri boshqa harakatda.
+**K1. Shabarman keladi** (v3, 1-qism). Joy: **Miywali qorǵanı**. Miywali qo'rg'oni ichidagi mashq maydoni, kunduz. Fonda qizlar mashq qilyapti (juft-juft qilichbozlik, kamon otish), har biri boshqa harakatda.
 Ko'prik ortidan yarador, changga botgan shabarman otda chopib keladi. Ot qoqiladi, u egardan sirg'alib tusha boshlaydi.
 Gúlayım (tumorsiz) mashqni tashlab **unga qarab yuguradi** va uni yiqilishdan ushlab qoladi, yerga cho'kkalab bag'riga oladi. Shabarman uning yengini changallab, nimadir aytmoqchi bo'ladi (ovozsiz).
 - Gúlayımning yuzi: avval xavotir, keyin dahshat.
@@ -97,8 +97,6 @@ Yana hisobga olinganlar:
 Yangilangan narx (K6 ikki kadr va qayta testlar bilan): 12 kadr × 55 + taxminan 10 qayta test × 10 = **~760 kredit**.
 
 ## Muallifdan kerak
-1. **Shabarman qiyofasi**: Element yo'q. Variantlar:
-   - (a) tasdiqlangan kliplardagi qoraqalpoq erkak kadridan Element yasash (bepul);
-   - (b) siz rasm berasiz.
-2. **Joy nomi**: "Qıran tawı" yoki "Miywali qorǵanı"?
+1. Shabarman: hal qilindi, `qoraqalpoq-askar` Element.
+2. Joy nomi: hal qilindi, **Miywali qorǵanı**.
 3. Har bir kadr uchun skeletni ko'rib, "ha" deysiz. Undan keyingina kredit sarflanadi.

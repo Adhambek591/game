@@ -1,0 +1,84 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Blockout K1: messenger at Miywali</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="module">
+// K1 BLOCKOUT (docs/video_plan.md). Neutral primitives only: blocking, timing, camera.
+// Legend: BLUE cylinder = Gúlayım, WHITE-TOP cylinder = Sárbinaz, grey cylinders = maidens, brown box horse + DARK-BLUE cylinder = messenger,
+// grey boxes = Miywali fortress walls, white cylinders+cones = yurts, dark strip = river, brown slab = plank bridge, poles = training dummies.
+// Beats: 0-2.5 s maidens train, rider appears beyond the bridge | 2.5-4 Gúlayım notices and turns | 4-6.6 she RUNS to him while he crosses the bridge
+// | 6.6-8 horse stops hard, rider slides off sideways, she CATCHES him and both go down (she kneels holding him) | 8-10 Sárbinaz + 2 maidens run in; camera ends on the pair, Gúlayım on the RIGHT.
+import * as THREE from '/public/assets/vendor/three.module.min.js';
+const W = 1280, H = 720, FPS = 30, SECS = 10;
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setSize(W, H); R.setPixelRatio(1); R.shadowMap.enabled = true; document.body.appendChild(R.domElement);
+const S = new THREE.Scene(); S.background = new THREE.Color(0xdcd6ca); S.fog = new THREE.Fog(0xdcd6ca, 60, 220);
+const cam = new THREE.PerspectiveCamera(38, W / H, .1, 500);
+S.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.1)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-30, 40, 20); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, far: 150 }); S.add(sun);
+const M = c => new THREE.MeshLambertMaterial({ color: c });
+const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+const cyl = (r, h, c, x, y, z, seg = 20) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+const g = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), M(0xb8aa8a)); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; S.add(g);
+box(6, .02, 140, 0xc9bb98, 0, .01, -70); box(200, .05, 6, 0x5a6f86, 0, .02, -79);
+box(6.4, .35, 7, 0x8a6a4a, 0, .3, -79); box(.15, .9, 7, 0x7a5a3a, -3.1, .8, -79); box(.15, .9, 7, 0x7a5a3a, 3.1, .8, -79);
+for (const [x, z, w, d] of [[0, -150, 120, 2], [-60, -95, 2, 110], [60, -95, 2, 110], [0, -20, 120, 2]]) box(w, 7, d, 0x9c9486, x, 3.5, z);
+for (let x = -60; x <= 60; x += 20) box(4, 10, 4, 0x948c7e, x, 5, -150);
+const yurt = (x, z, r = 2.6) => { cyl(r, 2.2, 0xf2efe8, x, 1.1, z); const c = new THREE.Mesh(new THREE.ConeGeometry(r * 1.05, 1.5, 20), M(0xe8e3d8)); c.position.set(x, 2.95, z); c.castShadow = true; S.add(c); };
+for (const [x, z] of [[14, -50], [22, -42], [-16, -46], [-24, -38], [12, -92], [20, -100], [-14, -96], [-22, -108], [9, -126], [-10, -132], [28, -60], [-30, -62]]) yurt(x, z);
+for (const [x, z] of [[-8, -63], [-10, -64], [11, -64], [12.5, -65]]) cyl(.12, 1.7, 0x8a6a4a, x, .85, z, 8);   // training dummies
+// people
+const person = (c, x, z, top = null, h = 1.62) => { const gr = new THREE.Group(); const b = new THREE.Mesh(new THREE.CylinderGeometry(.24, .29, h * .82, 16), M(c)); b.position.y = h * .41;
+  const hd = new THREE.Mesh(new THREE.SphereGeometry(.14, 16, 12), M(top || 0xd8b89a)); hd.position.y = h * .9; const nose = new THREE.Mesh(new THREE.ConeGeometry(.05, .14, 10), M(0xd8b89a)); nose.rotation.x = Math.PI / 2; nose.position.set(0, h * .9, .14);
+  b.castShadow = hd.castShadow = true; gr.add(b, hd, nose); gr.position.set(x, 0, z); S.add(gr); return gr; };
+// sparring maidens (pairs facing each other) and archers
+const spar = [[-5.5, -60, 0x7a7a7a, 0], [-5.5, -58.6, 0x8c8c8c, Math.PI], [8, -62, 0x828282, 0], [8, -60.6, 0x777777, Math.PI], [-9, -66, 0x858585, Math.PI / 2], [10.5, -67, 0x7d7d7d, -Math.PI / 2]].map(([x, z, c, r]) => { const p = person(c, x, z); p.rotation.y = r; return { p, x, z, r }; });
+const GX = 2, GZ = -54; const gu = person(0x2f55b0, GX, GZ, 0x2f55b0); gu.rotation.y = Math.PI * .75;
+const stick = new THREE.Mesh(new THREE.BoxGeometry(.03, .9, .05), M(0xcfd6dc)); stick.position.set(.34, .9, .1); stick.rotation.x = -1.0; gu.add(stick);
+const sa = person(0x8090a0, 6, -64, 0xf4f1ea); const m1 = person(0x7b7b7b, 9, -66), m2 = person(0x868686, -4, -67);
+// messenger on horse
+const hr = new THREE.Group(); S.add(hr);
+const hb = new THREE.Mesh(new THREE.BoxGeometry(.62, .7, 1.9), M(0x8a5a32)); hb.position.y = 1.25; hr.add(hb);
+const hn = new THREE.Mesh(new THREE.BoxGeometry(.32, .9, .4), M(0x8a5a32)); hn.position.set(0, 1.75, .95); hn.rotation.x = -.5; hr.add(hn);
+const hh = new THREE.Mesh(new THREE.BoxGeometry(.28, .3, .6), M(0x7a4a28)); hh.position.set(0, 2.15, 1.25); hr.add(hh);
+const legs = []; for (const [lx, lz] of [[-.22, .7], [.22, .7], [-.22, -.7], [.22, -.7]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(.12, .95, .12), M(0x6a4428)); l.geometry.translate(0, -.47, 0); l.position.set(lx, .95, lz); hr.add(l); legs.push(l); }
+hr.traverse(m => { if (m.isMesh) m.castShadow = true; });
+const rider = person(0x2a3550, 0, 0, 0x1a1a1a, 1.7); S.remove(rider); rider.position.set(0, 1.2, -.1); hr.add(rider);
+// timeline helpers
+const ss = k => Math.max(0, Math.min(1, k)) ** 2 * (3 - 2 * Math.max(0, Math.min(1, k))), lerp = (a, b, k) => a + (b - a) * k, seg = (t, a, b) => ss((t - a) / (b - a));
+const RX = -1.7, R0 = -112, RSTOP = -62.6;   // horse stops a little left and behind her kneeling point, so the pair stays clear
+let rz = R0, v = 0, t = 0, fall = 0;
+const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
+function step(dt) {
+  t += dt;
+  // rider: gallops in; hard stop at RSTOP around 6.6 s
+  const left = RSTOP - rz; v = left > 3 ? Math.min(11, v + 10 * dt) : Math.max(0, Math.min(v, left * 3)); rz = Math.min(RSTOP, rz + v * dt);
+  const gait = v / 11, ph = t * 11; hr.position.set(RX, Math.abs(Math.sin(ph)) * .09 * gait, rz); hr.rotation.x = t > 6.4 && t < 7.2 ? -Math.sin((t - 6.4) / .8 * Math.PI) * .12 : 0;   // rears slightly on the stop
+  legs.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? .8 : 0)) * .7 * gait; });
+  // rider slides off sideways (towards her) 6.8-7.8 s, then lies across her knees
+  const f = seg(t, 6.8, 7.8); if (f > 0) { if (rider.parent === hr) { hr.remove(rider); S.add(rider); } rider.position.set(lerp(RX + .2, RX + .5, f), lerp(1.2, .28, f), lerp(rz, RSTOP + .85, f)); rider.rotation.y = lerp(0, -Math.PI / 2, f); rider.rotation.x = 0; rider.rotation.z = lerp(0, 1.45, f); }
+  // sparring bob until she notices
+  spar.forEach((s, i) => { const k = 1 - seg(t, 3, 4.5); s.p.position.x = s.x + Math.sin(t * 4 + i) * .12 * k; s.p.rotation.y = lerp(s.r, Math.atan2(RX - s.x, rz - s.z), seg(t, 3.2, 4.6)); });
+  // Gúlayım: trains (small sway) -> notices (turns to bridge 2.5-3.5) -> runs 4-6.6 to the stop point -> kneels catching him 6.8-8
+  const run = seg(t, 4.0, 6.6), kneel = seg(t, 6.9, 7.9);
+  const gx = lerp(GX, RX + 1.25, run), gz = lerp(GZ, RSTOP + 1.1, run);   // she runs right up to the horse
+  gu.position.set(gx + Math.sin(t * 3) * .05 * (1 - seg(t, 2.5, 3)), 0, gz);
+  gu.rotation.y = lerp(Math.PI * .75, Math.atan2(RX - gx, rz - gz), seg(t, 2.5, 3.5)); gu.scale.y = 1; gu.position.y = -.55 * kneel; gu.rotation.z = .35 * kneel;
+  if (run > 0 && run < 1) gu.position.y = Math.abs(Math.sin(t * 9)) * .06;
+  stick.rotation.x = lerp(-1.0, -.1, seg(t, 3, 4)); stick.position.y = lerp(.9, .5, seg(t, 3, 4));
+  // Sárbinaz + 2 maidens run in 7.6-10
+  const sr = seg(t, 7.4, 9.6); for (const [p, x0, z0, x1, z1] of [[sa, 6, -64, RX + 2.6, RSTOP - .4], [m1, 9, -66, RX + 3.6, RSTOP - 1.2], [m2, -4, -67, RX + 1.6, RSTOP - 1.8]]) { p.position.set(lerp(x0, x1, sr), sr > 0 && sr < 1 ? Math.abs(Math.sin(t * 9 + x0)) * .06 : 0, lerp(z0, z1, sr)); p.rotation.y = Math.atan2(gx - p.position.x, gz - p.position.z); }
+  // camera: wide behind-left of her (bridge and walls in view) -> tracks her run -> medium on the pair, she on the RIGHT of frame
+  // camera follows HER: wide behind-left at the start, behind-left of her while she runs, low and close on the pair at the end (she on the RIGHT of frame)
+  const a = seg(t, 3.6, 6.6), b = seg(t, 7.0, 10);
+  const c1 = V3(GX - 2.0, 3.3, GZ + 9.5), c2 = V3(gx + 3.4, 2.0, gz + 4.8), c3 = V3(gx + 2.3, 1.15, gz + 2.7);   // her RIGHT side: horse/rider on the left of frame, she in front on the right
+  cam.position.copy(c1.clone().lerp(c2, a).lerp(c3, b));
+  const rp = rider.getWorldPosition(new THREE.Vector3());
+  const L1 = V3(lerp(GX, RX, .45), 1.2, lerp(GZ - 6, rz, .5)), L2 = V3(lerp(gx, rp.x, .45), lerp(1.3, .7, b), lerp(gz, rp.z, .45));
+  cam.lookAt(L1.lerp(L2, Math.max(a * .7, b)));
+}
+window.render = async (o = {}) => { const name = o.name || 'k1'; t = 0; rz = R0; v = 0; let ok = 0;
+  for (let i = 1; i <= FPS * SECS; i++) { step(1 / FPS); R.render(S, cam); const blob = await new Promise(z => R.domElement.toBlob(z, 'image/jpeg', .92));
+    const r = await fetch('/__rec/' + name + '_' + String(i).padStart(4, '0') + '.jpg', { method: 'PUT', body: blob }); if (r.status === 201) ok++; }
+  return { frames: ok }; };
+step(0); R.render(S, cam); window.ready = true;
+</script>
+</body></html>

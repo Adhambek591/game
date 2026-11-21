@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Character shot</title>
+<style>html,body{margin:0;background:#cfc8bc}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "/public/assets/vendor/three.module.min.js" } }</script></head>
+<body>
+<script type="module">
+// Clean reference image of a game character model (front 3/4, full body + face) for a Higgsfield Element.
+// http://localhost:8765/tools/test/qa/charshot.html?m=R_yigit  -> await shot('messenger.jpg') PUTs the JPEG to /__rec/
+import * as THREE from 'three';
+import { GLTFLoader } from '/public/assets/vendor/jsm/loaders/GLTFLoader.js';
+const qs = new URLSearchParams(location.search), M = qs.get('m') || 'R_yigit', W = 1024, H = 1024;
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setSize(W, H); R.setPixelRatio(1); R.outputColorSpace = THREE.SRGBColorSpace; document.body.appendChild(R.domElement);
+const S = new THREE.Scene(); S.background = new THREE.Color(0xcfc8bc);
+S.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.4)); const k = new THREE.DirectionalLight(0xffffff, 2.2); k.position.set(2, 4, 3); S.add(k); const r = new THREE.DirectionalLight(0xffe8c8, 1.0); r.position.set(-3, 2, -2); S.add(r);
+const cam = new THREE.PerspectiveCamera(28, W / H, .05, 100);
+const g = await new GLTFLoader().loadAsync('/public/assets/models/' + M + '.glb'); const o = g.scene; S.add(o);
+o.updateMatrixWorld(true); const box = new THREE.Box3().setFromObject(o, true), sz = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+o.position.sub(new THREE.Vector3(c.x, box.min.y, c.z)); o.rotation.y = -.45;   // 3/4 view
+const h = sz.y; cam.position.set(0, h * .55, h * 2.25); cam.lookAt(0, h * .5, 0);
+R.render(S, cam);
+window.info = { h, sz: sz.toArray().map(v => +v.toFixed(2)) };
+window.shot = async (name = 'char.jpg', face = false) => { if (face) { cam.position.set(0, h * .9, h * .62); cam.lookAt(0, h * .88, 0); } else { cam.position.set(0, h * .55, h * 2.25); cam.lookAt(0, h * .5, 0); } R.render(S, cam);
+  const b = await new Promise(z => R.domElement.toBlob(z, 'image/jpeg', .94)); const res = await fetch('/__rec/' + name, { method: 'PUT', body: b }); return res.status; };
+window.ready = true;
+</script>
+</body></html>
