@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Blockout: messenger at Miywali</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style></head>
+<body>
+<script type="module">
+// BLOCKOUT for a Higgsfield reference video: neutral primitives only (no game textures), so the video model takes ONLY blocking,
+// timing and camera from it. Legend: blue capsule = Gúlayım (sabre = thin stick pointing DOWN in her right hand),
+// tan box + upright grey cylinder = messenger on his horse, grey boxes = fortress walls/towers, white cylinders+cones = yurts,
+// dark blue strip = river, brown box = plank bridge, small grey capsules = maidens watching.
+// Open http://localhost:8765/tools/test/qa/blockout_msg.html (serve.py with an upload dir) and call  await render({ name: 'bo1' })
+import * as THREE from '/public/assets/vendor/three.module.min.js';
+const W = 1280, H = 720, FPS = 30, SECS = 10;
+const R = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); R.setSize(W, H); R.setPixelRatio(1); document.body.appendChild(R.domElement);
+R.shadowMap.enabled = true;
+const S = new THREE.Scene(); S.background = new THREE.Color(0xd9d4c8); S.fog = new THREE.Fog(0xd9d4c8, 60, 220);
+const cam = new THREE.PerspectiveCamera(36, W / H, .1, 500);
+S.add(new THREE.HemisphereLight(0xffffff, 0x8a7f6a, 1.1)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(-30, 40, 20); sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 40, bottom: -40, far: 150 }); S.add(sun);
+const M = c => new THREE.MeshLambertMaterial({ color: c });
+const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+const cyl = (r, h, c, x, y, z, seg = 20) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), M(c)); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; S.add(m); return m; };
+// ground, road, river, bridge
+const g = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), M(0xb8aa8a)); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; S.add(g);
+box(6, .02, 140, 0xc9bb98, 0, .01, -70);
+box(200, .05, 6, 0x5a6f86, 0, .02, -79);
+box(6.4, .35, 7, 0x8a6a4a, 0, .3, -79); box(.15, .9, 7, 0x7a5a3a, -3.1, .8, -79); box(.15, .9, 7, 0x7a5a3a, 3.1, .8, -79);
+// fortress walls with towers (back + sides), as in the game level
+for (const [x, z, w, d] of [[0, -150, 120, 2], [-60, -95, 2, 110], [60, -95, 2, 110]]) box(w, 7, d, 0x9c9486, x, 3.5, z);
+for (let x = -60; x <= 60; x += 20) box(4, 10, 4, 0x948c7e, x, 5, -150);
+// yurts (off the road)
+const yurt = (x, z, r = 2.6) => { cyl(r, 2.2, 0xf2efe8, x, 1.1, z); const c = new THREE.Mesh(new THREE.ConeGeometry(r * 1.05, 1.5, 20), M(0xe8e3d8)); c.position.set(x, 2.95, z); c.castShadow = true; S.add(c); };
+for (const [x, z] of [[12, -92], [20, -100], [28, -88], [16, -112], [34, -104], [-14, -96], [-22, -108], [-30, -92], [-18, -120], [9, -126], [-10, -132], [26, -124], [40, -118], [-38, -112]]) yurt(x, z);
+// banners
+for (const [x, z, c] of [[-6, -84, 0x9a2a2a], [7, -84, 0x2a5aa8]]) { cyl(.06, 6, 0x6a5a4a, x, 3, z, 8); box(1.6, .9, .04, c, x + .85, 5.4, z); }
+// maidens watching (static, varied distances)
+const person = (c, x, z, h = 1.6) => { const gr = new THREE.Group(); const b = new THREE.Mesh(new THREE.CylinderGeometry(.24, .28, h * .82, 16), M(c)); b.position.y = h * .41; const hd = new THREE.Mesh(new THREE.SphereGeometry(.13, 16, 12), M(0xd8b89a)); hd.position.y = h * .9; b.castShadow = hd.castShadow = true; gr.add(b, hd); gr.position.set(x, 0, z); S.add(gr); return { gr, hd }; };
+for (const [x, z, c] of [[-7.5, -70, 0x7a7a7a], [-9.2, -73, 0x8a8a8a], [9, -71, 0x7f7f7f], [11, -75, 0x868686]]) person(c, x, z);
+// GÚLAYIM: blue capsule, nose marker on the head shows where she looks, sabre = thin stick held DOWN at her right side
+const GX = 1.6, GZ = -62; const gu = new THREE.Group(); S.add(gu); gu.position.set(GX, 0, GZ);
+const body = new THREE.Mesh(new THREE.CylinderGeometry(.26, .32, 1.36, 20), M(0x2f55b0)); body.position.y = .68; body.castShadow = true; gu.add(body);
+const neck = new THREE.Group(); neck.position.y = 1.42; gu.add(neck);
+const head = new THREE.Mesh(new THREE.SphereGeometry(.14, 20, 16), M(0x2f55b0)); head.castShadow = true; neck.add(head);
+const nose = new THREE.Mesh(new THREE.ConeGeometry(.05, .14, 10), M(0xd8b89a)); nose.rotation.x = Math.PI / 2; nose.position.set(0, 0, .14); neck.add(nose);
+const sabre = new THREE.Mesh(new THREE.BoxGeometry(.03, .9, .05), M(0xcfd6dc)); sabre.position.set(.34, .45, .05); sabre.rotation.z = .12; sabre.castShadow = true; gu.add(sabre);
+// MESSENGER on horse: tan box horse with neck/head and 4 legs, rider = upright grey cylinder + head (sits straight, never bows)
+const hr = new THREE.Group(); S.add(hr);
+const hb = new THREE.Mesh(new THREE.BoxGeometry(.62, .7, 1.9), M(0x8a5a32)); hb.position.y = 1.25; hr.add(hb);
+const hn = new THREE.Mesh(new THREE.BoxGeometry(.32, .9, .4), M(0x8a5a32)); hn.position.set(0, 1.75, .95); hn.rotation.x = -.5; hr.add(hn);
+const hh = new THREE.Mesh(new THREE.BoxGeometry(.28, .3, .6), M(0x7a4a28)); hh.position.set(0, 2.15, 1.25); hr.add(hh);
+const legs = []; for (const [lx, lz] of [[-.22, .7], [.22, .7], [-.22, -.7], [.22, -.7]]) { const l = new THREE.Mesh(new THREE.BoxGeometry(.12, .95, .12), M(0x6a4428)); l.geometry.translate(0, -.47, 0); l.position.set(lx, .95, lz); hr.add(l); legs.push(l); }
+const rb = new THREE.Mesh(new THREE.CylinderGeometry(.22, .26, .85, 16), M(0x8c8578)); rb.position.set(0, 2.05, -.1); hr.add(rb);
+const rh = new THREE.Mesh(new THREE.SphereGeometry(.13, 16, 12), M(0xd8b89a)); rh.position.set(0, 2.6, -.1); hr.add(rh);
+hr.traverse(m => { if (m.isMesh) m.castShadow = true; });
+// timeline (same as the game previs): gallop over the bridge, rein in 4.2 m before her
+const R0 = -112, R1 = GZ - 4.2, RX = .6; let rz = R0, v = 0, t = 0;
+const ss = k => k * k * (3 - 2 * k), lerp = (a, b, k) => a + (b - a) * k, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+const keys = [[0, 0, -.35], [2, 0, -.35], [2.8, 1, 0], [6, 1, 0], [7.6, 1, 0], [10, 1, 0]];   // [t, follow, extra head yaw]
+const bodyK = [[0, 0], [6, .15], [7.6, .55], [10, .62]];
+const sample = (K, t) => { if (t <= K[0][0]) return K[0].slice(1); for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const a = K[i - 1], b = K[i], k = ss((t - a[0]) / (b[0] - a[0])); return a.slice(1).map((v, j) => lerp(v, b[j + 1], k)); } return K[K.length - 1].slice(1); };
+function step(dt) {
+  t += dt; const left = R1 - rz; v = left > 9 ? Math.min(10.5, v + 9 * dt) : Math.max(0, Math.min(v, left * 1.25)); rz = Math.min(R1, rz + v * dt);
+  const gait = v / 10.5, ph = t * 11; hr.position.set(RX, Math.abs(Math.sin(ph)) * .09 * gait, rz); hr.rotation.y = 0;
+  legs.forEach((l, i) => { l.rotation.x = Math.sin(ph + (i % 2 ? Math.PI : 0) + (i > 1 ? .8 : 0)) * .7 * gait; });
+  const want = Math.atan2(RX - GX, rz - GZ), r0 = Math.PI, [bk] = sample(bodyK, t); gu.rotation.y = r0 + wrap(want - r0) * bk;
+  const [w, hx] = sample(keys, t), rel = Math.max(-1.3, Math.min(1.3, wrap(want - gu.rotation.y))); neck.rotation.y = rel * w + hx;
+  const k = ss(Math.min(1, t / SECS)); cam.position.set(lerp(GX - 4.6, GX - 3.4, k), lerp(1.6, 1.7, k), lerp(GZ + 7.5, GZ + 5.2, k));   // she stays whole, right third of frame
+  cam.lookAt(GX * .35 + RX * .65, 1.25, GZ * .45 + rz * .55);
+}
+window.render = async (o = {}) => { const name = o.name || 'bo'; t = 0; rz = R0; v = 0; let ok = 0;
+  for (let i = 1; i <= FPS * SECS; i++) { step(1 / FPS); R.render(S, cam); const b = await new Promise(z => R.domElement.toBlob(z, 'image/jpeg', .92));
+    const r = await fetch('/__rec/' + name + '_' + String(i).padStart(4, '0') + '.jpg', { method: 'PUT', body: b }); if (r.status === 201) ok++; }
+  return { frames: ok }; };
+step(0); R.render(S, cam); window.ready = true;
+</script>
+</body></html>

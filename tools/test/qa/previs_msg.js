@@ -18,9 +18,7 @@ window.__stage = function (o = {}) {
   // clean the hero: no gold outline hull, no selection ring (they read as glowing objects to the video model)
   P.o.traverse(m => { if (m.isSkinnedMesh && !m.name && m.material && !m.material.map && m.material.color && m.material.color.getHexString() === 'ffd76e') m.visible = false; });
   { const v3 = new THREE.Vector3(); E.scene.traverse(m => { if (!m.isMesh || !m.visible) return; let inP = false, q = m; while (q) { if (q === P.o) { inP = true; break; } q = q.parent; } if (inP) return; m.getWorldPosition(v3); if (Math.hypot(v3.x - GX, v3.z - GZ) < 1.5 && v3.y < .5) m.visible = false; }); }
-  // no weapons in hands (her sabre is "sheathed" in the prompt; a wounded messenger does not brandish one), no sprites (objective marker)
-  const inHand = m => { for (let q = m.parent; q; q = q.parent) if (q.isBone && /Hand/.test(q.name)) return true; return false; };
-  for (const ent of [P, rd]) ent.o.traverse(m => { if (m.isMesh && !m.isSkinnedMesh && (inHand(m) || /blade|sab|sword|saber|axe|spear/i.test(m.name))) m.visible = false; });
+  // swords stay in hand (author); only sprites (objective marker) go
   E.scene.traverse(m => { if (m.isSprite) m.visible = false; });
   // acting (previs_anim.js): calm -> hears hooves -> follows the rider with head/neck -> shoulders/body turn as he arrives -> slight nod at the exhausted man
   P.rot = Math.PI; const ACT = __Anim.act(P, { base: 'idle', baseT: 0, look: () => rd, keys: [
@@ -52,6 +50,7 @@ window.__stage = function (o = {}) {
 async function offline(o, info, reset) {
   const fps = o.fps || 30, n = Math.round((o.secs || 10) * fps), pre = (o.name || 'shot').replace(/\.\w+$/, ''), cv = document.querySelector('canvas');
   if (__E.renderer.getPixelRatio() !== 1) { __E.renderer.setPixelRatio(1); dispatchEvent(new Event('resize')); await new Promise(z => setTimeout(z, 600)); }   // full-res plate (the game may run at 0.5x)
+  if (cv.width !== 1280 || cv.height !== 720) throw new Error('canvas is ' + cv.width + 'x' + cv.height + ' - set the viewport to 1280x720 first');
   const r0 = window.requestAnimationFrame; let fn = null; window.requestAnimationFrame = cb => { fn = cb; return 0; };
   await new Promise(z => setTimeout(z, 200)); if (!fn) { __E.start(); }   // the running loop hands us frame() on its next tick (or start() does)
   let clock = performance.now(); const step = () => { clock += 1000 / fps; fn(clock); };
