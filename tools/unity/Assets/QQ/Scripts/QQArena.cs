@@ -9,6 +9,7 @@ public class QQArena : MonoBehaviour
     [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain;
     [Header("Weapons")] public GameObject saber, bow, axe;
     public Texture2D gulayimBlue;
+    public Material arrowMat, fxMat;   // made in the editor so their shaders ship in the build (Shader.Find fails in players)
     public Texture2D[] qizVar, askarVar, kamonchiVar;   // outfit atlases (browser build's props/var)
 
     // The generated models carry an emissive copy of their atlas at full strength, which washes every outfit to one flat tone:
@@ -43,7 +44,7 @@ public class QQArena : MonoBehaviour
         player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620, 34, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;
-        for (int i = 0; i < 5; i++) { var q = Spawn(qiz, new Vector3(-4 + i * 2, 0, -19), 0, 160, 12, 1.72f, saber, "qiz"); q.gameObject.AddComponent<QQAI>(); q.speed = 4.4f; }
+        for (int i = 0; i < 5; i++) { var q = Spawn(qiz, new Vector3(-4 + i * 2, 0, -19), 0, 300, 16, 1.72f, saber, "qiz"); q.gameObject.AddComponent<QQAI>(); q.speed = 4.4f; }
         StartCoroutine(Run());
     }
 
@@ -82,17 +83,17 @@ public class QQArena : MonoBehaviour
         for (wave = 1; wave <= WAVES; wave++)
         {
             QQHud.Toast(wave + "-to'lqin"); QQHud.Objective("To'lqin " + wave + "/" + WAVES + " — qalmoqlarni yenging");
-            int n = 4 + wave * 3, archers = wave >= 2 ? wave : 0;
+            int n = 6 + wave * 3, archers = wave >= 2 ? wave : 0;
             for (int i = 0; i < n; i++)
             {
                 bool ar = i < archers; var gate = campGate ? campGate.position : new Vector3(0, 0, 26);
-                var e = Spawn(ar ? kamonchi : askar, gate + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(0f, 3f)), 1, ar ? 70 : 110 + wave * 15, ar ? 9 : 11 + wave * 2, 1.85f, ar ? bow : saber, ar ? "kamonchi" : "askar");
+                var e = Spawn(ar ? kamonchi : askar, gate + new Vector3(Random.Range(-5f, 5f), 0, Random.Range(0f, 3f)), 1, ar ? 80 : 130 + wave * 20, ar ? 11 : 12 + wave * 2, 1.85f, ar ? bow : saber, ar ? "kamonchi" : "askar");
                 e.archer = ar; e.speed = ar ? 3f : 3.4f; e.range = ar ? 10f : 1.8f; e.gameObject.AddComponent<QQAI>();
                 yield return new WaitForSeconds(.35f);
             }
             if (wave == WAVES && captain)
             {
-                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 1400, 26, 2.4f, axe, "Yuzboshi");
+                var c = Spawn(captain, (campGate ? campGate.position : new Vector3(0, 0, 26)), 1, 2200, 30, 2.4f, axe, "Yuzboshi");
                 c.boss = true; c.speed = 3.6f; c.range = 2.4f; c.radius = .7f; c.gameObject.AddComponent<QQAI>(); QQHud.Toast("Qalmoq yuzboshisi!");
             }
             while (Unit.CountTeam(1) > 0) { if (player.Dead) yield break; yield return null; }

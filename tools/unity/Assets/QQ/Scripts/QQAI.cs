@@ -5,6 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(Unit))]
 public class QQAI : MonoBehaviour
 {
+    public string Dbg { get { return (target ? target.displayName : "none") + " cd " + cd.ToString("0.0") + " strike " + strikeAt.ToString("0.0"); } }
     Unit u, target; float cd, think, strikeAt = -1; string atk;
     static readonly string[] MELEE = { "slash", "attack", "heavy" };
 
@@ -16,7 +17,12 @@ public class QQAI : MonoBehaviour
         if (u.stun > 0) return;
         cd -= Time.deltaTime; think -= Time.deltaTime;
         var pl = QQArena.I.player;
-        if (think <= 0 || !target || target.Dead) { think = .4f; target = Unit.Nearest(transform.position, 1 - u.team, u.team == 0 ? 16f : 60f); }
+        if (think <= 0 || !target || target.Dead)
+        {
+            think = .4f; target = Unit.Nearest(transform.position, 1 - u.team, u.team == 0 ? 16f : 60f);
+            // Qalmaq soldiers go for Gúlayım herself when she is close: she must not stroll through untouched
+            if (u.team == 1 && pl && !pl.Dead && (pl.transform.position - transform.position).sqrMagnitude < 100f && (u.boss || (GetInstanceID() & 1) == 0)) target = pl;
+        }
 
         // pending strike (damage lands part-way through the swing)
         if (strikeAt >= 0)

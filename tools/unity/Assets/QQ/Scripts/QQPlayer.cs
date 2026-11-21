@@ -9,7 +9,7 @@ using UnityEngine.InputSystem;
 public class QQPlayer : MonoBehaviour
 {
     public static QQPlayer I;
-    Unit u; int combo; float comboT, holdT, amuletCd, dodgeCd, strikeAt = -1, parryWin; bool holding, spinning; Vector3 rollDir; float rollT;
+    Unit u; int combo; float comboT, holdT, amuletCd, dodgeCd, volleyCd, strikeAt = -1, parryWin; bool holding, spinning; Vector3 rollDir; float rollT;
     public float AmuletReady { get { return 1f - Mathf.Clamp01(amuletCd / 12f); } }
     public float DodgeReady { get { return 1f - Mathf.Clamp01(dodgeCd / .7f); } }
     enum Strike { None, Combo, Spin }
@@ -63,11 +63,13 @@ public class QQPlayer : MonoBehaviour
         var t = Unit.Nearest(transform.position, 1, 16f);
         if (t && (t.transform.position - transform.position).magnitude > 3.4f)
         {
+            if (volleyCd > 0) return;   // the bow needs a moment to reload: no machine-gun volleys
+            volleyCd = 1.4f;
             // volley: one arrow each at up to 4 foes, nearest first
             var list = Unit.All.FindAll(o => o.team == 1 && !o.Dead && (o.transform.position - transform.position).sqrMagnitude < 256f);
             list.Sort((a, b) => (a.transform.position - transform.position).sqrMagnitude.CompareTo((b.transform.position - transform.position).sqrMagnitude));
             u.Face(t.transform.position - transform.position, 99); u.rig.Play("attack", .05f, false, true); u.busy = .5f;
-            for (int i = 0; i < Mathf.Min(4, Mathf.Max(3, list.Count)); i++) { var tg = list[i % list.Count]; QQArrow.Shoot(u, tg, u.dmg * .7f, i * .08f); }
+            for (int i = 0; i < Mathf.Min(4, Mathf.Max(3, list.Count)); i++) { var tg = list[i % list.Count]; QQArrow.Shoot(u, tg, u.dmg * .55f, i * .08f); }
             return;
         }
         if (t) u.Face(t.transform.position - transform.position, 99);
@@ -81,7 +83,7 @@ public class QQPlayer : MonoBehaviour
     {
         if (u.Dead) return;
         float dt = Time.deltaTime;
-        amuletCd -= dt; dodgeCd -= dt; comboT -= dt;
+        amuletCd -= dt; dodgeCd -= dt; comboT -= dt; volleyCd -= dt;
         if (holding) { holdT += dt; if (holdT > .35f && !spinning && u.busy <= 0) { spinning = true; pending = Strike.Spin; strikeAt = .25f; u.rig.Play("spin", .05f, false, true); u.rig.speed = 1.2f; u.busy = .8f; } }
 
         if (strikeAt >= 0)

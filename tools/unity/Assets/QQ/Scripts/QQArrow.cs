@@ -10,7 +10,7 @@ public class QQArrow : MonoBehaviour
     {
         if (!from || !target) return;
         if (!mesh) { var tmp = GameObject.CreatePrimitive(PrimitiveType.Cube); mesh = tmp.GetComponent<MeshFilter>().sharedMesh; Destroy(tmp); }
-        if (!mat) { mat = new Material(Shader.Find("Universal Render Pipeline/Unlit")); mat.SetColor("_BaseColor", new Color(.25f, .18f, .1f)); }
+        if (!mat && QQArena.I && QQArena.I.arrowMat) mat = QQArena.I.arrowMat;
         var go = new GameObject("arrow"); var mf = go.AddComponent<MeshFilter>(); mf.sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterial = mat;
         go.transform.localScale = new Vector3(.03f, .03f, .8f);
         var ar = go.AddComponent<QQArrow>(); ar.from = from; ar.target = target; ar.dmg = dmg; ar.team = from.team; ar.delay = delay;
@@ -22,6 +22,7 @@ public class QQArrow : MonoBehaviour
     {
         if (delay > 0) { delay -= Time.deltaTime; if (delay <= 0 && from) a = from.transform.position + Vector3.up * 1.4f + from.transform.forward * .5f; return; }
         if (t == 0) { b = target ? target.transform.position + Vector3.up * 1.1f : a + Vector3.forward * 10f; dur = Mathf.Max(.25f, (b - a).magnitude / 26f); }
+        if (target && !target.Dead) b = target.transform.position + Vector3.up * 1.1f;   // follow a moving target (archers kite)
         t += Time.deltaTime; float u = Mathf.Clamp01(t / dur);
         Vector3 p = Vector3.Lerp(a, b, u) + Vector3.up * Mathf.Sin(u * Mathf.PI) * (b - a).magnitude * .08f;
         var dir = p - transform.position; if (dir.sqrMagnitude > 1e-6f) transform.rotation = Quaternion.LookRotation(dir);

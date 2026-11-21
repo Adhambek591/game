@@ -8,8 +8,8 @@ public class QQFx : MonoBehaviour
 
     static Material AddMat(Color c)
     {
-        var sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-        var m = new Material(sh); m.SetColor("_BaseColor", c);
+        var src = QQArena.I ? QQArena.I.fxMat : null;
+        var m = src ? new Material(src) : new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); m.SetColor("_BaseColor", c);
         m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 2);   // transparent, additive
         m.SetOverrideTag("RenderType", "Transparent"); m.renderQueue = 3000;
         m.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha); m.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.One); m.SetInt("_ZWrite", 0);

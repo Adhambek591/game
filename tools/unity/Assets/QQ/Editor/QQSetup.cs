@@ -66,6 +66,8 @@ public static class QQSetup
         Object.DestroyImmediate(g.GetComponent<Collider>()); Object.DestroyImmediate(lane.GetComponent<Collider>());
 
         // burnt yurts around the square, the Qalmaq camp at the far end, fires
+        fireMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fireMat.SetFloat("_Surface", 1); fireMat.SetFloat("_Blend", 2); fireMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fireMat.renderQueue = 3000;
+        fireMat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fireMat.SetInt("_DstBlend", (int)BlendMode.One); fireMat.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fireMat, ART + "M_fire.mat");
         var yurt = Load<GameObject>(ART + "props/B_yurt.glb"); var dressing = new GameObject("Sarkop");
         var rnd = new System.Random(7);
         for (int i = 0; i < 26; i++)
@@ -82,6 +84,9 @@ public static class QQSetup
         ar.kamonchi = Load<GameObject>(ART + "models/R_kamonchi.glb"); ar.captain = Load<GameObject>(ART + "models/R_qashqir.glb");
         ar.saber = Load<GameObject>(ART + "props/W_saber.glb"); ar.bow = Load<GameObject>(ART + "props/W_bow.glb"); ar.axe = Load<GameObject>(ART + "props/W_axe.glb");
         ar.gulayimBlue = Load<Texture2D>(ART + "tex/gulayim_blue.jpg"); ar.campGate = gate.transform;
+        var am = new Material(Shader.Find("Universal Render Pipeline/Unlit")); am.SetColor("_BaseColor", new Color(.25f, .18f, .1f)); AssetDatabase.CreateAsset(am, ART + "M_arrow.mat"); ar.arrowMat = am;
+        var fm = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fm.SetFloat("_Surface", 1); fm.SetFloat("_Blend", 2); fm.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fm.renderQueue = 3000;
+        fm.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fm.SetInt("_DstBlend", (int)BlendMode.One); fm.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fm, ART + "M_fx.mat"); ar.fxMat = fm;
         ar.qizVar = Vars("qiz", "o", "r", "v"); ar.askarVar = Vars("askar", "b", "k", "o", "r"); ar.kamonchiVar = Vars("kamonchi", "b", "o", "r");
 
         EditorSceneManager.SaveScene(scene, SCENE);
@@ -113,6 +118,7 @@ public static class QQSetup
         }
     }
 
+    static Material fireMat;
     static void Fire(Vector3 p, Transform parent)
     {
         var go = new GameObject("Fire"); go.transform.SetParent(parent); go.transform.position = p;
@@ -120,7 +126,7 @@ public static class QQSetup
         var em = ps.emission; em.rateOverTime = 34; var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = .8f; sh.rotation = new Vector3(-90, 0, 0);
         var col = ps.colorOverLifetime; col.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(new Color(1f, .8f, .4f), 0), new GradientColorKey(new Color(.9f, .3f, .05f), .5f), new GradientColorKey(new Color(.2f, .18f, .16f), 1) }, new[] { new GradientAlphaKey(.9f, 0), new GradientAlphaKey(.6f, .5f), new GradientAlphaKey(0, 1) }); col.color = gr;
         var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1, AnimationCurve.EaseInOut(0, .6f, 1, 1.6f));
-        var pr = go.GetComponent<ParticleSystemRenderer>(); var m = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); m.SetFloat("_Surface", 1); m.SetFloat("_Blend", 2); m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); m.renderQueue = 3000; pr.sharedMaterial = m;
+        var pr = go.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = fireMat;
         var l = new GameObject("FireLight").AddComponent<Light>(); l.transform.SetParent(go.transform); l.transform.localPosition = Vector3.up * 1.5f; l.type = LightType.Point; l.color = new Color(1f, .55f, .2f); l.range = 12; l.intensity = 3;
     }
 
@@ -146,6 +152,14 @@ public static class QQSetup
         var rt = new RenderTexture(1280, 720, 24); cam.targetTexture = rt; cam.Render(); RenderTexture.active = rt;
         var tx = new Texture2D(1280, 720, TextureFormat.RGB24, false); tx.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); tx.Apply();
         Directory.CreateDirectory("Builds"); File.WriteAllBytes(path, tx.EncodeToPNG()); cam.targetTexture = null; RenderTexture.active = null; rt.Release();
+    }
+
+    public static void Win()
+    {
+        Directory.CreateDirectory("Builds/win");
+        var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { SCENE }, locationPathName = "Builds/win/QirqQiz.exe", target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
+        Debug.Log("QQ WIN " + r.summary.result + " errors " + r.summary.totalErrors);
+        if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
     }
 
     public static void Apk()

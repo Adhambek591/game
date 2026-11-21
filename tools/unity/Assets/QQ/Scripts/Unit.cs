@@ -10,7 +10,7 @@ public class Unit : MonoBehaviour
     public bool archer, isPlayer, boss;
     public string displayName = "";
     [System.NonSerialized] public QQRig rig;
-    [System.NonSerialized] public float stun, inv, busy;   // seconds: hit-stun, invulnerable (dodge), locked in an attack
+    [System.NonSerialized] public float stun, inv, busy, stunImmune;   // seconds: hit-stun, invulnerable (dodge), locked in an attack
     public bool Dead { get { return hp <= 0; } }
     public System.Action<Unit, float> onHit;
     Renderer[] rends; float flash;
@@ -26,7 +26,9 @@ public class Unit : MonoBehaviour
         if (onHit != null) onHit(from, d);
         QQFx.Spark(transform.position + Vector3.up * 1.2f, team == 0 ? new Color(1f, .45f, .3f) : new Color(1f, .85f, .5f));
         if (hp <= 0) { Die(from); return; }
-        if (!boss || heavy) { stun = heavy ? .7f : .3f; busy = 0; if (rig) rig.Play("hit", .05f, false, true); }
+        // poise (author: no stun-lock): after a flinch a fighter cannot be flinched again for a while, so fast combos
+        // do not freeze him and he swings back; bosses flinch only on heavy blows, then shrug off hits for 3 s
+        if (stunImmune <= 0 && (!boss || heavy)) { stun = heavy ? .6f : .28f; busy = 0; stunImmune = boss ? 3f : 1.1f; if (rig) rig.Play("hit", .05f, false, true); }
         if (from) transform.position += (transform.position - from.transform.position).normalized * (heavy ? .9f : .25f);
     }
 
@@ -41,7 +43,7 @@ public class Unit : MonoBehaviour
 
     void Update()
     {
-        if (stun > 0) stun -= Time.deltaTime; if (inv > 0) inv -= Time.deltaTime; if (busy > 0) busy -= Time.deltaTime;
+        if (stun > 0) stun -= Time.deltaTime; if (stunImmune > 0) stunImmune -= Time.deltaTime; if (inv > 0) inv -= Time.deltaTime; if (busy > 0) busy -= Time.deltaTime;
         if (flash > 0) { flash -= Time.deltaTime; }
         // separation
         for (int i = 0; i < All.Count; i++)
