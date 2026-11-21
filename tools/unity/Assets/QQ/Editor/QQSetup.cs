@@ -12,7 +12,8 @@ using UnityEngine.Rendering.Universal;
 
 public static class QQSetup
 {
-    const string ART = "Assets/QQ/Art/", SCENE = "Assets/QQ/Arena.unity";
+    const string ART = "Assets/QQ/Art/", SCENE = "Assets/QQ/Arena.unity", CH1 = "Assets/QQ/Chapter1.unity";
+    static bool ch1;   // building the chapter-1 street instead of the open battlefield
 
     static T Load<T>(string p) where T : Object { var o = AssetDatabase.LoadAssetAtPath<T>(p); if (!o) Debug.LogWarning("QQ missing " + p); return o; }
 
@@ -36,6 +37,9 @@ public static class QQSetup
         AssetDatabase.CreateAsset(m, ART + "M_" + n + ".mat"); return m;
     }
 
+    // chapter 1 "Yonayotgan Sarkop": the burnt street with three gates (QQMission drives it); then the battlefield is rebuilt too
+    public static void BuildCh1() { ch1 = true; try { Build(); } finally { ch1 = false; } Build(); }
+
     public static void Build()
     {
         AssetDatabase.Refresh(); TexSettings();
@@ -50,7 +54,8 @@ public static class QQSetup
         var sun = new GameObject("Sun").AddComponent<Light>(); sun.type = LightType.Directional; sun.color = new Color(1f, .78f, .56f); sun.intensity = 2.9f;
         sun.shadows = LightShadows.Soft; sun.shadowStrength = .8f; sun.transform.rotation = Quaternion.Euler(26, 38, 0);   // behind-left of the camera: faces lit, long shadows toward the camp RenderSettings.sun = sun;
         RenderSettings.fog = true; RenderSettings.fogMode = FogMode.ExponentialSquared; RenderSettings.fogColor = new Color(.8f, .58f, .42f); RenderSettings.fogDensity = .0065f;
-        Hills();
+        if (ch1) sun.transform.rotation = Quaternion.Euler(26, 218, 0);
+        Hills(); if (ch1) { var hl = GameObject.Find("Hills"); hl.transform.position = new Vector3(0, 0, -70); hl.transform.localScale = new Vector3(1, 1, 1.75f); }
 
         // camera: MSAA from the URP asset (crisp edges), no FXAA blur
         var camGo = new GameObject("Main Camera"); camGo.tag = "MainCamera"; var cam = camGo.AddComponent<Camera>(); cam.clearFlags = CameraClearFlags.Skybox; cam.farClipPlane = 160; cam.nearClipPlane = .5f; cam.allowMSAA = false;
@@ -73,17 +78,17 @@ public static class QQSetup
         gm.SetTexture("_BaseMap", Load<Texture2D>(ART + "tex/burned_ground_01_diff.jpg")); gm.SetTexture("_BumpMap", Load<Texture2D>(ART + "tex/burned_ground_01_nor.jpg")); gm.SetTexture("_TrailMap", Load<Texture2D>(ART + "tex/trail_det.jpg"));
         gm.SetColor("_Tint", new Color(1f, .95f, .9f)); gm.SetColor("_RoadTint", new Color(.45f, .37f, .28f)); gm.SetFloat("_Tile", 6f); gm.SetVector("_Lane", new Vector4(13f, .88f, .85f, .2f)); gm.SetVector("_Road", new Vector4(1.6f, 2.6f, 1f, 0f));
         AssetDatabase.CreateAsset(gm, ART + "M_ground.mat");
-        var g = GameObject.CreatePrimitive(PrimitiveType.Plane); g.name = "Ground"; g.transform.localScale = new Vector3(24, 1, 24); g.GetComponent<Renderer>().sharedMaterial = gm; Object.DestroyImmediate(g.GetComponent<Collider>());
+        var g = GameObject.CreatePrimitive(PrimitiveType.Plane); g.name = "Ground"; g.transform.localScale = new Vector3(24, 1, 24); if (ch1) { g.transform.position = new Vector3(0, 0, -70); g.transform.localScale = new Vector3(24, 1, 32); } g.GetComponent<Renderer>().sharedMaterial = gm; Object.DestroyImmediate(g.GetComponent<Collider>());
 
         fireMat = new Material(Shader.Find("Universal Render Pipeline/Particles/Unlit")); fireMat.SetFloat("_Surface", 1); fireMat.SetFloat("_Blend", 2); fireMat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT"); fireMat.renderQueue = 3000;
         fireMat.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fireMat.SetInt("_DstBlend", (int)BlendMode.One); fireMat.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fireMat, ART + "M_fire.mat");
-        Dress();
+        if (ch1) DressCh1(); else Dress();
         var gate = new GameObject("CampGate"); gate.transform.position = new Vector3(0, 0, 26);
 
         // arena logic
         var ar = new GameObject("Arena").AddComponent<QQArena>();
         ar.gulayim = Load<GameObject>(ART + "models/R_gulayim.glb"); ar.qiz = Load<GameObject>(ART + "models/R_qiz.glb"); ar.askar = Load<GameObject>(ART + "models/R_askar.glb");
-        ar.kamonchi = Load<GameObject>(ART + "models/R_kamonchi.glb"); ar.captain = Load<GameObject>(ART + "models/R_qashqir.glb");
+        ar.kamonchi = Load<GameObject>(ART + "models/R_kamonchi.glb"); ar.ona = Load<GameObject>(ART + "models/R_ona.glb"); ar.yigit = Load<GameObject>(ART + "models/R_yigit.glb"); ar.captain = Load<GameObject>(ART + "models/R_qashqir.glb");
         ar.saber = Load<GameObject>(ART + "props/W_saber.glb"); ar.bow = Load<GameObject>(ART + "props/W_bow.glb"); ar.axe = Load<GameObject>(ART + "props/W_axe.glb");
         ar.gulayimBlue = Load<Texture2D>(ART + "tex/gulayim_blue.jpg"); ar.campGate = gate.transform;
         // rigged models with finger bones from the Blender pipeline, when present
@@ -99,8 +104,14 @@ public static class QQSetup
         fm.SetInt("_SrcBlend", (int)BlendMode.SrcAlpha); fm.SetInt("_DstBlend", (int)BlendMode.One); fm.SetInt("_ZWrite", 0); AssetDatabase.CreateAsset(fm, ART + "M_fx.mat"); ar.fxMat = fm;
         ar.qizVar = Vars("qiz", "o", "r", "v"); ar.askarVar = Vars("askar", "b", "k", "o", "r"); ar.kamonchiVar = Vars("kamonchi", "b", "o", "r");
 
-        EditorSceneManager.SaveScene(scene, SCENE);
-        EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(SCENE, true) };
+        if (ch1)
+        {
+            ar.bounds = new Vector4(-11, 11, -148, 8);
+            var mis = new GameObject("Mission").AddComponent<QQMission>(); mis.gates = new[] { GameObject.Find("Gate0").transform, GameObject.Find("Gate1").transform, GameObject.Find("Gate2").transform };
+            camGo.transform.position = new Vector3(0, 7.4f, -10f);
+        }
+        EditorSceneManager.SaveScene(scene, ch1 ? CH1 : SCENE);
+        EditorBuildSettings.scenes = AssetDatabase.LoadAssetAtPath<SceneAsset>(CH1) ? new[] { new EditorBuildSettingsScene(CH1, true), new EditorBuildSettingsScene(SCENE, true) } : new[] { new EditorBuildSettingsScene(SCENE, true) };
 
         PlayerSettings.companyName = "Nukus Animation"; PlayerSettings.productName = "Qirq qiz";
         PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.Android, "com.nukusanimation.qirqqiz");
@@ -182,6 +193,58 @@ public static class QQSetup
             }
         }
         put(ART + "props/B_tower.glb", new Vector3(-30, 0, 34), 1.4f, 0); put(ART + "props/B_house.glb", new Vector3(32, 0, 30), 1.3f, 0);
+    }
+
+    // the burnt street of Sarkop: yurt rows on both sides (most burnt, many still burning), three palisade gates across the street,
+    // guard-post campfires, a banner where Gúlayım enters, scattered ash and grass. Seeded: the same street every build.
+    static void DressCh1()
+    {
+        var root = new GameObject("Sarkop").transform; var R = new System.Random(7);
+        System.Func<float, float, float> rr = (a, b) => a + (float)R.NextDouble() * (b - a);
+        string BE = ART + "blender/", E = ART + "env/";
+        System.Action<string, Vector3, float, float, Transform> put = (path, pos, sc, rot, par) =>
+        {
+            var src = Load<GameObject>(path); if (!src) return; var o = (GameObject)PrefabUtility.InstantiatePrefab(src, par ?? root);
+            o.transform.position = pos; o.transform.rotation = Quaternion.Euler(0, rot, 0); o.transform.localScale = Vector3.one * sc;
+        };
+        var scorch = ScorchMat();
+        for (int i = 0; i < 26; i++)
+        {
+            var d = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(d.GetComponent<Collider>()); d.transform.SetParent(root); float sc = rr(4, 8);
+            d.transform.localScale = new Vector3(sc, sc, 1); d.transform.position = new Vector3(rr(-10, 10), .02f + i * .0005f, rr(-146, 6)); d.transform.rotation = Quaternion.Euler(90, rr(0, 360), 0);
+            var dr = d.GetComponent<Renderer>(); dr.sharedMaterial = scorch; dr.shadowCastingMode = ShadowCastingMode.Off;
+        }
+        // yurt rows
+        for (float z = 10; z > -150; z -= rr(7, 10))
+            foreach (int side in new[] { -1, 1 })
+            {
+                if (z < -112 && z > -138 && R.NextDouble() < .5) continue;   // the boss ground is more open
+                var pos = new Vector3(side * rr(14.5f, 18f), 0, z + rr(-2, 2)); double q = R.NextDouble();
+                string v = q < .55 ? "yurt_burnt" : q < .78 ? "yurt_frame" : "yurt";
+                put(BE + v + ".glb", pos, rr(.95f, 1.15f), rr(0, 360), null);
+                if (v != "yurt" && R.NextDouble() < .55) Fire(pos + Vector3.up * .4f, root, true);
+                if (R.NextDouble() < .35) put(E + "Barrel_01/Barrel_01.glb", pos + new Vector3(-side * 4.5f, 0, rr(-2, 2)), rr(.9f, 1.1f), rr(0, 360), null);
+                if (R.NextDouble() < .3) put(BE + "E_arava.glb", pos + new Vector3(-side * 5f, 0, rr(-3, 3)), 1f, rr(0, 360), null);
+            }
+        // street clutter (kept off the middle lane)
+        for (int i = 0; i < 70; i++)
+        {
+            var pos = new Vector3(rr(-10.5f, 10.5f), 0, rr(-146, 6)); if (Mathf.Abs(pos.x) < 3f) continue;
+            double k = R.NextDouble();
+            if (k < .5) put(E + "grass_medium_01/grass_medium_01.glb", pos, rr(.6f, 1.1f), rr(0, 360), null);
+            else if (k < .75) put(E + "namaqualand_stones_01/namaqualand_stones_01.glb", pos, rr(.7f, 1.3f), rr(0, 360), null);
+            else if (k < .9) put(E + "dry_branches_medium_01/dry_branches_medium_01.glb", pos, rr(.8f, 1.4f), rr(0, 360), null);
+        }
+        put(BE + "E_banner.glb", new Vector3(-5, 0, 4), 1f, 0, null); put(BE + "E_banner.glb", new Vector3(5, 0, 4), 1f, 0, null);
+        foreach (var c in new[] { new Vector3(-.5f, 0, -48.4f), new Vector3(0, 0, -86f) }) { put(BE + "E_campfire.glb", c, 1f, 0, null); Fire(c + Vector3.up * .2f, root, false); }
+        // three gates: palisade across the street, a watch tower at each end
+        float[] gz = { -30f, -66f, -100f };
+        for (int gi = 0; gi < 3; gi++)
+        {
+            var gate = new GameObject("Gate" + gi).transform; gate.position = new Vector3(0, 0, gz[gi]);
+            for (int k = -3; k <= 3; k++) put(BE + "E_fence.glb", new Vector3(k * 4.1f, 0, gz[gi]), 1f, 0, gate);
+            put(BE + "E_tower.glb", new Vector3(-13.5f, 0, gz[gi] - 1.5f), .9f, 0, null); put(BE + "E_tower.glb", new Vector3(13.5f, 0, gz[gi] - 1.5f), .9f, 0, null);
+        }
     }
 
     static Material ScorchMat()
@@ -596,7 +659,7 @@ public static class QQSetup
     public static void Win()
     {
         Directory.CreateDirectory("Builds/win");
-        var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { SCENE }, locationPathName = "Builds/win/QirqQiz.exe", target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
+        var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(EditorBuildSettings.scenes, x => x.enabled), x => x.path)), locationPathName = "Builds/win/QirqQiz.exe", target = BuildTarget.StandaloneWindows64, options = BuildOptions.None });
         Debug.Log("QQ WIN " + r.summary.result + " errors " + r.summary.totalErrors);
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
     }
@@ -604,7 +667,7 @@ public static class QQSetup
     public static void Apk()
     {
         Directory.CreateDirectory("Builds");
-        var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = new[] { SCENE }, locationPathName = "Builds/QirqQiz.apk", target = BuildTarget.Android, options = BuildOptions.None });
+        var r = BuildPipeline.BuildPlayer(new BuildPlayerOptions { scenes = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(EditorBuildSettings.scenes, x => x.enabled), x => x.path)), locationPathName = "Builds/QirqQiz.apk", target = BuildTarget.Android, options = BuildOptions.None });
         Debug.Log("QQ APK " + r.summary.result + " " + r.summary.totalSize / 1048576 + " MB, errors " + r.summary.totalErrors);
         if (r.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded) EditorApplication.Exit(1);
     }

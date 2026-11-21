@@ -75,6 +75,7 @@ public class QQPlayer : MonoBehaviour
 
     public void Amulet()
     {
+        if (QQMission.I && QQMission.I.amuletLocked) { QQHud.Toast("Tumor hali sizda emas"); return; }
         if (u.Dead || amuletCd > 0 || !QQArena.I.running) return;
         amuletCd = AMULET_CD; u.rig.PlaySeg("cast", .3f, .45f, .05f); u.busy = .75f; amuletAt = .3f;   // the blast lands on the cast's impact frame
         QQFeel.Sfx("power", null, .8f);

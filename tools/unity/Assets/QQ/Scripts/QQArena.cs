@@ -6,7 +6,7 @@ using UnityEngine;
 public class QQArena : MonoBehaviour
 {
     public static QQArena I;
-    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain;
+    [Header("Models (R_*.glb, shared rig)")] public GameObject gulayim, qiz, askar, kamonchi, captain, ona, yigit;
     [Header("Weapons")] public GameObject saber, bow, axe, spear;
     [Header("Rigged Meshy models (tools/blender/chars.py)")] public GameObject sarbinaz; public GameObject[] maidens;
     public Texture2D gulayimBlue;
@@ -33,7 +33,9 @@ public class QQArena : MonoBehaviour
     Texture2D Pick(Texture2D[] a) { return a != null && a.Length > 0 ? a[Random.Range(0, a.Length)] : null; }
     public Texture2D VariantFor(GameObject model) { return model == qiz ? Pick(qizVar) : model == askar ? Pick(askarVar) : model == kamonchi ? Pick(kamonchiVar) : model == gulayim ? gulayimBlue : null; }
     public Transform campGate;
-    public float halfSize = 30f;
+    public float halfSize = 30f; public Vector4 bounds = new Vector4(-30, 30, -30, 30);   // xmin xmax zmin zmax
+    [System.NonSerialized] public bool duel;   // a boss duel: allies hold back
+    public int LostMaidens { get { return lostMaidens; } }
     [System.NonSerialized] public Unit player; [System.NonSerialized] public bool running;
     int wave, killed, lostMaidens; bool spawning; public int Wave { get { return wave; } } const int WAVES = 3;
 
@@ -43,9 +45,10 @@ public class QQArena : MonoBehaviour
     {
         QQHud.Build(); DynamicGI.UpdateEnvironment(); QQObstacles.Collect();
         QQFeel.Music("battle", .8f); QQFeel.Ambience("amb_fire", .35f);
-        player = Spawn(gulayim, new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Gúlayım");
+        player = Spawn(gulayim, QQMission.I ? new Vector3(0, 0, 3) : new Vector3(0, 0, -16), 0, 620 * QQProgress.HpMul, 34 * QQProgress.DmgMul, 1.8f, saber, "Gúlayım");
         player.gameObject.AddComponent<QQPlayer>(); player.speed = 5.2f;
         var cam = Camera.main.GetComponent<QQCam>(); if (cam) cam.target = player.transform;
+        if (QQMission.I) { QQMission.I.Begin(); return; }   // story chapter: the mission script drives everything
         for (int i = 0; i < 5; i++)
         {
             bool sb = i == 2 && sarbinaz;   // Sárbinaz, Gúlayım's deputy, fights with a spear in the middle of the line
@@ -89,6 +92,13 @@ public class QQArena : MonoBehaviour
         rig.Play("idle", .01f);
         foreach (var r in root.GetComponentsInChildren<Renderer>()) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; }
         return u;
+    }
+
+    public static void ArmUnit(Unit u, GameObject weapon, float height)
+    {
+        var rig = u.rig; Vector3? grip = null;
+        if (rig.HasFingers) { var f1 = rig.Bone("RightMiddle1") ?? rig.Bone("RightFingers1"); var hd = rig.Bone("RightHand"); if (f1 && hd) grip = Vector3.Lerp(hd.position, f1.position, .8f); }
+        Arm(rig, weapon, u.transform, height, grip);
     }
 
     static void Arm(QQRig rig, GameObject weapon, Transform root, float height, Vector3? grip)

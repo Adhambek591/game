@@ -37,6 +37,13 @@ public class QQBot : MonoBehaviour
         if (ended || me.Dead) return;
 
         var foe = Unit.Nearest(me.transform.position, 1, 60f);
+        if (foe && foe.asleep && QQMission.I && QQMission.I.BotGoal.HasValue) foe = null;   // objective first, posts wake on their own
+        if (foe && QQMission.I && QQMission.I.wallZ > -900 && foe.transform.position.z < QQMission.I.wallZ - 1f && QQMission.I.BotGoal.HasValue) foe = null;
+        if (!foe && QQMission.I && QQMission.I.BotGoal.HasValue)
+        {
+            Vector3 dd = QQMission.I.BotGoal.Value - me.transform.position; dd.y = 0; var cm = Camera.main.transform; Vector3 ff = cm.forward; ff.y = 0; ff.Normalize(); Vector3 rr2 = cm.right; rr2.y = 0; rr2.Normalize();
+            QQHud.Move = dd.magnitude > .8f ? new Vector2(Vector3.Dot(dd.normalized, rr2), Vector3.Dot(dd.normalized, ff)) : Vector2.zero; return;
+        }
         if (!foe) { QQHud.Move = Vector2.zero; return; }
         Vector3 d = foe.transform.position - me.transform.position; d.y = 0; float dist = d.magnitude;
         var cam = Camera.main.transform; Vector3 f = cam.forward; f.y = 0; f.Normalize(); Vector3 r = cam.right; r.y = 0; r.Normalize();

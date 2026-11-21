@@ -5,6 +5,7 @@ public class QQCam : MonoBehaviour
 {
     public Transform target; Vector3 cur; public float height = 7.4f, back = 13.4f, lookY = 1.4f;
     public static float shake, debugZoom = 1f; float zoom, lift;
+    public float yaw;   // 180 in the chapter street, which runs toward -z
 
     void LateUpdate()
     {
@@ -17,9 +18,10 @@ public class QQCam : MonoBehaviour
         float k = (portrait ? 1.35f : 1f) * zoom * debugZoom;
         cur = Vector3.Lerp(cur == Vector3.zero ? target.position : cur, target.position, Mathf.Min(1, Time.unscaledDeltaTime * 6));
         Vector3 s = shake > 0 ? Random.insideUnitSphere * shake * .3f : Vector3.zero; shake = Mathf.Max(0, shake - Time.unscaledDeltaTime * 2.2f);
-        bool blocked = QQObstacles.Blocks(cur + new Vector3(0, 0, -back * k), cur); lift = Mathf.MoveTowards(lift, blocked ? 1f : 0f, Time.unscaledDeltaTime * 1.5f);
-        transform.position = cur + new Vector3(0, height * k * (1f + .7f * lift), -back * k * (1f - .4f * lift)) + s;
-        transform.LookAt(cur + new Vector3(0, lookY, 1.8f));
+        if (QQMission.I) yaw = 180f; var rot = Quaternion.Euler(0, yaw, 0);
+        bool blocked = QQObstacles.Blocks(cur + rot * new Vector3(0, 0, -back * k), cur); lift = Mathf.MoveTowards(lift, blocked ? 1f : 0f, Time.unscaledDeltaTime * 1.5f);
+        transform.position = cur + rot * new Vector3(0, height * k * (1f + .7f * lift), -back * k * (1f - .4f * lift)) + s;
+        transform.LookAt(cur + rot * new Vector3(0, lookY, 1.8f));
         QQFx.Tick();
     }
 }

@@ -12,6 +12,8 @@ public class QQHud : MonoBehaviour
     static QQHud I;
     Text objective, toast, endTitle, endSub, chain, chainLbl, bossName, coinTxt, againTxt; Text[] upName = new Text[3], upInfo = new Text[3], upCost = new Text[3]; Image[] upImg = new Image[3]; Image[][] upPips = new Image[3][];
     Image hpFill, hpLag, amuletRing, amuletGlow, amuletCd, dodgeFill, bossFill, bossLag; GameObject endPanel, bossBar, objPlate; CanvasGroup toastCg; float toastT, chainPop, hpShown = 1, bossShown = 1;
+    GameObject sayPanel; Image sayPortrait; Text sayName, sayText; CanvasGroup titleCg; Text titleBig, titleSmall; float titleT; static bool skip;
+    public static int NextScene = -1;   // -1 = reload this scene
     RectTransform root; readonly System.Collections.Generic.List<Text> marks = new System.Collections.Generic.List<Text>();
 
     // ---- palette (ui2.css) ----
@@ -231,9 +233,46 @@ public class QQHud : MonoBehaviour
         var rb = Rect(ep, "again", new Vector2(.5f, 0), new Vector2(0, 60), new Vector2(340, 66));
         var rbi = Img(rb, Art("btn_red", new Vector4(72, 0, 72, 0)), Color.white, true, 120f / 66f); rbi.raycastTarget = true;
         againTxt = Txt(Rect(rb, "l", new Vector2(.5f, .5f), new Vector2(0, 2), new Vector2(280, 60)), "Qaytadan", Display, 30, TextAnchor.MiddleCenter, CREAM);
-        rb.gameObject.AddComponent<QQPress>().down = () => UnityEngine.SceneManagement.SceneManager.LoadScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        rb.gameObject.AddComponent<QQPress>().down = () => UnityEngine.SceneManagement.SceneManager.LoadScene(NextScene >= 0 && NextScene < UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings ? NextScene : UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
         endPanel.SetActive(false);
+
+        // ---- dialogue: dark plate at the bottom, round portrait in a gold ring, name in Forum, line in PT Sans; tap to skip ----
+        var sp = Rect(root, "say", new Vector2(.5f, 0), new Vector2(0, 92), new Vector2(760, 132)); sayPanel = sp.gameObject;
+        var spi = Img(sp, new Color(.035f, .045f, .12f, 1f)); spi.raycastTarget = true; Hair(sp);
+        var pm2 = Rect(sp, "pm", new Vector2(0, .5f), new Vector2(72, 0), new Vector2(100, 100)); Img(pm2, Disc(), Color.white); pm2.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+        sayPortrait = Img(Rect(pm2, "p", new Vector2(.5f, .5f), Vector2.zero, new Vector2(100, 100)), Color.white);
+        Img(Rect(sp, "ring", new Vector2(0, .5f), new Vector2(72, 0), new Vector2(108, 108)), GoldRing(.9f), Color.white);
+        sayName = Txt(Rect(sp, "n", new Vector2(0, 1), new Vector2(360, -24), new Vector2(420, 34)), "", Display, 26, TextAnchor.MiddleLeft, GOLD_L);
+        sayText = Txt(Rect(sp, "t", new Vector2(0, 1), new Vector2(430, -80), new Vector2(560, 84)), "", Ui, 20, TextAnchor.UpperLeft, PARCH, false);
+        sp.gameObject.AddComponent<QQPress>().down = () => skip = true;
+        sayPanel.SetActive(false);
+
+        // ---- chapter title card ----
+        var tc = Rect(root, "title", new Vector2(.5f, .5f), new Vector2(0, 40), new Vector2(900, 200)); titleCg = tc.gameObject.AddComponent<CanvasGroup>(); titleCg.alpha = 0; titleCg.blocksRaycasts = false;
+        titleSmall = Txt(Rect(tc, "s", new Vector2(.5f, 1), new Vector2(0, -30), new Vector2(900, 40)), "", Ui, 24, TextAnchor.MiddleCenter, PARCH);
+        titleBig = Txt(Rect(tc, "b", new Vector2(.5f, .5f), new Vector2(0, -10), new Vector2(900, 90)), "", Display, 72, TextAnchor.MiddleCenter, C(0xf8dc92));
+        Img(Rect(tc, "div", new Vector2(.5f, 0), new Vector2(0, 28), new Vector2(343, 48)), Art("divider"), Color.white);
     }
+
+    static readonly System.Collections.Generic.Dictionary<string, (string name, string img)> SPEAKERS = new System.Collections.Generic.Dictionary<string, (string, string)> {
+        { "gulayim", ("Gúlayım", "ui/por_gulayim") }, { "ona", ("Ona", "ui/por_ona") }, { "sarbinaz", ("Sárbinaz", "ui/por_sarbinaz") }, { "qashqir", ("Qasqır", "ui/por_qashqir") } };
+    public static void Say(string who, string text)
+    {
+        if (!I) return; skip = false;
+        if (who == null) { I.sayPanel.SetActive(false); return; }
+        (string name, string img) sp; if (!SPEAKERS.TryGetValue(who, out sp)) sp = (who, null);
+        var tx = sp.img != null ? Resources.Load<Texture2D>(sp.img) : null;
+        I.sayPortrait.sprite = tx ? Sprite.Create(tx, new Rect(0, 0, tx.width, tx.height), new Vector2(.5f, .5f)) : null; I.sayPortrait.color = tx ? Color.white : new Color(.2f, .2f, .3f);
+        I.sayName.text = sp.name; I.sayText.text = text; I.sayPanel.SetActive(true);
+    }
+    public static bool SkipPressed()
+    {
+        var k = UnityEngine.InputSystem.Keyboard.current;
+        bool kb = k != null && (k.enterKey.wasPressedThisFrame || k.fKey.wasPressedThisFrame);
+        bool r = skip || kb; skip = false; return r;
+    }
+    public static void Title(string small, string big) { if (!I) return; I.titleSmall.text = small; I.titleBig.text = big; I.titleT = 3.4f; }
+    public static void Hint(string s) { if (I) { I.toastT = 0; Toast(s, 3.5f); } }
 
     public static void Objective(string s) { if (I) { I.objective.text = s; I.objPlate.SetActive(!string.IsNullOrEmpty(s)); } }
     public static void Toast(string s, float dur = 1.6f) { if (I && I.toastT < 2f) { I.toast.text = s; I.toastT = dur; } }
@@ -275,6 +314,7 @@ public class QQHud : MonoBehaviour
             amuletGlow.color = new Color(1f, .75f, .25f, a >= 1f ? .55f + .25f * Mathf.Sin(Time.unscaledTime * 5f) : 0f);
         }
         if (toastT > 0) { toastT -= dt; toastCg.alpha = Mathf.Clamp01(toastT * 3f); } else toastCg.alpha = 0;
+        if (titleT > 0) { titleT -= dt; titleCg.alpha = Mathf.Clamp01(titleT * 1.5f) * Mathf.Clamp01((3.4f - titleT) * 3f); } else titleCg.alpha = 0;
         PointerOverUI = EventSystem.current && EventSystem.current.IsPointerOverGameObject();
 
         // combo counter with a pop on every new hit

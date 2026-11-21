@@ -19,6 +19,12 @@ public class QQAI : MonoBehaviour
     {
         if (u.Dead || !QQArena.I || !QQArena.I.running) { if (!u.Dead && u.rig) u.rig.Play("idle", .3f); return; }
         if (u.stun > 0) { strikeAt = -1; return; }
+        if (u.asleep)
+        {
+            var pp = QQArena.I.player; u.rig.speed = 1f; u.rig.Play("idle", .3f);
+            if (pp && !pp.Dead && (pp.transform.position - transform.position).sqrMagnitude < u.wakeR * u.wakeR) { Unit.WakeGroup(u.group); QQFeel.Sfx("v_drum", transform.position, .5f, 0); }
+            return;
+        }
         float dt = Time.deltaTime; cd -= dt; think -= dt;
         // boss phase 2 (Sekiro / Ghost of Tsushima duels): at half health he roars, shrugs off flinches, moves faster, adds a ground slam
         if (u.boss && !phase2 && u.hp < u.maxHp * .5f)

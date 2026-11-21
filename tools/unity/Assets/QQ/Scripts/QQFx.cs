@@ -33,6 +33,9 @@ public class QQFx : MonoBehaviour
         sparks.Emit(ep, 14);
     }
 
+    // a defeated monster's spirit: gold motes rise and stream INTO the amulet on Gúlayım's chest (author's rule)
+    public static void Soul(Vector3 from, Transform to) { var go = new GameObject("soul"); go.transform.position = from + Vector3.up * 1.4f; go.AddComponent<QQSoul>().Init(to); QQFeel.Sfx("power", null, .8f, 0); }
+
     static Texture2D dot;
     static Texture2D Dot()   // soft round sprite for particles
     {

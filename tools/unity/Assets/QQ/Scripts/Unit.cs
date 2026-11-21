@@ -16,6 +16,10 @@ public class Unit : MonoBehaviour
     [System.NonSerialized] public float telegraph; [System.NonSerialized] public bool unblockable; [System.NonSerialized] public Unit swingAt;
     // Ghost of Tsushima: foes look aggressive but only a couple attack Gúlayım at a time; the rest circle and wait for a turn
     [System.NonSerialized] public bool hasToken;
+    // story missions: guard posts sleep until Gúlayım comes near (or one of them is hit), then the whole group wakes
+    [System.NonSerialized] public int group; [System.NonSerialized] public bool asleep, isCaptive; [System.NonSerialized] public float wakeR = 13f;
+    public static void WakeGroup(int g) { if (g == 0) return; for (int i = 0; i < All.Count; i++) if (All[i].group == g) All[i].asleep = false; }
+    public static int CountGroup(int g) { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].group == g && !All[i].Dead) n++; return n; }
     public static int TokensOnPlayer() { int n = 0; for (int i = 0; i < All.Count; i++) if (All[i].hasToken && !All[i].Dead) n++; return n; }
     public bool Dead { get { return hp <= 0; } }
     public System.Action<Unit, float> onHit;
@@ -28,6 +32,7 @@ public class Unit : MonoBehaviour
     public void Hit(float d, Unit from, bool heavy = false)
     {
         if (Dead || inv > 0) return;
+        if (asleep) WakeGroup(group);
         hp -= d; flash = .1f;
         if (onHit != null) onHit(from, d);
         QQFx.Spark(transform.position + Vector3.up * 1.2f, team == 0 ? new Color(1f, .45f, .3f) : new Color(1f, .85f, .5f));
@@ -73,8 +78,9 @@ public class Unit : MonoBehaviour
             if (m < r * r && m > 1e-6f) { float k = (r - Mathf.Sqrt(m)) * (isPlayer ? .2f : .5f); transform.position += d.normalized * k; }
         }
         transform.position = QQObstacles.PushOut(transform.position, radius);
-        var p = transform.position; float lim = QQArena.I ? QQArena.I.halfSize : 30f;
-        transform.position = new Vector3(Mathf.Clamp(p.x, -lim, lim), 0, Mathf.Clamp(p.z, -lim, lim));
+        var p = transform.position; var bd = QQArena.I ? QQArena.I.bounds : new Vector4(-30, 30, -30, 30);
+        float zmin = bd.z; if (team == 0 && QQMission.I) zmin = Mathf.Max(zmin, QQMission.I.wallZ + .6f);   // a closed gate
+        transform.position = new Vector3(Mathf.Clamp(p.x, bd.x, bd.y), 0, Mathf.Clamp(p.z, zmin, bd.w));
     }
 
     public void Face(Vector3 dir, float k = 12f)
@@ -86,7 +92,7 @@ public class Unit : MonoBehaviour
     public static Unit Nearest(Vector3 p, int team, float maxDist, Unit except = null)
     {
         Unit best = null; float bd = maxDist * maxDist;
-        for (int i = 0; i < All.Count; i++) { var u = All[i]; if (u.team != team || u.Dead || u == except) continue; float d = (u.transform.position - p).sqrMagnitude; if (d < bd) { bd = d; best = u; } }
+        for (int i = 0; i < All.Count; i++) { var u = All[i]; if (u.team != team || u.Dead || u == except || u.isCaptive) continue; float d = (u.transform.position - p).sqrMagnitude; if (d < bd) { bd = d; best = u; } }
         return best;
     }
 

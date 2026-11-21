@@ -8,6 +8,7 @@ public static class QQProgress
     public static readonly string[] Names = { "Qilich", "Sog'liq", "Tumor" };
     public static readonly string[] Info = { "+12% zarba", "+10% jon", "-1,5 s kutish" };
     public static int Level { get { return Mathf.Max(1, PlayerPrefs.GetInt("qq_level", 1)); } set { PlayerPrefs.SetInt("qq_level", value); PlayerPrefs.Save(); } }
+    public static int Chapter { get { return PlayerPrefs.GetInt("qq_chapter", 1); } set { PlayerPrefs.SetInt("qq_chapter", value); PlayerPrefs.Save(); } }
     public static int Coins { get { return PlayerPrefs.GetInt("qq_coins", 0); } set { PlayerPrefs.SetInt("qq_coins", value); PlayerPrefs.Save(); } }
     public static int Upg(int i) { return PlayerPrefs.GetInt("qq_upg" + i, 0); }
     public static int Cap { get { return Level + 1; } }                       // per-battle cap
