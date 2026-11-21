@@ -15,7 +15,7 @@ RUN['0-1'] = async () => { const { NIGHT } = H.moods;
   const g3 = post([['askar', -6, -66], ['askar', 6, -66], ['archer', -9, -72], ['archer', 9, -72]], { nofly: true, wake: 0 }); chest(9.3, -17, 50);
   // wave4 / missions audit: no Camel Dev here (off-plan). The finale is the plan's beat: Allayar holds the line while the townsfolk flee past him into the town.
   const folk = ['mother', 'child', 'elder', 'asir', 'mother', 'child', 'elder', 'asir', 'mother', 'asir'].map((ty, i) => { const sd = i % 2 ? 1 : -1, e = spawn(ty, sd * (7.2 + (i % 3) * .9), -53 - (i >> 1) * 1.7, 'npc', true); e.spawnT = 0; e.o.scale.setScalar(e.vs || e.d.scale || 1); e.rot = 0; e.farT = -1e9; e.w4folk = 1; e.play('Sit_Floor_Idle'); return e; });
-  await H.cutscene('v1', 'nar1'); live(); setMusic('battle'); await ban(3); mstart();
+  await H.cutscene('v1', 'nar1', 'p_su'); live();   /* STORY: the still behind the clip must not be the keyart (Gúlayım is not in Sarkop) */ setMusic('battle'); await ban(3); mstart();
   await wait(.6); await say([['al', 'd_al1']]);
   H.objective('o_move'); H.hint('h_move', 7); const g1g = gate(-42); const mk = marker(0, -13);
   await H.reach(0, -13, 4); mk.remove(); H.objective('o_defend'); H.hint('h_attack', 7); wake(g1);
@@ -53,7 +53,7 @@ RUN['0-2'] = async () => { const { NIGHT } = H.moods;
   flash(.9); Sfx.big(); G.shake = 1; p.play('Death_A', { once: true, force: true }); await wait(1.3);
   G.freeze = false; await say([['al', 'd_al3']]);
   await H.fadeTo(true); setBoss(null); $('hud').classList.remove('on'); setMusic('off'); G.paused = true;
-  await H.cutscene('v2', 'nar2'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
+  await H.cutscene('v2', 'nar2', 'p_al'); await H.lore('lore_sur'); try { localStorage.setItem('qq_prog', 'm1'); } catch (e) { } return win(); };
 
 // ===== CHAPTER 1 =====
 async function ch1Start(z, sk, mood) { const { DAY } = H.moods; await H.fadeTo(true); await ensureReal(['qashqir', 'sarbinaz']); clearLevel(); setMood(mood || DAY); G.emberDown = true; H.buildMission(); setMusic('off'); G.freeze = false; G.stats.deaths = 0; G.chGold = 0;
@@ -66,11 +66,12 @@ RUN['1-1'] = async () => {
   const g0p = post([['askar', 4.5, -12, 'p', 2]], { nofly: true, wake: 7 });
   const gA = post([['askar', -2.2, -46.4, 's'], ['askar', 1.4, -47.2, 's'], ['askar', 5, -50, 'p', 2.5], ['archer', -8, -54], ['archer', 8, -54]], { fire: [-.5, -48.4] });
   const gC = post([['askar', -6, -74], ['askar', 6, -74], ['askar', -3, -79, 'p', 2], ['askar', 3, -79], ['askar', 0, -82], ['wolf', -9, -72, 'pz', 2], ['wolf', 9, -72, 'pz', 2], ['archer', -8, -83], ['archer', 8, -83]]);
-  await H.lore('lore1'); await H.cutscene('v3', 'nar3'); live(); setMusic('calm'); await ban(3); mstart();
-  G.tick = () => { for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
+  await H.lore('lore1'); await H.cutscene('v3', 'nar3m'); live();   /* STORY: after the messenger's tale — v3 (Qıran, the ride, smoke on the horizon) = she rides home to Sarkop; nar3 ('she was training at Qıran') was already shown by the tutorial */ setMusic('calm'); await ban(3); mstart();
+  const amuB = $('bP'); G.mis.amuLock = true; if (amuB) amuB.style.visibility = 'hidden';   /* STORY: the father's amulet comes from her mother (below) — no amulet power before that */
+  G.tick = () => { if (G.mis.amuLock) G.ulti = 0; for (const k of kids) if (!k.found && hyp(p.x - k.x, p.z - k.z) < 2.4) { k.found = true; kidsN++; k.m.remove(); k.e.play('Cheer'); Sfx.pick(); addGold(15, k.x, k.z); hintRaw(t('childFound') + ' ' + kidsN + '/3'); } };
   H.objective('o_mother'); H.hint('h_attack', 6); const g0 = gate(-30); const mm = marker(2, -23, 0xffd060, 1.6);
   await H.reach(2, -23, 3.6); mm.remove(); mo.face(p.x - mo.x, p.z - mo.z); p.act = null; p.play('Idle');
-  await say([['mo', 'd_mo1'], ['gu', 'd_gu1'], ['mo', 'd_mo2'], ['mo', 'd_mo3'], ['gu', 'd_gu2']]); Sfx.power(); flash(.3);
+  await say([['mo', 'd_mo1'], ['gu', 'd_gu1'], ['mo', 'd_mo2'], ['mo', 'd_mo3'], ['gu', 'd_gu2']]); Sfx.power(); flash(.3); G.mis.amuLock = false; { const b = $('bP'); if (b) b.style.visibility = ''; } G.ulti = Math.max(G.ulti || 0, 50);
   g0.open(); H.setCP(0, -26); H.objective('o_guards'); const g1 = gate(-60); setMusic('battle');
   await clear(gA, g0p);
   G.sk[2].on = G.sk[3].on = G.sk[5].on = true; refreshSkills(); H.hint('', 9, t('h_skill5'));

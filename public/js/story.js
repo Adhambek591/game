@@ -10,7 +10,7 @@ const qs = new URLSearchParams(location.search);
 T.son.follow = true;
 const NIGHT = { bg: 0xd08a5a, fog: [40, 110], hemi: [0xffd2a8, 0x6a4630, 1.9], sun: [0xffb878, 4.2], sunDir: [-.8, .5, -.5], exp: 1.15, fireI: 20, ember: 0xffa040, emberA: .8, dawn: true };
 const DAY = { bg: 0xc9d8e0, fog: [50, 130], hemi: [0xf2ecd8, 0x6a5232, 1.9], sun: [0xffe6b8, 4.6], sunDir: [.6, 1, .45], exp: 1.05, fireI: 10, ember: 0x5a5550, emberA: .45, ash: true };
-const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay', ays: 'md_aysuliw', aqm: 'md_aqmaral', jup: 'md_jupar', ms: 'keyart' };
+const PORT = { gu: 'p_gu', al: 'p_al', su: 'p_su', mo: 'p_mo', sa: 'p_sa', qa: 'p_qa', ba: 'p_ba', ot: 'p_ot', qd: 'p_qd', ja: 'p_ja', qu: 'p_qu', qg: 'p_qg', ay: 'p_ay', ays: 'md_aysuliw', aqm: 'md_aqmaral', jup: 'md_jupar', ms: null };   /* STORY: no messenger portrait yet (keyart showed Gúlayım while the messenger spoke) -> plain frame */
 
 // ---------- UI helpers ----------
 const objective = (k, v) => { $('obj').textContent = k ? t(k, v) : ''; };
@@ -21,7 +21,7 @@ function setHero(k) { $('pport').style.backgroundImage = `url(./assets/img/${POR
 function dialog(lines) {
   return new Promise(res => {
     const was = G.paused; G.paused = true; let i = 0; const d = $('dlg'); d.classList.add('on'); $('dtap').textContent = t('tap');
-    const show = () => { const [who, key] = lines[i]; $('dport').style.backgroundImage = `url(./assets/img/${PORT[who]}.jpg)`; $('dname').textContent = t('n_' + who); $('dline').textContent = t(key); };
+    const show = () => { const [who, key] = lines[i]; $('dport').style.backgroundImage = PORT[who] ? `url(./assets/img/${PORT[who]}.jpg)` : 'none'; $('dname').textContent = t('n_' + who); $('dline').textContent = t(key); };
     let lock = performance.now() + 350;
     const next = () => { if (performance.now() < lock) return; lock = performance.now() + 250; Sfx.ui(); if (++i >= lines.length) { d.classList.remove('on'); d.onpointerdown = null; G.onEnter = null; G.paused = was; res(); } else show(); };
     d.onpointerdown = e => { e.preventDefault(); next(); }; G.onEnter = next; show();
@@ -139,7 +139,7 @@ async function mission1(from) {
     if (door) { doorT -= dt; $('timer').textContent = Math.max(0, Math.ceil(doorT)); doorHp = bk ? bk.hp : 0; }
   };
   G.dbg = () => ({ doorHp, doorT, door: !!door });
-  if (!from) { await lore('lore1'); await cutscene('v3', 'nar3'); }
+  if (!from) { await lore('lore1'); await cutscene('v3', 'nar3m'); }
   $('fade').classList.remove('in'); G.paused = false; setMusic('calm'); bannerShow(t('ch1'), t('ch1n'), '', 3);
   const skip = z => { p.x = 0; p.z = z; G.cam.z = z; checkpoint = { x: 0, z }; G.sk[2].on = G.sk[3].on = G.sk[4].on = true; refreshSkills(); };
   if (!from) {

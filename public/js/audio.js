@@ -160,7 +160,8 @@ const UII={tap:0,confirm:1,back:2,upgrade:3,star:4,coin:5}; const UIV={tap:.55,c
 { const uf=Sfx.ui; Sfx.ui=(kind='tap')=>{ if(!ac) return false; const k=kind in UII?kind:'tap'; const now=ac.currentTime; if(now-(cdT['ui_'+k]||-9)<(k==='star'?.12:.07)) return true; cdT['ui_'+k]=now;
   if(spr('ui',UII[k],UIV[k],{rate:k==='star'?1:0.98+Math.random()*.04})) return true; uf(); return false; }; }
 Sfx.stinger=(kind)=>{ if(!ac) return; const now=ac.currentTime; if(now-(cdT['st_'+kind]||-9)<(kind==='phase'?2.5:5)) return; cdT['st_'+kind]=now;
-  if(kind==='start'){ spr('drum',0,.8); spr('drum',1,.7,{delay:.42}); setTimeout(()=>{ if(!quiet()) Sfx.horn(); },700); bark('maid','start',null,.6); return; }
+  if(kind==='start'){ const g=G_(), tr=!!(g&&g.mis&&g.mis.id==='0-0'); if(tr){ bark('maid','train',null,.6); return; }   /* STORY: 0-0 is a peaceful training day at Qıran — no war drums, no súren horn */
+    spr('drum',0,.8); spr('drum',1,.7,{delay:.42}); setTimeout(()=>{ if(!quiet()) Sfx.horn(); },700); bark('maid','start',null,.6); return; }
   if(kind==='wave'){ playS('roll',.6,1); setTimeout(()=>Sfx.horn(),1500); return; }
   const f={boss:'st_boss',phase:'st_phase',win:'st_win',lose:'st_lose'}[kind]; if(!f) return;
   if(kind==='phase'||kind==='boss') musicDip(kind==='boss'?2.6:1.6);
@@ -175,12 +176,14 @@ Sfx.intensity=v=>{ FORCE_I=v==null?null:Math.max(0,Math.min(1,v)); };   // optio
 
 // ---- Karakalpak barks: on-screen text only (no voice yet). Author checks the lines: audio_log.md "BARKS" ----
 const BARKS={
-  maid:{ start:['Alǵa, qızlar!','Súren! Atqa minińler!','Qırq qız — bir jan!'], skill:['Jawǵa jol joq!','Gúlayım biz benen!','Alǵa, qızlar!'], parry:['Shıda, sińlim!','Jawǵa jol joq!'],
+  maid:{ train:['Alǵa, qızlar!','Qırq qız — bir jan!'], start:['Alǵa, qızlar!','Súren! Atqa minińler!','Qırq qız — bir jan!'], skill:['Jawǵa jol joq!','Gúlayım biz benen!','Alǵa, qızlar!'], parry:['Shıda, sińlim!','Jawǵa jol joq!'],
          win:['Jeńis bizdiki!','Barekelle, qızlar!'], wave:['Taǵı keledi — tayar bolıń!','Eldi qorǵayıq!'], hurt:['Shıda, sińlim!'], kill:['Barekelle!','Eldi qorǵayıq!'] },
+  // STORY: the prologue (0-1 / 0-2) is Allayar and his men — no maidens, no 'Gúlayım biz benen!'
+  men:{ start:['Sarkop ushın!','Ullarım, alǵa!'], skill:['Jawǵa jol joq!','Sarkop ushın!'], parry:['Jawǵa jol joq!'], win:['Jeńis bizdiki!'], wave:['Taǵı keledi — tayar bolıń!','Eldi qorǵayıq!'], hurt:['Eldi qorǵayıq!'], kill:['Barekelle!','Eldi qorǵayıq!'] },
   enemy:{ wave:['Hújim!','Tutıń olardı!','Qızlardı qamańlar!'], start:['Qashpasın!','Hújim!'], flee:['Sheginiń!'], boss:['Kim maǵan qarsı shıǵadı?!'], kill:['Qashpasın!'] }
 };
 let barkT=-9, barkEl=null, barkTo=0;
-function bark(who,key,pos,chance=1){ try{ if(Math.random()>chance) return; const now=performance.now()/1000; if(now-barkT<4) return; const G=G_(); if(!G||G.paused||quiet()) return;
+function bark(who,key,pos,chance=1){ try{ if(Math.random()>chance) return; const now=performance.now()/1000; if(now-barkT<4) return; const G=G_(); if(!G||G.paused||quiet()) return; if(who==='maid'&&((G.player&&G.player.type==='allayar')||(G.mis&&/^0-[12]$/.test(G.mis.id||'')))) who='men';
   const L=(BARKS[who]||{})[key]; let txt=Array.isArray(L)?L[(Math.random()*L.length)|0]:(typeof key==='string'&&/\s/.test(key)?key:null);   // unknown key with a space = literal text if(!txt) return; barkT=now;
   const ev=new CustomEvent('qq:bark',{detail:{who,key,text:txt,pos},cancelable:true}); if(!window.dispatchEvent(ev)) return;   // a UI owner may draw it itself (preventDefault)
   if(!barkEl){ barkEl=document.createElement('div'); barkEl.id='qqbark'; barkEl.style.cssText='position:fixed;left:50%;top:21%;transform:translateX(-50%);z-index:30;pointer-events:none;font:700 italic clamp(15px,2.3vw,24px)/1.2 Georgia,serif;letter-spacing:.02em;text-shadow:0 2px 6px #000,0 0 2px #000;opacity:0;transition:opacity .25s;white-space:nowrap'; document.body.appendChild(barkEl); }

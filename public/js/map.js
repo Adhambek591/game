@@ -165,7 +165,7 @@ function refresh() {
     b.querySelector('.st').innerHTML = '<span class="pps">' + byCh(n).map(m => `<i class="pp${mdone(m.id) ? ' d' : ''}${cm1 && cm1.id === m.id ? ' c' : ''}${munlocked(m.id) ? '' : ' l'}"></i>`).join('') + '</span><b>★</b>' + ck + '/' + cm;
     b.querySelector('.nm').innerHTML = `${t('ch' + n)}<small>${t('ch' + n + 'n')}</small>`; });
   m.querySelector('.tot').textContent = '★ ' + tot + '/' + MLIST.length * 3;
-  const [hx, hy] = NODE[cur], h = m.querySelector('.hero'); h.style.backgroundImage = 'url(./assets/img/p_gu.jpg)'; h.style.left = (hx + 3.2) + '%'; h.style.top = 'calc(' + hy + '% - clamp(18px,6vh,44px))';
+  const [hx, hy] = NODE[cur], h = m.querySelector('.hero'); { const cmh = curMission(); h.style.backgroundImage = 'url(./assets/img/' + (cmh && /^0-[12]$/.test(cmh.id) ? 'p_al' : 'p_gu') + '.jpg)'; }   /* STORY: the prologue is Allayar's battle, Gúlayım is not in Sarkop */ h.style.left = (hx + 3.2) + '%'; h.style.top = 'calc(' + hy + '% - clamp(18px,6vh,44px))';
   // progress line: done fraction of the route
   const pth = m.querySelector('#mdone'); try { const L = pth.getTotalLength(); const segs = 7; const cm = curMission(), f = Math.min(1, (cur + (cm ? byCh(cur).indexOf(cm) / byCh(cur).length : 0)) / segs); pth.style.strokeDasharray = L; pth.style.strokeDashoffset = L * (1 - f); } catch (e) { }
 }
