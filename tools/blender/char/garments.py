@@ -186,12 +186,41 @@ def build(spec, body, arm):
     # ---- BOOTS : tall riding boots to just below the knee, wider at the top
     if 'boots' in spec:
         bt = knee - .07 * S
-        sel = [P[i].z < bt and legw[i] > .5 for i in range(N)]
-        shell('boots', sel, lambda i: .008 * S + .010 * S * smooth(bt - .25 * S, bt, P[i].z) + .004 * S * footw[i], material('boots', spec['boots'], .55, 0, 'leather'), hip, up, 3, 3, smooth_it=90, smooth_sel=lambda c: c.z < ankle + .06 * S)
+        bootmat = material('boots', spec['boots'], .55, 0, 'leather'); zc = ankle + .035 * S
+        sel = [zc - .045 * S < P[i].z < bt and legw[i] > .5 for i in range(N)]
+        shell('boots', sel, lambda i: .009 * S + .012 * S * smooth(bt - .22 * S, bt, P[i].z), bootmat, hip, up, 3, 3)
+        for p in me.polygons:
+            if all(P[v].z < bt and legw[v] > .5 for v in p.vertices): covered.add(p.index)
+        for sd in ('Left', 'Right'):
+            fa, ba = hw(sd + 'Foot'), hw(sd + 'ToeBase'); fdir = (ba - fa); fdir.z = 0; fdir.normalize()
+            pts = [P[i] + NRM[i] * (.008 * S if P[i].z > zc - .02 * S else .007 * S) for i in range(N) if P[i].z < zc + .02 * S and ws(i, sd + 'Foot', sd + 'ToeBase', sd + 'Leg') > .5]
+            if len(pts) < 10: continue
+            # heel block: a few points behind and under the heel so the boot has a riding-boot heel
+            hb = fa - fdir * .045 * S; hb.z = 0
+            for dx in (-.025, .025):
+                for dz in (0, .035):
+                    pts.append(hb + rgt * dx * S + Vector((0, 0, dz * S)))
+            bmx = bmesh.new()
+            for q in pts: bmx.verts.new(q)
+            bmesh.ops.convex_hull(bmx, input=list(bmx.verts))
+            bmesh.ops.delete(bmx, geom=[v for v in bmx.verts if not v.link_faces], context='VERTS')
+            bmesh.ops.subdivide_edges(bmx, edges=list(bmx.edges), cuts=1, use_grid_fill=True)
+            for _ in range(3): bmesh.ops.smooth_vert(bmx, verts=[v for v in bmx.verts if v.co.z > .012 * S], factor=.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+            for v in bmx.verts: v.co.z = max(0., v.co.z)
+            bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces)
+            dl = bmx.verts.layers.deform.verify(); groups = [sd + 'Leg', sd + 'Foot', sd + 'ToeBase']
+            for v in bmx.verts:
+                along = (v.co - ba).dot(fdir); tw_ = smooth(-.02 * S, .025 * S, along); lw = smooth(zc - .03 * S, zc + .01 * S, v.co.z) * (1 - tw_)
+                w = {sd + 'ToeBase': tw_, sd + 'Leg': lw, sd + 'Foot': max(0., 1 - tw_ - lw)}
+                for k, x in w.items():
+                    if x > 1e-4: v[dl][groups.index(k)] = x
+            cyl_uv(bmx, fa, up, 3, 3)
+            make_obj('bootfoot' + sd, bmx, groups, [bootmat])
     # ---- CUIRASS : lamellar body armour, waist to the shoulders, armholes left open
     cu = spec.get('cuirass')
     if cu:
-        sel = [waist - .05 * S < P[i].z < shz + .03 * S and armw[i] < .12 and headw[i] < .05 and ws(i, 'neck') < .35 for i in range(N)]
+        def vneck(i): p = P[i]; return p.y < hip.y and p.z > shz - .11 * S and abs(p.x - hip.x) < (p.z - (shz - .11 * S)) * .75
+        sel = [waist - .05 * S < P[i].z < shz + .03 * S and armw[i] < .12 and headw[i] < .05 and ws(i, 'neck') < .35 and not vneck(i) for i in range(N)]
         shell('cuirass', sel, .028 * S, material('cuirass', cu['color'], .4, .9, 'lamella'), hip, up, 7, 9)
         if cu.get('bracers'):
             for s in ('Left', 'Right'):
@@ -204,7 +233,7 @@ def build(spec, body, arm):
                 sh, el = hw(s + 'Arm'), hw(s + 'ForeArm'); ax = (el - sh)
                 def tp(i, sh=sh, ax=ax): return (P[i] - sh).dot(ax) / ax.length_squared
                 sel = [(-.25 < tp(i) < .55 and ws(i, s + 'Arm', s + 'Shoulder') > .45 and P[i].z > shz - .22 * S) for i in range(N)]
-                shell('pauldron' + s, sel, lambda i, tp=tp: .034 * S + .03 * S * smooth(0, .55, tp(i)), material('pauldron', cu['color'], .4, .9, 'lamella'), sh, ax, 4, 9, .004, cover=False, ref=up)
+                shell('pauldron' + s, sel, lambda i, tp=tp: .03 * S + .011 * S * min(2, int(max(0, tp(i) + .25) / .8 * 3)) + .014 * S * ((max(0, tp(i) + .25) / .8 * 3) % 1), material('pauldron', cu['color'], .4, .9, 'lamella'), sh, ax, 4, 9, .004, cover=False, ref=up)
     # ---- BELT
     if 'belt' in spec:
         sel = [waist - .055 * S < P[i].z < waist + .02 * S and armw[i] < .1 for i in range(N)]
@@ -222,7 +251,7 @@ def build(spec, body, arm):
                 if q.normalized().dot(d) > math.cos(math.radians(14)): best = max(best, dl)
             rr.append((best or .16 * S) + margin)
         return rr
-    def skirt(name, ztop, zbot, margin, flare, mat_main, mat_trim, chain, gap_deg, nseg=32, panels=None):
+    def skirt(name, ztop, zbot, margin, flare, mat_main, mat_trim, chain, gap_deg, nseg=32, panels=None, gaps=()):
         angs = []
         for k in range(nseg + 1):
             a = math.radians(gap_deg) + k * (2 * math.pi - 2 * math.radians(gap_deg)) / nseg
@@ -239,8 +268,11 @@ def build(spec, body, arm):
             grid.append(row)
         for j in range(rows - 1):
             for k in range(nseg):
+                ac = math.degrees((angs[k] + angs[k + 1]) / 2)
+                if any(abs(((ac - g + 180) % 360) - 180) < gw for g, gw in gaps): continue
                 f = bmx.faces.new((grid[j][k], grid[j][k + 1], grid[j + 1][k + 1], grid[j + 1][k]))
-                f.material_index = 1 if (j == rows - 2 or k == 0 or k == nseg - 1) and mat_trim else 0
+                edge = (k == 0 or k == nseg - 1) or any(abs(((ac - g + 180) % 360) - 180) < gw + 360 / nseg for g, gw in gaps)
+                f.material_index = 1 if (j == rows - 2 or (edge and name != 'dress') or (name == 'dress' and (k == 0 or k == nseg - 1))) and mat_trim else 0
         bmesh.ops.solidify(bmx, geom=list(bmx.faces), thickness=.004 * S)
         bmesh.ops.recalc_face_normals(bmx, faces=bmx.faces)
         cyl_uv(bmx, Vector((hip.x, hip.y, ztop)), -up, 8, 4)
@@ -275,9 +307,9 @@ def build(spec, body, arm):
     dr = spec.get('dress')
     if dr:
         hem = knee - .02 * S if dr.get('hem') == 'knee' else ankle + .1 * S
-        skirt('dress', waist - .02 * S, hem, .03 * S, .07, material('dress', dr['color'], .85, 0, 'fabric'), material('dress_trim', dr['trim'], .7, 0, 'leather'), 'Skirt', 9 if dr.get('slit') else 0)
+        skirt('dress', waist - .02 * S, hem, .03 * S, .07, material('dress', dr['color'], .85, 0, 'fabric'), material('dress_trim', dr['trim'], .7, 0, 'leather'), 'Skirt', 9 if dr.get('slit') else 0, 64)
     if cu and cu.get('tassets'):
-        skirt('tassets', waist - .035 * S, waist - .25 * S, .04 * S, .025, material('tasset', cu['color'], .4, .9, 'lamella'), material('tasset_edge', cu['edge'], .6, 0, 'leather'), 'Tasset', 16, 24)
+        skirt('tassets', waist - .035 * S, waist - .24 * S, .032 * S, .03, material('tasset', cu['color'], .4, .9, 'lamella'), material('tasset_edge', cu['edge'], .6, 0, 'leather'), 'Tasset', 17, 60, gaps=((80, 3), (180, 34), (280, 3)))
 
     # ---- SCARF cap over the hair (face left open), its triangle DRAPE down the back, hair at the temples
     scf = spec.get('scarf')
@@ -289,15 +321,16 @@ def build(spec, body, arm):
         bmx = bmesh.new(); bmx.from_mesh(m); dead = []
         for v in bmx.verts:
             p = v.co + hc
-            if p.z < neckz + .02 * S: dead.append(v); continue
             d = (p - hc); front = -d.y
+            low = hc.z - .07 * S if front > .03 * S else neckz - .06 * S + (hc.z - .07 * S - neckz + .06 * S) * smooth(-.03 * S, .03 * S, front)
+            if p.z < low: dead.append(v); continue
             # face opening: an oval from just above the brows to below the chin, ears covered
             ox = d.x / (.075 * S); oz = (p.z - (hc.z - .055 * S)) / (.085 * S)
             if front > 0 and ox * ox + oz * oz < 1 and p.z < hairline + .005 * S: dead.append(v)
         bmesh.ops.delete(bmx, geom=dead, context='VERTS'); bmx.to_mesh(m); bmx.free()
         o.location = (0, 0, 0)
         for v in m.vertices: v.co = v.co + hc
-        sw = o.modifiers.new('sw', 'SHRINKWRAP'); sw.target = body; sw.wrap_method = 'NEAREST_SURFACEPOINT'; sw.offset = .014 * S
+        sw = o.modifiers.new('sw', 'SHRINKWRAP'); sw.target = body; sw.wrap_method = 'NEAREST_SURFACEPOINT'; sw.offset = .02 * S
         bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier='sw')
         sm = o.modifiers.new('sm', 'SMOOTH'); sm.factor = .8; sm.iterations = 6; bpy.ops.object.modifier_apply(modifier='sm')
         # loosen at the back (cloth over the braids' roots) and let the lower edge hang down a little
@@ -307,11 +340,12 @@ def build(spec, body, arm):
         so = o.modifiers.new('so', 'SOLIDIFY'); so.thickness = .004 * S; so.offset = -1; bpy.ops.object.modifier_apply(modifier='so')
         for p_ in m.polygons: p_.use_smooth = True
         # weights from the body
-        for g in ('Head', 'neck', 'Spine02'): o.vertex_groups.new(name=g)
+        for g in ('Head', 'neck', 'Spine'): o.vertex_groups.new(name=g)
         for v in m.vertices:
-            hz = smooth(neckz + .02 * S, neckz + .07 * S, v.co.z)
-            o.vertex_groups['Head'].add([v.index], hz, 'REPLACE');
-            if hz < 1: o.vertex_groups['neck'].add([v.index], 1 - hz, 'REPLACE')
+            hz = smooth(neckz + .0 * S, neckz + .07 * S, v.co.z); sz = 1 - smooth(neckz - .07 * S, neckz - .01 * S, v.co.z)
+            w = {'Head': hz, 'neck': (1 - hz) * (1 - sz), 'Spine': (1 - hz) * sz}
+            for k, x in w.items():
+                if x > 1e-4: o.vertex_groups[k].add([v.index], x, 'REPLACE')
         bmx = bmesh.new(); bmx.from_mesh(m); cyl_uv(bmx, hc, up, 4, 4); bmx.to_mesh(m); bmx.free()
         m.materials.append(material('scarf', scf['color'], .85, 0, 'fabric'))
         o.parent = arm; o.matrix_parent_inverse = AW.inverted(); md = o.modifiers.new('arm', 'ARMATURE'); md.object = arm; new.append(o)
@@ -328,12 +362,12 @@ def build(spec, body, arm):
             def back_y(x, z):
                 cand = [p.y for p in back if abs(p.x - x) < .03 * S and abs(p.z - z) < .03 * S]
                 return max(cand) if cand else hc.y + .1 * S
-            z0, z1 = hc.z - .035 * S, shz - .24 * S; rows, colsn = 8, 9; bmx = bmesh.new(); dl = bmx.verts.layers.deform.verify(); grid = []
+            z0, z1 = hc.z - .02 * S, shz - .22 * S; rows, colsn = 8, 9; bmx = bmesh.new(); dl = bmx.verts.layers.deform.verify(); grid = []
             for j in range(rows):
-                t = j / (rows - 1); z = z0 + (z1 - z0) * t; half = (.10 * S) * (1 - t ** 1.3) + .006 * S; row = []
+                t = j / (rows - 1); z = z0 + (z1 - z0) * t; half = (.085 * S + .02 * S * math.sin(min(1, t * 2) * math.pi)) * (1 - t ** 1.6) + .006 * S; row = []
                 for k in range(colsn):
                     x = hc.x + (k / (colsn - 1) * 2 - 1) * half
-                    y = back_y(x, z) + .018 * S
+                    y = back_y(x, z) + (.04 * S if z > neckz else .022 * S)
                     row.append(bmx.verts.new(Vector((x, y, z))))
                 grid.append(row)
             for j in range(rows - 1):
@@ -374,7 +408,7 @@ def build(spec, body, arm):
             pts = [p0, p1, p2, p3, p4, p5]
             samples = []
             for k in range(5):
-                for j in range(8): samples.append(pts[k].lerp(pts[k + 1], j / 8))
+                for j in range(24): samples.append(pts[k].lerp(pts[k + 1], j / 24))
             samples.append(p5)
             bmx = bmesh.new(); dl = bmx.verts.layers.deform.verify(); seg = 10; rings = []
             L = sum((samples[i + 1] - samples[i]).length for i in range(len(samples) - 1)); acc = 0
@@ -382,10 +416,10 @@ def build(spec, body, arm):
                 if i: acc += (samples[i] - samples[i - 1]).length
                 t = acc / L; ax = (samples[min(i + 1, len(samples) - 1)] - samples[max(i - 1, 0)]).normalized()
                 x = (rgt - ax * rgt.dot(ax)).normalized(); y = ax.cross(x)
-                ph = t * math.pi * 22; plait = abs(math.sin(ph))
-                r = .025 * S * (1 - .3 * t) * (.9 + .14 * plait)
+                ph = t * math.pi * 30; plait = abs(math.sin(ph))
+                r = .024 * S * (1 - .3 * t) * (.95 + .06 * plait)
                 if t > .9: r *= 1 - (t - .9) * 4   # tip
-                off = x * r * .12 * math.sin(ph)
+                off = x * r * .06 * math.sin(ph)
                 rv = [bmx.verts.new(c + off + (x * math.cos(a) + y * math.sin(a) * .85) * r) for a in [k * 2 * math.pi / seg for k in range(seg)]]
                 rings.append((rv, t))
             for (a, ta), (b2, tb2) in zip(rings, rings[1:]):
@@ -417,7 +451,7 @@ def build(spec, body, arm):
 
     # ---- AMULET : small gold triangle pointing DOWN on the chest, on a cord (author: identical everywhere)
     if spec.get('amulet'):
-        cz = shz - .17 * S
+        cz = shz - .13 * S
         cf = min(P[i].y for i in range(N) if abs(P[i].z - cz) < .02 * S and armw[i] < .1 and abs(P[i].x - hip.x) < .05 * S) - .03 * S - .005 * S
         bmx = bmesh.new(); dl = bmx.verts.layers.deform.verify(); a = .032 * S; c = Vector((hip.x, cf, cz))
         tri = [c + up * a * .6 + rgt * a * .62, c + up * a * .6 - rgt * a * .62, c - up * a * .7]

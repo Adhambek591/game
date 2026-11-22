@@ -67,14 +67,17 @@ for g in list(bm.vertex_groups):
     if g.name not in {x.name for x in arm.data.bones} and g.name not in keep_helpers: bm.vertex_groups.remove(g)
 bm.name = 'body'
 
-# ---- garments, hair, props per spec
-import garments
+# ---- fit to the author's Higgsfield model (pose + size), garments, then wrap + bake its look onto every layer
+import garments, fit_ref
+if SPEC.get('ref_model'): fit_ref.match(SPEC, bm, arm)
 garments.build(SPEC, bm, arm)
+if SPEC.get('ref_head'): fit_ref.head_from_ref(SPEC, bm, arm)
+if SPEC.get('ref_model'): fit_ref.wrap_bake(SPEC, bm, arm, [bm] + [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == arm and o != bm and o.name != 'head'])
 
 # ---- export
 bpy.ops.object.select_all(action='DESELECT')
 for o in bpy.context.scene.objects:
-    if o.type == 'ARMATURE' or (o.type == 'MESH' and o.parent == arm) or o == bm: o.select_set(True)
+    if (o.type == 'ARMATURE' or (o.type == 'MESH' and o.parent == arm) or o == bm) and not o.name.startswith('Icosphere'): o.select_set(True)
 bpy.context.view_layer.objects.active = arm
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB', use_selection=True, export_skins=True, export_animations=False, export_apply=False)
 print('CHAR DONE', CHAR, OUT, 'verts', sum(len(o.data.vertices) for o in bpy.context.scene.objects if o.type == 'MESH'))

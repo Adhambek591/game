@@ -86,48 +86,9 @@
       0.08,
       0.07
     ],
-    "scarf": {
-      "color": [
-        0.09,
-        0.11,
-        0.48
-      ],
-      "drape": true,
-      "jewels": true
-    },
-    "hair": [
-      0.02,
-      0.018,
-      0.016
-    ],
-    "braids": {
-      "front": true,
-      "tie": [
-        0.55,
-        0.1,
-        0.07
-      ]
-    },
     "amulet": true,
-    "face": {
-      "img": "ref/gulayim_face.jpg",
-      "eyeR": [
-        540,
-        153
-      ],
-      "eyeL": [
-        702,
-        153
-      ],
-      "mouth": [
-        620,
-        292
-      ],
-      "skin_px": [
-        600,
-        330
-      ]
-    },
-    "jewels": true
+    "jewels": false,
+    "ref_model": "ref/gulayim_hf.glb",
+    "ref_head": true
   }
 }

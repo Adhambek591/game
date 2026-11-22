@@ -118,7 +118,7 @@ public class QQRig : MonoBehaviour
     public void Play(string name, float fadeTime = .15f, bool loop = true, bool restart = false)
     {
         if (male && name == "idle" && Has("idle_m")) name = "idle_m";
-        if (name == "combat" && Has("idle3_c")) name = "idle3_c";   // the steadiest guard stance (combat sways +-30 deg)
+        if (name == "combat" && Has("guard")) name = "guard";   // one-handed ready stance (no shield: the free arm hangs naturally)
         segOn = false;
         if (name == cur && !restart) return;
         if (Get(name) == null) return;

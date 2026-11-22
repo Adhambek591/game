@@ -50,7 +50,7 @@ public static class QQMixamo
     // game clip name <- Mixamo file
     static readonly (string name, string file)[] MAP = {
         ("idle", "Female_Locomotion_Pack/idle"), ("walk", "Female_Locomotion_Pack/walking"), ("run", "Female_Locomotion_Pack/running"),
-        ("walk_m", "Pro_Sword_and_Shield_Pack/sword and shield walk"), ("run_m", "Female_Locomotion_Pack/running"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
+        ("walk_m", "Pro_Melee_Axe_Pack/standing walk forward"), ("run_m", "Pro_Melee_Axe_Pack/standing run forward"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
         ("combat", "Pro_Sword_and_Shield_Pack/sword and shield idle"),
         ("slash", "Pro_Sword_and_Shield_Pack/sword and shield slash"), ("attack", "Pro_Sword_and_Shield_Pack/sword and shield attack"),
         ("triple", "Pro_Sword_and_Shield_Pack/sword and shield slash (2)"), ("heavy", "Pro_Sword_and_Shield_Pack/sword and shield slash (3)"),
@@ -65,8 +65,8 @@ public static class QQMixamo
         ("roll", "Pro_Longbow_Pack/standing dodge backward"), ("dodge_l", "Pro_Longbow_Pack/standing dodge left"), ("dodge_r", "Pro_Longbow_Pack/standing dodge right"), ("dodge_f", "Pro_Longbow_Pack/standing dodge forward"),
         ("idle2_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (2)"), ("idle3_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (3)"), ("idle4_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (4)"),
         ("slash4", "Pro_Sword_and_Shield_Pack/sword and shield slash (4)"), ("attack4", "Pro_Sword_and_Shield_Pack/sword and shield attack (4)"), ("axe_h", "Pro_Melee_Axe_Pack/standing melee attack horizontal"), ("axe_b", "Pro_Melee_Axe_Pack/standing melee attack backhand"),
-        ("gs1", "Great_Sword/x"), 
-        ("cast", "Pro_Sword_and_Shield_Pack/sword and shield power up"), ("bow", "Pro_Longbow_Pack/standing aim recoil"), ("block", "Pro_Sword_and_Shield_Pack/sword and shield block") };
+        ("guard", "Pro_Melee_Axe_Pack/standing idle"), ("run_u", "Pro_Melee_Axe_Pack/unarmed run forward"), ("walk_u", "Pro_Melee_Axe_Pack/unarmed walk forward"), ("run_l", "Pro_Longbow_Pack/standing run forward"), 
+        ("cast", "Pro_Sword_and_Shield_Pack/sword and shield power up"), ("bow", "Pro_Longbow_Pack/standing aim recoil"), ("block", "Pro_Melee_Axe_Pack/standing block idle") };
 
     static string F(float v) { return v.ToString("0.#####", CultureInfo.InvariantCulture); }
     static Quaternion Conv(Quaternion q) { return new Quaternion(q.x, -q.y, -q.z, q.w); }
