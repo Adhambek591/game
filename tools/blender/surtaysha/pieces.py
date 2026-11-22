@@ -33,6 +33,12 @@ def build_cuirass():
                    u_range=(0, 2 * math.pi), mask=mask)
     print('cuirass plates', n)
     done(mb.build('SUR_Cuirass_Lamellar', [M_LAM]), 'spine_04', 'Torso')
+    bk = MB()
+    nu = 96
+    G = [[torso_S(2 * math.pi * i / nu, 1.098 + (cuirass_top(2 * math.pi * i / nu) - 0.004 - 1.098) * j / 8, grow=-0.0035) for i in range(nu)] for j in range(9)]
+    shell(bk, G, 0.0, out_fn=lambda q: Vector((q.x, q.y, 0)), closed_u=True, back=False, walls=False)
+    bk.uv = [[(0.31 + 0.002 * (k % 2), 0.244) for k in range(len(f))] for f in bk.uv]
+    done(bk.build('SUR_Cuirass_Backing', [M_TRIM]), 'spine_04', 'Torso')
     # leather edging along top edge incl. armholes, + shoulder straps + rivets
     tm = MB()
     us = [2 * math.pi * k / 260 for k in range(260)]
@@ -154,6 +160,13 @@ def build_tassets():
             pts = pts[::-1]; ups = ups[::-1]
         sweep(tm, pts, ups, prof, uv_v=TRIM['edge'], u_scale=TRIM_U)
     done(mb.build('SUR_Tassets_Lamellar', [M_LAM]), 'pelvis', 'Torso')
+    bk = MB()
+    for (u0, u1, bot) in panels:
+        G = [[tas_S(u0 + (u1 - u0) * i / 20, bot(u0 + (u1 - u0) * i / 20) + 0.004 + (top - bot(u0 + (u1 - u0) * i / 20) - 0.004) * j / 10, grow=-0.004)
+              for i in range(21)] for j in range(11)]
+        shell(bk, G, 0.0, out_fn=lambda q: Vector((q.x, q.y, 0)), back=False, walls=False)
+    bk.uv = [[(0.31 + 0.002 * (k % 2), 0.244) for k in range(len(f))] for f in bk.uv]
+    done(bk.build('SUR_Tassets_Backing', [M_TRIM]), 'pelvis', 'Torso')
     done(tm.build('SUR_Tassets_Trim', [M_TRIM]), 'pelvis', 'Torso')
 
 # =========================================================== coat skirt, trousers
@@ -162,9 +175,8 @@ def coat_dims(z):
     a, bf, bb, n = coat_dims_v1(z)
     return a + _CD[0], bf + _CD[1], bb + _CD[2], n
 def coat_dims_v1(z):
-    t = smoothstep(1.06, 0.40, z) if z < 1.06 else 0.0
     t = (1.06 - z) / 0.66
-    return 0.214 + t * 0.10, 0.180 + t * 0.07, 0.110 + t * 0.15, 2.3
+    return 0.214 + t * 0.045, 0.180 + t * 0.035, 0.110 + t * 0.10, 2.3
 def build_coat():
     mb = MB(); tm = MB()
     zs = [1.07 - (1.07 - 0.40) * j / 26 for j in range(27)][::-1]
@@ -179,9 +191,10 @@ def build_coat():
             u = gap + (2 * math.pi - 2 * gap) * i / nu
             p = torso_S(u, z, tab=[(z, a, bf, bb, n)])
             # folds grow toward the hem
-            amp = 0.012 * depth ** 1.3
+            amp = 0.006 + 0.016 * depth ** 1.2
             r = Vector((p.x, p.y, 0)).normalized()
-            p = p + r * amp * math.sin(u * 9 + 0.7) + r * amp * 0.5 * math.sin(u * 17 + 2.1)
+            f = math.sin(u * 11 + 0.7 + 0.6 * math.sin(u * 3)); f = math.copysign(abs(f) ** 0.6, f)
+            p = p + r * amp * f + r * amp * 0.35 * math.sin(u * 23 + 2.1)
             row.append(p)
         G.append(row)
     shell(mb, G, 0.005, out_fn=lambda p: Vector((p.x, p.y, 0)))
@@ -200,7 +213,7 @@ def build_coat():
 def build_trousers():
     mbL = MB()
     th = bone('thigh_l'); ca = bone('calf_l'); ft = bone('foot_l')
-    end = ca.lerp(ft, (ca.z - 0.40) / (ca.z - ft.z))
+    end = ca.lerp(ft, (ca.z - 0.43) / (ca.z - ft.z))
     path = []
     NT = 28
     for k in range(NT + 1):
@@ -215,7 +228,7 @@ def build_trousers():
         if 0.12 < z < 0.55:
             cx, hx, ymn, ymx = FIT.leg_at(z)[:4]
             r = max(r, max(hx, (ymx - ymn) / 2) + 0.010)
-            if z < 0.52: r = min(r, max(hx, (ymx - ymn) / 2) + 0.010)
+            if z < BOOT_TOP + 0.03: r = min(r, min(hx, (ymx - ymn) / 2) + 0.004)
         r *= 1 + 0.05 * math.sin(a * 5 + j * 0.5) * smoothstep(0.2, 0.7, t) * (1 - smoothstep(0.70, 0.80, t))
         return r * math.cos(a), r * math.sin(a) * 1.05
     G = loft_grid(path, shape, 24)
@@ -223,39 +236,71 @@ def build_trousers():
     build_pair(mbL, 'SUR_Trousers', [M_CLOTH], 'thigh_l', 'Cloth')
 
 # =========================================================== sleeves
+SLEEVE_R0 = 0.10
+def _arm_profile(a, b, t, K, rmax=0.14):
+    """max radial extent of the body arm per angle bin, at station t on segment a->b (smoothed)"""
+    d = (b - a).normalized(); c = a.lerp(b, t)
+    x = d.orthogonal().normalized(); y = d.cross(x)
+    bins = [0.0] * K
+    for p in FIT.V:
+        q = p - c; h = q.dot(d)
+        if abs(h) > 0.008: continue
+        r = q - d * h
+        if r.length > rmax: continue
+        ang = math.atan2(r.dot(y), r.dot(x)) % (2 * math.pi)
+        k = int(ang / (2 * math.pi) * K) % K
+        bins[k] = max(bins[k], r.length)
+    m = max(bins) if max(bins) > 0 else 0.05
+    bins = [v if v > 0 else m * 0.8 for v in bins]
+    for _ in range(3):
+        bins = [(bins[k - 1] + 2 * bins[k] + bins[(k + 1) % K]) / 4 for k in range(K)]
+    return bins, x, y
 def build_sleeves():
+    global SLEEVE_R0
     mbL = MB()
     sh = bone('upperarm_l'); el = bone('lowerarm_l'); wr = bone('hand_l')
-    L = (wr - el).length
+    K = 28
     nu_ = max(10, round((el - sh).length / 0.02)); nf_ = max(10, round((wr - el).length * 0.97 / 0.02))
-    pts = [sh + (sh - el).normalized() * 0.02]; ts = [None]
-    for k in range(1, nu_ + 1): pts.append(sh.lerp(el, k / nu_)); ts.append(None)
-    for k in range(1, nf_ + 1): pts.append(el.lerp(wr, k / nf_ * 0.97)); ts.append(k / nf_ * 0.97)
-    pts.append(el.lerp(wr, 0.985)); ts.append(0.985)       # gathered cuff closing on the wrist
-    NU = nu_
-    n = len(pts)
+    st = [(sh, el, -0.08)] + [(sh, el, k / nu_) for k in range(1, nu_ + 1)] + [(el, wr, k / nf_ * 0.97) for k in range(1, nf_ + 1)] + [(el, wr, 0.985)]
     def Rb(t): return 0.074 - 0.017 * smoothstep(0.28, 0.96, t)
-    def shape(j, a):
-        t = ts[j]
-        if t is None:
-            r = 0.108 - 0.016 * (j / NU); amp = 0.045
-        elif j == n - 1:
-            r = 0.036; amp = 0.0
-        else:
-            r_free = 0.092 - 0.012 * min(t / 0.28, 1.0)
-            r = r_free + (Rb(t) - 0.008 - r_free) * smoothstep(0.16, 0.30, t)
-            amp = 0.035 * (1 - smoothstep(0.18, 0.30, t)) + 0.006
-        r *= 1 + amp * math.sin(a * 4 + j * 0.55) + amp * 0.4 * math.sin(a * 9 + j * 0.4)
-        return r * math.cos(a), r * math.sin(a)
-    G = loft_grid(pts, shape, 28)
-    shell(mbL, G, 0.004, out_fn=lambda p: p - min(pts[:-1], key=lambda q: (q - p).length), closed_u=True, back=False)
+    frames = ring_frames([a.lerp(b, t) for a, b, t in st])
+    G = []
+    for j, (a, b, t) in enumerate(st):
+        upper = a is sh
+        prof, _, _ = _arm_profile(a, b, max(t, 0.0), K, rmax=0.15 if upper else 0.11)
+        c = a.lerp(b, t); tg, n, bn = frames[j]
+        row = []
+        for i in range(K):
+            ang = 2 * math.pi * i / K
+            # body extent in this direction (profile measured in the segment frame; resample into the path frame)
+            dirv = n * math.cos(ang) + bn * math.sin(ang)
+            d = (b - a).normalized(); x0 = d.orthogonal().normalized(); y0 = d.cross(x0)
+            pa = math.atan2(dirv.dot(y0), dirv.dot(x0)) % (2 * math.pi)
+            rb = prof[int(pa / (2 * math.pi) * K) % K]
+            if upper:
+                pad = 0.024 + 0.006 * math.sin(ang * 3 + j * 0.7)             # padded robe sleeve
+                # compression folds in the armpit / elbow crease (inner side = toward the body / front)
+                inner = max(0.0, -dirv.x) if True else 0.0
+                pad += 0.007 * inner * max(0.0, math.sin(j * 1.9)) * smoothstep(0.55, 0.95, t)
+                r = rb + pad
+            elif j == len(st) - 1:
+                r = 0.036
+            else:
+                pad = 0.020 * (1 - smoothstep(0.18, 0.30, t)) + 0.008
+                fold = 0.006 * max(0.0, math.sin(j * 2.1 + ang)) * (1 - smoothstep(0.15, 0.28, t))
+                r = min(rb + pad + fold, Rb(t) - 0.008) if t > 0.26 else rb + pad + fold
+            row.append(c + dirv * r)
+        G.append(row)
+    SLEEVE_R0 = sum((G[1][i] - st[1][0].lerp(st[1][1], st[1][2])).length for i in range(K)) / K
+    pts = [a.lerp(b, t) for a, b, t in st]
+    shell(mbL, G, 0.004, out_fn=lambda q: q - min(pts[:-1], key=lambda c: (c - q).length), closed_u=True, back=False)
     build_pair(mbL, 'SUR_Sleeve', [M_CLOTH], 'upperarm_l', 'Cloth')
 
 # =========================================================== pauldrons
 def pauldron_frame():
     J = bone('upperarm_l') + Vector((0.005, 0.0, 0.0))
     d = bone('lowerarm_l') - bone('upperarm_l')
-    ang = 0.72 * math.atan2(-d.z, d.x)          # rigid pauldron hangs a bit flatter than the arm
+    ang = 0.90 * math.atan2(-d.z, d.x)          # hangs with the arm, wrapping the deltoid
     D = Vector((math.cos(ang), 0, -math.sin(ang)))
     Up = Vector((math.sin(ang), 0, math.cos(ang)))
     F = Vector((0, -1, 0))
@@ -263,14 +308,14 @@ def pauldron_frame():
 def paul_S(u, v, dr=0.0):
     J, D, Up, F = pauldron_frame()
     s = -v
-    R = max(0.118, FIT.r_upperarm + 0.045) + 0.044 * smoothstep(-0.06, 0.27, s) + dr
+    R = SLEEVE_R0 + 0.030 + 0.012 * smoothstep(0.0, 0.24, s) + 0.020 * smoothstep(0.0, -0.06, s) + dr
     # flatten the outer face a little, flare at front/back bottoms
     return J + D * s + (Up * math.cos(u) * 0.96 + F * math.sin(u) * 1.08) * R
 def build_pauldrons():
     J, D, Up, F = pauldron_frame()
     mb = MB(); tm = MB(); bk = MB()
-    s0, s1 = -0.055, 0.272
-    umax = 1.72
+    s0, s1 = -0.060, 0.235
+    umax = 1.95
     ctr = lambda p: J + D * (p - J).dot(D)
     rows = []
     s = s1 - 0.008
@@ -349,6 +394,11 @@ def build_bracers():
         ups = [axis_out(p).normalized() for p in ring]
         prof = [(math.cos(2 * math.pi * q / 8) * rr, math.sin(2 * math.pi * q / 8) * rr * 0.8 - 0.001) for q in range(9)]
         sweep(tr, ring, ups, prof, closed=True, uv_v=TRIM['strap'], u_scale=TRIM_U)
+    # closing caps: leather annulus from the bracer down onto the wrist / sleeve (no open end)
+    for tt, r_in, sgn in ((t1 + 0.012, 0.040, 1), (t0 - 0.027, R(t0) - 0.012, -1)):
+        A = [[C(tt + sgn * 0.004 * (1 - q)) + (outd * math.cos(2 * math.pi * i / 24) + side * math.sin(2 * math.pi * i / 24)) * (R(tt) + 0.0025 + (r_in - R(tt) - 0.0025) * q)
+              for i in range(24)] for q in (0.0, 0.5, 1.0)]
+        shell(lt, A, 0.003, out_fn=lambda p, s=sgn: ax * s, closed_u=True, back=True)
     # gold rim along the plate border
     bpts = [G[0][i] for i in range(ni)] + [G[j][ni - 1] for j in range(1, nj)] + [G[nj - 1][i] for i in range(ni - 2, -1, -1)] + [G[j][0] for j in range(nj - 2, 0, -1)]
     bpts, _ = resample(bpts, step=0.006, closed=True)
@@ -376,105 +426,208 @@ def build_bracers():
     build_pair(tr, 'SUR_Bracer_Trim', [M_TRIM], 'lowerarm_l', 'Arms')
 
 # =========================================================== boots + greaves
-BOOT_V1 = [(0.000, -0.258, 0.078, 0.058), (0.012, -0.262, 0.080, 0.059), (0.026, -0.262, 0.081, 0.059), (0.040, -0.259, 0.082, 0.058),
-        (0.056, -0.250, 0.083, 0.058), (0.072, -0.234, 0.083, 0.057), (0.088, -0.208, 0.082, 0.055), (0.106, -0.170, 0.080, 0.052),
-        (0.130, -0.120, 0.076, 0.050), (0.165, -0.070, 0.070, 0.048), (0.215, -0.058, 0.066, 0.050), (0.275, -0.060, 0.069, 0.055),
-        (0.335, -0.063, 0.073, 0.058), (0.395, -0.065, 0.073, 0.060), (0.460, -0.066, 0.071, 0.062)]
-def _fit_boot():
-    out = []
-    for z, yF, yB, W in BOOT_V1:
-        yF, yB = FIT.boot_y(yF), FIT.boot_y(yB)
-        cx, hx, ymn, ymx, xmn, xmx = FIT.leg_at(z)
-        W = max(W, hx + (0.016 if z >= 0.16 else 0.012))
-        yF = min(yF, ymn - 0.018)
-        yB = max(yB, ymx + 0.014)
-        out.append((z, yF, yB, W))
+# =========================================================== steppe riding boots + shin plates (fitted to the body's foot)
+BOOT_TOP = 0.470
+BOOT_N = 48
+BOOT_Z = [0.000, 0.007, 0.015, 0.024, 0.034, 0.045, 0.057, 0.069, 0.081, 0.094, 0.107, 0.121, 0.136, 0.152, 0.170,
+          0.190, 0.212, 0.236, 0.262, 0.290, 0.320, 0.350, 0.380, 0.410, 0.440, BOOT_TOP]
+
+def _hull(pts):
+    pts = sorted(set((round(p[0], 5), round(p[1], 5)) for p in pts))
+    if len(pts) < 3: return pts
+    cr = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo, up = [], []
+    for p in pts:
+        while len(lo) >= 2 and cr(lo[-2], lo[-1], p) <= 0: lo.pop()
+        lo.append(p)
+    for p in reversed(pts):
+        while len(up) >= 2 and cr(up[-2], up[-1], p) <= 0: up.pop()
+        up.append(p)
+    return lo[:-1] + up[:-1]          # counter-clockwise (seen from +Z): front(-y) -> +x -> back -> -x
+
+def _offset(poly, c):
+    n = len(poly); out = []
+    for i in range(n):
+        a, b, d = Vector(poly[i - 1]), Vector(poly[i]), Vector(poly[(i + 1) % n])
+        e1 = (b - a).normalized(); e2 = (d - b).normalized()
+        n1 = Vector((e1.y, -e1.x)); n2 = Vector((e2.y, -e2.x))
+        nn = (n1 + n2); nn = nn.normalized() if nn.length > 1e-9 else n1
+        out.append(b + nn * c / max(0.5, nn.dot(n1)))
     return out
-BOOT = _fit_boot()
-def boot_xc(z):
-    ca = bone('calf_l'); ft = bone('foot_l')
-    if z <= ft.z: xb = ft.x
-    else: xb = ft.x + (ca.x - ft.x) * (z - ft.z) / (ca.z - ft.z)
-    return FIT.leg_at(z)[0]
+
+def _resample_front(poly, N):
+    P = [Vector(p) for p in poly]
+    k0 = min(range(len(P)), key=lambda i: P[i].y)
+    P = P[k0:] + P[:k0]
+    R, _ = resample(P, count=N, closed=True)
+    return R
+
+def _ellipse_ring(cx, cy, hx, hy, N, n=2.3):
+    out = []
+    for i in range(N):
+        a = 2 * math.pi * i / N
+        s, c = math.sin(a), math.cos(a)
+        out.append(Vector((cx + hx * math.copysign(abs(s) ** (2 / n), s), cy - hy * math.copysign(abs(c) ** (2 / n), c))))
+    return out
+
+def _boot_rings():
+    V = [p for p in FIT.V if p.x > 0.02 and p.z < BOOT_TOP + 0.03]
+    rings = []
+    for z in BOOT_Z:
+        band = 0.004 if z > 0.0 else 0.006
+        sl = [(p.x, p.y) for p in V if abs(p.z - max(z, 0.003)) < band]
+        hull = _hull(sl)
+        cl = 0.0075 + 0.0045 * smoothstep(0.10, 0.22, z)
+        hr = _resample_front(_offset(hull, cl), BOOT_N)
+        xs = [p[0] for p in sl]; ys = [p[1] for p in sl]
+        er = _ellipse_ring((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2 + 0.003, (max(xs) - min(xs)) / 2 + 0.012,
+                           (max(ys) - min(ys)) / 2 + 0.013, BOOT_N)
+        w = smoothstep(0.17, 0.25, z)
+        rings.append([h.lerp(e, w) for h, e in zip(hr, er)])
+    # smooth across heights (keeps the shaft stiff, keeps the heel / instep / ankle shape)
+    for _ in range(2):
+        nr = [r[:] for r in rings]
+        for j in range(2, len(rings) - 1):
+            for i in range(BOOT_N):
+                nr[j][i] = (rings[j - 1][i] + rings[j][i] * 2 + rings[j + 1][i]) / 4
+        rings = nr
+    # pointed toe: stretch the front of the low rings forward and pull it toward the toe line
+    yF = min(p.y for p in rings[0]); xt = min(rings[0], key=lambda p: p.y).x
+    for j, z in enumerate(BOOT_Z):
+        if z > 0.08: break
+        f = 1 - z / 0.08
+        for i, p in enumerate(rings[j]):
+            s = smoothstep(yF + 0.065, yF, p.y)
+            rings[j][i] = Vector((xt + (p.x - xt) * (1 - 0.30 * s * f), p.y - 0.022 * s * f))
+    return rings
+
+BOOT_RINGS = _boot_rings()
+BOOT_TIP_Y = min(p.y for p in BOOT_RINGS[0])
+BOOT_HEEL_Y = max(p.y for p in BOOT_RINGS[0])
+
+def toe_spring(y, z):
+    """upturned toe: lift of the sole/upper near the tip"""
+    return 0.011 * smoothstep(BOOT_TIP_Y + 0.07, BOOT_TIP_Y, y) * max(0.0, 1 - z / 0.07)
+
+def _ring_at(z):
+    zs = BOOT_Z
+    if z <= zs[0]: return BOOT_RINGS[0], zs[0]
+    if z >= zs[-1]: return BOOT_RINGS[-1], zs[-1]
+    for j in range(len(zs) - 1):
+        if zs[j] <= z <= zs[j + 1]:
+            t = (z - zs[j]) / (zs[j + 1] - zs[j])
+            return [a.lerp(b, t) for a, b in zip(BOOT_RINGS[j], BOOT_RINGS[j + 1])], z
+
 def boot_ring(z, a, grow=0.0):
-    yF, yB, W = interp_table(BOOT, z)
-    yF -= grow; yB += grow; W += grow
-    cy = (yF + yB) / 2; Ly = (yB - yF) / 2
-    s, c = math.sin(a), math.cos(a)
-    n = 2.15 if c > 0 else 2.5          # rounder toe box, firmer heel
-    x = W * math.copysign(abs(s) ** (2 / n), s)
-    y = Ly * math.copysign(abs(c) ** (2 / n), c)
-    k = 1.0 + 0.05 * (y / Ly) if z < 0.11 else 1.0
-    return Vector((boot_xc(z) + x * k, cy - y, z))
+    """point on the boot surface at height z, angle a (0 = toe/front, +pi/2 = outer side of the left boot)"""
+    ring, _ = _ring_at(z)
+    f = (a % (2 * math.pi)) / (2 * math.pi) * BOOT_N
+    i0 = int(f) % BOOT_N; i1 = (i0 + 1) % BOOT_N; t = f - int(f)
+    p = ring[i0].lerp(ring[i1], t)
+    if grow:
+        tg = (ring[i1] - ring[i0]); nrm = Vector((tg.y, -tg.x)).normalized()
+        p = p + nrm * grow
+    q = Vector((p.x, p.y, z))
+    q.z += toe_spring(q.y, z)
+    return q
+
+def boot_center(z):
+    ring, _ = _ring_at(z)
+    return sum(ring, Vector((0, 0))) / len(ring)
+
+def boot_xc(z):
+    return boot_center(z).x
+
 def boot_out(p):
-    yF, yB, W = interp_table(BOOT, max(p.z, 0.0))
-    return Vector((p.x - boot_xc(p.z), p.y - (yF + yB) / 2, 0.0))
+    c = boot_center(max(p.z, 0.0))
+    return Vector((p.x - c.x, p.y - c.y, 0.0))
+
 def build_boots():
-    mb = MB(); sm = MB(); gm = MB(); tr = MB()
-    zs = [b[0] for b in BOOT if b[0] >= 0.02]
-    zz = []
-    for i in range(len(zs) - 1):
-        zz += [zs[i], (zs[i] + zs[i + 1]) / 2] if zs[i + 1] - zs[i] > 0.03 else [zs[i]]
-    zz.append(zs[-1])
-    nu = 32
-    G = [[boot_ring(z, 2 * math.pi * i / nu) for i in range(nu)] for z in zz]
-    lip = [boot_ring(zz[-1] - 0.004, 2 * math.pi * i / nu, grow=-0.006) for i in range(nu)]
-    G = G + [lip]
-    shell(mb, G, 0.0, out_fn=boot_out, closed_u=True, back=False, walls=False)
-    # sole: separate thick slab with a rounded edge, proud of the upper
-    rows = [(0.000, 0.003), (0.0025, 0.0062), (0.0195, 0.0062), (0.024, 0.0015)]
-    S = [[boot_ring(z, 2 * math.pi * i / nu, grow=g) for i in range(nu)] for z, g in rows]
-    cen = Vector((boot_xc(0), -0.09, 0.0))
-    capb = [[boot_ring(0.0, 2 * math.pi * i / nu, grow=0.003).lerp(cen, f) for i in range(nu)] for f in (0.8, 0.5)]
-    capt = [[boot_ring(0.024, 2 * math.pi * i / nu, grow=0.0015).lerp(cen + Vector((0, 0, 0.024)), f) for i in range(nu)] for f in (0.5, 0.8)]
-    for c in capb:
-        for p in c: p.z = 0.0
-    for c in capt:
-        for p in c: p.z = 0.024
-    Sg = capb[::-1] + S + capt
-    shell(sm, Sg, 0.0, out_fn=lambda p: boot_out(p) + Vector((0, 0, (p.z - 0.012) * 8)), closed_u=True, back=False, walls=False)
-    # welt: stitched cord where the upper meets the sole
-    welt = [boot_ring(0.0265, 2 * math.pi * k / 72, grow=0.0018) for k in range(72)]
-    wu = [(boot_out(p).normalized() + Vector((0, 0, 0.6))).normalized() for p in welt]
-    sweep(tr, welt, wu, [(math.cos(2 * math.pi * q / 6) * 0.0022, math.sin(2 * math.pi * q / 6) * 0.0022) for q in range(7)],
+    up = MB(); sm = MB(); gm = MB(); tr = MB()
+    N = BOOT_N
+    # ---- upper: rings from the foot hull up to the cuff, plus an inner turn-in at the top
+    G = [[boot_ring(z, 2 * math.pi * i / N) for i in range(N)] for z in BOOT_Z]
+    G.append([boot_ring(BOOT_TOP - 0.006, 2 * math.pi * i / N, grow=-0.007) for i in range(N)])
+    shell(up, G, 0.0, out_fn=boot_out, closed_u=True, back=False, walls=False)
+    # ---- layered sole (two leather lifts) proud of the upper, stacked heel block under the heel
+    def srow(z, g):
+        return [boot_ring(0.0, 2 * math.pi * i / N, grow=g) + Vector((0, 0, z)) for i in range(N)]
+    rows = [srow(0.0015, 0.0030), srow(-0.0010, 0.0055), srow(-0.0080, 0.0055), srow(-0.0092, 0.0040),
+            srow(-0.0104, 0.0055), srow(-0.0175, 0.0055), srow(-0.0190, 0.0035)]
+    cen = boot_center(0.0)
+    cen3 = Vector((cen.x, cen.y, -0.019))
+    cap = [[p.lerp(cen3 + Vector((0, 0, toe_spring(p.y, 0.0))), f) for p in rows[-1]] for f in (0.55, 0.85)]
+    for c in cap:
+        for p in c: p.z = -0.019 + toe_spring(p.y, 0.0)
+    shell(sm, rows + cap, 0.0, out_fn=lambda p: boot_out(p) + Vector((0, 0, (p.z + 0.009) * 6)), closed_u=True, back=False, walls=False)
+    # heel: stacked block (three lifts) under the back 30 % of the sole
+    yh = BOOT_HEEL_Y - 0.075
+    heel_ring = [p for p in srow(0.0, 0.0040) if p.y > yh]
+    heel_ring.sort(key=lambda p: math.atan2(p.x - cen.x, -(p.y - cen.y)) % (2 * math.pi))
+    xl = min(p.x for p in heel_ring); xr = max(p.x for p in heel_ring)
+    front = [Vector((xr + (xl - xr) * k / 6, yh, 0.0)) for k in range(7)]
+    hpoly = heel_ring + front
+    hpoly, _ = resample(hpoly, count=36, closed=True)
+    hc = sum(hpoly, Vector()) / len(hpoly)
+    H = []
+    for z, s in ((-0.017, 1.0), (-0.0185, 1.02), (-0.026, 1.02), (-0.027, 0.995), (-0.0345, 0.99), (-0.036, 0.965)):
+        H.append([Vector((hc.x + (p.x - hc.x) * s, hc.y + (p.y - hc.y) * s, z)) for p in hpoly])
+    H.append([Vector((hc.x + (p.x - hc.x) * 0.5, hc.y + (p.y - hc.y) * 0.5, -0.036)) for p in hpoly])
+    shell(sm, H, 0.0, out_fn=lambda p: Vector((p.x - hc.x, p.y - hc.y, -0.5 if p.z < -0.0355 else 0.0)), closed_u=True, back=False, walls=False)
+    # ---- welt with stitching where the upper meets the sole
+    welt = [boot_ring(0.004, 2 * math.pi * k / 96, grow=0.0022) for k in range(96)]
+    wu = [(boot_out(p).normalized() + Vector((0, 0, 0.7))).normalized() for p in welt]
+    sweep(tr, welt, wu, [(math.cos(2 * math.pi * q / 6) * 0.0021, math.sin(2 * math.pi * q / 6) * 0.0019) for q in range(7)],
           closed=True, uv_v=TRIM['cord'], u_scale=TRIM_U * 2)
-    # stitched toe-cap seam and back seam
-    toe = [boot_ring(0.050, a, grow=0.0008) + Vector((0, 0, 0.022 * math.cos(a * 0.9))) for a in [-1.35 + 2.7 * k / 30 for k in range(31)]]
-    toe = [boot_ring(p.z, a, grow=0.0008) for p, a in zip(toe, [-1.35 + 2.7 * k / 30 for k in range(31)])]
-    strap(tr, toe, [(boot_out(p).normalized() + Vector((0, 0, 0.5))).normalized() for p in toe], w=0.007, t=0.0012, key='strap', bevel=0.0004)
-    back = [boot_ring(z, math.pi, grow=0.0008) for z in [0.03 + 0.40 * k / 16 for k in range(17)]]
-    strap(tr, back, [boot_out(p).normalized() for p in back], w=0.008, t=0.0012, key='strap', bevel=0.0004)
-    # greave: tall iron shell over front and sides, below the knee down to the ankle, flaring over the instep
-    span = math.radians(104)
-    gz = [0.140 + (0.505 - 0.140) * j / 14 for j in range(15)]
-    def gr(z): return 0.008 + 0.014 * smoothstep(0.24, 0.145, z) + 0.004 * smoothstep(0.44, 0.50, z)
-    Gg = [[boot_ring(z, (-span + 2 * span * i / 18), grow=gr(z)) for i in range(19)] for z in gz]
-    for j, row in enumerate(Gg):
+    # ---- vertical side seams (outer, inner) and back seam, stitched leather welts
+    for a in (math.pi / 2 + 0.10, 3 * math.pi / 2 - 0.10, math.pi):
+        seam = [boot_ring(z, a, grow=0.0007) for z in [0.012 + (BOOT_TOP - 0.03) * k / 22 for k in range(23)]]
+        strap(tr, seam, [boot_out(p).normalized() for p in seam], w=0.008, t=0.0013, key='strap', bevel=0.0004)
+    # ---- toe-cap seam across the vamp
+    toe = []
+    for k in range(29):
+        a = -1.30 + 2.60 * k / 28
+        z = 0.030 + 0.020 * math.cos(a * 1.1)
+        toe.append(boot_ring(z, a, grow=0.0007))
+    strap(tr, toe, [(boot_out(p).normalized() + Vector((0, 0, 0.6))).normalized() for p in toe], w=0.006, t=0.0011, key='strap', bevel=0.0004)
+    # ---- top binding + cuff band
+    cuff = [boot_ring(BOOT_TOP - 0.018, 2 * math.pi * k / 64, grow=0.0012) for k in range(64)]
+    strap(tr, cuff, [boot_out(p).normalized() for p in cuff], w=0.030, t=0.0022, key='strap', closed=True)
+    rim = [boot_ring(BOOT_TOP - 0.002, 2 * math.pi * k / 64, grow=-0.0025) for k in range(64)]
+    sweep(tr, rim, [(boot_out(p).normalized() + Vector((0, 0, 0.8))).normalized() for p in rim],
+          [(math.cos(2 * math.pi * q / 8) * 0.0040, math.sin(2 * math.pi * q / 8) * 0.0034) for q in range(9)], closed=True, uv_v=TRIM['strap'], u_scale=TRIM_U)
+    # ---- shin plate (greave): front plate only, strapped over the shaft, from the instep to below the knee
+    span = math.radians(72)
+    gz = [0.150 + (0.425 - 0.150) * j / 13 for j in range(14)]
+    def gr(z): return 0.0045 + 0.010 * smoothstep(0.20, 0.15, z)
+    Gg = [[boot_ring(z, (-span + 2 * span * i / 16), grow=gr(z)) for i in range(17)] for z in gz]
+    for row in Gg:
         for i, p in enumerate(row):
-            p += boot_out(p).normalized() * (0.009 * (1 - abs(i - 9) / 9) ** 4 + 0.002 * (1 - abs(i - 9) / 9))
+            p += boot_out(p).normalized() * (0.007 * (1 - abs(i - 8) / 8) ** 4 + 0.0015 * (1 - abs(i - 8) / 8))
     shell(gm, Gg, 0.003, out_fn=boot_out)
-    for j, rr in ((0, 0.0032), (len(gz) - 1, 0.0032)):
-        edge = [p.copy() for p in Gg[j]]
-        sweep(gm, edge, [boot_out(p).normalized() for p in edge], [(math.cos(2 * math.pi * q / 8) * rr, math.sin(2 * math.pi * q / 8) * rr - 0.0012) for q in range(9)],
-              uv_v=(0.0, 0.02), u_scale=1.0)
-    for z in (0.205, 0.395):
-        if z < 0.3:
-            a0, a1 = 0.0, 2 * math.pi
-            arc = [boot_ring(z, a0 + (a1 - a0) * k / 40, grow=gr(z) + (0.0035 if (k / 40 * 2 * math.pi < span or k / 40 * 2 * math.pi > 2 * math.pi - span) else -0.001)) for k in range(41)]
-        else:
-            a0, a1 = span - 0.06, 2 * math.pi - span + 0.06
-            arc = [boot_ring(z, a0 + (a1 - a0) * k / 22, grow=gr(z) - 0.001) for k in range(23)]
-        ups = [boot_out(p).normalized() for p in arc]
-        strap(tr, arc, ups, w=0.026, t=0.0038)
-        ab = (0.75 if z < 0.3 else span + 0.22)
-        pb = boot_ring(z, ab, grow=gr(z) + (0.0075 if z < 0.3 else 0.004))
+    # rolled edges all round the plate
+    bord = [Gg[0][i] for i in range(17)] + [Gg[j][16] for j in range(1, 14)] + [Gg[13][i] for i in range(15, -1, -1)] + [Gg[j][0] for j in range(12, 0, -1)]
+    bord, _ = resample(bord, step=0.008, closed=True); bord = smooth_pts(bord, 2, closed=True)
+    sweep(gm, bord, [boot_out(p).normalized() for p in bord],
+          [(math.cos(2 * math.pi * q / 8) * 0.0030, math.sin(2 * math.pi * q / 8) * 0.0030 - 0.0008) for q in range(9)], closed=True, uv_v=(0.0, 0.02), u_scale=1.0)
+    # two straps around the shaft holding the plate, buckles on the outer-front, rivets through the plate
+    for z in (0.205, 0.375):
+        K = 48
+        arc = []
+        for k in range(K + 1):
+            a = 2 * math.pi * k / K
+            on_plate = a < span or a > 2 * math.pi - span
+            arc.append(boot_ring(z, a, grow=(gr(z) + 0.0045) if on_plate else 0.0030))
+        strap(tr, arc, [boot_out(p).normalized() for p in arc], w=0.024, t=0.0035)
+        ab = span + 0.30
+        pb = boot_ring(z, ab, grow=0.0068)
         tang = (boot_ring(z, ab + 0.05) - boot_ring(z, ab - 0.05)).normalized()
-        buckle(tr, pb, boot_out(pb), tang, w=0.026, h=0.028)
-        tail = [boot_ring(z, ab - 0.03 - 0.40 * k / 8, grow=gr(z) + (0.006 if z < 0.3 else 0.0) + (0.003 if k < 3 else 0.0045)) for k in range(9)]
-        strap(tr, tail, [boot_out(p).normalized() for p in tail], w=0.021, t=0.003)
+        buckle(tr, pb, boot_out(pb), tang, w=0.024, h=0.026)
+        tail = [boot_ring(z, ab - 0.03 - 0.30 * k / 8, grow=(gr(z) + 0.0085) if (ab - 0.03 - 0.30 * k / 8) < span else 0.0062) for k in range(9)]
+        strap(tr, tail, [boot_out(p).normalized() for p in tail], w=0.019, t=0.003)
         for a in (span - 0.12, -(span - 0.12)):
-            p = boot_ring(z, a, grow=gr(z) + 0.0035); rivet(tr, p, boot_out(p).normalized(), r=0.0042, uvc=(0.5, 0.86), uvr=0.011)
-    build_pair(mb, 'SUR_Boot', [M_ARM], 'foot_l', 'Legs')
+            p = boot_ring(z, a, grow=gr(z) + 0.0082); rivet(tr, p, boot_out(p).normalized(), r=0.0042, uvc=(0.5, 0.86), uvr=0.011)
+    build_pair(up, 'SUR_Boot', [M_ARM], 'foot_l', 'Legs')
     build_pair(sm, 'SUR_Boot_Sole', [M_ARM], 'foot_l', 'Legs')
     build_pair(gm, 'SUR_Greave', [M_ARM], 'calf_l', 'Legs')
     build_pair(tr, 'SUR_Greave_Straps', [M_TRIM], 'calf_l', 'Legs')
@@ -484,24 +637,32 @@ def cape_back_y(z):
     return FIT.torso_delta(min(max(z, 1.0), 1.45))[2] + interp_table([(0.10, 0.360), (0.30, 0.345), (0.60, 0.315), (0.90, 0.250), (1.10, 0.200), (1.35, 0.192), (1.52, 0.185)], z)[0]
 def build_cape():
     mb = MB()
-    nu, nv = 36, 56
+    nu, nv = 44, 56
+    rr = random.Random(5)
+    folds = [(rr.uniform(-0.95, 0.95), rr.uniform(0.05, 0.11), rr.uniform(0.6, 1.0)) for _ in range(9)]
     G = []
     for j in range(nv + 1):
         t = j / nv
         z = 1.505 - t * 1.385
-        W = 0.22 + 0.17 * smoothstep(0.0, 1.0, t ** 0.8)
+        W = 0.20 + 0.20 * smoothstep(0.0, 1.0, t ** 0.7)
         row = []
         for i in range(nu + 1):
             s = -1 + 2 * i / nu
             x = s * W
-            y = cape_back_y(z) + 0.012 - (s * s) * (0.12 + 0.02 * t)
-            amp = 0.006 + 0.034 * smoothstep(0.08, 1.0, t)
-            fold = math.sin(s * 3.5 * math.pi + 0.6) * amp + math.sin(s * 7.3 * math.pi + 1.7 + t * 2) * amp * 0.25
+            wrap = 0.15 * (1 - 0.35 * t)                      # wraps round the back, edges come forward
+            y = cape_back_y(z) + 0.012 - (s * s) * wrap
+            # folds: start as small gathers under the shoulders and deepen to the hem
+            amp = 0.004 + 0.048 * smoothstep(0.05, 1.0, t) ** 0.9
+            f = 0.0
+            for (c, w, k) in folds:
+                d = (s - c) / (w * (0.6 + 0.6 * t))
+                f += k * math.exp(-d * d) * (1 if (int(c * 10) % 2) else -0.7)
+            f += 0.35 * math.sin(s * 9.0 + t * 3.0)
             nrm = Vector((s * 0.9, 1.0, 0)).normalized()
-            p = Vector((x, y, z)) + nrm * fold
-            # top drapes over the shoulders toward the front
-            if t < 0.06:
-                p.y -= (0.06 - t) / 0.06 * 0.03 * (1 - s * s)
+            p = Vector((x, y, z)) + nrm * f * amp
+            if t < 0.07:                                      # gathered over the shoulders
+                p.y -= (0.07 - t) / 0.07 * 0.035 * (1 - s * s)
+            p.z += 0.012 * math.sin(s * 5.0 + 1.0) * t ** 3   # uneven hem
             row.append(p)
         G.append(row)
     G = G[::-1]
@@ -634,31 +795,32 @@ def build_aventail():
     done(tm.build('SUR_Aventail_Trim', [M_TRIM]), 'head', 'Head')
 
 def build_plume(base):
-    """black horsehair topknot: long thin strand cards rising from the socket and falling over in all directions (mostly back)"""
+    """dense black horsehair tuft: short rise out of the socket, then the hair falls over and down to one side (back-right)"""
     mb = MB()
     r = random.Random(11)
-    N = 150
+    N = 380
+    side_az = math.pi                            # falls down the back
     for c in range(N):
-        az = r.gauss(math.pi, 1.25)            # 0 = front, pi = back
+        az = side_az + r.gauss(0.0, 0.42)
         d = Vector((math.sin(az), -math.cos(az), 0))
-        rise = r.uniform(0.05, 0.11)
-        reach = r.uniform(0.07, 0.17)
-        fall = r.uniform(0.10, 0.26)
-        P0 = base + d * 0.003
-        P1 = base + Vector((0, 0, rise * 1.1)) + d * 0.006
-        P2 = base + Vector((0, 0, rise * 1.05)) + d * reach * 0.75
-        P3 = base + Vector((0, 0, rise - fall)) + d * reach * r.uniform(1.0, 1.25)
+        rise = r.uniform(0.030, 0.060)
+        reach = r.uniform(0.05, 0.10)
+        fall = r.uniform(0.20, 0.36)
+        P0 = base + Vector((r.uniform(-0.004, 0.004), r.uniform(-0.004, 0.004), 0.0))
+        P1 = P0 + Vector((0, 0, rise)) + d * 0.010
+        P2 = P0 + Vector((0, 0, rise * 1.05)) + d * reach * 0.8
+        P3 = P0 + Vector((0, 0, rise - fall)) + d * reach * r.uniform(1.0, 1.25) + Vector((0, 0.035, 0))
         segs = 12
         pts = [P0 * (1 - t) ** 3 + P1 * 3 * (1 - t) ** 2 * t + P2 * 3 * (1 - t) * t * t + P3 * t ** 3 for t in [k / segs for k in range(segs + 1)]]
         u0 = (c % 10) / 10
         side0 = Vector((0, 0, 1)).cross(d).normalized()
-        rot = r.uniform(-0.6, 0.6)
+        rot = r.uniform(-1.2, 1.2)
         for k in range(segs + 1):
             t = k / segs
             tg = (pts[min(k + 1, segs)] - pts[max(k - 1, 0)]).normalized()
-            sd = (side0 * math.cos(rot) + tg.cross(side0) * math.sin(rot))
+            sd = side0 * math.cos(rot) + tg.cross(side0) * math.sin(rot)
             sd = (sd - tg * sd.dot(tg)).normalized()
-            w = 0.010 * (1 - 0.5 * t) * (0.6 if k == 0 else 1.0)
+            w = 0.016 * (1 - 0.35 * t) * (0.5 if k == 0 else 1.0)
             mb.add_v(pts[k] - sd * w / 2); mb.add_v(pts[k] + sd * w / 2)
             if k:
                 i = len(mb.v)

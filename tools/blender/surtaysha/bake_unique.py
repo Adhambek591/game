@@ -23,11 +23,11 @@ def kind_of(name):
         'SUR_WaistGuard': ('leather', dict(tint=(0.090, 0.048, 0.025), gilt=True), 'tooled', 4),
         'SUR_Belt_Gold': ('gold', dict(wear=1.0), 'relief', 4),
         'SUR_Pauldron_Backing_L': ('leather', dict(tint=(0.070, 0.036, 0.020)), bc.d_leather, 1),
-        'SUR_Bracer_Plate_L': ('iron', dict(tint=(0.26, 0.27, 0.29), rust=0.30, rough=0.36, patina=0.3), bc.d_iron, 2),
+        'SUR_Bracer_Plate_L': ('iron', dict(tint=(0.15, 0.165, 0.19), rust=0.30, rough=0.36, patina=0.3), bc.d_iron, 2),
         'SUR_Bracer_Leather_L': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 2),
-        'SUR_Boot_L': ('leather', dict(tint=(0.085, 0.048, 0.028), wear=0.8), bc.d_leather, 2),
+        'SUR_Boot_L': ('leather', dict(tint=(0.085, 0.048, 0.028), wear=0.8, scuff=True), 'boot', 2),
         'SUR_Boot_Sole_L': ('leather', dict(tint=(0.030, 0.020, 0.014), wear=0.5), bc.d_leather, 2),
-        'SUR_Greave_L': ('iron', dict(tint=(0.26, 0.27, 0.29), rust=0.35, rough=0.36, patina=0.3), bc.d_iron, 2),
+        'SUR_Greave_L': ('iron', dict(tint=(0.15, 0.165, 0.19), rust=0.35, rough=0.36, patina=0.3), bc.d_iron, 2),
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
         'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
         'SUR_Trousers_L': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
@@ -80,6 +80,29 @@ def d_tooled(p, s):
                 sc = math.sin(xx / 0.016 * 6.283 + math.sin(yy * 9.0) * 1.6) * math.cos(yy * 3.1416)
                 h += 0.00045 * max(0.0, abs(sc) - 0.35) / 0.65
     return h
+
+_BT = None
+def _boot_extent():
+    global _BT
+    if _BT is None:
+        o = bpy.data.objects['SUR_Boot_L']; vs = [v.co for v in o.data.vertices]
+        _BT = (min(v.y for v in vs), max(v.y for v in vs))
+    return _BT
+def d_boot(p, s):
+    """stiff leather: creases across the instep and around the ankle, leather grain"""
+    yF, yB = _boot_extent()
+    h = bc.d_leather(p, s)
+    if 0.045 < p.z < 0.20:
+        band = math.exp(-((p.z - 0.11) / 0.045) ** 2)
+        cr = max(0.0, math.sin(p.z / 0.0105 * 6.283 + 2.5 * math.sin(p.x * 60) + p.y * 40)) ** 6
+        h -= 0.0007 * band * cr
+    return h
+def boot_scuff(p):
+    yF, yB = _boot_extent()
+    toe = math.exp(-((p.y - yF) / 0.03) ** 2) * (1.0 if p.z < 0.07 else 0.0)
+    heel = math.exp(-((p.y - yB) / 0.03) ** 2) * (1.0 if p.z < 0.08 else 0.0)
+    from mathutils import noise as _n
+    return min(1.0, (toe + heel) * (0.55 + 0.6 * _n.noise(p * 90)))
 
 def d_wrap(p, s):
     a = math.atan2(p.x, p.y)
@@ -152,6 +175,9 @@ for tset in WANT:
                 for sg in (1, -1):
                     cents.append((torso_point(u * sg, 1.093, 0.031), 0.022, 0.023, k))
             dfun = lambda p, s, c=cents: relief.belt_gold(p, c)
+        elif disp == 'boot':
+            dfun = lambda p, s: d_boot(p, s)
+            afun = lambda p: boot_scuff(p)
         elif disp == 'tooled':
             dfun = lambda p, s: relief.guard_orn(p)[0] + bc.d_leather(p, s) * 0.6
             afun = lambda p: relief.guard_orn(p)[1]

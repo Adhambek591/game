@@ -169,7 +169,7 @@ for o in bpy.data.objects:
         o.matrix_world = Mw @ o.matrix_world
 
 # floor + world
-bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, 0))
+bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, -0.036))   # boot heels reach 3.6 cm below the foot
 fl = bpy.context.object; fl.name = 'Floor'
 fm = bpy.data.materials.new('MAT_Floor'); fm.use_nodes = True
 fb = fm.node_tree.nodes['Principled BSDF']; fb.inputs['Base Color'].default_value = (0.30, 0.30, 0.31, 1); fb.inputs['Roughness'].default_value = 0.9
@@ -215,3 +215,9 @@ for v in VIEWS:
     if v == 'helmet': shoot('helmet', (-0.55, -1.15, 1.80), (0, 0, 1.73), 85, (1600, 1600))
     if v == 'torso': shoot('torso', (-1.2, -2.6, 1.30), (0, 0, 1.22), 85, (1600, 1600))
     if v == 'legs': shoot('legs', (-0.9, -2.2, 0.45), (0, 0, 0.40), 85, (1600, 1600))
+    if v == 'etik':
+        fx = LM['bones']['foot_l']['head'][0]
+        shoot('etik', (fx + 0.95, -0.85, 0.30), (fx, -0.03, 0.20), 85, (1600, 1600))
+    if v == 'etik_side':
+        fx = LM['bones']['foot_l']['head'][0]
+        shoot('etik_side', (fx + 1.25, -0.04, 0.22), (fx, -0.03, 0.21), 85, (1600, 1600))

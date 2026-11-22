@@ -179,7 +179,7 @@ def gold(name, seed=0.0, wear=1.0):
     _finish(b, col, r, met, h, 0.3, 0.0005)
     _store(m, b); return m
 
-def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False):
+def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False, scuff=False):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = NB(m)
     tc, obj, geo, curv, convex, concave, cav = _common(b, seed)
@@ -200,6 +200,11 @@ def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False):
     h = b.math('ADD', h, b.math('MULTIPLY', b.ramp(crease.outputs['Fac'], (0.45, 0.55)), 0.25))
     h = b.math('ADD', h, b.math('MULTIPLY', scr, -0.4))
     met = 0.0
+    if scuff:
+        at = b.n('ShaderNodeAttribute', attribute_name='orn')
+        sm_ = b.ramp(at.outputs['Fac'], (0.2, 0.7))
+        col = b.mix(sm_, col, (0.20, 0.135, 0.085))
+        r = b.mixf(sm_, r, 0.82)
     if gilt:
         # gilt tooled lines from the vertex colour written by the relief pass (worn off on the high spots)
         at = b.n('ShaderNodeAttribute', attribute_name='orn')
