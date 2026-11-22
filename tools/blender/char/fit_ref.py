@@ -62,8 +62,16 @@ def match(spec, body, arm):
     print('CHAR fit: scale %.3f, posed to the reference' % k)
 
 # inner layers sit just inside the reference surface, outer ones just outside
-OFFS = {'tunic': -.007, 'trousers': -.007, 'body': -.001, 'dress': -.002, 'boots': .0, 'bootfoot': .0, 'cuirass': .002, 'belt': .006,
-        'tassets': .004, 'pauldron': .004, 'bracer': .003, 'scarf': .002, 'drape': .004}
+OFFS = {'tunic': -.01, 'trousers': -.008, 'body': -.001, 'dress': -.006, 'boots': .0, 'bootfoot': .0, 'cuirass': .004, 'belt': .01,
+        'tassets': .014, 'pauldron': .012, 'bracer': .01, 'scarf': .002, 'drape': .004}
+
+def tex_lamella_img(size):
+    """plate rows (bright plate, darker seams), values 0..1, size x size"""
+    import numpy as np
+    y, x = np.mgrid[0:size, 0:size] / size
+    px = (x * 16) % 1; py = (y * 10) % 1
+    edge = np.minimum(np.minimum(px, 1 - px) * 6, np.minimum(py, 1 - py) * 4).clip(0, 1)
+    return np.sqrt(edge) * (1 - (1 - py) ** 3 * .35)
 
 def set_emit(ref, on):
     for slot in ref.material_slots:
@@ -155,7 +163,7 @@ def wrap_bake(spec, body, arm, objs):
     for o in objs:
         key = next((k for k in OFFS if o.name.startswith(k)), None)
         if key is None and not o.name.startswith('braid'): continue
-        wrap = key is not None
+        wrap = key is not None and key not in spec.get('nowrap', ())
         # ---- shrink-wrap (body: only the head and neck; hands keep the real fingers)
         if wrap: sw = o.modifiers.new('sw', 'SHRINKWRAP'); sw.target = ref; sw.wrap_method = 'NEAREST_SURFACEPOINT'; sw.offset = OFFS[key]
         if wrap and o == body:
@@ -194,7 +202,8 @@ def wrap_bake(spec, body, arm, objs):
         me.materials.clear(); me.materials.append(m)
         for p in me.polygons: p.material_index = 0
         bpy.ops.object.select_all(action='DESELECT'); ref.select_set(True); o.select_set(True); bpy.context.view_layer.objects.active = o
-        sc.render.bake.cage_extrusion = .012 if key in ('tunic', 'trousers', 'dress', 'body') else .03
+        sc.render.bake.cage_extrusion = .012 if key in ('tunic', 'trousers', 'dress', 'body') else (.07 if not wrap else .03)
+        sc.render.bake.max_ray_distance = .14 if not wrap else .06
         nt.nodes.active = tc; sc.render.bake.margin = 8
         set_emit(ref, True); bpy.ops.object.bake(type='EMIT')
         set_emit(ref, False); nt.nodes.active = tn
@@ -213,14 +222,26 @@ def wrap_bake(spec, body, arm, objs):
             me.materials.append(ms)
             for poly in me.polygons:
                 if (o.matrix_world @ poly.center).z < head_z - .07: poly.material_index = 1
-        if key in ('dress', 'trousers'):
+        if key in ('dress', 'trousers', 'tunic', 'scarf', 'drape', 'boots', 'bootfoot'):
             import numpy as np
             px = np.array(img.pixels[:], dtype=np.float32).reshape(size, size, 4); rgb = px[..., :3]
             mx = rgb.max(2); mn = rgb.min(2); sat = (mx - mn) / np.maximum(mx, 1e-4); lum = rgb @ np.array([.3, .59, .11])
             filled = mx > .02; good = filled & (sat > .3)
             if good.any():
-                med = np.median(rgb[good], 0); bad = filled & (sat < .36) & (lum > .2)
+                med = np.median(rgb[good], 0); bad = (filled & (sat < .36)) | (mx < .03)   # grey armour seen through + rays that hit nothing
                 rgb[bad] = med * (.9 + .2 * np.random.default_rng(1).random((bad.sum(), 1)))
+                px[..., :3] = rgb; img.pixels.foreach_set(px.ravel())
+        if key in ('cuirass', 'tassets', 'pauldron', 'bracer'):   # metal parts: the blue cloth seen where the reference has no plate -> steel
+            import numpy as np
+            px = np.array(img.pixels[:], dtype=np.float32).reshape(size, size, 4); rgb = px[..., :3]
+            mx = rgb.max(2); mn = rgb.min(2); sat = (mx - mn) / np.maximum(mx, 1e-4)
+            blue = (sat > .28) & (rgb[..., 2] > rgb[..., 0] * 1.25) & (rgb[..., 2] > rgb[..., 1] * 1.1)
+            steel = (mx > .03) & (sat < .25)
+            if steel.any():
+                med = np.median(rgb[steel], 0); bad = blue | (mx < .03)
+                # keep the plate rhythm: modulate with the generated lamella pattern
+                lam = np.array(tex_lamella_img(size), dtype=np.float32)
+                rgb[bad] = (med * (.75 + .5 * lam[..., None]))[bad]
                 px[..., :3] = rgb; img.pixels.foreach_set(px.ravel())
         img.filepath_raw = os.path.join(spec['_dir'], 'out', 'bake_' + o.name + '.png'); img.file_format = 'PNG'; img.save(); img.pack(); nim.pack()
         print('CHAR baked', o.name, size)

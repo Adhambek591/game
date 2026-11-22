@@ -98,7 +98,7 @@ def build(spec, body, arm):
     # landmarks
     up = Vector((0, 0, 1)); rgt = hw('RightUpLeg') - hw('LeftUpLeg'); rgt.z = 0; rgt.normalize(); fwd = up.cross(rgt).normalized()
     if fwd.dot(Vector((0, -1, 0))) < 0: fwd = -fwd   # MPFB faces -Y
-    hip = hw('Hips'); waist = hw('Spine01').z - .02; knee = (hw('LeftLeg').z + hw('RightLeg').z) / 2; ankle = (hw('LeftFoot').z + hw('RightFoot').z) / 2
+    hip = hw('Hips'); waist = hw(spec.get('waist_bone', 'Spine01')).z - .02; knee = (hw('LeftLeg').z + hw('RightLeg').z) / 2; ankle = (hw('LeftFoot').z + hw('RightFoot').z) / 2
     shz = (hw('LeftArm').z + hw('RightArm').z) / 2; neckz = hw('neck').z; headp = hw('Head'); top = max(p.z for p in P)
     H = top - min(p.z for p in P); S = H / 1.7
     eye = [P[i] for i in range(len(P)) if ws(i, 'Head') > .5]
@@ -322,17 +322,27 @@ def build(spec, body, arm):
         for v in bmx.verts:
             p = v.co + hc
             d = (p - hc); front = -d.y
-            low = hc.z - .07 * S if front > .03 * S else neckz - .06 * S + (hc.z - .07 * S - neckz + .06 * S) * smooth(-.03 * S, .03 * S, front)
+            FB = spec.get('_face')
+            fz = (FB['chin'] - .01) if FB else hc.z - .07 * S
+            low = fz if front > .03 * S else neckz - .06 * S + (fz - neckz + .06 * S) * smooth(-.03 * S, .03 * S, front)
             if p.z < low: dead.append(v); continue
             # face opening: an oval from just above the brows to below the chin, ears covered
-            ox = d.x / (.075 * S); oz = (p.z - (hc.z - .055 * S)) / (.085 * S)
-            if front > 0 and ox * ox + oz * oz < 1 and p.z < hairline + .005 * S: dead.append(v)
+            if FB:   # measured on the MetaHuman head
+                ox = (p.x - FB['cx']) / (FB['halfw'] + .01); oz = (p.z - (FB['brow'] + FB['chin']) / 2) / ((FB['brow'] - FB['chin']) / 2 + .02)
+                if front > 0 and ox * ox + oz * oz < 1 and p.z < FB['brow'] + .025: dead.append(v)
+            else:
+                ox = d.x / (.075 * S); oz = (p.z - (hc.z - .055 * S)) / (.085 * S)
+                if front > 0 and ox * ox + oz * oz < 1 and p.z < hairline + .005 * S: dead.append(v)
         bmesh.ops.delete(bmx, geom=dead, context='VERTS'); bmx.to_mesh(m); bmx.free()
         o.location = (0, 0, 0)
         for v in m.vertices: v.co = v.co + hc
         sw = o.modifiers.new('sw', 'SHRINKWRAP'); sw.target = body; sw.wrap_method = 'NEAREST_SURFACEPOINT'; sw.offset = .02 * S
         bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier='sw')
         sm = o.modifiers.new('sm', 'SMOOTH'); sm.factor = .8; sm.iterations = 6; bpy.ops.object.modifier_apply(modifier='sm')
+        if spec.get('_face'):   # the hood must not lie on the face: drop what the wrap pulled onto the cheeks / forehead
+            FB = spec['_face']; bmx = bmesh.new(); bmx.from_mesh(m)
+            bmesh.ops.delete(bmx, geom=[v for v in bmx.verts if v.co.y < FB['front'] + .075 and v.co.z < FB['brow'] + .012 and abs(v.co.x - FB['cx']) < FB['halfw'] + .035], context='VERTS')
+            bmx.to_mesh(m); bmx.free()
         # loosen at the back (cloth over the braids' roots) and let the lower edge hang down a little
         for v in m.vertices:
             d = v.co - hc
@@ -350,7 +360,10 @@ def build(spec, body, arm):
         m.materials.append(material('scarf', scf['color'], .85, 0, 'fabric'))
         o.parent = arm; o.matrix_parent_inverse = AW.inverted(); md = o.modifiers.new('arm', 'ARMATURE'); md.object = arm; new.append(o)
         for p in me.polygons:
-            if all(headw[v] > .4 and P[v].z > neckz + .05 * S and not in_face(v) for v in p.vertices): covered.add(p.index)
+            if spec.get('_face'):   # MetaHuman head: only the skull under the hood goes (above the brows or behind the ears)
+                FB = spec['_face']
+                if all(headw[v] > .4 and (P[v].z > FB['brow'] + .045 or P[v].y > FB['front'] + .11) for v in p.vertices): covered.add(p.index)
+            elif all(headw[v] > .4 and P[v].z > neckz + .05 * S and not in_face(v) for v in p.vertices): covered.add(p.index)
     hairline = hc.z + .02 * S
     def in_face(i):
         p = P[i]; return p.y < hc.y - .025 * S and p.z < hairline and abs(p.x - hc.x) < .075 * S
@@ -399,7 +412,7 @@ def build(spec, body, arm):
         chest_front = min(P[i].y for i in range(N) if abs(P[i].z - (shz - .12 * S)) < .02 * S and armw[i] < .1)
         for s, sg in (('Left', -1), ('Right', 1)):
             side = rgt * sg
-            p0 = Vector((hc.x, hc.y + .03 * S, hc.z - .05 * S)) + side * .072 * S
+            p0 = Vector((hc.x, hc.y + (.06 if spec.get('_face') else .03) * S, hc.z - .05 * S)) + side * .072 * S
             p1 = Vector((hip.x, hc.y - .01 * S, neckz - .02 * S)) + side * .10 * S
             p2 = Vector((hip.x, chest_front - .055 * S, shz - .10 * S)) + side * .095 * S
             p3 = Vector((hip.x, chest_front - .06 * S, shz - .30 * S)) + side * .085 * S
@@ -473,7 +486,7 @@ def build(spec, body, arm):
         bmx = bmesh.new(); dl = bmx.verts.layers.deform.verify()
         front = [P[i] for i in range(N) if headw[i] > .5 and P[i].y < hc.y]
         def fy(x, z):
-            c = [p.y for p in front if abs(p.x - x) < .012 * S and abs(p.z - z) < .012 * S]; return min(c) if c else face_front
+            c = [p.y for p in front if abs(p.x - x) < .012 * S and abs(p.z - z) < .012 * S]; return min(c) if c else (spec['_face']['front'] + .065 if spec.get('_face') else face_front)
         def disc(c, nrm, r, mi):
             g = bmesh.ops.create_cone(bmx, cap_ends=True, segments=10, radius1=r, radius2=r, depth=r * .35, matrix=Matrix.Translation(c) @ nrm.to_track_quat('Z', 'Y').to_matrix().to_4x4())
             for f in {f for v in g['verts'] for f in v.link_faces}: f.material_index = mi
@@ -482,14 +495,14 @@ def build(spec, body, arm):
             for f in {f for v in g['verts'] for f in v.link_faces}: f.material_index = mi
         zb = hairline - .006 * S; n = 9
         for k in range(n):
-            u = k / (n - 1) * 2 - 1; x = hc.x + u * .07 * S; z = zb + .012 * S * (1 - u * u)
+            u = k / (n - 1) * 2 - 1; x = hc.x + u * ((spec['_face']['halfw'] + .01) if spec.get('_face') else .07 * S); z = (zb if not spec.get('_face') else spec['_face']['brow'] + .022) + .012 * S * (1 - u * u)
             c = Vector((x, fy(x, z) - .012 * S, z)); nrm = (c - hc); nrm.z *= .3; nrm.normalize()
             disc(c, nrm, .0062 * S, 0)
             if k < n - 1: bead(Vector((x + .00875 * S, c.y, z - .004 * S)), .0035 * S, 1)
             for j in range(2): bead(c - Vector((0, 0, .012 * S + j * .007 * S)), .003 * S, 0 if j else 1)
         mz = spec['_lm']['mouth'].z if spec.get('_lm') and spec['_lm'].get('mouth') else hc.z - .09 * S
         for sg in (-1, 1):
-            x = hc.x + sg * .078 * S; zz = hairline - .01 * S; k = 0
+            x = (spec['_face']['cx'] + sg * (spec['_face']['halfw'] + .018)) if spec.get('_face') else hc.x + sg * .078 * S; zz = (spec['_face']['brow'] + .01) if spec.get('_face') else hairline - .01 * S; k = 0
             while zz > mz - .01 * S:
                 c = Vector((x, fy(x, zz) - .002 * S, zz)); bead(c, .0045 * S if k % 2 else .0035 * S, k % 2); zz -= .011 * S; k += 1
             disc(Vector((x, fy(x, zz) - .002 * S, zz - .006 * S)), -fwd, .007 * S, 0)
@@ -566,7 +579,7 @@ def build(spec, body, arm):
                 poly.material_index = 1
                 for li in poly.loop_indices:
                     pxy = np.array([*ab(P[me.loops[li].vertex_index]), 1]) @ M; uvd[li].uv = (pxy[0] / IW, 1 - pxy[1] / IH)
-    else:
+    elif not spec.get('keep_skin'):
         mats.append(material('skin', skin_rgb, .55))
     if mats:
         body.data.materials.clear()

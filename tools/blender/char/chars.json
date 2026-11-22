@@ -90,5 +90,101 @@
     "jewels": false,
     "ref_model": "ref/gulayim_hf.glb",
     "ref_head": true
+  },
+  "gulayim_mh": {
+    "ref": "guloyim-blue turnaround (Higgsfield element af621a6e) + gulayim-ok close-up",
+    "skin": [
+      0.6,
+      0.4,
+      0.29
+    ],
+    "tunic": [
+      0.085,
+      0.1,
+      0.42
+    ],
+    "trousers": [
+      0.17,
+      0.1,
+      0.07
+    ],
+    "boots": [
+      0.2,
+      0.12,
+      0.09
+    ],
+    "dress": {
+      "color": [
+        0.09,
+        0.11,
+        0.45
+      ],
+      "trim": [
+        0.25,
+        0.14,
+        0.1
+      ],
+      "hem": "knee",
+      "slit": true
+    },
+    "cuirass": {
+      "color": [
+        0.48,
+        0.48,
+        0.5
+      ],
+      "edge": [
+        0.3,
+        0.18,
+        0.12
+      ],
+      "pauldrons": true,
+      "tassets": true,
+      "bracers": true
+    },
+    "belt": [
+      0.33,
+      0.08,
+      0.07
+    ],
+    "amulet": true,
+    "jewels": true,
+    "ref_model": "ref/gulayim_hf.glb",
+    "mh_body": {
+      "dir": "../../metahuman/out",
+      "body_fbx": "gulayim_MHC_gulayim_clean_FullBody.fbx",
+      "head_fbx": "gulayim_MHC_gulayim_clean_Head.fbx",
+      "body_lod": 1,
+      "head_lod": 0,
+      "head_tex": "ft/head_basecolor.png",
+      "eye_img": "ft/paint_front.png",
+      "cams": "ft/ft_cams.json"
+    },
+    "waist_bone": "spine_02",
+    "keep_skin": true,
+    "nowrap": [
+      "scarf",
+      "drape",
+      "tassets",
+      "pauldron",
+      "bracer",
+      "belt"
+    ],
+    "scarf": {
+      "color": [
+        0.09,
+        0.11,
+        0.48
+      ],
+      "drape": true
+    },
+    "braids": {
+      "front": true,
+      "tie": [
+        0.55,
+        0.1,
+        0.07
+      ]
+    }
   }
 }

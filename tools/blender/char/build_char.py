@@ -12,67 +12,81 @@ HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 SPEC = json.load(open(os.path.join(HERE, 'chars.json'), encoding='utf-8'))[CHAR]
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-addon_utils.enable('bl_ext.user_default.mpfb', default_set=True)
-from bl_ext.user_default.mpfb.services.humanservice import HumanService
-from bl_ext.user_default.mpfb.services.targetservice import TargetService
-from bl_ext.user_default.mpfb.entities.objectproperties import HumanObjectProperties
+if SPEC.get('mh_body'):   # MetaHuman body + head (Unreal export) instead of the MPFB human
+    import mh_body
+    bm, arm = mh_body.load(SPEC, HERE); SPEC['_dir'] = HERE
+else:
+    addon_utils.enable('bl_ext.user_default.mpfb', default_set=True)
+    from bl_ext.user_default.mpfb.services.humanservice import HumanService
+    from bl_ext.user_default.mpfb.services.targetservice import TargetService
+    from bl_ext.user_default.mpfb.entities.objectproperties import HumanObjectProperties
 
-bm = HumanService.create_human()
-mac = SPEC['macro']
-for k, v in mac.items():
-    if k == 'race':
-        for r, x in v.items(): HumanObjectProperties.set_value(r, x, entity_reference=bm)
-    else: HumanObjectProperties.set_value(k, v, entity_reference=bm)
-TargetService.reapply_macro_details(bm)
-TD = os.path.join(os.path.dirname(TargetService.__file__ if hasattr(TargetService, '__file__') else ''), '..', 'data', 'targets')
-for t, w in SPEC.get('targets', {}).items():   # face / body detail targets, e.g. "nose/nose-scale-horiz-decr|incr"
-    try: TargetService.load_target(bm, TargetService.target_full_path(t), weight=w)
-    except Exception as e: print('CHAR target fail', t, e)
-TargetService.bake_targets(bm)
-HumanService.add_builtin_rig(bm, 'game_engine', import_weights=True)
-arm = next(o for o in bpy.context.scene.objects if o.type == 'ARMATURE')
+    bm = HumanService.create_human()
+    mac = SPEC['macro']
+    for k, v in mac.items():
+        if k == 'race':
+            for r, x in v.items(): HumanObjectProperties.set_value(r, x, entity_reference=bm)
+        else: HumanObjectProperties.set_value(k, v, entity_reference=bm)
+    TargetService.reapply_macro_details(bm)
+    TD = os.path.join(os.path.dirname(TargetService.__file__ if hasattr(TargetService, '__file__') else ''), '..', 'data', 'targets')
+    for t, w in SPEC.get('targets', {}).items():   # face / body detail targets, e.g. "nose/nose-scale-horiz-decr|incr"
+        try: TargetService.load_target(bm, TargetService.target_full_path(t), weight=w)
+        except Exception as e: print('CHAR target fail', t, e)
+    TargetService.bake_targets(bm)
+    HumanService.add_builtin_rig(bm, 'game_engine', import_weights=True)
+    arm = next(o for o in bpy.context.scene.objects if o.type == 'ARMATURE')
 
-# ---- rename bones / vertex groups to the game's names
-REN = {'pelvis': 'Hips', 'spine_01': 'Spine02', 'spine_02': 'Spine01', 'spine_03': 'Spine', 'neck_01': 'neck', 'head': 'Head'}
-for s, S in (('l', 'Left'), ('r', 'Right')):
-    REN.update({'clavicle_' + s: S + 'Shoulder', 'upperarm_' + s: S + 'Arm', 'lowerarm_' + s: S + 'ForeArm', 'hand_' + s: S + 'Hand',
-                'thigh_' + s: S + 'UpLeg', 'calf_' + s: S + 'Leg', 'foot_' + s: S + 'Foot', 'ball_' + s: S + 'ToeBase'})
-    for f in ('thumb', 'index', 'middle', 'ring', 'pinky'):
-        for j in (1, 2, 3): REN['%s_0%d_%s' % (f, j, s)] = S + f.capitalize() + str(j)
-for b in arm.data.bones:
-    if b.name in REN: b.name = REN[b.name]   # vertex groups follow the bone rename automatically
+    # ---- rename bones / vertex groups to the game's names
+    REN = {'pelvis': 'Hips', 'spine_01': 'Spine02', 'spine_02': 'Spine01', 'spine_03': 'Spine', 'neck_01': 'neck', 'head': 'Head'}
+    for s, S in (('l', 'Left'), ('r', 'Right')):
+        REN.update({'clavicle_' + s: S + 'Shoulder', 'upperarm_' + s: S + 'Arm', 'lowerarm_' + s: S + 'ForeArm', 'hand_' + s: S + 'Hand',
+                    'thigh_' + s: S + 'UpLeg', 'calf_' + s: S + 'Leg', 'foot_' + s: S + 'Foot', 'ball_' + s: S + 'ToeBase'})
+        for f in ('thumb', 'index', 'middle', 'ring', 'pinky'):
+            for j in (1, 2, 3): REN['%s_0%d_%s' % (f, j, s)] = S + f.capitalize() + str(j)
+    for b in arm.data.bones:
+        if b.name in REN: b.name = REN[b.name]   # vertex groups follow the bone rename automatically
 
-# ---- face landmarks (eyes, mouth) for projecting the reference portrait onto the head
-def _centroid(gname):
-    gi_ = bm.vertex_groups[gname].index; pts = [bm.matrix_world @ v.co for v in bm.data.vertices if any(g.group == gi_ and g.weight > .5 for g in v.groups)]
-    return sum(pts, Vector()) / len(pts) if pts else None
-SPEC['_lm'] = {k: _centroid(g) for k, g in (('eyeL', 'helper-l-eye'), ('eyeR', 'helper-r-eye'), ('mouth', 'joint-mouth'))}
-SPEC['_dir'] = HERE
-print('CHAR lm', {k: (tuple(round(c, 3) for c in v) if v else None) for k, v in SPEC['_lm'].items()})
-# ---- apply the MPFB modifiers (mask of helper geometry etc.) except the armature, keep the eyes
-bpy.context.view_layer.objects.active = bm; bm.select_set(True)
-keep_helpers = ('helper-l-eye', 'helper-r-eye')
-gi = {g.name: g.index for g in bm.vertex_groups}
-dele = set()
-for v in bm.data.vertices:
-    names = {bm.vertex_groups[g.group].name for g in v.groups if g.weight > .5}
-    if 'body' in names: continue
-    if any(h in names for h in keep_helpers): continue
-    dele.add(v.index)
-for m in list(bm.modifiers):
-    if m.type != 'ARMATURE': bm.modifiers.remove(m)
-b = bmesh.new(); b.from_mesh(bm.data); b.verts.ensure_lookup_table()
-bmesh.ops.delete(b, geom=[b.verts[i] for i in dele], context='VERTS'); b.to_mesh(bm.data); b.free()
-for g in list(bm.vertex_groups):
-    if g.name not in {x.name for x in arm.data.bones} and g.name not in keep_helpers: bm.vertex_groups.remove(g)
-bm.name = 'body'
+    # ---- face landmarks (eyes, mouth) for projecting the reference portrait onto the head
+    def _centroid(gname):
+        gi_ = bm.vertex_groups[gname].index; pts = [bm.matrix_world @ v.co for v in bm.data.vertices if any(g.group == gi_ and g.weight > .5 for g in v.groups)]
+        return sum(pts, Vector()) / len(pts) if pts else None
+    SPEC['_lm'] = {k: _centroid(g) for k, g in (('eyeL', 'helper-l-eye'), ('eyeR', 'helper-r-eye'), ('mouth', 'joint-mouth'))}
+    SPEC['_dir'] = HERE
+    print('CHAR lm', {k: (tuple(round(c, 3) for c in v) if v else None) for k, v in SPEC['_lm'].items()})
+    # ---- apply the MPFB modifiers (mask of helper geometry etc.) except the armature, keep the eyes
+    bpy.context.view_layer.objects.active = bm; bm.select_set(True)
+    keep_helpers = ('helper-l-eye', 'helper-r-eye')
+    gi = {g.name: g.index for g in bm.vertex_groups}
+    dele = set()
+    for v in bm.data.vertices:
+        names = {bm.vertex_groups[g.group].name for g in v.groups if g.weight > .5}
+        if 'body' in names: continue
+        if any(h in names for h in keep_helpers): continue
+        dele.add(v.index)
+    for m in list(bm.modifiers):
+        if m.type != 'ARMATURE': bm.modifiers.remove(m)
+    b = bmesh.new(); b.from_mesh(bm.data); b.verts.ensure_lookup_table()
+    bmesh.ops.delete(b, geom=[b.verts[i] for i in dele], context='VERTS'); b.to_mesh(bm.data); b.free()
+    for g in list(bm.vertex_groups):
+        if g.name not in {x.name for x in arm.data.bones} and g.name not in keep_helpers: bm.vertex_groups.remove(g)
+    bm.name = 'body'
+
 
 # ---- fit to the author's Higgsfield model (pose + size), garments, then wrap + bake its look onto every layer
 import garments, fit_ref
 if SPEC.get('ref_model'): fit_ref.match(SPEC, bm, arm)
+if '--bodyonly' in args:   # MetaHuman body conform target: the standard female body fitted to the reference, no clothes, no eyes
+    import bmesh as _bm
+    gi_ = {g.name: g.index for g in bm.vertex_groups}; b_ = _bm.new(); b_.from_mesh(bm.data); dl_ = b_.verts.layers.deform.verify()
+    _bm.ops.delete(b_, geom=[v for v in b_.verts if any(k in v[dl_] for k in (gi_.get('helper-l-eye', -1), gi_.get('helper-r-eye', -1)))], context='VERTS'); b_.to_mesh(bm.data); b_.free()
+    for m_ in list(bm.modifiers): bm.modifiers.remove(m_)
+    wm_ = bm.matrix_world.copy(); bm.parent = None; bm.matrix_world = wm_
+    bpy.ops.object.select_all(action='DESELECT'); bm.select_set(True); bpy.context.view_layer.objects.active = bm; bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, apply_unit_scale=True, global_scale=1.0, axis_forward='-Y', axis_up='Z', object_types={'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
+    print('CHAR bodyonly ->', OUT); sys.exit(0)
 garments.build(SPEC, bm, arm)
 if SPEC.get('ref_head'): fit_ref.head_from_ref(SPEC, bm, arm)
-if SPEC.get('ref_model'): fit_ref.wrap_bake(SPEC, bm, arm, [bm] + [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == arm and o != bm and o.name != 'head'])
+if SPEC.get('ref_model'): fit_ref.wrap_bake(SPEC, bm, arm, ([] if SPEC.get('mh_body') else [bm]) + [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == arm and o != bm and o.name != 'head'])
 
 # ---- export
 bpy.ops.object.select_all(action='DESELECT')
