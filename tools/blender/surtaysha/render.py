@@ -169,7 +169,7 @@ for o in bpy.data.objects:
         o.matrix_world = Mw @ o.matrix_world
 
 # floor + world
-bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, -0.036))   # boot heels reach 3.6 cm below the foot
+bpy.ops.mesh.primitive_plane_add(size=30, location=(0, 0, -0.040))   # boot heels reach 4 cm below the foot
 fl = bpy.context.object; fl.name = 'Floor'
 fm = bpy.data.materials.new('MAT_Floor'); fm.use_nodes = True
 fb = fm.node_tree.nodes['Principled BSDF']; fb.inputs['Base Color'].default_value = (0.30, 0.30, 0.31, 1); fb.inputs['Roughness'].default_value = 0.9

@@ -481,34 +481,51 @@ def _ellipse_ring(cx, cy, hx, hy, N, n=2.3):
     return out
 
 def _boot_rings():
+    """chunky steppe riding boot: roomy foot ~2 cm off the foot all round with a high instep and a big rounded toe,
+    flowing in a smooth curve into a wide, nearly straight shaft (~1.18 x the calf) with no ankle narrowing"""
     V = [p for p in FIT.V if p.x > 0.02 and p.z < BOOT_TOP + 0.03]
+    # straight shaft: calf extents and the leg centre line (ankle -> knee)
+    cal = [FIT.leg_at(z) for z in [0.22 + 0.02 * k for k in range(12)]]
+    hx = max(c[1] for c in cal) * 1.18
+    hy = max((c[3] - c[2]) / 2 for c in cal) * 1.18
+    lo, hi = FIT.leg_at(0.20), FIT.leg_at(0.44)
+    def shaft_c(z):
+        t = (z - 0.20) / 0.24
+        return (lo[0] + (hi[0] - lo[0]) * t, (lo[2] + lo[3]) / 2 + ((hi[2] + hi[3]) / 2 - (lo[2] + lo[3]) / 2) * t + 0.004)
     rings = []
     for z in BOOT_Z:
         band = 0.004 if z > 0.0 else 0.006
         sl = [(p.x, p.y) for p in V if abs(p.z - max(z, 0.003)) < band]
-        hull = _hull(sl)
-        cl = 0.0075 + 0.0045 * smoothstep(0.10, 0.22, z)
-        hr = _resample_front(_offset(hull, cl), BOOT_N)
-        xs = [p[0] for p in sl]; ys = [p[1] for p in sl]
-        er = _ellipse_ring((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2 + 0.003, (max(xs) - min(xs)) / 2 + 0.012,
-                           (max(ys) - min(ys)) / 2 + 0.013, BOOT_N)
-        w = smoothstep(0.17, 0.25, z)
-        rings.append([h.lerp(e, w) for h, e in zip(hr, er)])
-    # smooth across heights (keeps the shaft stiff, keeps the heel / instep / ankle shape)
-    for _ in range(2):
+        hr = _resample_front(_offset(_hull(sl), 0.020), BOOT_N)
+        cx, cy = shaft_c(z)
+        taper = 1.0 + 0.04 * smoothstep(0.30, 0.47, z)        # a touch of flare toward the knee
+        er = _ellipse_ring(cx, cy, hx * taper, hy * taper, BOOT_N, n=2.2)
+        w = smoothstep(0.07, 0.19, z)
+        ring = []
+        for h, e in zip(hr, er):
+            q = h.lerp(e, w)
+            # the shaft never pinches in: keep the lower part at least as roomy as the shaft tube
+            if z > 0.10:
+                c = Vector((cx, cy)); d = (q - c); de = (e - c)
+                if d.length < de.length: q = c + d.normalized() * de.length if d.length > 1e-6 else e
+            ring.append(q)
+        rings.append(ring)
+    for _ in range(3):
         nr = [r[:] for r in rings]
         for j in range(2, len(rings) - 1):
             for i in range(BOOT_N):
                 nr[j][i] = (rings[j - 1][i] + rings[j][i] * 2 + rings[j + 1][i]) / 4
         rings = nr
-    # pointed toe: stretch the front of the low rings forward and pull it toward the toe line
+    # big rounded toe box: push the front of the low rings forward and outward a little (bulbous, not pointed)
     yF = min(p.y for p in rings[0]); xt = min(rings[0], key=lambda p: p.y).x
     for j, z in enumerate(BOOT_Z):
-        if z > 0.08: break
-        f = 1 - z / 0.08
-        for i, p in enumerate(rings[j]):
-            s = smoothstep(yF + 0.065, yF, p.y)
-            rings[j][i] = Vector((xt + (p.x - xt) * (1 - 0.30 * s * f), p.y - 0.022 * s * f))
+        if z > 0.15: break
+        for i, q in enumerate(rings[j]):
+            s = smoothstep(yF + 0.13, yF + 0.01, q.y)
+            # fuller, taller toe box: push the vamp forward above the toes, round off the bottom front edge
+            dy = -0.026 * math.exp(-((z - 0.070) / 0.040) ** 2) * s + 0.007 * s * max(0.0, 1 - z / 0.022)
+            wx = 1 + 0.07 * s * max(0.0, 1 - z / 0.10)
+            rings[j][i] = Vector((xt + (q.x - xt) * wx, q.y + dy))
     return rings
 
 BOOT_RINGS = _boot_rings()
@@ -517,7 +534,7 @@ BOOT_HEEL_Y = max(p.y for p in BOOT_RINGS[0])
 
 def toe_spring(y, z):
     """upturned toe: lift of the sole/upper near the tip"""
-    return 0.011 * smoothstep(BOOT_TIP_Y + 0.07, BOOT_TIP_Y, y) * max(0.0, 1 - z / 0.07)
+    return 0.006 * smoothstep(BOOT_TIP_Y + 0.07, BOOT_TIP_Y, y) * max(0.0, 1 - z / 0.07)
 
 def _ring_at(z):
     zs = BOOT_Z
@@ -562,17 +579,17 @@ def build_boots():
     # ---- layered sole (two leather lifts) proud of the upper, stacked heel block under the heel
     def srow(z, g):
         return [boot_ring(0.0, 2 * math.pi * i / N, grow=g) + Vector((0, 0, z)) for i in range(N)]
-    rows = [srow(0.0015, 0.0030), srow(-0.0010, 0.0055), srow(-0.0080, 0.0055), srow(-0.0092, 0.0040),
-            srow(-0.0104, 0.0055), srow(-0.0175, 0.0055), srow(-0.0190, 0.0035)]
+    rows = [srow(0.0015, 0.0040), srow(-0.0015, 0.0080), srow(-0.0125, 0.0080), srow(-0.0140, 0.0062),
+            srow(-0.0155, 0.0080), srow(-0.0255, 0.0080), srow(-0.0275, 0.0055)]
     cen = boot_center(0.0)
-    cen3 = Vector((cen.x, cen.y, -0.019))
+    cen3 = Vector((cen.x, cen.y, -0.0275))
     cap = [[p.lerp(cen3 + Vector((0, 0, toe_spring(p.y, 0.0))), f) for p in rows[-1]] for f in (0.55, 0.85)]
     for c in cap:
-        for p in c: p.z = -0.019 + toe_spring(p.y, 0.0)
+        for p in c: p.z = -0.0275 + toe_spring(p.y, 0.0)
     shell(sm, rows + cap, 0.0, out_fn=lambda p: boot_out(p) + Vector((0, 0, (p.z + 0.009) * 6)), closed_u=True, back=False, walls=False)
     # heel: stacked block (three lifts) under the back 30 % of the sole
     yh = BOOT_HEEL_Y - 0.075
-    heel_ring = [p for p in srow(0.0, 0.0040) if p.y > yh]
+    heel_ring = [p for p in srow(0.0, 0.0070) if p.y > yh]
     heel_ring.sort(key=lambda p: math.atan2(p.x - cen.x, -(p.y - cen.y)) % (2 * math.pi))
     xl = min(p.x for p in heel_ring); xr = max(p.x for p in heel_ring)
     front = [Vector((xr + (xl - xr) * k / 6, yh, 0.0)) for k in range(7)]
@@ -580,10 +597,10 @@ def build_boots():
     hpoly, _ = resample(hpoly, count=36, closed=True)
     hc = sum(hpoly, Vector()) / len(hpoly)
     H = []
-    for z, s in ((-0.017, 1.0), (-0.0185, 1.02), (-0.026, 1.02), (-0.027, 0.995), (-0.0345, 0.99), (-0.036, 0.965)):
+    for z, s in ((-0.025, 1.04), (-0.0265, 1.06), (-0.0330, 1.06), (-0.0340, 1.045), (-0.0385, 1.04), (-0.0400, 1.01)):
         H.append([Vector((hc.x + (p.x - hc.x) * s, hc.y + (p.y - hc.y) * s, z)) for p in hpoly])
-    H.append([Vector((hc.x + (p.x - hc.x) * 0.5, hc.y + (p.y - hc.y) * 0.5, -0.036)) for p in hpoly])
-    shell(sm, H, 0.0, out_fn=lambda p: Vector((p.x - hc.x, p.y - hc.y, -0.5 if p.z < -0.0355 else 0.0)), closed_u=True, back=False, walls=False)
+    H.append([Vector((hc.x + (p.x - hc.x) * 0.5, hc.y + (p.y - hc.y) * 0.5, -0.040)) for p in hpoly])
+    shell(sm, H, 0.0, out_fn=lambda p: Vector((p.x - hc.x, p.y - hc.y, -0.5 if p.z < -0.0395 else 0.0)), closed_u=True, back=False, walls=False)
     # ---- welt with stitching where the upper meets the sole
     welt = [boot_ring(0.004, 2 * math.pi * k / 96, grow=0.0022) for k in range(96)]
     wu = [(boot_out(p).normalized() + Vector((0, 0, 0.7))).normalized() for p in welt]
@@ -609,7 +626,7 @@ def build_boots():
     # ---- shin plate (greave): front plate only, strapped over the shaft, from the instep to below the knee
     span = math.radians(116)
     gz = [0.150 + (0.440 - 0.150) * j / 13 for j in range(14)]
-    def gr(z): return 0.0045 + 0.010 * smoothstep(0.20, 0.15, z)
+    def gr(z): return 0.0050 + 0.006 * smoothstep(0.19, 0.15, z)
     Gg = [[boot_ring(z, (-span + 2 * span * i / 16), grow=gr(z)) for i in range(17)] for z in gz]
     for row in Gg:
         for i, p in enumerate(row):
