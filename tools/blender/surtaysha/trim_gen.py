@@ -100,17 +100,19 @@ bead = np.clip(1 - (bd / 0.0019) ** 2, 0, 1) ** 0.5
 rim = np.exp(-((y - 0.10) / 0.04) ** 2) + np.exp(-((y - 0.58) / 0.04) ** 2)
 h = bead * 0.0009 + rim * 0.0003
 gold_fill(m, h, cav_extra=np.clip((bd > 0.0019) * (bd < 0.0026) * 0.6, 0, 1))
-# braid border (coat): olive-khaki diagonal weave with dark guard lines
+# braid border (coat): dark worn woven band, faded lighter guard stripes, frayed and dusty
 m, y = rowmask('border')
 ym = y * 0.091
 d1 = np.sin((xm + ym) / 0.0032 * np.pi); d2 = np.sin((xm - ym) / 0.0032 * np.pi)
 weave = np.where(((np.floor((xm + ym) / 0.0032) + np.floor((xm - ym) / 0.0032)) % 2) == 0, np.abs(d1), np.abs(d2))
-lines = np.exp(-((y - 0.06) / 0.015) ** 2) + np.exp(-((y - 0.40) / 0.015) ** 2)
-c = np.array([0.095, 0.080, 0.052]) * (0.75 + 0.45 * weave[..., None]) * (0.8 + 0.4 * blot[..., None])
-c = c * (1 - np.clip(lines, 0, 1)[..., None] * 0.75)
-dust = np.clip((wearn - 0.4) * 1.5, 0, 1)[..., None] * 0.25
-c = c * (1 - dust) + np.array([0.30, 0.27, 0.22]) * dust
-col[m] = c[m]; rough[m] = (0.85 + weave * 0.08)[m]; metal[m] = 0; hm[m] = (weave * 0.00035 - lines * 0.0002)[m]
+stripes = np.exp(-((y - 0.07) / 0.018) ** 2) + np.exp(-((y - 0.39) / 0.018) ** 2)
+c = np.array([0.050, 0.042, 0.031]) * (0.70 + 0.45 * weave[..., None]) * (0.75 + 0.5 * blot[..., None])
+c = c * (1 - np.clip(stripes, 0, 1)[..., None]) + np.array([0.115, 0.098, 0.068]) * (0.7 + 0.4 * weave[..., None]) * np.clip(stripes, 0, 1)[..., None]
+wornb = np.clip((wearn - 0.42) * 1.8, 0, 1)
+fray = np.clip((fine - 0.55) * 3, 0, 1) * (np.abs(y - 0.0) < 0.06)
+c = c * (1 - wornb[..., None] * 0.35) + np.array([0.13, 0.115, 0.09]) * (wornb[..., None] * 0.35)
+c = c * (1 - fray[..., None] * 0.5)
+col[m] = c[m]; rough[m] = (0.88 + weave * 0.07)[m]; metal[m] = 0; hm[m] = (weave * 0.00035 + stripes * 0.0001 - fray * 0.0002)[m]
 # twisted rawhide cord
 m, y = rowmask('cord')
 tw = np.abs(np.sin((xm / 0.004 + y * 1.0) * np.pi))

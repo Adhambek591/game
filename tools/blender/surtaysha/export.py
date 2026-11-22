@@ -15,6 +15,8 @@ manifest = {'units': 'metres in Blender, exported with unit scale -> centimetres
             'pose': 'A-pose, aligned to a 185 cm burly male proxy built from the MetaHuman skeleton',
             'normal_maps': 'DirectX (green down) - import in UE as-is',
             'orm': 'R=AO G=Roughness B=Metallic (linear)',
+            'cloth_detail_normal': 'T_ClothWeave_Normal (tiling, DirectX) on M_Cloth: UV x 38 (64 mm weave tile), blend over T_Cloth_Normal',
+            'plume': 'M_Plume: masked/two-sided, alpha in T_Plume_BaseColor.a',
             'pieces': {}, 'groups': {}}
 for o in parts:
     bn = o['ue_follow_bone']

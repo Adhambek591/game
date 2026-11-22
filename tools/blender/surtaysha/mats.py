@@ -122,10 +122,10 @@ def iron(name, seed=0.0, tint=(0.235, 0.245, 0.262), rust=1.0, dark=1.0, rough=0
     hammer = b.voronoi(obj, 55.0, 'SMOOTH_F1')
     scr = _scratches(b, obj, 55.0, 1.0)
     # rust where crevice + noise
-    rmask = b.math('MULTIPLY', b.math('ADD', b.math('ADD', b.math('MULTIPLY', cav, 2.2), b.math('MULTIPLY', concave, 0.9)), b.math('MULTIPLY', b.ramp(b.noise(obj, 9.0, 4).outputs['Fac'], (0.55, 0.75)), 0.6)),
+    rmask = b.math('MULTIPLY', b.math('ADD', b.math('ADD', b.math('MULTIPLY', cav, 2.2), b.math('MULTIPLY', concave, 0.9)), b.math('MULTIPLY', b.ramp(b.noise(obj, 9.0, 4).outputs['Fac'], (0.62, 0.80)), 0.25)),
                    b.ramp(b.noise(obj, 22.0, 6, 0.7).outputs['Fac'], (0.42, 0.70)))
     rmask = b.math('MINIMUM', b.math('MULTIPLY', rmask, rust), 1.0)
-    rust_col = b.mix(b.noise(obj, 80.0, 3).outputs['Fac'], (0.20, 0.075, 0.03), (0.42, 0.19, 0.07))
+    rust_col = b.mix(b.noise(obj, 80.0, 3).outputs['Fac'], (0.11, 0.055, 0.028), (0.24, 0.12, 0.05))
     steel = b.mix(b.ramp(big.outputs['Fac'], (0.3, 0.7)), tuple(c * 0.80 * dark for c in tint), tuple(c * 1.10 * dark for c in tint))
     steel = b.mix(b.math('MULTIPLY', convex, 0.85), steel, (0.42, 0.43, 0.45))
     steel = b.mix(b.math('MULTIPLY', scr, 0.6), steel, (0.50, 0.51, 0.53))
@@ -179,7 +179,7 @@ def gold(name, seed=0.0, wear=1.0):
     _finish(b, col, r, met, h, 0.3, 0.0005)
     _store(m, b); return m
 
-def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0):
+def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = NB(m)
     tc, obj, geo, curv, convex, concave, cav = _common(b, seed)
@@ -199,7 +199,16 @@ def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0):
     h = b.math('ADD', b.math('MULTIPLY', grain.outputs['Distance'], 0.10), b.math('MULTIPLY', grain2.outputs['Distance'], 0.15))
     h = b.math('ADD', h, b.math('MULTIPLY', b.ramp(crease.outputs['Fac'], (0.45, 0.55)), 0.25))
     h = b.math('ADD', h, b.math('MULTIPLY', scr, -0.4))
-    _finish(b, col, r, 0.0, h, 0.45, 0.0006)
+    met = 0.0
+    if gilt:
+        # gilt tooled lines from the vertex colour written by the relief pass (worn off on the high spots)
+        at = b.n('ShaderNodeAttribute', attribute_name='orn')
+        gm = b.math('MULTIPLY', b.ramp(at.outputs['Fac'], (0.25, 0.6)), b.mixf(b.math('MULTIPLY', convex, 0.6), 1.0, 0.55))
+        gcol = b.mix(b.noise(obj, 90.0, 3).outputs['Fac'], (0.62, 0.43, 0.17), (0.86, 0.64, 0.28))
+        col = b.mix(gm, col, gcol)
+        r = b.mixf(gm, r, 0.32)
+        met = b.mixf(gm, 0.0, 0.95)
+    _finish(b, col, r, met, h, 0.45, 0.0006)
     _store(m, b); return m
 
 def cloth(name, seed=0.0, tint=(0.085, 0.060, 0.045), weave=1300.0, dust=1.0):

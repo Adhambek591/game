@@ -1,9 +1,10 @@
 # Packs UVs of the uniquely-unwrapped texture sets, builds high-poly sources, bakes 4K PBR maps.
 # blender -b out/armor_low.blend --python bake_unique.py -- T_Helmet,T_Armor,T_Cloth,T_Weapon [size]
-import bpy, sys, os, math, importlib
+import bpy, sys, os, math, importlib, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bake_common as bc; importlib.reload(bc)
 import mats; importlib.reload(mats)
+import relief; importlib.reload(relief)
 from mathutils import Vector
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -19,12 +20,13 @@ def kind_of(name):
         'SUR_Helmet_Bowl': ('iron', dict(tint=(0.30, 0.31, 0.33), rust=0.35, rough=0.36), bc.d_iron, 2),
         'SUR_Helmet_Gold': ('gold', dict(wear=0.8), bc.d_gold, 2),
         'SUR_Helmet_Liner': ('cloth', dict(tint=(0.10, 0.075, 0.05), weave=900.0, dust=0.2), bc.d_leather, 1),
-        'SUR_WaistGuard': ('leather', dict(tint=(0.090, 0.048, 0.025)), 'tooled', 3),
-        'SUR_Belt_Gold': ('gold', dict(wear=1.0), 'relief', 3),
+        'SUR_WaistGuard': ('leather', dict(tint=(0.090, 0.048, 0.025), gilt=True), 'tooled', 4),
+        'SUR_Belt_Gold': ('gold', dict(wear=1.0), 'relief', 4),
         'SUR_Pauldron_Backing_L': ('leather', dict(tint=(0.070, 0.036, 0.020)), bc.d_leather, 1),
         'SUR_Bracer_Plate_L': ('iron', dict(tint=(0.24, 0.25, 0.27), rust=0.8, rough=0.40), bc.d_iron, 2),
         'SUR_Bracer_Leather_L': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 2),
         'SUR_Boot_L': ('leather', dict(tint=(0.085, 0.048, 0.028), wear=0.8), bc.d_leather, 2),
+        'SUR_Boot_Sole_L': ('leather', dict(tint=(0.030, 0.020, 0.014), wear=0.5), bc.d_leather, 2),
         'SUR_Greave_L': ('iron', dict(tint=(0.24, 0.25, 0.27), rust=1.0, rough=0.42), bc.d_iron, 2),
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
         'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
@@ -83,7 +85,7 @@ def d_wrap(p, s):
     a = math.atan2(p.x, p.y)
     return -abs(math.sin(p.z * 260 + a * 1.0)) ** 6 * 0.0006
 
-TORSO_TAB = [(1.08, 0.222, 0.183, 0.100, 2.5), (1.20, 0.232, 0.192, 0.115, 2.5)]
+TORSO_TAB = [tuple(r) for r in json.load(open(os.path.join(bc.TEX, '..', 'fit.json')))['TORSO']]
 def torso_point(u, v, grow):
     import sk
     a, bf, bb, n = sk.interp_table(TORSO_TAB, v)
@@ -143,18 +145,21 @@ for tset in WANT:
         k = kind_of(o.name)
         if not k: print('no kind for', o.name); continue
         shader, kw, disp, lvl = k
+        afun = None
         if disp == 'relief':
-            cents = []
-            for u in (0.42, 0.78, 1.14, 1.50, -0.42, -0.78, -1.14, -1.50, 0.0):
-                cents.append((torso_point(u, 1.093, 0.031), 0.022 if u else 0.040, u == 0.0))
-            dfun = lambda p, s, c=cents: d_relief(p, s, c)
+            cents = [(torso_point(0.0, 1.093, 0.031), 0.056, 0.040, -1)]
+            for k, u in enumerate((0.42, 0.78, 1.14, 1.50)):
+                for sg in (1, -1):
+                    cents.append((torso_point(u * sg, 1.093, 0.031), 0.022, 0.023, k))
+            dfun = lambda p, s, c=cents: relief.belt_gold(p, c)
         elif disp == 'tooled':
-            dfun = d_tooled
+            dfun = lambda p, s: relief.guard_orn(p)[0] + bc.d_leather(p, s) * 0.6
+            afun = lambda p: relief.guard_orn(p)[1]
         elif disp == 'wrap':
             dfun = d_wrap
         else:
             dfun = disp
-        h = bc.make_high(o, level=lvl, bevel=0.0006 if shader != 'cloth' else 0.0, disp=dfun, seed=i * 1.7)
+        h = bc.make_high(o, level=lvl, bevel=0.0006 if shader != 'cloth' else 0.0, disp=dfun, seed=i * 1.7, attr=afun)
         mt = getattr(mats, shader)(o.name + '_HM', seed=i * 0.37, **kw)
         h.data.materials.clear(); h.data.materials.append(mt)
         hmats.append(mt)

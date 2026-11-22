@@ -21,8 +21,23 @@ def add_groom(c, slot, wi_path):
     wi = unreal.load_asset(wi_path)
     if wi is None: log('groom missing', wi_path); return None
     try:
+        inst = c.internal_collection.default_instance
+        if not getattr(add_groom, 'dumped', False):
+            add_groom.dumped = True; log('instance api', [m for m in dir(inst) if not m.startswith('_')]); log('collection api', [m for m in dir(c.internal_collection) if not m.startswith('_')])
+        # a slot that already holds a groom (preset hair, earlier run) keeps the old one: drop existing selections first
+        try:
+            sels = list(inst.get_editor_property('slot_selections')) if hasattr(inst, 'get_editor_property') else []
+        except Exception: sels = []
+        for s in sels:
+            try:
+                if str(s.slot_name) == slot:
+                    r = inst.try_remove_slot_selection(s) if hasattr(inst, 'try_remove_slot_selection') else None
+                    log('removed old selection', slot, r)
+            except Exception as e: log('remove sel fail', e)
         key = c.internal_collection.try_add_item_from_wardrobe_item(slot, wi)
-        ok = c.internal_collection.default_instance.try_add_slot_selection(unreal.MetaHumanPipelineSlotSelection(slot_name=slot, selected_item=key))
+        try: ok = ('single', inst.set_single_slot_selection(slot, key))   # replaces whatever the slot held (preset hair etc.)
+        except Exception as e:
+            log('single sel fail', e); ok = inst.try_add_slot_selection(unreal.MetaHumanPipelineSlotSelection(slot_name=slot, selected_item=key))
         log('groom', slot, wi_path.split('.')[-1], 'key', key, 'sel', ok); return key
     except Exception as e:
         log('groom FAIL', slot, wi_path, e); return None
@@ -79,7 +94,7 @@ def make_look(name, cfg):
         fr = unreal.MetaHumanCharacterFrecklesProperties(); fr.density = 0.0; fr.strength = 0.0
         acc = unreal.MetaHumanCharacterAccentRegions()
         def ar(l, r, s): x = unreal.MetaHumanCharacterAccentRegionProperties(); x.lightness = l; x.redness = r; x.saturation = s; return x
-        acc.cheeks = ar(0.5, 0.53, 0.5); acc.lips = ar(0.45, 0.56, 0.55); acc.nose = ar(0.5, 0.52, 0.5); acc.under_eye = ar(0.55, 0.45, 0.45)
+        acc.cheeks = ar(0.5, 0.53, 0.5); acc.lips = ar(float(cfg.get('lip_light', 0.5)), float(cfg.get('lip_red', 0.56)), float(cfg.get('lip_sat', 0.55))); acc.nose = ar(0.5, 0.52, 0.5); acc.under_eye = ar(0.55, 0.45, 0.45)
         acc.forehead = ar(0.5, 0.5, 0.5); acc.chin = ar(0.5, 0.5, 0.5); acc.ears = ar(0.5, 0.55, 0.5); acc.scalp = ar(0.5, 0.5, 0.5)
         ss = unreal.MetaHumanCharacterSkinSettings(); ss.skin = sp; ss.freckles = fr; ss.accents = acc
         try: ss.texture_material_overrides.enable_texture_overrides = False
@@ -98,7 +113,7 @@ def make_look(name, cfg):
         mk = c.makeup_settings
         bl = mk.blush; bl.type = unreal.MetaHumanCharacterBlushMakeupType.APPLE; bl.intensity = 0.18; bl.roughness = 0.6; bl.color = unreal.LinearColor(0.45, 0.08, 0.07, 1); mk.blush = bl
         ey = mk.eyes; ey.type = unreal.MetaHumanCharacterEyeMakeupType.THIN_LINER; ey.opacity = 0.55; ey.primary_color = unreal.LinearColor(0.02, 0.012, 0.01, 1); ey.roughness = 0.6; mk.eyes = ey
-        lp = mk.lips; lp.type = unreal.MetaHumanCharacterLipsMakeupType.NATURAL; lp.opacity = 0.18; lp.roughness = 0.4; lp.color = unreal.LinearColor(0.30, 0.08, 0.07, 1); mk.lips = lp
+        lp = mk.lips; lp.type = unreal.MetaHumanCharacterLipsMakeupType.NATURAL; lp.opacity = float(cfg.get('lip_op', 0.18)); lp.roughness = 0.4; lp.color = unreal.LinearColor(*cfg.get('lip_col', [0.30, 0.08, 0.07]), 1); mk.lips = lp
         mhs.commit_makeup_settings(c, mk); log('makeup committed')
         # head model: groom lashes on, dark
         hm = c.head_model_settings; el = hm.eyelashes; el.enable_grooms = True; el.melanin = 0.95; hm.eyelashes = el
@@ -324,7 +339,7 @@ def step_multishots(items, light):
         sl.set_editor_property('source_type', unreal.SkyLightSourceType.SLS_SPECIFIED_CUBEMAP)
         sl.set_editor_property('cubemap', unreal.load_asset('/Engine/MapTemplates/Sky/DaylightAmbientCubemap') or unreal.load_asset('/Engine/MapTemplates/Sky/SunsetAmbientCubemap'))
         sl.set_intensity(float(os.environ.get('QQ_SKY', '1.0'))); sl.set_editor_property('lower_hemisphere_is_black', False)
-        for yaw, pitch, inten, col in ((-125, -25, 3.2, (1.0, 0.98, 0.95)), (-55, -10, 1.3, (0.95, 0.97, 1.0)), (75, -30, 2.0, (1, 1, 1))):
+        for yaw, pitch, inten, col in ((-120, -22, float(os.environ.get('QQ_KEY', '5.0')), (1.0, 0.98, 0.95)), (-60, -8, float(os.environ.get('QQ_FILL', '2.6')), (1.0, 0.93, 0.85)), (75, -30, 2.0, (1, 1, 1)), (-90, 25, 0.8, (1.0, 0.95, 0.9))):
             d = eas.spawn_actor_from_class(unreal.DirectionalLight, unreal.Vector(0, 0, 300), unreal.Rotator(roll=0, pitch=pitch, yaw=yaw))
             lc = d.light_component; lc.set_intensity(inten); lc.set_light_color(unreal.LinearColor(*col, 1)); lc.set_editor_property('light_source_angle', 12.0)
         sl.recapture_sky()

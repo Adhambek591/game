@@ -1,6 +1,6 @@
 # Builds Surtaysha's armour + costume game meshes (low poly, UV'd) around the male proxy.
 # blender -b --factory-startup --python build.py   -> out/armor_low.blend
-import bpy, sys, math, random, importlib, os
+import bpy, sys, math, random, importlib, os, json
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sk; importlib.reload(sk)
 from sk import *
@@ -31,9 +31,15 @@ PLATES, LACES = plate_library()
 
 # ------------------------------------------------------------------ torso surface
 # (z, half-width a, front depth bf, back depth bb, exponent)
-TORSO = [(1.08, 0.222, 0.183, 0.100, 2.5), (1.20, 0.232, 0.192, 0.115, 2.5), (1.32, 0.242, 0.193, 0.135, 2.6),
+TORSO_V1 = [(1.08, 0.222, 0.183, 0.100, 2.5), (1.20, 0.232, 0.192, 0.115, 2.5), (1.32, 0.242, 0.193, 0.135, 2.6),
          (1.44, 0.232, 0.180, 0.150, 2.6), (1.52, 0.200, 0.140, 0.140, 2.4)]
-def torso_S(u, v, grow=0.0, tab=TORSO):
+import fit; importlib.reload(fit)
+FIT = fit.Fit(proxy, BONES)
+TORSO = FIT.fit_table(TORSO_V1)
+json.dump({'TORSO': TORSO, 'source': LM.get('source', 'standin')}, open(OUT + "/fit.json", 'w'), indent=1)
+print('FIT TORSO', [tuple(round(x, 3) for x in r) for r in TORSO])
+def torso_S(u, v, grow=0.0, tab=None):
+    tab = tab or TORSO
     a, bf, bb, n = interp_table(tab, v)
     a += grow; bf += grow; bb += grow
     s, c = math.sin(u), math.cos(u)

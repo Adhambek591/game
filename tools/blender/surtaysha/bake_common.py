@@ -140,7 +140,7 @@ def write_set(prefix, base, nrm, rough, metal, ao, curv=None):
     if curv is not None:
         save_np(img_np(curv)[..., :3], os.path.join(TEX, prefix + '_Curvature.png'))
 
-def make_high(low, level=2, bevel=0.0008, disp=None, seed=0):
+def make_high(low, level=2, bevel=0.0008, disp=None, seed=0, attr=None):
     """duplicate low -> bevel + subsurf -> python displacement along normals"""
     h = low.copy(); h.data = low.data.copy(); h.name = low.name + '_HIGH'
     bpy.context.scene.collection.objects.link(h)
@@ -163,6 +163,11 @@ def make_high(low, level=2, bevel=0.0008, disp=None, seed=0):
         d = np.array([disp(Vector(p), seed) for p in co], np.float32)
         co = co + nr * d[:, None]
         me.vertices.foreach_set('co', co.ravel()); me.update()
+    if attr:
+        me = h.data
+        vals = [attr(v.co) for v in me.vertices]
+        ca = me.color_attributes.new('orn', 'FLOAT_COLOR', 'POINT')
+        ca.data.foreach_set('color', np.array([[a, a, a, 1.0] for a in vals], np.float32).ravel())
     for p in h.data.polygons: p.use_smooth = True
     return h
 
