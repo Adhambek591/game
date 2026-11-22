@@ -13,4 +13,6 @@ run plates_log.txt -b --factory-startup --python bake_plates.py -- 4096        #
 run unique_log.txt -b --factory-startup "$O/costume_low.blend" --python bake_unique.py -- T_Cloth,T_Armor,T_Jewel,T_Weapon,T_Amulet 4096
 run render_log.txt -b --factory-startup "$O/costume_low.blend" --python render.py -- "F:/qirq-qiz-unity/Builds" 160 front,q34,side,back,amulet,etik 1.0
 python compose.py "F:/qirq-qiz-unity/Builds" guloyim_kiyim_
+run mask_log.txt   -b --factory-startup "$O/costume_low.blend" --python mask_render.py   # flat class masks (front / side)
+PYTHONPATH="$(python -c 'import PIL,os;print(os.path.dirname(os.path.dirname(PIL.__file__)))')" "/c/Program Files/Blender Foundation/Blender 5.1/5.1/python/bin/python.exe" moslash.py   # IoU vs the turnaround + moslash sheets
 run export_log.txt -b --factory-startup "$O/costume_low.blend" --python export.py   # FBX per group + manifest

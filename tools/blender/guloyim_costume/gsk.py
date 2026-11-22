@@ -283,7 +283,7 @@ def _rrect_outline(w, h, rt, rb):
         (-hw + rt * c45, h - rt * c45), (-hw, h - rt), (-hw, rb)]
     return pts
 
-def plate_mesh(w=PLATE_W, h=PLATE_H, t=PLATE_T, bow=0.0016, bulge=0.0009, tile=(0, 0), lace=None):
+def plate_mesh(w=PLATE_W, h=PLATE_H, t=PLATE_T, bow=0.0010, bulge=0.0005, tile=(0, 0), lace=None):
     """The base plate: 4x4 vertex front grid (Coons-patched into a rounded rectangle), back grid, side walls.
     Origin at bottom-centre of the plate back surface; +Y = up the plate, +Z = outward normal, X = across.
     UV: front island in left half of the atlas tile, back island in right half."""

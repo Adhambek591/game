@@ -5,7 +5,7 @@ import gamulet; importlib.reload(gamulet)
 def build_amulet():
     mb = gamulet.amulet_mb(MB, lathe_fn=lambda m, prof, segs, c, uv_rect: lathe_capped(m, prof, segs, c, uv_rect=uv_rect))
     # placement on the chest: top resting on the tunic at the V, apex leaning on the cuirass edging
-    zt, za = 1.346, 1.346 - 0.0068 - gamulet.H
+    zt = 1.346 + SH_DZ; za = zt - 0.0068 - gamulet.H
     yt = cy_at(zt) - tab_r(TR_BODY, 0.0, zt) - 0.012
     ya = cy_at(za) - tab_r(TR_HULL, 0.0, za) - (CU_GROW + 0.0105)
     yt = min(yt, ya + 0.004)
@@ -20,11 +20,12 @@ def build_amulet():
     # chain: bail -> left side of the collar -> around the back of the neck -> right side -> bail
     bail = M.translation.copy()
     loop = []
+    NY = bone('neck_01').y - 0.009
     for k in range(41):
         u = 0.62 + (2 * math.pi - 1.24) * k / 40
-        z = 1.447 + 0.026 * (1 - math.cos(u)) / 2
-        r = FIT.ray_dist(('neck', 'torso'), Vector((0, 0.004, z)), Vector((math.sin(u), -math.cos(u), 0)), 0.3) or 0.06
-        loop.append(Vector((0, 0.004, z)) + Vector((math.sin(u), -math.cos(u), 0)) * (r + 0.0135))
+        z = 1.447 + SH_DZ + 0.026 * (1 - math.cos(u)) / 2
+        r = FIT.ray_dist(('neck', 'torso'), Vector((0, NY, z)), Vector((math.sin(u), -math.cos(u), 0)), 0.3) or 0.06
+        loop.append(Vector((0, NY, z)) + Vector((math.sin(u), -math.cos(u), 0)) * (r + 0.0135))
     def drop(p_end, sgn):
         mid = p_end.lerp(bail, 0.5) + Vector((0, -0.010, 0.0))
         return [bail + Vector((sgn * 0.0012, 0, 0.0028)), mid, p_end]
@@ -40,9 +41,9 @@ def build_amulet():
     done(cm.build('GUL_Amulet_Chain', [M_TRIM]), 'spine_05', 'Torso')
 
 # =========================================================== SABRE (local: grip centre at origin, blade +Z, spine +Y)
-SB_L = 0.78
+SB_L = 0.72
 def sb_path(s):
-    return Vector((0, 0.068 * s ** 2.1, s * SB_L))
+    return Vector((0, 0.088 * s ** 2.0, s * SB_L))
 def sb_width(s):
     w = 0.031 - 0.005 * s
     w += 0.007 * smoothstep(0.60, 0.80, s) * (1 - smoothstep(0.82, 1.0, s))
@@ -94,13 +95,30 @@ def build_sabre(group='Weapon'):
     done(mb.build('GUL_Sabre_Blade', [M_WPN]), 'hand_r', group)
 
 # =========================================================== SCABBARD on the left hip (built in the sabre's frame)
-def sheath_matrix():
-    mouth = Vector((0.236, -0.078, 0.930))
-    dz = Vector((0.07, 0.40, -0.72)).normalized()          # blade direction in the scabbard: down and back
+def _sheath(dzx):
+    mouth = Vector((0.236, -0.058, 0.938))
+    dz = Vector((dzx, 0.24, -0.97)).normalized()          # blade direction in the scabbard: down and back, along the leg
     up = Vector((0.0, 0.85, 0.50)); up = (up - dz * up.dot(dz)).normalized()   # spine side up/back, edge down
     xx = up.cross(dz).normalized()
     M = Matrix((xx, up, dz)).transposed().to_4x4()
+    M = M @ Matrix.Rotation(math.radians(-22), 4, 'Z')    # flat turned a little toward the front (the curve reads)
     M.translation = mouth - dz * 0.004
+    return M
+def sheath_matrix():
+    # hang as close to the leg as possible while staying outside the skirt / tassets
+    for k in range(30):
+        dzx = 0.00 + 0.012 * k
+        M = _sheath(dzx)
+        worst = 9.0
+        for s_ in [0.06 * q for q in range(1, 15)]:
+            p = M @ sb_path(min(s_, 1.0))
+            if p.z < SK_HEM or p.z > SK_TOP: continue
+            a, bf, bb, cy = skirt_dims(p.z)
+            u = math.atan2(p.x, -(p.y - cy))
+            q = skirt_S(u, p.z, grow=0.012 if p.z > TAS_BOT else 0.0)
+            worst = min(worst, Vector((p.x, p.y - cy, 0)).length - Vector((q.x, q.y - cy, 0)).length)
+        if worst > 0.010: break
+    print('SHEATH dz.x %.3f clearance %.3f' % (dzx, worst))
     return M
 
 def build_sabre_and_scabbard():
@@ -110,8 +128,8 @@ def build_sabre_and_scabbard():
     nrow = 40
     def ring_pt(s, a, grow=0.0):
         p = sb_path(s)
-        w = max(sb_width(min(s, 0.93)), 0.012) / 2 + 0.0042 + grow
-        t = 0.0034 + 0.0040 + grow
+        w = max(sb_width(min(s, 0.93)), 0.014) / 2 + 0.0062 + grow
+        t = 0.0034 + 0.0050 + grow
         c = p + Vector((0, -0.05 * sb_width(s), 0))
         return c + Vector((math.cos(a) * t, math.sin(a) * w, 0))
     S0, S1 = 0.004 / SB_L, (SB_L + 0.014) / SB_L
@@ -159,7 +177,7 @@ def build_sabre_and_scabbard():
     hm = MB()
     S = lambda u, v: torso_S(u, v, grow=BELT_GROW)
     for rw, u in zip(rings_w, (1.05, 1.62)):
-        top = torso_S(u, BELT_Z - 0.012, grow=BELT_GROW + 0.007)
+        top = belt_S(u, BELT_Z - 0.012, 0.007)
         mid = top.lerp(rw, 0.5) + Vector((0.012, 0, 0))
         path = spline([top, mid, rw], 0.010)
         path = [FIT.conform(p, ('torso', 'legL'), 0.030) if i < len(path) - 2 else p for i, p in enumerate(path)]

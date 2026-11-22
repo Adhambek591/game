@@ -55,7 +55,10 @@ class BodyFit:
 
     def slice(self, cats, z, dz=0.006, xlim=None):
         if isinstance(cats, str): cats = (cats,)
-        V = [p for c in cats for p in self.verts(c) if abs(p.z - z) < dz and (xlim is None or xlim[0] <= p.x <= xlim[1])]
+        V = []
+        for k in range(4):                       # widen the band when the mesh is sparse at this height
+            V = [p for c in cats for p in self.verts(c) if abs(p.z - z) < dz * (1 + k) and (xlim is None or xlim[0] <= p.x <= xlim[1])]
+            if len(V) >= 4: break
         if not V: return None
         return (min(p.x for p in V), max(p.x for p in V), min(p.y for p in V), max(p.y for p in V))
 

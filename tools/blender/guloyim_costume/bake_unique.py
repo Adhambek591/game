@@ -15,15 +15,15 @@ PACK_ONLY = len(args) > 2 and args[2] == 'pack'
 SETS = {'T_Cloth': 'M_Cloth', 'T_Armor': 'M_Armor', 'T_Jewel': 'M_Jewel', 'T_Weapon': 'M_Weapon', 'T_Amulet': 'M_Amulet'}
 SIZES = {'T_Jewel': min(SIZE, 2048), 'T_Amulet': min(SIZE, 2048)}
 
-BLUE = (0.028, 0.050, 0.300)
+BLUE = (0.020, 0.030, 0.150)          # deep indigo / cobalt wool (the turnaround), not saturated royal blue
 def kind_of(name):
     K = {
         'GUL_Tunic_Torso': ('cloth2', dict(tint=BLUE, dust=0.2), bc.d_cloth, 1),
         'GUL_Tunic_Collar': ('cloth2', dict(tint=BLUE, dust=0.1, border=True), bc.d_cloth, 1),
         'GUL_Tunic_Skirt': ('cloth2', dict(tint=BLUE, dust=0.7, border=True), 'sheet', 1),
         'GUL_Sleeve_L': ('cloth2', dict(tint=BLUE, dust=0.35), bc.d_cloth, 1),
-        'GUL_Trousers_L': ('cloth2', dict(tint=(0.040, 0.025, 0.016), dust=1.0, weave=1500.0), bc.d_cloth, 1),
-        'GUL_Headscarf': ('cloth2', dict(tint=(0.026, 0.044, 0.285), dust=0.1, scarf=True, weave=1800.0), 'sheet', 1),
+        'GUL_Trousers_L': ('cloth2', dict(tint=(0.040, 0.021, 0.011), dust=0.6, weave=1500.0), bc.d_cloth, 1),
+        'GUL_Headscarf': ('cloth2', dict(tint=(0.022, 0.034, 0.190), dust=0.1, scarf=True, weave=1800.0), 'sheet', 1),
         'GUL_Boot_L': ('leather', dict(tint=(0.074, 0.036, 0.018), wear=1.0), 'boot', 2),
         'GUL_Boot_Sole_L': ('leather', dict(tint=(0.030, 0.019, 0.012), wear=0.7), 'sole', 2),
         'GUL_Boot_Heel_L': ('leather', dict(tint=(0.034, 0.021, 0.013), wear=0.7), 'heel', 2),

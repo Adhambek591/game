@@ -18,7 +18,7 @@ scb = bpy.data.objects.get('GUL_Scabbard')
 manifest = {'character': 'Guloyim (Gulayim) - costume + armour, LOD0',
             'units': 'metres in Blender, exported with unit scale -> centimetres in UE',
             'axes': 'Blender: +Z up, -Y front (same as the MetaHuman FBX round trip); default FBX axes',
-            'pose': 'A-pose of her MetaHuman body (MH_gulayim_FullBody.fbx, 171 cm); body NOT included, not re-rigged',
+            'pose': 'A-pose of her final MetaHuman body (%s, %.1f cm); body NOT included, not re-rigged' % (os.path.basename(LM.get('source', '?')), LM.get('height', 0) * 100),
             'normal_maps': 'DirectX (green down) - import in UE as-is',
             'orm': 'R=AO G=Roughness B=Metallic (linear)',
             'cloth_detail_normal': 'T_ClothWeave_Normal (tiling, DirectX) on M_Cloth (~64 mm weave tile), blend over T_Cloth_Normal',

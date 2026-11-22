@@ -2,7 +2,7 @@
 # The scarf sits over the MetaHuman Hair_L_Straight groom: hair volume is reserved on top / sides / back,
 # and the hair falls out below the scarf at the front and down the back.
 
-HC = Vector((0.0, -0.018, 1.615))           # cranium centre (from the head slices)
+HC = bone('head') + Vector((0.0, -0.008, 0.066))      # cranium centre (head bone + offset measured on the head slices)
 X = Vector((1, 0, 0))
 
 def hair_mer(theta):
@@ -99,10 +99,10 @@ def build_scarf():
     mb = MB()
     s_end = max(MER_S)
     # back point: where the meridian reaches z ~ 1.355
-    S_TOT = next((MER_S[i] for i in range(len(MER)) if MER_S[i] > 0.15 and MER[i].z < 1.372), s_end)
+    S_TOT = next((MER_S[i] for i in range(len(MER)) if MER_S[i] > 0.15 and MER[i].z < 1.372 + SH_DZ), s_end)
     S_C = 0.27
     U, NU, NR = 0.29, 24, 22
-    hem = lambda u: S_TOT - (S_TOT - S_C) * (0.55 * abs(u) / U + 0.45 * (abs(u) / U) ** 3)
+    hem = lambda u: S_TOT - (S_TOT - S_C) * (0.22 * abs(u) / U + 0.78 * (abs(u) / U) ** 1.9)
     SG = [S_TOT * k / 120 for k in range(121)]
     SEC = [section(s) for s in SG]
     def P(u, s):

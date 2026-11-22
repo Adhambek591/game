@@ -89,8 +89,10 @@ def pbr(name, setname, alpha=None, two_sided=False):
     if alpha:
         nt.links.new(tb.outputs[1], bs.inputs['Alpha'])
     if setname == 'T_Cloth':
-        bs.inputs['Sheen Weight'].default_value = 0.15
-        bs.inputs['Sheen Roughness'].default_value = 0.5
+        bs.inputs['Sheen Weight'].default_value = 0.55          # wool: soft sheen at grazing angles
+        bs.inputs['Sheen Roughness'].default_value = 0.35
+        try: bs.inputs['Sheen Tint'].default_value = (0.55, 0.62, 0.95, 1.0)
+        except Exception: pass
     return m
 
 for o in bpy.data.objects:
@@ -134,6 +136,26 @@ if body:
         elif v.co.z > 1.55: keep.add(v.index)
     bm_ = bmesh.new(); bm_.from_mesh(body.data); bm_.verts.ensure_lookup_table()
     bmesh.ops.delete(bm_, geom=[v for v in bm_.verts if v.index not in keep], context='VERTS')
+    # never show a face in the previews: the head is replaced by a smooth neutral mannequin head (the face is made in UE)
+    hz = LM['bones']['head']['head'][2] - 0.012
+    dl = bm_.verts.layers.deform.active
+    def is_head(v):
+        if v.co.z > hz: return True
+        if dl and v[dl]:
+            g = gname.get(max(v[dl].items(), key=lambda kv: kv[1])[0], '')
+            return g.startswith(('head', 'FACIAL', 'facial'))
+        return False
+    bmesh.ops.delete(bm_, geom=[v for v in bm_.verts if is_head(v)], context='VERTS')
+    hb = LM['bones']['head']['head']
+    hc = Vector((0.0, hb[1] - 0.012, hb[2] + 0.060))
+    ret = bmesh.ops.create_uvsphere(bm_, u_segments=48, v_segments=32, radius=1.0)
+    for v in ret['verts']:
+        c = v.co.copy()
+        y = c.y * 0.100
+        y -= 0.010 * max(0.0, -c.y) * max(0.0, -c.z)          # gentle jaw / chin taper
+        v.co = hc + Vector((c.x * 0.076 * (1 - 0.18 * max(0.0, -c.z)), y, c.z * 0.112))
+    for f in ret['faces'] if 'faces' in ret else []: f.smooth = True
+    for f in bm_.faces: f.smooth = True
     bm_.to_mesh(body.data); bm_.free()
 
 # sabre sheathed in the scabbard on the left hip (the sabre mesh itself stays at its grip origin for the hand socket)

@@ -4,7 +4,8 @@ import bpy, json, os
 from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
-SRC = [r"F:\qirq-qiz-unity\Assets\QQ\Models\MH\MH_gulayim_FullBody.fbx",
+SRC = [os.path.join(HERE, "body", "SK_Guloyim_Final_FullBody.fbx"),
+       r"F:\qirq-qiz-unity\Assets\QQ\Models\MH\MH_gulayim_FullBody.fbx",
        r"F:\qirq-qiz\tools\metahuman\out\gulayim_MHC_gulayim_clean_FullBody.fbx"]
 SKIP = ('_in_', '_out_', 'bulge', 'half', 'side', 'palm', 'dip', 'pip', 'mcp', 'Cor', 'corrective', 'fwd', 'bck', 'slide')
 
