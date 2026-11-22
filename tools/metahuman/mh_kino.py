@@ -24,14 +24,37 @@ def step_rig(name):
         if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
     EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
 
+def step_textures(name):
+    c = unreal.load_asset(f'/Game/QQ/{name}')
+    if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+    try:
+        t = unreal.MetaHumanCharacterTextureRequestParams(); t.blocking = True; t.report_progress = False
+        try:
+            ss = c.skin_settings; dr = ss.desired_texture_sources_resolutions; log('res fields', dr)
+            for fld in [x for x in dir(dr) if not x.startswith('_') and x not in ('cast', 'copy', 'assign', 'static_struct', 'export_text', 'import_text', 'to_dict', 'to_tuple', 'get_editor_property', 'set_editor_property', 'set_editor_properties')]:
+                cur = getattr(dr, fld); en = type(cur)
+                best = [m for m in dir(en) if m.isupper() and '4' in m]
+                if best: setattr(dr, fld, getattr(en, best[0]))
+            ss.desired_texture_sources_resolutions = dr; mhs.commit_skin_settings(c, ss); log('res set', dr)
+        except Exception as e: log('res set fail', e)
+        t0 = time.time(); r = mhs.request_texture_sources(c, t)
+        log('texture sources', name, r, round(time.time() - t0, 1), 's; can build', mhs.can_build_meta_human(c))
+    finally:
+        if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
+    EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+
 def step_build(name):
     c = unreal.load_asset(f'/Game/QQ/{name}')
     if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
     try:
-        if not mhs.can_build_meta_human(c): log('build skipped: not ready (rig missing)', name); return
+        if not mhs.can_build_meta_human(c):
+            log('can_build False for', name, '- trying build anyway to get the reason')
+            try: log('rig state', c.get_editor_property('has_face_dna_blendshapes') if hasattr(c, 'has_face_dna_blendshapes') else '', [p for p in dir(c) if 'rig' in p.lower() or 'dna' in p.lower()])
+            except Exception as e: log('rig state err', e)
         bp = unreal.MetaHumanCharacterEditorBuildParameters(); bp.pipeline_type = unreal.MetaHumanDefaultPipelineType.CINEMATIC
         bp.absolute_build_path = '/Game/MetaHumans'; bp.common_folder_path = '/Game/MetaHumans/Common'; bp.enable_wardrobe_item_validation = False
-        mhs.build_meta_human(character=c, params=bp)
+        try: mhs.build_meta_human(character=c, params=bp)
+        except Exception as e: log('build raised (continuing, saving what was built)', name, e)
     finally:
         if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
     unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
@@ -42,6 +65,7 @@ try:
     for n in CHARS:
         try:
             if 'rig' in STEPS: step_rig(n)
+            if 'textures' in STEPS: step_textures(n)
             if 'build' in STEPS: step_build(n)
         except Exception as e: log('ERROR', n, e, traceback.format_exc())
 finally:

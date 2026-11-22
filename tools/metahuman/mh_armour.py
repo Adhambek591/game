@@ -47,7 +47,14 @@ def make_mat(setname):
         tc3 = MEL.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -800, -350); tc3.constant = unreal.LinearColor(*TINT[setname][:3], 1)
         MEL.connect_material_expressions(tc3, '', mul, 'B'); rough = TINT[setname][3] if len(TINT[setname]) > 3 else rough
     else: mul.set_editor_property('const_b', dark)
-    MEL.connect_material_property(mul, '', unreal.MaterialProperty.MP_BASE_COLOR)
+    CALM = os.environ.get('QQ_ARM_CALM', '').split(',')
+    if setname in CALM:
+        # neat dark iron: pull the albedo halfway to a flat dark iron colour (less rust / fleck contrast)
+        iron = MEL.create_material_expression(m, unreal.MaterialExpressionConstant3Vector, -600, -380); iron.constant = unreal.LinearColor(0.055, 0.055, 0.06, 1)
+        lp = MEL.create_material_expression(m, unreal.MaterialExpressionLinearInterpolate, -450, -250); lp.set_editor_property('const_alpha', 0.55)
+        MEL.connect_material_expressions(mul, '', lp, 'A'); MEL.connect_material_expressions(iron, '', lp, 'B')
+        MEL.connect_material_property(lp, '', unreal.MaterialProperty.MP_BASE_COLOR)
+    else: MEL.connect_material_property(mul, '', unreal.MaterialProperty.MP_BASE_COLOR)
     if setname == 'Plume': MEL.connect_material_property(s_bc, 'A', unreal.MaterialProperty.MP_OPACITY_MASK)
     if nm:
         s_n = MEL.create_material_expression(m, unreal.MaterialExpressionTextureSample, -900, 100); s_n.texture = nm; s_n.sampler_type = unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL
@@ -66,7 +73,11 @@ def make_mat(setname):
         s_o = MEL.create_material_expression(m, unreal.MaterialExpressionTextureSample, -900, 500); s_o.texture = orm; s_o.sampler_type = unreal.MaterialSamplerType.SAMPLERTYPE_MASKS
         MEL.connect_material_property(s_o, 'R', unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
         rm = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -600, 550); rm.set_editor_property('const_b', rough)
-        MEL.connect_material_expressions(s_o, 'G', rm, 'A'); MEL.connect_material_property(rm, '', unreal.MaterialProperty.MP_ROUGHNESS)
+        MEL.connect_material_expressions(s_o, 'G', rm, 'A')
+        if setname in os.environ.get('QQ_ARM_CALM', '').split(','):
+            rl = MEL.create_material_expression(m, unreal.MaterialExpressionLinearInterpolate, -450, 550); rl.set_editor_property('const_alpha', 0.6); rl.set_editor_property('const_b', 0.42)
+            MEL.connect_material_expressions(rm, '', rl, 'A'); MEL.connect_material_property(rl, '', unreal.MaterialProperty.MP_ROUGHNESS)
+        else: MEL.connect_material_property(rm, '', unreal.MaterialProperty.MP_ROUGHNESS)
         MEL.connect_material_property(s_o, 'B', unreal.MaterialProperty.MP_METALLIC)
     MEL.recompile_material(m); EAL.save_asset(p); return m
 
