@@ -15,7 +15,7 @@ public class QQAI : MonoBehaviour
     // only when left far behind; at most 2 allies per ordinary foe; foes spread over targets; around a target each attacker
     // takes its own slot on a ring, so nobody runs in one clump
     float pace, tempo, react, slotAng; int comboLeft; bool followUp; float pounceT = -1, pounceCd = 4f; Vector3 pounceFrom, pounceTo; Vector3 spot; Vector3 lastPl; float noticeT; bool sprinting;
-    static readonly string[] MELEE = { "attack", "slash2", "attack3", "heavy" };
+    static readonly string[] MELEE = { "attack", "slash3", "attack4", "heavy" };   // no spinning clips (FaceProbe)
     static int MaxTokens { get { return QQArena.I && QQArena.I.Wave >= 2 ? 3 : 2; } }
 
     void Start()

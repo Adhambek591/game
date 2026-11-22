@@ -158,7 +158,7 @@ public class QQPlayer : MonoBehaviour
         }
         if (comboT <= 0) combo = 0;
         bool fin = combo % 4 == 3;
-        string[] seq = { "slash", "attack2", "slash3", "heavy" };   // Mixamo sword strings: cross slash, thrust, return slash, power slash
+        string[] seq = { "attack", "attack4", "slash", "heavy" };   // measured (QQSetup.FaceProbe): these keep the chest on the foe; attack2/3, slash2, triple spin round and are not used
         if (t)
         {
             lastTarget = t; u.Face(t.transform.position - transform.position, 99);

@@ -809,6 +809,54 @@ public static class QQSetup
         Debug.Log("QQ POSTURE OK");
     }
 
+    // motion review: Guloyim runs in, stops, 4-hit combo (same PlaySeg timings as QQPlayer), dodge, gets hit, idles; 48 frames at 20 fps, side view
+    public static void SimCombo()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), new Vector3(0, 0, 0), 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.right); u.rig.desync = false; u.rig.male = true;
+        // timeline: (start time, action)
+        var ev = new System.Collections.Generic.List<(float, System.Action)> {
+            (0f, () => u.rig.Locomote(4.5f, .15f)), (.9f, () => u.rig.Play("combat", .25f)),
+            (1.2f, () => u.rig.PlaySeg("attack", .2f, .3f, .05f)), (1.55f, () => u.rig.PlaySeg("attack4", .26f, .3f, .05f)), (1.95f, () => u.rig.PlaySeg("slash", .2f, .3f, .05f)), (2.3f, () => u.rig.PlaySeg("heavy", .34f, .42f, .05f)),
+            (3.0f, () => u.rig.Play("combat", .25f)), (3.3f, () => u.rig.PlaySeg("roll", .22f, .3f, .05f)), (3.85f, () => u.rig.Play("combat", .25f)), (4.1f, () => u.rig.Play("hit", .05f, false, true)), (4.6f, () => u.rig.Play("combat", .25f)) };
+        const int N = 48, W = 160, H = 240; var sheet = new Texture2D(W * 12, H * 4, TextureFormat.RGB24, false);
+        float dt = 1f / 60f, time = 0; int ei = 0, frame = 0;
+        for (int step = 0; step < 300 && frame < N; step++)
+        {
+            while (ei < ev.Count && ev[ei].Item1 <= time) { ev[ei].Item2(); ei++; }
+            if (time < .9f) u.transform.position += Vector3.right * 4.5f * dt;
+            if (time > 3.3f && time < 3.8f) u.transform.position -= Vector3.right * 6f * dt;
+            u.rig.Tick(dt); time += dt;
+            if (step % 6 == 0)
+            {
+                var snap = Snapshot(u); var c = u.transform.position + Vector3.up * .9f;
+                cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + Vector3.back * 4.6f + Vector3.up * .3f; cam.transform.LookAt(c);
+                var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                sheet.ReadPixels(new Rect(0, 0, W, H), (frame % 12) * W, (3 - frame / 12) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+                Debug.Log("QQ SIMC f" + frame + " t" + time.ToString("F2") + " " + u.rig.Current);
+                frame++;
+            }
+        }
+        sheet.Apply(); File.WriteAllBytes("Builds/sim/combo.png", sheet.EncodeToPNG()); Debug.Log("QQ SIMC OK");
+    }
+
+    public static void FaceProbe()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.right);
+        foreach (var c in new[] { "combat", "idle2_c", "idle3_c", "idle4_c", "idle_m", "slash", "slash2", "slash3", "slash4", "attack", "attack2", "attack3", "attack4", "triple", "heavy", "judg", "axe_h", "axe_b", "roll", "dodge_l", "dodge_r", "dodge_f" })
+        {
+            var line = new System.Text.StringBuilder();
+            if (!u.rig.Has(c)) continue; QQAnimLib.Seg sg; bool hs = QQAnimLib.seg.TryGetValue(c, out sg); float d0 = QQAnimLib.clips[c].dur;
+            for (int i = 0; i < 8; i++) { u.rig.Play(c, .01f, true, true); u.rig.SampleAt(i / 8f); var L = u.rig.Bone("LeftUpLeg").position; var R = u.rig.Bone("RightUpLeg").position; var la = u.rig.Bone("LeftArm").position; var ra = u.rig.Bone("RightArm").position;
+                Vector3 r = (R - L); r.y = 0; Vector3 sh = ra - la; sh.y = 0; Vector3 fh = Vector3.Cross(r.normalized, Vector3.up), fs = Vector3.Cross(sh.normalized, Vector3.up);
+                line.Append(Vector3.SignedAngle(u.transform.forward, fh, Vector3.up).ToString("F0")).Append("/").Append(Vector3.SignedAngle(u.transform.forward, fs, Vector3.up).ToString("F0")).Append("  "); }
+            Debug.Log("QQ FACE " + c + (hs ? " hit@" + (sg.hit / d0).ToString("F2") : "") + " : " + line);
+        }
+    }
+
     public static void Win()
     {
         Directory.CreateDirectory("Builds/win");

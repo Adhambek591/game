@@ -63,6 +63,9 @@ public static class QQMixamo
         ("hit", "Pro_Sword_and_Shield_Pack/sword and shield impact"), ("hit2", "Pro_Melee_Axe_Pack/standing react large gut"),
         ("dead", "Pro_Sword_and_Shield_Pack/sword and shield death"), ("dead2", "Pro_Longbow_Pack/standing death backward 01"),
         ("roll", "Pro_Longbow_Pack/standing dodge backward"), ("dodge_l", "Pro_Longbow_Pack/standing dodge left"), ("dodge_r", "Pro_Longbow_Pack/standing dodge right"), ("dodge_f", "Pro_Longbow_Pack/standing dodge forward"),
+        ("idle2_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (2)"), ("idle3_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (3)"), ("idle4_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (4)"),
+        ("slash4", "Pro_Sword_and_Shield_Pack/sword and shield slash (4)"), ("attack4", "Pro_Sword_and_Shield_Pack/sword and shield attack (4)"), ("axe_h", "Pro_Melee_Axe_Pack/standing melee attack horizontal"), ("axe_b", "Pro_Melee_Axe_Pack/standing melee attack backhand"),
+        ("gs1", "Great_Sword/x"), 
         ("cast", "Pro_Sword_and_Shield_Pack/sword and shield power up"), ("bow", "Pro_Longbow_Pack/standing aim recoil"), ("block", "Pro_Sword_and_Shield_Pack/sword and shield block") };
 
     static string F(float v) { return v.ToString("0.#####", CultureInfo.InvariantCulture); }
@@ -127,8 +130,17 @@ public static class QQMixamo
                     Vector3 fw = Vector3.Cross((r.normalized + sh.normalized).normalized, Vector3.up);
                     yaws.Add(Vector3.SignedAngle(fwd0, fw, Vector3.up));
                 }
-                yaws.Sort(); float mid = yaws[yaws.Count / 2];
-                if (Mathf.Abs(mid) > 4f && !e.name.StartsWith("dead") && !e.name.StartsWith("dodge") && e.name != "roll")
+                // action clips: the chest must face the foe at the IMPACT frame (peak right-hand speed); loops / reactions: the median
+                bool act = e.name.StartsWith("slash") || e.name.StartsWith("attack") || e.name == "heavy" || e.name == "triple" || e.name == "judg" || e.name.StartsWith("axe") || e.name == "slam" || e.name == "bow";
+                float mid;
+                if (act)   // median over the active window (wind-up .. follow-through around the impact): the swing's own body turn stays, centred on the foe
+                {
+                    int pk2 = 1; float mx2 = 0; var sp2 = new float[n]; for (int i = 1; i < n; i++) { sp2[i] = (hand[i] - hand[i - 1]).magnitude; if (i > 2 && sp2[i] > mx2) { mx2 = sp2[i]; pk2 = i; } }
+                    int a0 = pk2, a1 = pk2; while (a0 > 0 && sp2[a0] > mx2 * .15f) a0--; while (a1 < n - 1 && sp2[a1] > mx2 * .15f) a1++;
+                    a0 = Mathf.Max(0, a0 - 6); a1 = Mathf.Min(n - 1, a1 + 6); var ys = yaws.GetRange(a0, a1 - a0 + 1); ys.Sort(); mid = ys[ys.Count / 2];
+                }
+                else { var ys = new List<float>(yaws); ys.Sort(); mid = ys[ys.Count / 2]; }
+                if (Mathf.Abs(mid) > 4f && !e.name.StartsWith("dead"))
                 {
                     var R = Quaternion.AngleAxis(-mid, Vector3.up); var pr = par.rotation;
                     for (int i = 0; i < n; i++) keys["Hips"][i] = Quaternion.Inverse(pr) * R * pr * keys["Hips"][i];

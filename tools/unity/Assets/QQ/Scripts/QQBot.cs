@@ -6,7 +6,7 @@ using UnityEngine;
 
 public class QQBot : MonoBehaviour
 {
-    static string outDir; float t, nextLog, nextShot = 4f, atkT; int shots; bool ended; Unit reactFor; float guardT; int blocks;
+    static string outDir; float t, nextLog, nextShot = 4f, atkT; int shots; bool ended; Unit reactFor; float burstAt = -1, burstNext; int burstN; float guardT; int blocks;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
@@ -22,6 +22,7 @@ public class QQBot : MonoBehaviour
         Application.logMessageReceived += (c, s, ty) => { if (ty == LogType.Exception || ty == LogType.Error) File.AppendAllText(Path.Combine(outDir, "bot.log"), "ERR " + c + " | " + s.Split('\n')[0] + "\n"); };
     }
 
+    void Start() { var a = System.Environment.GetCommandLineArgs(); int i = System.Array.IndexOf(a, "-qqburst"); if (i >= 0 && i + 1 < a.Length) burstAt = float.Parse(a[i + 1], System.Globalization.CultureInfo.InvariantCulture); }
     void Log(string s) { File.AppendAllText(Path.Combine(outDir, "bot.log"), Time.time.ToString("0.0") + " " + s + "\n"); }
 
     void Update()
@@ -29,6 +30,8 @@ public class QQBot : MonoBehaviour
         t += Time.deltaTime; var A = QQArena.I; var P = QQPlayer.I; if (!A || !P || !A.player) return;
         var me = A.player;
         if (t >= nextLog) { nextLog = t + 5; Log("hp " + me.hp.ToString("0") + "/" + me.maxHp + " foes " + Unit.CountTeam(1) + " allies " + (Unit.CountTeam(0) - 1) + " running " + A.running + " chain " + P.Chain + " best " + P.BestChain + " tokens " + Unit.TokensOnPlayer() + " obst " + QQObstacles.All.Count + " fps " + (1f / Mathf.Max(1e-4f, Time.smoothDeltaTime)).ToString("0") + Near(me)); }
+        // burst: -qqburst T = 24 frames at 0.1 s from time T (motion review)
+        if (burstAt > 0 && t >= burstAt && burstN < 24 && t >= burstNext) { burstNext = t + .1f; ScreenCapture.CaptureScreenshot(Path.Combine(outDir, "burst_" + (burstN++).ToString("00") + ".png")); }
         if (t >= nextShot && shots < (QQCam.debugZoom < 1 ? 14 : 6)) { nextShot = t + (QQCam.debugZoom < 1 ? 1.5f : 9); ScreenCapture.CaptureScreenshot(Path.Combine(outDir, "bot_" + (++shots) + ".png")); }
         var end = GameObject.Find("HUD/end");
         if (!ended && end && end.activeSelf) { ended = true; var tx = end.GetComponentsInChildren<UnityEngine.UI.Text>(); Log("END " + (tx.Length > 1 ? tx[0].text + " | " + tx[1].text : "?"));
