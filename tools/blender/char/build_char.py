@@ -84,9 +84,14 @@ if '--bodyonly' in args:   # MetaHuman body conform target: the standard female 
     bpy.ops.object.select_all(action='DESELECT'); bm.select_set(True); bpy.context.view_layer.objects.active = bm; bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     bpy.ops.export_scene.fbx(filepath=OUT, use_selection=True, apply_unit_scale=True, global_scale=1.0, axis_forward='-Y', axis_up='Z', object_types={'MESH'}, use_mesh_modifiers=False, add_leaf_bones=False)
     print('CHAR bodyonly ->', OUT); sys.exit(0)
-garments.build(SPEC, bm, arm)
-if SPEC.get('ref_head'): fit_ref.head_from_ref(SPEC, bm, arm)
-if SPEC.get('ref_model'): fit_ref.wrap_bake(SPEC, bm, arm, ([] if SPEC.get('mh_body') else [bm]) + [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == arm and o != bm and o.name != 'head'])
+if SPEC.get('ref_clothes'):   # the costume itself comes from the author's Higgsfield model (geometry + texture), skinned to the body
+    import ref_clothes
+    ref_clothes.build(SPEC, bm, arm, fit_ref.REF)
+    for o_ in fit_ref.REF['meshes'] + ([fit_ref.REF['arm']] if fit_ref.REF.get('arm') else []): bpy.data.objects.remove(o_, do_unlink=True)
+else:
+    garments.build(SPEC, bm, arm)
+if not SPEC.get('ref_clothes') and SPEC.get('ref_head'): fit_ref.head_from_ref(SPEC, bm, arm)
+if SPEC.get('ref_model') and not SPEC.get('ref_clothes'): fit_ref.wrap_bake(SPEC, bm, arm, ([] if SPEC.get('mh_body') else [bm]) + [o for o in bpy.context.scene.objects if o.type == 'MESH' and o.parent == arm and o != bm and o.name != 'head'])
 
 # ---- export
 bpy.ops.object.select_all(action='DESELECT')

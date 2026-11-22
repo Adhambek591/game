@@ -84,8 +84,8 @@ def load(spec, here):
         if top - .16 < c.z < top - .10 and c.y < -.05:
             u, v = uvd[p.loop_indices[0]].uv; cols.append(px[int((v % 1) * (tex.size[1] - 1)), int((u % 1) * (TS - 1)), :3])
     sk = np.median(np.array(cols), 0) if cols else np.array([.55, .38, .28])
-    # Blender pixels are linear for an sRGB image -> use directly as the linear base colour
-    skin_body = mat('skin_body', rgb=tuple(float(x) for x in sk), rough=.55)
+    # image.pixels of a byte sRGB image are sRGB-encoded: convert to linear for the base colour (else the hands look pale)
+    skin_body = mat('skin_body', rgb=tuple(float(x) ** 2.2 for x in sk), rough=.55)
     eyes_img = bpy.data.images.load(os.path.join(root, mh['eye_img'])); eyes_img.pack()
     eye_m = mat('eyes', img=eyes_img, rough=.1); teeth = mat('teeth', rgb=(.8, .78, .72), rough=.3); lash = mat('lashes', rgb=(.02, .015, .012), rough=.6)
     # eyes: UVs = projection through the camera that rendered the painted front view (ft_cams.json, Blender frame of the FBX)
