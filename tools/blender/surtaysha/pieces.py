@@ -178,37 +178,45 @@ def coat_dims_v1(z):
     t = (1.06 - z) / 0.66
     return 0.214 + t * 0.045, 0.180 + t * 0.035, 0.110 + t * 0.10, 2.3
 def build_coat():
-    mb = MB(); tm = MB()
-    COAT_HEM = 0.525
-    zs = [1.07 - (1.07 - COAT_HEM) * j / 22 for j in range(23)][::-1]
-    nu = 64
-    G = []
-    for z in zs:
-        a, bf, bb, n = coat_dims(z)
-        gap = (0.030 + 0.045 * (1.07 - z) / 0.545) / bf
-        row = []
-        depth = (1.07 - z) / 0.545
-        for i in range(nu + 1):
-            u = gap + (2 * math.pi - 2 * gap) * i / nu
-            p = torso_S(u, z, tab=[(z, a, bf, bb, n)])
-            # folds grow toward the hem
-            amp = 0.006 + 0.016 * depth ** 1.2
-            r = Vector((p.x, p.y, 0)).normalized()
-            f = math.sin(u * 11 + 0.7 + 0.6 * math.sin(u * 3)); f = math.copysign(abs(f) ** 0.6, f)
-            p = p + r * amp * f + r * amp * 0.35 * math.sin(u * 23 + 2.1)
-            row.append(p)
-        G.append(row)
-    shell(mb, G, 0.005, out_fn=lambda p: Vector((p.x, p.y, 0)))
-    done(mb.build('SUR_Coat', [M_CLOTH]), 'pelvis', 'Cloth')
-    sim = MB(); shell(sim, G, 0.0, out_fn=lambda p: Vector((p.x, p.y, 0)), back=False, walls=False)
-    o = done(sim.build('SUR_Coat_Sim', [M_CLOTH]), 'pelvis', 'Cloth'); o['sim_mesh'] = 1; o['bake_skip'] = 1; o.hide_render = True
-    # border trim along hem and both front edges
-    path = [G[j][0] for j in range(len(G) - 1, -1, -1)] + G[0][1:] + [G[j][-1] for j in range(1, len(G))]
-    ups = [Vector((p.x, p.y, 0)).normalized() for p in path]
-    path, _r = path, None
+    """robe skirt: closed band at the waist, three panels below (front-left, back, front-right) with side slits
+    so the legs can stride; each panel bordered with the braid trim"""
+    mb = MB(); tm = MB(); sim = MB()
+    COAT_HEM, SLIT_TOP = 0.525, 0.80
     tw = 0.058
-    sweep(tm, path, ups, [(-tw, 0.001), (-tw, 0.004), (0.0, 0.0045), (0.003, 0.002), (0.0, -0.004), (-tw, -0.0035), (-tw, 0.001)],
-          uv_v=TRIM['border'], u_scale=TRIM_U)
+    prof = [(-tw, 0.001), (-tw, 0.004), (0.0, 0.0045), (0.003, 0.002), (0.0, -0.004), (-tw, -0.0035), (-tw, 0.001)]
+    def P(u, z):
+        a, bf, bb, n = coat_dims(z)
+        p = torso_S(u, z, tab=[(z, a, bf, bb, n)])
+        depth = (1.07 - z) / 0.545
+        amp = 0.006 + 0.016 * depth ** 1.2
+        r = Vector((p.x, p.y, 0)).normalized()
+        f = math.sin(u * 11 + 0.7 + 0.6 * math.sin(u * 3)); f = math.copysign(abs(f) ** 0.6, f)
+        return p + r * amp * f + r * amp * 0.35 * math.sin(u * 23 + 2.1)
+    def gap(z):
+        return (0.030 + 0.045 * (1.07 - z) / 0.545) / coat_dims(z)[1]
+    out = lambda q: Vector((q.x, q.y, 0))
+    def panel(u0f, u1f, z0, z1, nz, nu, border):
+        zs = [z0 + (z1 - z0) * j / nz for j in range(nz + 1)]
+        G = [[P(u0f(z) + (u1f(z) - u0f(z)) * i / nu, z) for i in range(nu + 1)] for z in zs]
+        shell(mb, G, 0.005, out_fn=out)
+        shell(sim, G, 0.0, out_fn=out, back=False, walls=False)
+        if border:
+            path = [G[j][0] for j in range(len(G) - 1, -1, -1)] + G[0][1:] + [G[j][-1] for j in range(1, len(G))]
+            sweep(tm, path, [out(q).normalized() for q in path], prof, uv_v=TRIM['border'], u_scale=TRIM_U)
+        return G
+    # waist band (closed except the front opening), hidden under the tassets at its lower edge
+    panel(lambda z: gap(z), lambda z: 2 * math.pi - gap(z), SLIT_TOP - 0.01, 1.07, 9, 64, False)
+    SL = 0.045                                   # half-width of each side slit (rad) at the hem
+    sl = lambda z: SL * smoothstep(SLIT_TOP, COAT_HEM, z)
+    panel(lambda z: gap(z), lambda z: math.pi / 2 + 0.10 - sl(z), COAT_HEM, SLIT_TOP, 12, 18, True)
+    panel(lambda z: math.pi / 2 + 0.10 + sl(z), lambda z: 3 * math.pi / 2 - 0.10 - sl(z), COAT_HEM, SLIT_TOP, 12, 30, True)
+    panel(lambda z: 3 * math.pi / 2 - 0.10 + sl(z), lambda z: 2 * math.pi - gap(z), COAT_HEM, SLIT_TOP, 12, 18, True)
+    # front edges of the waist band carry the braid too
+    for side in (0, 1):
+        path = [P(gap(z) if side == 0 else 2 * math.pi - gap(z), z) for z in [SLIT_TOP + (1.07 - SLIT_TOP) * k / 9 for k in range(10)]]
+        sweep(tm, path, [out(q).normalized() for q in path], prof, uv_v=TRIM['border'], u_scale=TRIM_U)
+    done(mb.build('SUR_Coat', [M_CLOTH]), 'pelvis', 'Cloth')
+    o = done(sim.build('SUR_Coat_Sim', [M_CLOTH]), 'pelvis', 'Cloth'); o['sim_mesh'] = 1; o['bake_skip'] = 1; o.hide_render = True
     done(tm.build('SUR_Coat_Border', [M_TRIM]), 'pelvis', 'Cloth')
 
 def build_trousers():
@@ -316,7 +324,7 @@ def paul_S(u, v, dr=0.0):
 def build_pauldrons():
     J, D, Up, F = pauldron_frame()
     mb = MB(); tm = MB(); bk = MB()
-    s0, s1 = -0.060, 0.235
+    s0, s1 = -0.042, 0.235
     umax = 1.95
     ctr = lambda p: J + D * (p - J).dot(D)
     rows = []
@@ -905,7 +913,7 @@ if want('sleeves'): build_sleeves()
 if want('pauldrons'): build_pauldrons()
 if want('bracers'): build_bracers()
 if want('boots'): build_boots()
-if want('cape'): build_cape()
+if ONLY and 'cape' in ONLY: build_cape()      # author: no cape (animation); build with `-- cape` only
 if want('helmet'):
     plume_base = build_helmet()
     build_plume(plume_base)
