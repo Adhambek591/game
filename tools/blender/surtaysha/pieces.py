@@ -179,14 +179,15 @@ def coat_dims_v1(z):
     return 0.214 + t * 0.045, 0.180 + t * 0.035, 0.110 + t * 0.10, 2.3
 def build_coat():
     mb = MB(); tm = MB()
-    zs = [1.07 - (1.07 - 0.40) * j / 26 for j in range(27)][::-1]
+    COAT_HEM = 0.525
+    zs = [1.07 - (1.07 - COAT_HEM) * j / 22 for j in range(23)][::-1]
     nu = 64
     G = []
     for z in zs:
         a, bf, bb, n = coat_dims(z)
-        gap = (0.030 + 0.050 * (1.07 - z) / 0.67) / bf
+        gap = (0.030 + 0.045 * (1.07 - z) / 0.545) / bf
         row = []
-        depth = (1.07 - z) / 0.67
+        depth = (1.07 - z) / 0.545
         for i in range(nu + 1):
             u = gap + (2 * math.pi - 2 * gap) * i / nu
             p = torso_S(u, z, tab=[(z, a, bf, bb, n)])
@@ -228,7 +229,8 @@ def build_trousers():
         if 0.12 < z < 0.55:
             cx, hx, ymn, ymx = FIT.leg_at(z)[:4]
             r = max(r, max(hx, (ymx - ymn) / 2) + 0.010)
-            if z < BOOT_TOP + 0.03: r = min(r, min(hx, (ymx - ymn) / 2) + 0.004)
+            if z < BOOT_TOP - 0.01: r = min(r, min(hx, (ymx - ymn) / 2) + 0.004)
+            elif z < BOOT_TOP + 0.06: r = max(r, max(hx, (ymx - ymn) / 2) + 0.020)
         r *= 1 + 0.05 * math.sin(a * 5 + j * 0.5) * smoothstep(0.2, 0.7, t) * (1 - smoothstep(0.70, 0.80, t))
         return r * math.cos(a), r * math.sin(a) * 1.05
     G = loft_grid(path, shape, 24)
@@ -597,8 +599,8 @@ def build_boots():
     sweep(tr, rim, [(boot_out(p).normalized() + Vector((0, 0, 0.8))).normalized() for p in rim],
           [(math.cos(2 * math.pi * q / 8) * 0.0040, math.sin(2 * math.pi * q / 8) * 0.0034) for q in range(9)], closed=True, uv_v=TRIM['strap'], u_scale=TRIM_U)
     # ---- shin plate (greave): front plate only, strapped over the shaft, from the instep to below the knee
-    span = math.radians(72)
-    gz = [0.150 + (0.425 - 0.150) * j / 13 for j in range(14)]
+    span = math.radians(116)
+    gz = [0.150 + (0.440 - 0.150) * j / 13 for j in range(14)]
     def gr(z): return 0.0045 + 0.010 * smoothstep(0.20, 0.15, z)
     Gg = [[boot_ring(z, (-span + 2 * span * i / 16), grow=gr(z)) for i in range(17)] for z in gz]
     for row in Gg:
@@ -611,7 +613,7 @@ def build_boots():
     sweep(gm, bord, [boot_out(p).normalized() for p in bord],
           [(math.cos(2 * math.pi * q / 8) * 0.0030, math.sin(2 * math.pi * q / 8) * 0.0030 - 0.0008) for q in range(9)], closed=True, uv_v=(0.0, 0.02), u_scale=1.0)
     # two straps around the shaft holding the plate, buckles on the outer-front, rivets through the plate
-    for z in (0.205, 0.375):
+    for z in (0.215, 0.385):
         K = 48
         arc = []
         for k in range(K + 1):
@@ -619,7 +621,7 @@ def build_boots():
             on_plate = a < span or a > 2 * math.pi - span
             arc.append(boot_ring(z, a, grow=(gr(z) + 0.0045) if on_plate else 0.0030))
         strap(tr, arc, [boot_out(p).normalized() for p in arc], w=0.024, t=0.0035)
-        ab = span + 0.30
+        ab = math.pi - 0.55            # buckle at the back-outer side, strap wraps round the back
         pb = boot_ring(z, ab, grow=0.0068)
         tang = (boot_ring(z, ab + 0.05) - boot_ring(z, ab - 0.05)).normalized()
         buckle(tr, pb, boot_out(pb), tang, w=0.024, h=0.026)
@@ -801,14 +803,14 @@ def build_plume(base):
     N = 380
     side_az = math.pi                            # falls down the back
     for c in range(N):
-        az = side_az + r.gauss(0.0, 0.42)
+        az = side_az + r.gauss(0.0, 0.28)
         d = Vector((math.sin(az), -math.cos(az), 0))
-        rise = r.uniform(0.030, 0.060)
-        reach = r.uniform(0.05, 0.10)
-        fall = r.uniform(0.20, 0.36)
+        rise = r.uniform(0.085, 0.135)
+        reach = r.uniform(0.07, 0.14)
+        fall = r.uniform(0.14, 0.30)
         P0 = base + Vector((r.uniform(-0.004, 0.004), r.uniform(-0.004, 0.004), 0.0))
-        P1 = P0 + Vector((0, 0, rise)) + d * 0.010
-        P2 = P0 + Vector((0, 0, rise * 1.05)) + d * reach * 0.8
+        P1 = P0 + Vector((0, 0, rise * 1.15)) - d * 0.008
+        P2 = P0 + Vector((0, 0, rise * 1.10)) + d * reach * 0.9
         P3 = P0 + Vector((0, 0, rise - fall)) + d * reach * r.uniform(1.0, 1.25) + Vector((0, 0.035, 0))
         segs = 12
         pts = [P0 * (1 - t) ** 3 + P1 * 3 * (1 - t) ** 2 * t + P2 * 3 * (1 - t) * t * t + P3 * t ** 3 for t in [k / segs for k in range(segs + 1)]]

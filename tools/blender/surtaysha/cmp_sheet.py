@@ -1,11 +1,14 @@
-# ref | front | 3/4 comparison sheet -> surtaysha_sovut_cmp.png
+# turnaround ref | front | 3/4 | side | back comparison sheet -> surtaysha_sovut_cmp.png
 import sys, os
 from PIL import Image
 d = sys.argv[1]
-ref = Image.open(r"F:\qirq-qiz\tools\blender\char\ref\surtaysha_ref.png").convert('RGB')
-ims = [ref] + [Image.open(os.path.join(d, 'surtaysha_sovut_%s.png' % n)).convert('RGB') for n in ('front', 'q34')]
 H = 1600
-ims = [im.resize((int(im.width * H / im.height), H)) for im in ims]
+turn = Image.open(r"F:/qirq-qiz/tools/blender/char/ref/surtaysha_turn.png").convert('RGB')
+ims = [turn.resize((int(turn.width * H / turn.height), H))]
+for n in ('front', 'q34', 'side', 'back'):
+    p = os.path.join(d, 'surtaysha_sovut_%s.png' % n)
+    if os.path.exists(p):
+        im = Image.open(p).convert('RGB'); ims.append(im.resize((int(im.width * H / im.height), H)))
 sheet = Image.new('RGB', (sum(i.width for i in ims) + 20 * (len(ims) - 1), H), (40, 40, 40))
 x = 0
 for im in ims:
