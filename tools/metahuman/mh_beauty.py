@@ -22,6 +22,8 @@ def add_groom(c, slot, wi_path):
     if wi is None: log('groom missing', wi_path); return None
     try:
         inst = c.internal_collection.default_instance
+        if not getattr(add_groom, 'slots', False):
+            add_groom.slots = True; log('slot names', [str(s) for s in c.internal_collection.get_slot_names()])
         if not getattr(add_groom, 'dumped', False):
             add_groom.dumped = True; log('instance api', [m for m in dir(inst) if not m.startswith('_')]); log('collection api', [m for m in dir(c.internal_collection) if not m.startswith('_')])
         # a slot that already holds a groom (preset hair, earlier run) keeps the old one: drop existing selections first
@@ -125,9 +127,10 @@ def make_look(name, cfg):
     hair = cfg.get('hair', 'WI_Hair_S_LowPonytail')
     keys = {
         'Hair': add_groom(c, 'Hair', f'{G}/Hair/{hair}.{hair}'),
-        'Eyebrows': add_groom(c, 'Eyebrows', f'{G}/Eyebrows/WI_Eyebrows_M_SlightArch.WI_Eyebrows_M_SlightArch'),
+        'Eyebrows': add_groom(c, 'Eyebrows', f"{G}/Eyebrows/{cfg.get('brows', 'WI_Eyebrows_M_SlightArch')}.{cfg.get('brows', 'WI_Eyebrows_M_SlightArch')}"),
         'Eyelashes': add_groom(c, 'Eyelashes', f'{G}/Eyelashes/WI_Eyelashes_L_SlightCurl.WI_Eyelashes_L_SlightCurl'),
         'Peachfuzz': add_groom(c, 'Peachfuzz', f'{G}/Peachfuzz/WI_Peachfuzz_M_Thin.WI_Peachfuzz_M_Thin'),
+        **{slot: add_groom(c, slot, f'{G}/{folder}/{wi}.{wi}') for slot, folder, wi in cfg.get('grooms', [])},
     }
     if mhs.try_add_object_to_edit(c):
         try:
