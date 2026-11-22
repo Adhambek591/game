@@ -1064,6 +1064,33 @@ public static class QQSetup
         Debug.Log("QQ VIDLOCO OK " + frame);
     }
 
+    // debug: one run pose (after 2 s of running), each skinned layer rendered alone from the side and from behind -> Builds/sim/layers.png
+    public static void LayerShot()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(.85f, .85f, .85f);
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward); u.rig.desync = false; u.rig.male = true;
+        float dt = 1f / 60f; float tt = 0; float stop = 2.1f; var args = System.Environment.GetCommandLineArgs(); int ai = System.Array.IndexOf(args, "-qqt"); if (ai >= 0) stop = float.Parse(args[ai + 1], System.Globalization.CultureInfo.InvariantCulture);
+        while (tt < stop) { u.rig.Locomote(4.5f, .2f); u.transform.position += Vector3.forward * 4.5f * dt; u.rig.Tick(dt); tt += dt; }
+        var smrs = u.GetComponentsInChildren<SkinnedMeshRenderer>(); const int W = 360, H = 520;
+        var sheet = new Texture2D(W * (smrs.Length + 1), H * 2, TextureFormat.RGB24, false);
+        for (int L = -1; L < smrs.Length; L++)
+        {
+            for (int v = 0; v < 2; v++)
+            {
+                var snap = Snapshot(u);
+                if (L >= 0) foreach (var mr in snap.GetComponentsInChildren<MeshRenderer>()) mr.enabled = mr.name == "snap_" + smrs[L].name;
+                var c = u.transform.position + Vector3.up * .7f; var dir = v == 0 ? Vector3.right : Vector3.back;
+                cam.fieldOfView = 30; cam.nearClipPlane = .05f; cam.transform.position = c + dir * 3.2f; cam.transform.LookAt(c);
+                var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); RenderTexture.active = rt;
+                sheet.ReadPixels(new Rect(0, 0, W, H), (L + 1) * W, (1 - v) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+            }
+        }
+        sheet.Apply(); File.WriteAllBytes("Builds/sim/layers.png", sheet.EncodeToPNG());
+        Debug.Log("QQ LAYERS " + string.Join(",", System.Array.ConvertAll(smrs, x => x.name)));
+    }
+
     public static void FaceProbe()
     {
         EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();

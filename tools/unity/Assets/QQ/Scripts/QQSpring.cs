@@ -35,7 +35,7 @@ public class QQSpring : MonoBehaviour
         Add(map, "Tail", 1, 4, false, .22f, .25f, .5f);    // Qasqir's tail (tools/blender/appendage.py)
         Add(map, "Plume", 1, 4, false, .35f, .3f, .3f);
         System.Action<string, string, float> cap = (a, b, r) => { Transform ta, tb; if (map.TryGetValue(a, out ta) && map.TryGetValue(b, out tb)) cols.Add(new Capsule { a = ta, b = tb, r = r * scale }); };
-        cap("LeftUpLeg", "LeftLeg", .095f); cap("RightUpLeg", "RightLeg", .095f);
+        cap("LeftUpLeg", "LeftLeg", .14f); cap("RightUpLeg", "RightLeg", .14f);   // thigh + trousers (MetaHuman thighs are fuller than the old rigs)
         cap("LeftLeg", "LeftFoot", .075f); cap("RightLeg", "RightFoot", .075f);
         cap("Hips", "Spine02", .135f); cap("Spine02", "neck", .14f);
         Transform h2; if (map.TryGetValue("Hips", out h2) && map.ContainsKey("Tail1")) { cols.Add(new Capsule { a = map["LeftUpLeg"], b = map["LeftLeg"], r = .12f * scale }); cols.Add(new Capsule { a = map["RightUpLeg"], b = map["RightLeg"], r = .12f * scale }); }

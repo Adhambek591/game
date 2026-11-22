@@ -72,7 +72,7 @@ def build(spec, body, arm, REF):
             if any((p - h).length < .14 and p.z < h.z + .03 for h, _ in hands): dead.append(f); continue
         # sword + scabbard candidates: the character's left beside the hip, not blue cloth
         # only the HILT goes (the sword is drawn in her hand); the empty scabbard stays on the belt, no holes in the dress
-        if waist - .16 < p.z < waist + .08 and side * math.copysign(1, left_x) > .15 and not is_blue(c) and bvh0.find_nearest(p)[3] > .045:
+        if knee + .02 < p.z < waist + .08 and side * math.copysign(1, left_x) > .13 and not is_blue(c) and bvh0.find_nearest(p)[3] > .045:
             sword_cand.add(f)
     # the scabbard is the one big connected patch of candidates; small ones are dress trim and stay
     seenf = set(); n_sword = 0
@@ -87,7 +87,7 @@ def build(spec, body, arm, REF):
         if len(comp) > 25: dead.extend(comp); n_sword += len(comp)
     print('CHAR costume: sword faces', n_sword, 'candidates', len(sword_cand))
     dead = list(set(dead))
-    bmesh.ops.delete(bmx, geom=dead, context='FACES'); bb0.free(); beval0.to_mesh_clear()
+    bmesh.ops.delete(bmx, geom=dead, context='FACES')
     # drop little floating crumbs left by the cut
     bmx.verts.ensure_lookup_table(); seen = set(); comps = []
     for v in bmx.verts:
@@ -99,8 +99,9 @@ def build(spec, body, arm, REF):
                 y = e.other_vert(x)
                 if y not in seen: seen.add(y); st.append(y)
         comps.append(comp)
-    crumbs = [v for comp in comps if len(comp) < 60 for v in comp]
+    crumbs = [v for comp in comps if len(comp) < 60 or (len(comp) < 400 and min(bvh0.find_nearest(mw @ x.co)[3] for x in comp[::5]) > .05) for v in comp]   # crumbs + loose sword bits
     bmesh.ops.delete(bmx, geom=crumbs, context='VERTS')
+    bb0.free(); beval0.to_mesh_clear()
     bmx.to_mesh(me); bmx.free()
     print('CHAR costume: cut %d faces (skin + sword), %d crumbs, %d verts left' % (len(dead), len(crumbs), len(me.vertices)))
 
@@ -147,9 +148,20 @@ def build(spec, body, arm, REF):
     vc = [c / max(1, n) for c, n in zip(vc, vn)]
     def legwear(c):
         r, g, b = c; lum = .3 * r + .59 * g + .11 * b; return r >= g >= b and lum < .32 and not is_blue(c) and (r - b) < .25
-    sk = [smooth(ztop, ztop - .08, P[i].z) * (1 if P[i].z > hem - .1 else 0) * (smooth(.03, .06, dist[i]) if legwear(vc[i]) else 1.) for i in range(N)]
+    # skirt = what hangs away from the legs (geometry, not colour: the dress texture has dark trims/shadows); trousers hug the legs
+    def cls(i):
+        if is_blue(vc[i]): return 1.
+        if legwear(vc[i]): return 0. if dist[i] < .05 else .5
+        return 1. if dist[i] > .03 else .5
+    sk = [smooth(ztop, ztop - .08, P[i].z) * (1 if P[i].z > hem - .12 else 0) * cls(i) for i in range(N)]
+    for _ in range(4):   # region vote: thin trims / stitching / shadows join the surface they sit on
+        sk = [(sk[i] + sum(sk[j] for j in nb[i])) / (1 + len(nb[i])) for i in range(N)]
     for _ in range(6):
         sk = [(sk[i] + sum(sk[j] for j in nb[i])) / (1 + len(nb[i])) for i in range(N)]
+    sk = [(1. if sk[i] > .35 else 0.) if P[i].z < ztop - .07 else sk[i] for i in range(N)]
+    # legs: how much of each costume point belongs to the left / right leg (the web between the legs belongs to both)
+    def legsum(w, side): return sum(x for n, x in w.items() if n.startswith(side) and any(k in n for k in ('UpLeg', 'Leg', 'Foot', 'ToeBase')))
+    crotch = hip.z - .06
     _lw = [legwear(c) for c in vc]; print('CHAR costume skirt: legwear %d / %d, sk>.5 %d, ztop %.3f hem %.3f, sample colours' % (sum(_lw), N, sum(1 for x in sk if x > .5), ztop, hem), [tuple(round(float(x), 2) for x in vc[i]) for i in range(0, N, N // 8)])
     def ang(p):
         d = p - Vector((hip.x, hip.y, p.z)); return math.atan2(d.dot(rgt), d.dot(fwd)) % (2 * math.pi)
@@ -180,13 +192,114 @@ def build(spec, body, arm, REF):
                 cw[chain[kk][j]] = cw.get(chain[kk][j], 0.) + ka * ja
         hipw = 1 - smooth(0, .8, s)
         cw = {n: x * (1 - hipw) for n, x in cw.items()}; cw['Hips'] = cw.get('Hips', 0.) + hipw
-        W[i] = {n: W[i].get(n, 0.) * (1 - sk[i]) + cw.get(n, 0.) * sk[i] for n in set(W[i]) | set(cw)}
+        pass   # the skirt is split off later with pure chain weights; the costume (trousers, boots, belt band) keeps the body's weights
     # limit 4 + normalise, write groups
     for n in set(n for w in W for n in w): o.vertex_groups.new(name=n)
     for i, w in enumerate(W):
         top4 = sorted(w.items(), key=lambda kv: -kv[1])[:4]; tot = sum(x for _, x in top4) or 1.
         for n, x in top4:
             if x / tot > .01: o.vertex_groups[n].add([i], x / tot, 'REPLACE')
+    # ---------------- skirt by VISIBILITY (the reference is one fused shell: colour and distance both failed):
+    # in the skirt zone every face that is seen from outside (a ray from it, away from the body axis, hits nothing) is the
+    # skirt, except the trouser strip seen through the front slit; faces hidden inside are deleted; the web between the legs too
+    def cw_at(p):
+        a = ang(p) / (math.pi / 4); k0 = int(a) % 8; k1 = (k0 + 1) % 8; fa = a - int(a)
+        s_ = max(0., min(1., (ztop - p.z) / max(1e-4, ztop - hem))) * 3; seg = min(2, int(s_)); t = s_ - seg
+        cw = {}
+        for kk, ka in ((k0, 1 - fa), (k1, fa)):
+            for j_, ja in ((seg, 1 - max(0, t - .5)), (min(2, seg + 1), max(0, t - .5))):
+                cw[chain[kk][j_]] = cw.get(chain[kk][j_], 0.) + ka * ja
+        hipw = 1 - smooth(0, .6, s_)
+        cw = {n: x * (1 - hipw) for n, x in cw.items()}; cw['Hips'] = cw.get('Hips', 0.) + hipw
+        return cw
+    for n in ['Hips'] + [b for c_ in chain for b in c_]:
+        if n not in o.vertex_groups: o.vertex_groups.new(name=n)
+    gidx = {g.name: g.index for g in o.vertex_groups}
+    LS = [legsum(W[i], 'Left') for i in range(N)]; RS = [legsum(W[i], 'Right') for i in range(N)]
+    bmx = bmesh.new(); bmx.from_mesh(me); bmx.transform(mw); bmx.verts.ensure_lookup_table(); bmx.faces.ensure_lookup_table()
+    cbvh = BVHTree.FromBMesh(bmx)
+    buv = bmx.loops.layers.uv.active
+    z_top, z_bot = ztop - .05, hem - .14
+    inner, skirt_faces, web = [], [], []
+    for f in bmx.faces:
+        c = f.calc_center_median()
+        if not (z_bot < c.z < z_top): continue
+        ids = [v.index for v in f.verts]
+        if all(P[i].z < crotch for i in ids) and min(min(LS[i], RS[i]) for i in ids) > .3 and all(abs((P[i] - hip).dot(rgt)) < .055 for i in ids) and max(dist[i] for i in ids) < .035: web.append(f); continue   # only the trouser crotch web, never the skirt
+        d = c - Vector((hip.x, hip.y, c.z))
+        if d.length < 1e-4: continue
+        d.normalize(); hit = cbvh.ray_cast(c + d * .004, d, .25)
+        if hit[0] is not None:
+            if c.z > hem - .02: inner.append(f)   # hidden under the skirt -> gone; below the hem nothing is deleted
+            continue
+        u_ = sum((l[buv].uv for l in f.loops), Vector((0, 0))) / len(f.loops); col = px[int((u_.y % 1) * (IH - 1)), int((u_.x % 1) * (IW - 1)), :3]; front = d.dot(fwd) > math.cos(math.radians(32))
+        loc, nrm, fi, dd = bvh.find_nearest(c)
+        if legwear(col) and front and dd is not None and dd < .055: continue   # trousers seen through the slit stay on the legs
+        if c.z < hem - .005 or (legwear(col) and c.z < hem + .04):   # below the dress hem: trousers / boot tops stay on the legs
+            loc2, nrm2, fi2, dd2 = bvh.find_nearest(c)
+            if c.z > knee - .16 and dd2 is not None and dd2 > .045 and not legwear(col): inner.append(f)   # loose dress shards below the hem would snap with the knee
+            continue
+        skirt_faces.append(f)
+    # the skirt: own object, pure chain weights (no thigh weights), pushed off the body, normals facing out
+    dl = bmx.verts.layers.deform.verify()
+    sb = bmesh.new(); sdl = sb.verts.layers.deform.verify(); suv = sb.loops.layers.uv.verify(); ouv = bmx.loops.layers.uv.active; vm = {}
+    for f in skirt_faces:
+        vs = []
+        for v in f.verts:
+            if v not in vm:
+                pw = v.co.copy(); loc, nrm, fi, dd = bvh.find_nearest(pw)
+                if loc is not None and (pw - loc).dot(nrm) < .012: pw = loc + nrm * .012
+                nv = sb.verts.new(pw); cw = cw_at(pw)
+                # a share of the nearest thigh lower down: the panel travels with the leg instead of letting the knee punch through
+                dep = max(0., min(1., (ztop - pw.z) / max(1e-4, ztop - hem))); lr = max(-1., min(1., (pw - hip).dot(rgt) / .12)); kw = .32 * dep
+                lname = 'LeftUpLeg' if left_x < 0 else 'RightUpLeg'; rname = 'RightUpLeg' if left_x < 0 else 'LeftUpLeg'
+                cw = {n: x * (1 - kw) for n, x in cw.items()}; cw[rname] = cw.get(rname, 0.) + kw * (1 + lr) / 2; cw[lname] = cw.get(lname, 0.) + kw * (1 - lr) / 2
+                if pw.z > ztop - .1:   # top band blends into the costume weights (no seam at the belt)
+                    e = smooth(ztop - .1, ztop - .05, pw.z); old = {o.vertex_groups[g].name: x for g, x in v[dl].items()}
+                    cw = {n: cw.get(n, 0.) * (1 - e) + old.get(n, 0.) * e for n in set(cw) | set(old)}
+                top4 = sorted(cw.items(), key=lambda kv: -kv[1])[:4]; tot = sum(x for _, x in top4) or 1.
+                for n, x in top4:
+                    if x / tot > .01: nv[sdl][gidx[n]] = x / tot
+                vm[v] = nv
+            vs.append(vm[v])
+        try:
+            nf = sb.faces.new(vs); nf.material_index = f.material_index
+            for la, lb in zip(f.loops, nf.loops): lb[suv].uv = la[ouv].uv
+        except ValueError: pass
+    for f in sb.faces:
+        c_ = f.calc_center_median(); out_ = c_ - Vector((hip.x, hip.y, c_.z))
+        if f.normal.dot(out_) < 0: f.normal_flip()
+    bmesh.ops.delete(bmx, geom=list(set(inner + web + skirt_faces)), context='FACES')
+    bmesh.ops.delete(bmx, geom=[v for v in bmx.verts if not v.link_faces], context='VERTS')
+    def drop_small(bmz, limit, zone):
+        bmz.verts.ensure_lookup_table(); seen_ = set(); gone_ = []
+        for v in bmz.verts:
+            if v in seen_: continue
+            st = [v]; seen_.add(v); comp = []
+            while st:
+                x = st.pop(); comp.append(x)
+                for e in x.link_edges:
+                    y = e.other_vert(x)
+                    if y not in seen_: seen_.add(y); st.append(y)
+            if len(comp) < limit and all(zone(x.co) for x in comp): gone_.extend(comp)
+        bmesh.ops.delete(bmz, geom=gone_, context='VERTS'); return len(gone_)
+    zone_ = lambda q: z_bot - .02 < q.z < z_top + .02
+    nd1 = drop_small(bmx, 150, zone_); nd2 = drop_small(sb, 60, zone_)
+    bmx.transform(mw.inverted()); sb.transform(mw.inverted())
+    bmx.to_mesh(me); bmx.free()
+    print('CHAR costume: skirt %d faces, hidden inner %d, web %d deleted, fragments %d + %d' % (len(skirt_faces), len(inner), len(web), nd1, nd2))
+    sm = bpy.data.meshes.new('skirt'); sb.to_mesh(sm); sb.free()
+    so = bpy.data.objects.new('skirt', sm); sc.collection.objects.link(so); so.matrix_world = mw
+    for mt in me.materials: sm.materials.append(mt)
+    for g in o.vertex_groups: so.vertex_groups.new(name=g.name)
+    dress_rgb = [c * .35 for c in spec.get('dress', {}).get('color', [.09, .11, .45])]
+    inner = bpy.data.materials.new('skirt_inner'); inner.use_nodes = True; inner.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*dress_rgb, 1); inner.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = .9
+    sm.materials.append(inner)
+    bpy.context.view_layer.objects.active = so; so.select_set(True)
+    sol = so.modifiers.new('sol', 'SOLIDIFY'); sol.thickness = .004; sol.offset = -1; sol.use_rim = True; sol.material_offset = len(sm.materials) - 1; sol.material_offset_rim = len(sm.materials) - 1
+    bpy.ops.object.modifier_apply(modifier='sol')
+    for p_ in sm.polygons: p_.use_smooth = True
+    so.parent = arm; so.matrix_world = mw; md2 = so.modifiers.new('arm', 'ARMATURE'); md2.object = arm
     # ---------------- 3. push costume points out of the body / head
     pushed = 0
     for i, v in enumerate(me.vertices):
@@ -199,16 +312,34 @@ def build(spec, body, arm, REF):
     md = o.modifiers.new('arm', 'ARMATURE'); md.object = arm
     # body faces hidden under the costume go away; head, neck and hands stay
     cb_ = bmesh.new(); cb_.from_mesh(me); cb_.transform(mw); cost_bvh = BVHTree.FromBMesh(cb_); cb_.free()
-    keepv = []
+    keepv = []; sink = []
     for v, w in zip(body.data.vertices, BW):
         p = bmw @ v.co
         hn = sum(x for n, x in w.items() if n in ('Head', 'neck', 'neck_02'))
         hd = sum(x for n, x in w.items() if 'Hand' in n or any(f in n for f in ('Thumb', 'Index', 'Middle', 'Ring', 'Pinky')))
         loc, nrm, fi, d = cost_bvh.find_nearest(p)
-        keepv.append(hn > .5 or hd > .5 or d is None or d > .06)
+        lg = sum(x for n, x in w.items() if any(k in n for k in ('UpLeg', 'Leg', 'Foot', 'ToeBase', 'Hips')))
+        keepv.append(hn > .5 or hd > .5 or d is None or d > .06 or (lg > .5 and p.z < waist - .02))
+        if sum(x for n, x in w.items() if 'Foot' in n or 'ToeBase' in n) > .5: keepv[-1] = False   # feet are inside the boots
+        sink.append(not (hn > .5 or hd > .5 or d is None or d > .06) and lg > .5 and p.z < waist - .02)
     bb = bmesh.new(); bb.from_mesh(body.data); bb.verts.ensure_lookup_table()
+    for v in bb.verts:   # legs / pelvis kept under the clothes sit 1.5 cm inside them: they fill the void, never show through
+        if sink[v.index]: v.co -= v.normal * .015
     gone = [f for f in bb.faces if not any(keepv[v.index] for v in f.verts)]
     bmesh.ops.delete(bb, geom=gone, context='FACES'); bb.to_mesh(body.data); bb.free()
+    lw_rgb = spec.get('trousers', [.17, .1, .07]); lw_rgb = [x ** 2.2 for x in lw_rgb]
+    tm = bpy.data.materials.new('under_trousers'); tm.use_nodes = True; tm.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*lw_rgb, 1); tm.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = .9
+    body.data.materials.append(tm); ti = len(body.data.materials) - 1
+    bt_rgb = [x ** 2.2 for x in spec.get('boots', [.2, .12, .09])]; bmat = bpy.data.materials.new('under_boots'); bmat.use_nodes = True; bmat.node_tree.nodes['Principled BSDF'].inputs['Base Color'].default_value = (*bt_rgb, 1); bmat.node_tree.nodes['Principled BSDF'].inputs['Roughness'].default_value = .7
+    body.data.materials.append(bmat); bi = len(body.data.materials) - 1
+    bnm = [g.name for g in body.vertex_groups]
+    for poly in body.data.polygons:
+        c_ = bmw @ poly.center
+        if c_.z < waist - .02:
+            ws_ = {}
+            for vi in poly.vertices:
+                for g in body.data.vertices[vi].groups: ws_[bnm[g.group]] = ws_.get(bnm[g.group], 0) + g.weight
+            if sum(x for n, x in ws_.items() if any(k in n for k in ('UpLeg', 'Leg', 'Foot', 'ToeBase', 'Hips'))) > .5 * len(poly.vertices): poly.material_index = ti if c_.z > knee - .04 else bi
     print('CHAR costume: removed %d hidden body faces' % len(gone))
     bm_b.free(); beval.to_mesh_clear()
     return o

@@ -109,7 +109,7 @@ public class QQArena : MonoBehaviour
         var fwd = root.forward; var up = (fwd - Vector3.Dot(fwd, d) * d).normalized;   // blade perpendicular to the forearm, pointing forward
         w.transform.SetPositionAndRotation(grip ?? hand.position + d * .085f * height / 1.75f, Quaternion.LookRotation(d, up));   // grip = centre of the fist
         w.transform.localScale = Vector3.one * height / 1.75f * .78f;
-        w.transform.SetParent(hand, true);
+        w.transform.SetParent(hand, true); rig.weapon = w.transform;
         // sword trail (every great melee game has one): a short additive ribbon from the blade tip, on only while swinging
         var mf = w.GetComponentsInChildren<MeshFilter>(); if (mf.Length == 0 || !I || !I.fxMat) return;
         float far = 0; Vector3 tipL = Vector3.zero;

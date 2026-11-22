@@ -216,6 +216,21 @@ public class QQRig : MonoBehaviour
             if (neck) neck.rotation = Quaternion.AngleAxis(yaw * .4f, Vector3.up) * neck.rotation;
             head.rotation = Quaternion.AngleAxis(yaw * .6f, Vector3.up) * head.rotation;
         }
+        // carrying the sword on walk / run: the unarmed locomotion clips pump a fist, which pointed the blade straight up through the
+        // head; the wrist is turned so the blade runs forward-down along the forearm (how a drawn sword is carried)
+        bool loco = cur != null && (cur.StartsWith("walk") || cur.StartsWith("run"));
+        carryW = Mathf.MoveTowards(carryW, loco ? 1f : 0f, rawDt * 6f);
+        if (weapon && carryW > .01f)
+        {
+            Transform hand = Bone("RightHand"), fore = Bone("RightForeArm");
+            if (hand && fore)
+            {
+                Vector3 blade = weapon.up, fdir = (hand.position - fore.position).normalized;
+                Vector3 carryDir = (fdir + Vector3.down * .9f).normalized;
+                hand.rotation = Quaternion.Slerp(Quaternion.identity, Quaternion.FromToRotation(blade, carryDir), carryW) * hand.rotation;
+            }
+        }
         if (spring) spring.Step(rawDt);   // last: coat / braids follow the fully posed skeleton (mocap + flinch + lean + look-at)
     }
+    [System.NonSerialized] public Transform weapon; float carryW;
 }
