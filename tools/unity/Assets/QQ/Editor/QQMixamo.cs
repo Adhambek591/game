@@ -50,7 +50,7 @@ public static class QQMixamo
     // game clip name <- Mixamo file
     static readonly (string name, string file)[] MAP = {
         ("idle", "Female_Locomotion_Pack/idle"), ("walk", "Female_Locomotion_Pack/walking"), ("run", "Female_Locomotion_Pack/running"),
-        ("walk_m", "Pro_Melee_Axe_Pack/standing walk forward"), ("run_m", "Pro_Melee_Axe_Pack/standing run forward"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
+        ("walk_m", "Pro_Melee_Axe_Pack/unarmed walk forward"), ("run_m", "Pro_Melee_Axe_Pack/unarmed run forward"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
         ("combat", "Pro_Sword_and_Shield_Pack/sword and shield idle"),
         ("slash", "Pro_Sword_and_Shield_Pack/sword and shield slash"), ("attack", "Pro_Sword_and_Shield_Pack/sword and shield attack"),
         ("triple", "Pro_Sword_and_Shield_Pack/sword and shield slash (2)"), ("heavy", "Pro_Sword_and_Shield_Pack/sword and shield slash (3)"),
@@ -65,7 +65,7 @@ public static class QQMixamo
         ("roll", "Pro_Longbow_Pack/standing dodge backward"), ("dodge_l", "Pro_Longbow_Pack/standing dodge left"), ("dodge_r", "Pro_Longbow_Pack/standing dodge right"), ("dodge_f", "Pro_Longbow_Pack/standing dodge forward"),
         ("idle2_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (2)"), ("idle3_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (3)"), ("idle4_c", "Pro_Sword_and_Shield_Pack/sword and shield idle (4)"),
         ("slash4", "Pro_Sword_and_Shield_Pack/sword and shield slash (4)"), ("attack4", "Pro_Sword_and_Shield_Pack/sword and shield attack (4)"), ("axe_h", "Pro_Melee_Axe_Pack/standing melee attack horizontal"), ("axe_b", "Pro_Melee_Axe_Pack/standing melee attack backhand"),
-        ("guard", "Pro_Melee_Axe_Pack/standing idle"), ("run_u", "Pro_Melee_Axe_Pack/unarmed run forward"), ("walk_u", "Pro_Melee_Axe_Pack/unarmed walk forward"), ("run_l", "Pro_Longbow_Pack/standing run forward"), 
+        ("guard", "Pro_Melee_Axe_Pack/standing idle"), 
         ("cast", "Pro_Sword_and_Shield_Pack/sword and shield power up"), ("bow", "Pro_Longbow_Pack/standing aim recoil"), ("block", "Pro_Melee_Axe_Pack/standing block idle") };
 
     static string F(float v) { return v.ToString("0.#####", CultureInfo.InvariantCulture); }
@@ -140,16 +140,25 @@ public static class QQMixamo
                     int a0 = pk2, a1 = pk2; while (a0 > 0 && sp2[a0] > mx2 * .15f) a0--; while (a1 < n - 1 && sp2[a1] > mx2 * .15f) a1++;
                     a0 = Mathf.Max(0, a0 - 6); a1 = Mathf.Min(n - 1, a1 + 6); var ys = yaws.GetRange(a0, a1 - a0 + 1); ys.Sort(); mid = ys[ys.Count / 2];
                 }
-                else if (e.name.StartsWith("walk") || e.name.StartsWith("run"))   // locomotion: the direction of travel = where the planted feet point (standard), not the twisted hips
+                else if (e.name.StartsWith("walk") || e.name.StartsWith("run"))
                 {
-                    var fy = new List<float>();
-                    foreach (var sd in new[] { "Left", "Right" })
+                    // locomotion: the direction of travel is the axis the feet swing along (principal axis of both feet's horizontal
+                    // positions relative to the hips over the cycle), signed toward the hips' facing. Toe yaw and twisted hips lie.
+                    double sxx = 0, szz = 0, sxz = 0; var pts = new List<Vector2>();
+                    for (int i = 0; i < n; i++)
                     {
-                        var hs = new float[n]; var ya = new float[n]; float mn = 1e9f;
-                        for (int i = 0; i < n; i++) { foreach (var b2 in BODY) B[b2].localRotation = keys[b2][i]; var f = B[sd + "Foot"]; var toe = B[sd + "ToeBase"]; hs[i] = f.position.y; mn = Mathf.Min(mn, hs[i]); var d = toe.position - f.position; d.y = 0; ya[i] = Vector3.SignedAngle(fwd0, d, Vector3.up); }
-                        for (int i = 0; i < n; i++) if (hs[i] < mn + .03f) fy.Add(ya[i]);
+                        foreach (var b2 in BODY) B[b2].localRotation = keys[b2][i];
+                        foreach (var sd in new[] { "LeftFoot", "RightFoot" }) { var d = B[sd].position - B["Hips"].position; pts.Add(new Vector2(d.x, d.z)); }
                     }
-                    fy.Sort(); mid = fy.Count > 0 ? fy[fy.Count / 2] : 0;
+                    Vector2 mean = Vector2.zero; foreach (var q in pts) mean += q; mean /= pts.Count;
+                    foreach (var q in pts) { var d = q - mean; sxx += d.x * d.x; szz += d.y * d.y; sxz += d.x * d.y; }
+                    double ang = .5 * System.Math.Atan2(2 * sxz, sxx - szz);   // major axis angle from +x
+                    var axis = new Vector3((float)System.Math.Cos(ang), 0, (float)System.Math.Sin(ang));
+                    if (Vector3.Dot(axis, fwd0) < 0) axis = -axis;
+                    float hipsYaw = 0; { var ys = new List<float>(yaws); ys.Sort(); hipsYaw = ys[ys.Count / 2]; }
+                    var hf = Quaternion.AngleAxis(hipsYaw, Vector3.up) * fwd0; if (Vector3.Dot(axis, hf) < 0) axis = -axis;
+                    mid = Vector3.SignedAngle(fwd0, axis, Vector3.up);
+                    Debug.Log("QQ MIXAMO travel axis " + e.name + " " + mid.ToString("F0") + " (hips " + hipsYaw.ToString("F0") + ")");
                 }
                 else { var ys = new List<float>(yaws); ys.Sort(); mid = ys[ys.Count / 2]; }
                 if (Mathf.Abs(mid) > 4f && !e.name.StartsWith("dead"))

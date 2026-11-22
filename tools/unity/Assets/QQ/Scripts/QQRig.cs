@@ -16,7 +16,7 @@ public class QQRig : MonoBehaviour
     public float speed = 1f;
     // measured ground speed of the in-place mocap at x1 for a 1.75 m character (QQSetup.ClipStride): feet sweep vs time
     // Mixamo locomotion (QQMixamo.Bake) measured with QQSetup.ClipStride: female walk / run, male walk / run
-    public const float WALK_MS = 1.44f, RUN_MS = 2.12f, WALK_M_MS = 1.23f, RUN_M_MS = 2.12f;   // run_m = the same athletic run as run (the shield run went side-on)
+    public const float WALK_MS = 1.62f, RUN_MS = 2.36f, WALK_M_MS = 1.02f, RUN_M_MS = 1.84f;   // measured on the standard rig (QQSetup.ClipStride); _m = one-handed warrior walk / run, body facing the way it moves
     public bool male;   // men use the male walk / run / idle
     public bool desync = true;   // crowds: each fighter starts a loop at its own phase and pace (author: nobody moves in unison)
     float pace = 1f, sizeK = 1f;

@@ -782,7 +782,7 @@ public static class QQSetup
         EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
         var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g");
         var lf = u.rig.Bone("LeftFoot"); var rf = u.rig.Bone("RightFoot"); var hips = u.rig.Bone("Hips");
-        foreach (var clip in new[] { "walk", "run", "walk_m", "run_m", "run_u", "walk_u", "run_l" })
+        foreach (var clip in new[] { "walk", "run", "walk_m", "run_m" })
         {
             float dur = QQAnimLib.clips[clip].dur; int n = 240; float minL = 1e9f, maxL = -1e9f, minR = 1e9f, maxR = -1e9f; Vector3 fw = u.transform.forward;
             for (int i = 0; i < n; i++) { u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)n); float l = Vector3.Dot(lf.position - hips.position, fw), r = Vector3.Dot(rf.position - hips.position, fw); minL = Mathf.Min(minL, l); maxL = Mathf.Max(maxL, l); minR = Mathf.Min(minR, r); maxR = Mathf.Max(maxR, r); }
@@ -1008,6 +1008,60 @@ public static class QQSetup
             Object.DestroyImmediate(u.gameObject);
         }
         sheet.Apply(); File.WriteAllBytes("Builds/sim/poses.png", sheet.EncodeToPNG()); Debug.Log("QQ POSES OK " + string.Join(",", clips));
+    }
+
+    public static void FaceShot()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.back);
+        u.rig.Play("idle", .01f); for (int f = 0; f < 10; f++) u.rig.Tick(1f / 60f);
+        var head = u.rig.Bone("Head"); const int W = 600, H = 600; var sheet = new Texture2D(W * 2, H, TextureFormat.RGB24, false);
+        for (int k = 0; k < 2; k++)
+        {
+            var snap = Snapshot(u); var c = head.position + Vector3.up * .05f; var dir = k == 0 ? Vector3.back : (Vector3.back + Vector3.right).normalized;
+            cam.fieldOfView = 20; cam.nearClipPlane = .02f; cam.transform.position = c + dir * 1.0f; cam.transform.LookAt(c);
+            var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = 1; cam.Render(); RenderTexture.active = rt;
+            sheet.ReadPixels(new Rect(0, 0, W, H), k * W, 0); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+        }
+        sheet.Apply(); File.WriteAllBytes("Builds/sim/faceshot.png", sheet.EncodeToPNG()); Debug.Log("QQ FACESHOT OK");
+    }
+
+    // plain white floor, camera from the front 3/4 then the side then behind: idle 3 s -> walk 4 s -> run 4 s (each view), 30 fps -> Builds/vidloco/
+    public static void VideoLoco()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None)) r.enabled = false;
+        foreach (var tr in Object.FindObjectsByType<Terrain>(FindObjectsSortMode.None)) tr.enabled = false;
+        RenderSettings.fog = false; foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type == LightType.Directional) l.color = Color.white; RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.75f, .75f, .78f);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = Color.white; var acd = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); if (acd) acd.renderPostProcessing = false;
+        var floor = GameObject.CreatePrimitive(PrimitiveType.Plane); floor.transform.localScale = Vector3.one * 80; floor.transform.position = new Vector3(0, 0, 100);
+        var fm = new Material(Shader.Find("Universal Render Pipeline/Lit")); fm.SetColor("_BaseColor", Color.white); fm.SetFloat("_Smoothness", 0); floor.GetComponent<Renderer>().sharedMaterial = fm;
+        var dir = "Builds/vidloco"; if (Directory.Exists(dir)) Directory.Delete(dir, true); Directory.CreateDirectory(dir);
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward); u.rig.desync = false; u.rig.male = true;
+        for (int w = 0; w < 60; w++) { u.rig.Play("idle", .01f); u.rig.Tick(1f / 60f); }
+        const int W = 960, H = 720; var img = new Texture2D(W, H, TextureFormat.RGB24, false); int frame = 0; float dt = 1f / 60f;
+        Vector3[] views = { (Vector3.forward + Vector3.right * .8f).normalized, Vector3.right, Vector3.back };
+        foreach (var vd in views)
+        {
+            float time = 0; Vector3 camPos = Vector3.zero; bool first = true;
+            for (int step = 0; time < 11f; step++)
+            {
+                float sp = time < 3f ? 0 : time < 7f ? 1.6f : 4.5f;
+                if (sp <= 0) u.rig.Play("idle", .25f); else u.rig.Locomote(sp, .25f);
+                u.transform.position += Vector3.forward * sp * dt; u.rig.Tick(dt); time += dt;
+                Vector3 want = u.transform.position + vd * 4.6f + Vector3.up * 1.2f; camPos = first ? want : Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-5f * dt)); first = false;
+                if (step % 2 != 0) continue;
+                var snap = Snapshot(u);
+                cam.fieldOfView = 32; cam.nearClipPlane = .05f; cam.transform.position = camPos; cam.transform.LookAt(u.transform.position + Vector3.up * .95f);
+                var rt = new RenderTexture(W, H, 24); rt.antiAliasing = 4; cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); RenderTexture.active = rt;
+                img.ReadPixels(new Rect(0, 0, W, H), 0, 0); img.Apply(); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+                File.WriteAllBytes(dir + "/f_" + frame.ToString("D4") + ".png", img.EncodeToPNG()); frame++;
+            }
+            u.transform.position = Vector3.zero; for (int w = 0; w < 40; w++) { u.rig.Play("idle", .01f); u.rig.Tick(dt); }
+        }
+        Debug.Log("QQ VIDLOCO OK " + frame);
     }
 
     public static void FaceProbe()
