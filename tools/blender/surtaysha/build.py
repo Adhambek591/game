@@ -84,7 +84,7 @@ def want(n):
 
 import build_parts; importlib.reload(build_parts); from build_parts import *
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pieces.py"), encoding="utf-8").read())
-bpy.ops.wm.save_as_mainfile(filepath=OUT + r"\armor_low.blend")
+bpy.ops.wm.save_as_mainfile(filepath=os.environ.get('SUR_OUT_BLEND') or OUT + r"\armor_low.blend")   # SUR_OUT_BLEND: partial test builds
 for o in parts.values():
     me = o.data
     print('PART %-28s tris %6d  bone %s' % (o.name, sum(len(p.vertices) - 2 for p in me.polygons), o.get('ue_follow_bone')))

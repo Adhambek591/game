@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bake_common as bc; importlib.reload(bc)
 import mats; importlib.reload(mats)
 import relief; importlib.reload(relief)
-from mathutils import Vector
+from mathutils import Vector, noise
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 WANT = args[0].split(',') if args else ['T_Helmet', 'T_Armor', 'T_Cloth', 'T_Weapon']
@@ -25,9 +25,10 @@ def kind_of(name):
         'SUR_Pauldron_Backing_L': ('leather', dict(tint=(0.070, 0.036, 0.020)), bc.d_leather, 1),
         'SUR_Bracer_Plate_L': ('iron', dict(tint=(0.15, 0.165, 0.19), rust=0.30, rough=0.36, patina=0.3), bc.d_iron, 2),
         'SUR_Bracer_Leather_L': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 2),
-        'SUR_Boot_L': ('leather', dict(tint=(0.055, 0.031, 0.018), wear=0.9, scuff=True), 'boot', 2),
-        'SUR_Boot_Sole_L': ('leather', dict(tint=(0.022, 0.015, 0.011), wear=0.6), bc.d_leather, 2),
-        'SUR_Greave_L': ('iron', dict(tint=(0.15, 0.165, 0.19), rust=0.35, rough=0.36, patina=0.3), bc.d_iron, 2),
+        # two-tone leather riding boot (reference): brown boot, grey leather shaft panel, dark welted sole. No metal.
+        'SUR_Boot_L': ('leather', dict(tint=(0.074, 0.046, 0.032), wear=0.9, scuff=True), 'boot', 2),
+        'SUR_Boot_Shaft_L': ('leather', dict(tint=(0.082, 0.087, 0.093), wear=1.25, worn_col=(0.27, 0.28, 0.29), dirt_col=(0.022, 0.022, 0.022), rough=0.50), 'panel', 2),
+        'SUR_Boot_Sole_L': ('leather', dict(tint=(0.050, 0.040, 0.034), wear=0.7, worn_col=(0.16, 0.13, 0.11)), bc.d_leather, 2),
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
         'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
         'SUR_Trousers_L': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
@@ -89,20 +90,22 @@ def _boot_extent():
         _BT = (min(v.y for v in vs), max(v.y for v in vs))
     return _BT
 def d_boot(p, s):
-    """stiff leather: creases across the instep and around the ankle, leather grain"""
+    """soft boot leather: walking creases across the vamp and round the ankle, leather grain"""
     yF, yB = _boot_extent()
     h = bc.d_leather(p, s)
-    if 0.045 < p.z < 0.20:
-        band = math.exp(-((p.z - 0.11) / 0.045) ** 2)
-        cr = max(0.0, math.sin(p.z / 0.0105 * 6.283 + 2.5 * math.sin(p.x * 60) + p.y * 40)) ** 6
-        h -= 0.0007 * band * cr
+    if 0.02 < p.z < 0.19:
+        band = math.exp(-((p.z - 0.105) / 0.05) ** 2) * (0.35 + 0.65 * math.exp(-((p.y - (yF + 0.20)) / 0.09) ** 2))
+        cr = max(0.0, math.sin(p.y / 0.0125 * 6.283 + 2.2 * math.sin(p.x * 55) + p.z * 30)) ** 6
+        h -= 0.0008 * band * cr
     return h
+def d_panel(p, s):
+    """stiffer grey leather of the shaft panel: grain + a few shallow sags"""
+    return bc.d_leather(p, s) * 0.8 + noise.noise(p * 14.0 + Vector((s, s, 0))) * 0.0004
 def boot_scuff(p):
     yF, yB = _boot_extent()
-    toe = math.exp(-((p.y - yF) / 0.03) ** 2) * (1.0 if p.z < 0.07 else 0.0)
-    heel = math.exp(-((p.y - yB) / 0.03) ** 2) * (1.0 if p.z < 0.08 else 0.0)
-    from mathutils import noise as _n
-    return min(1.0, (toe + heel) * (0.55 + 0.6 * _n.noise(p * 90)))
+    toe = math.exp(-((p.y - yF) / 0.035) ** 2) * (1.0 if p.z < 0.07 else 0.0)
+    heel = math.exp(-((p.y - yB) / 0.03) ** 2) * (1.0 if p.z < 0.07 else 0.0)
+    return min(0.42, (toe + heel) * 0.42)      # soft dusty wear on toe and heel (no per-vertex noise: it bakes blocky)
 
 def d_wrap(p, s):
     a = math.atan2(p.x, p.y)
@@ -178,6 +181,8 @@ for tset in WANT:
         elif disp == 'boot':
             dfun = lambda p, s: d_boot(p, s)
             afun = lambda p: boot_scuff(p)
+        elif disp == 'panel':
+            dfun = d_panel
         elif disp == 'tooled':
             dfun = lambda p, s: relief.guard_orn(p)[0] + bc.d_leather(p, s) * 0.6
             afun = lambda p: relief.guard_orn(p)[1]

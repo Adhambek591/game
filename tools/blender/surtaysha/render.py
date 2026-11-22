@@ -218,7 +218,34 @@ for v in VIEWS:
     if v == 'legs': shoot('legs', (-0.9, -2.2, 0.45), (0, 0, 0.40), 85, (1600, 1600))
     if v == 'etik':
         fx = LM['bones']['foot_l']['head'][0]
-        shoot('etik', (fx + 0.95, -0.85, 0.30), (fx, -0.03, 0.20), 85, (1600, 1600))
+        shoot('etik', (fx + 0.95, -1.00, 0.32), (fx + 0.01, -0.09, 0.20), 62, (1600, 1600))
     if v == 'etik_side':
         fx = LM['bones']['foot_l']['head'][0]
-        shoot('etik_side', (fx + 1.25, -0.04, 0.22), (fx, -0.03, 0.21), 85, (1600, 1600))
+        shoot('etik_side', (fx + 1.45, -0.10, 0.24), (fx, -0.09, 0.21), 62, (1600, 1600))
+
+# ---- reference-matching boot views (for surtaysha_etik_moslash.png): exact orthographic front / side framed like the
+#      reference masks (boot_ref/), and a 3/4 close-up of the left boot like the turnaround's 3/4 view
+if any(v in VIEWS for v in ('mfront', 'mside', 'mq34')):
+    import numpy as np
+    _d = np.load("F:/qirq-qiz/tools/blender/surtaysha/boot_ref/boot_profile.npz"); _O = bpy.data.objects['SUR_Boot_L']['boot_origin']
+    for v in VIEWS:
+        if v in ('mfront', 'mside'):
+            cam_d.type = 'ORTHO'
+            if v == 'mside':
+                wd, h, k = 150, 156, 10; ax, gy, s, zg = [float(x) for x in _d['side_px']]; ax -= 812; gy -= 600
+                cam.location = (3.0, _O[1] + (wd / 2 - ax) * s, zg + (gy - h / 2) * s); cam.rotation_euler = (math.pi / 2, 0, math.pi / 2)
+            else:
+                wd, h, k = 360, 470, 4; ax, gy, s, zg = [float(x) for x in _d['front_px']]
+                cam.location = (_O[0] + (wd / 2 - ax) * s, -3.0, zg + (gy - h / 2) * s); cam.rotation_euler = (math.pi / 2, 0, 0)
+            cam_d.ortho_scale = max(wd, h) * s
+            sc.render.resolution_x = wd * k; sc.render.resolution_y = h * k
+            sc.render.filepath = os.path.join(OUTD, PREFIX + 'etik_' + v + '.png')
+            bpy.ops.render.render(write_still=True); print('RENDER', sc.render.filepath)
+            cam_d.type = 'PERSP'
+        if v == 'mq34':
+            # the turnaround's 3/4 view shows a boot from its inner front; the other boot is hidden for this one shot
+            c = Vector((_O[0], _O[1] - 0.09, 0.27)); a = math.radians(-38); e = math.radians(11); dd = 3.4
+            hid = [o for o in bpy.data.objects if o.name.startswith('SUR_Boot') and o.name.endswith('_R')]
+            for o in hid: o.hide_render = True
+            shoot('etik_mq34', c + Vector((math.sin(a) * math.cos(e) * dd, -math.cos(a) * math.cos(e) * dd, math.sin(e) * dd)), c, 135, (1200, 1500))
+            for o in hid: o.hide_render = False

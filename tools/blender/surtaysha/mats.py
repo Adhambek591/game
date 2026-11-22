@@ -179,7 +179,8 @@ def gold(name, seed=0.0, wear=1.0):
     _finish(b, col, r, met, h, 0.3, 0.0005)
     _store(m, b); return m
 
-def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False, scuff=False):
+def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False, scuff=False,
+            worn_col=(0.19, 0.11, 0.06), dirt_col=(0.03, 0.018, 0.010), rough=0.62):
     m = bpy.data.materials.new(name); m.use_nodes = True
     b = NB(m)
     tc, obj, geo, curv, convex, concave, cav = _common(b, seed)
@@ -190,11 +191,11 @@ def leather(name, seed=0.0, tint=(0.115, 0.058, 0.030), wear=1.0, gilt=False, sc
     scr = _scratches(b, obj, 40.0, 0.8)
     base = b.mix(b.ramp(blot.outputs['Fac'], (0.3, 0.75)), tuple(c * 0.70 for c in tint), tuple(c * 1.35 for c in tint))
     worn = b.math('MINIMUM', b.math('ADD', b.math('MULTIPLY', convex, wear), b.math('MULTIPLY', scr, 0.7)), 1.0)
-    base = b.mix(b.math('MULTIPLY', worn, 0.7), base, (0.19, 0.11, 0.06))
+    base = b.mix(b.math('MULTIPLY', worn, 0.7), base, worn_col)
     dirt = b.math('MINIMUM', b.math('MULTIPLY', cav, 2.4), 1.0)
-    col = b.mix(b.math('MULTIPLY', dirt, 0.75), base, (0.03, 0.018, 0.010))
-    r = b.math('ADD', 0.62, b.math('MULTIPLY', b.math('SUBTRACT', blot.outputs['Fac'], 0.5), 0.25))
-    r = b.mixf(b.math('MULTIPLY', convex, 0.8), r, 0.42)
+    col = b.mix(b.math('MULTIPLY', dirt, 0.75), base, dirt_col)
+    r = b.math('ADD', rough, b.math('MULTIPLY', b.math('SUBTRACT', blot.outputs['Fac'], 0.5), 0.25))
+    r = b.mixf(b.math('MULTIPLY', convex, 0.8), r, rough - 0.20)
     r = b.mixf(dirt, r, 0.85)
     h = b.math('ADD', b.math('MULTIPLY', grain.outputs['Distance'], 0.10), b.math('MULTIPLY', grain2.outputs['Distance'], 0.15))
     h = b.math('ADD', h, b.math('MULTIPLY', b.ramp(crease.outputs['Fac'], (0.45, 0.55)), 0.25))
