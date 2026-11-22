@@ -133,15 +133,31 @@ if body:
         elif v.co.z > 1.55: keep.add(v.index)
     bm_ = bmesh.new(); bm_.from_mesh(body.data); bm_.verts.ensure_lookup_table()
     bmesh.ops.delete(bm_, geom=[v for v in bm_.verts if v.index not in keep], context='VERTS')
+    hz = Vector(LM['bones']['head']['head']).z
     if LMJ.get('source') != 'real':
         hc = Vector((0.0, -0.02, 1.70))
         for v in bm_.verts:
             if v.co.z > 1.575:
                 w = min(1.0, (v.co.z - 1.575) / 0.05)
                 v.co = v.co.lerp(hc + (v.co - hc) * 0.92, w)
-        hv = [v for v in bm_.verts if v.co.z > 1.60]
+    if True:
+        # featureless clay head under the helmet: no face is shown, only the volume
+        hv = [v for v in bm_.verts if v.co.z > hz - 0.06]
         for _ in range(45):
             bmesh.ops.smooth_vert(bm_, verts=hv, factor=0.9, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    # keep only the largest connected skin islands (drops eyeballs, teeth, lashes left inside the head)
+    bm_.verts.ensure_lookup_table(); seen = set(); islands = []
+    for v0 in bm_.verts:
+        if v0.index in seen: continue
+        st = [v0]; seen.add(v0.index); isl = []
+        while st:
+            v = st.pop(); isl.append(v)
+            for e in v.link_edges:
+                w = e.other_vert(v)
+                if w.index not in seen: seen.add(w.index); st.append(w)
+        islands.append(isl)
+    big = max(len(i) for i in islands)
+    bmesh.ops.delete(bm_, geom=[v for i in islands if len(i) < big * 0.02 for v in i], context='VERTS')
     bm_.to_mesh(body.data); bm_.free()
 
 # sabre into the right hand, blade down along the leg

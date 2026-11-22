@@ -17,9 +17,9 @@ class Fit:
             d = b - a; t = max(0, min(1, (p - a).dot(d) / d.length_squared)); return (p - (a + d * t)).length
         arms = [(B('upperarm_' + s), B('lowerarm_' + s)) for s in 'lr'] + [(B('lowerarm_' + s), B('hand_' + s)) for s in 'lr']
         self.sl = {}
-        for i in range(95, 160):
+        for i in range(95, 166):
             z = round(i * 0.01, 2)
-            t = [p for p in self.V if abs(p.z - z) < 0.006 and abs(p.x) < 0.34 and all(segd(p, a, b) > 0.085 or abs(p.x) < 0.12 for a, b in arms)]
+            t = [p for p in self.V if abs(p.z - z) < 0.006 and abs(p.x) < 0.34 and all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in arms)]
             if t: self.sl[z] = (max(abs(p.x) for p in t), -min(p.y for p in t), max(p.y for p in t))
         # head offset (helmet / aventail follow the head bone)
         self.head_d = B('head') - Vector(V1['head']['head'])
@@ -30,12 +30,16 @@ class Fit:
         self.foot_sy = (f1.y - b1.y) / (f0.y - b0.y)
         # leg cross sections (left leg) for the boot shaft / greave
         self.leg = {}
-        for i in range(10, 56):
-            z = round(i * 0.01, 2)
+        for i in range(0, 56):
+            z = round(i * 0.01 + 0.004, 3)
             t = [p for p in self.V if abs(p.z - z) < 0.006 and p.x > 0.02]
             if len(t) > 8:
                 xs = [p.x for p in t]; ys = [p.y for p in t]
-                self.leg[z] = ((min(xs) + max(xs)) / 2, (max(xs) - min(xs)) / 2, min(ys), max(ys))
+                self.leg[round(z, 2)] = ((min(xs) + max(xs)) / 2, (max(xs) - min(xs)) / 2, min(ys), max(ys), min(xs), max(xs))
+        # upper-arm radius (for pauldron / sleeve sizing)
+        a, b = B('upperarm_l'), B('lowerarm_l'); d = (b - a).normalized(); c = a.lerp(b, 0.45)
+        rr = [((p - c) - d * (p - c).dot(d)).length for p in self.V if abs((p - c).dot(d)) < 0.006 and ((p - c) - d * (p - c).dot(d)).length < 0.13]
+        self.r_upperarm = sum(rr) / len(rr) if rr else 0.065
 
     def torso_delta(self, z, lo=-0.012, hi=0.06):
         """(dx, dfront, dback) of the loaded body vs the v1 proxy at height z (clamped)"""
@@ -60,3 +64,13 @@ class Fit:
         ks = sorted(self.leg)
         k = min(ks, key=lambda q: abs(q - z))
         return self.leg[k]
+
+    def cover(self, tab, clear):
+        """grow table rows so the surface clears the body slice at that height by `clear` (never shrinks)"""
+        out = []
+        for row in tab:
+            z = round(min(max(row[0], 0.95), 1.65), 2)
+            k = min(self.sl, key=lambda q: abs(q - z))
+            nx, nf, nb = self.sl[k]
+            out.append((row[0], max(row[1], nx + clear), max(row[2], nf + clear), max(row[3], nb + clear)) + tuple(row[4:]))
+        return out

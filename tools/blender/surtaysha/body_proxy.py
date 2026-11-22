@@ -126,7 +126,7 @@ vs = [v.co.copy() for v in body.data.vertices]
 sl = {}
 for i in range(0, 200):
     z = i * 0.01
-    tor = [p for p in vs if abs(p.z - z) < 0.006 and (z < 0.95 or all(segd(p, a, b) > 0.085 or abs(p.x) < 0.12 for a, b in ARMS))]
+    tor = [p for p in vs if abs(p.z - z) < 0.006 and (z < 0.95 or all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in ARMS))]
     if z > 0.6: tor = [p for p in tor if abs(p.x) < 0.34]
     if not tor: continue
     sl[round(z, 2)] = {'xmin': min(p.x for p in tor), 'xmax': max(p.x for p in tor), 'ymin': min(p.y for p in tor), 'ymax': max(p.y for p in tor)}

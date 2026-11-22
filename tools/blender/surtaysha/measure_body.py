@@ -28,7 +28,7 @@ def segd(p, a, b):
     d = b - a; t = max(0, min(1, (p - a).dot(d) / d.length_squared)); return (p - (a + d * t)).length
 ARMS = [(B('upperarm_' + s), B('lowerarm_' + s)) for s in 'lr'] + [(B('lowerarm_' + s), B('hand_' + s)) for s in 'lr']
 def zslice(z, xlim):
-    pts = [(p.x, p.y) for p in V if abs(p.z - z) < 0.006 and abs(p.x) < xlim and all(segd(p, a, b) > 0.075 or abs(p.x) < 0.12 for a, b in ARMS)]
+    pts = [(p.x, p.y) for p in V if abs(p.z - z) < 0.006 and abs(p.x) < xlim and all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in ARMS)]
     return hull_perim(pts) * 100
 print('MEAS upperarm_mid', round(slice_circ(B('upperarm_l'), B('lowerarm_l'), 0.45, 0.12), 1))
 print('MEAS forearm_max', round(max(slice_circ(B('lowerarm_l'), B('hand_l'), t, 0.10) for t in (0.15, 0.22, 0.3)), 1))

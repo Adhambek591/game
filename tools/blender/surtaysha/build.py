@@ -35,7 +35,7 @@ TORSO_V1 = [(1.08, 0.222, 0.183, 0.100, 2.5), (1.20, 0.232, 0.192, 0.115, 2.5), 
          (1.44, 0.232, 0.180, 0.150, 2.6), (1.52, 0.200, 0.140, 0.140, 2.4)]
 import fit; importlib.reload(fit)
 FIT = fit.Fit(proxy, BONES)
-TORSO = FIT.fit_table(TORSO_V1)
+TORSO = FIT.cover(FIT.fit_table(TORSO_V1), 0.032)
 json.dump({'TORSO': TORSO, 'source': LM.get('source', 'standin')}, open(OUT + "/fit.json", 'w'), indent=1)
 print('FIT TORSO', [tuple(round(x, 3) for x in r) for r in TORSO])
 def torso_S(u, v, grow=0.0, tab=None):

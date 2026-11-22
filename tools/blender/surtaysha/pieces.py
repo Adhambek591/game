@@ -61,7 +61,7 @@ def build_cuirass():
 ROBE_V1 = [(0.98, 0.205, 0.168, 0.095, 2.3), (1.20, 0.212, 0.172, 0.100, 2.4), (1.32, 0.222, 0.172, 0.118, 2.4),
         (1.44, 0.210, 0.150, 0.125, 2.4), (1.52, 0.150, 0.100, 0.115, 2.2), (1.575, 0.085, 0.075, 0.090, 2.0),
         (1.62, 0.078, 0.070, 0.080, 2.0)]
-ROBE = FIT.fit_table(ROBE_V1)
+ROBE = FIT.cover(FIT.fit_table(ROBE_V1), 0.012)
 
 def build_robe_torso():
     mb = MB()
@@ -213,9 +213,10 @@ def build_trousers():
         r = 0.108 - 0.022 * smoothstep(0.0, 0.6, t) - 0.024 * smoothstep(0.6, 1.0, t)
         z = path[j].z
         if 0.12 < z < 0.55:
-            cx, hx, ymn, ymx = FIT.leg_at(z)
-            r = max(r, max(hx, (ymx - ymn) / 2) + 0.012)
-        r *= 1 + 0.05 * math.sin(a * 5 + j * 0.5) * smoothstep(0.2, 0.7, t) * (1 - smoothstep(0.85, 1.0, t))
+            cx, hx, ymn, ymx = FIT.leg_at(z)[:4]
+            r = max(r, max(hx, (ymx - ymn) / 2) + 0.010)
+            if z < 0.52: r = min(r, max(hx, (ymx - ymn) / 2) + 0.010)
+        r *= 1 + 0.05 * math.sin(a * 5 + j * 0.5) * smoothstep(0.2, 0.7, t) * (1 - smoothstep(0.70, 0.80, t))
         return r * math.cos(a), r * math.sin(a) * 1.05
     G = loft_grid(path, shape, 24)
     shell(mbL, G, 0.004, out_fn=lambda p: p - min(path, key=lambda q: (q - p).length), closed_u=True, back=False)
@@ -262,7 +263,7 @@ def pauldron_frame():
 def paul_S(u, v, dr=0.0):
     J, D, Up, F = pauldron_frame()
     s = -v
-    R = 0.118 + 0.044 * smoothstep(-0.06, 0.27, s) + dr
+    R = max(0.118, FIT.r_upperarm + 0.045) + 0.044 * smoothstep(-0.06, 0.27, s) + dr
     # flatten the outer face a little, flare at front/back bottoms
     return J + D * s + (Up * math.cos(u) * 0.96 + F * math.sin(u) * 1.08) * R
 def build_pauldrons():
@@ -383,12 +384,10 @@ def _fit_boot():
     out = []
     for z, yF, yB, W in BOOT_V1:
         yF, yB = FIT.boot_y(yF), FIT.boot_y(yB)
-        if z >= 0.16:
-            cx, hx, ymn, ymx = FIT.leg_at(z)
-            w = smoothstep(0.16, 0.22, z)
-            yF = min(yF, yF + (ymn - 0.016 - yF) * w) if ymn - 0.016 < yF else yF
-            yB = max(yB, ymx + 0.014) if w > 0 else yB
-            W = max(W, hx + 0.016)
+        cx, hx, ymn, ymx, xmn, xmx = FIT.leg_at(z)
+        W = max(W, hx + (0.016 if z >= 0.16 else 0.012))
+        yF = min(yF, ymn - 0.018)
+        yB = max(yB, ymx + 0.014)
         out.append((z, yF, yB, W))
     return out
 BOOT = _fit_boot()
@@ -396,8 +395,7 @@ def boot_xc(z):
     ca = bone('calf_l'); ft = bone('foot_l')
     if z <= ft.z: xb = ft.x
     else: xb = ft.x + (ca.x - ft.x) * (z - ft.z) / (ca.z - ft.z)
-    if z < 0.12: return xb
-    return xb + (FIT.leg_at(z)[0] - xb) * smoothstep(0.12, 0.20, z)
+    return FIT.leg_at(z)[0]
 def boot_ring(z, a, grow=0.0):
     yF, yB, W = interp_table(BOOT, z)
     yF -= grow; yB += grow; W += grow
@@ -447,28 +445,32 @@ def build_boots():
     back = [boot_ring(z, math.pi, grow=0.0008) for z in [0.03 + 0.40 * k / 16 for k in range(17)]]
     strap(tr, back, [boot_out(p).normalized() for p in back], w=0.008, t=0.0012, key='strap', bevel=0.0004)
     # greave: tall iron shell over front and sides, below the knee down to the ankle, flaring over the instep
-    span = math.radians(124)
+    span = math.radians(104)
     gz = [0.140 + (0.505 - 0.140) * j / 14 for j in range(15)]
     def gr(z): return 0.008 + 0.014 * smoothstep(0.24, 0.145, z) + 0.004 * smoothstep(0.44, 0.50, z)
     Gg = [[boot_ring(z, (-span + 2 * span * i / 18), grow=gr(z)) for i in range(19)] for z in gz]
     for j, row in enumerate(Gg):
         for i, p in enumerate(row):
-            p += boot_out(p).normalized() * 0.005 * (1 - abs(i - 9) / 9) ** 3
+            p += boot_out(p).normalized() * (0.009 * (1 - abs(i - 9) / 9) ** 4 + 0.002 * (1 - abs(i - 9) / 9))
     shell(gm, Gg, 0.003, out_fn=boot_out)
     for j, rr in ((0, 0.0032), (len(gz) - 1, 0.0032)):
         edge = [p.copy() for p in Gg[j]]
         sweep(gm, edge, [boot_out(p).normalized() for p in edge], [(math.cos(2 * math.pi * q / 8) * rr, math.sin(2 * math.pi * q / 8) * rr - 0.0012) for q in range(9)],
               uv_v=(0.0, 0.02), u_scale=1.0)
     for z in (0.205, 0.395):
-        a0, a1 = span - 0.06, 2 * math.pi - span + 0.06
-        arc = [boot_ring(z, a0 + (a1 - a0) * k / 22, grow=gr(z) - 0.001) for k in range(23)]
+        if z < 0.3:
+            a0, a1 = 0.0, 2 * math.pi
+            arc = [boot_ring(z, a0 + (a1 - a0) * k / 40, grow=gr(z) + (0.0035 if (k / 40 * 2 * math.pi < span or k / 40 * 2 * math.pi > 2 * math.pi - span) else -0.001)) for k in range(41)]
+        else:
+            a0, a1 = span - 0.06, 2 * math.pi - span + 0.06
+            arc = [boot_ring(z, a0 + (a1 - a0) * k / 22, grow=gr(z) - 0.001) for k in range(23)]
         ups = [boot_out(p).normalized() for p in arc]
         strap(tr, arc, ups, w=0.026, t=0.0038)
-        ab = span + 0.30
-        pb = boot_ring(z, ab, grow=gr(z) + 0.004)
+        ab = (0.75 if z < 0.3 else span + 0.22)
+        pb = boot_ring(z, ab, grow=gr(z) + (0.0075 if z < 0.3 else 0.004))
         tang = (boot_ring(z, ab + 0.05) - boot_ring(z, ab - 0.05)).normalized()
         buckle(tr, pb, boot_out(pb), tang, w=0.026, h=0.028)
-        tail = [boot_ring(z, ab - 0.03 - 0.40 * k / 8, grow=gr(z) + (0.003 if k < 3 else 0.0045)) for k in range(9)]
+        tail = [boot_ring(z, ab - 0.03 - 0.40 * k / 8, grow=gr(z) + (0.006 if z < 0.3 else 0.0) + (0.003 if k < 3 else 0.0045)) for k in range(9)]
         strap(tr, tail, [boot_out(p).normalized() for p in tail], w=0.021, t=0.003)
         for a in (span - 0.12, -(span - 0.12)):
             p = boot_ring(z, a, grow=gr(z) + 0.0035); rivet(tr, p, boot_out(p).normalized(), r=0.0042, uvc=(0.5, 0.86), uvr=0.011)
