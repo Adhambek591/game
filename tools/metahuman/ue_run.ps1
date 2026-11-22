@@ -7,7 +7,7 @@ $proj = '"F:\UnrealProjects\QQ_MetaHuman\QQ_MetaHuman.uproject"'
 if (Get-Process UnrealEditor*, UnrealEditor-Cmd* -ErrorAction SilentlyContinue | Where-Object { $_.Path -like 'F:\Unreal\UE_5.8*' -and ($_.CommandLine -notlike '*OrolStrike*') -and ($_.CommandLine -like '*QQ_MetaHuman*') }) { Write-Output 'QQ UE already running'; exit 2 }
 if ($mode -eq 'py') {
     $env:QQ_STEPS = $b; if ($c) { $env:QQ_TAG = $c }
-    $args2 = @($proj, "-ExecutePythonScript=`"$a`"", '-unattended', '-nosplash', '-RenderOffscreen', "-log=QQ_py.log")
+    $args2 = @($proj, "-ExecutePythonScript=`"$a`"", '-nosplash', '-RenderOffscreen', "-log=QQ_py.log"); if (-not $env:QQ_ATTENDED) { $args2 += '-unattended' }
 } else {
     $args2 = @($proj, $a, '-game', "-LevelSequence=`"$b`"", "-MoviePipelineConfig=`"$c`"", '-windowed', '-resx=1280', '-resy=720', '-RenderOffscreen', '-unattended', '-nosplash', '-NoLoadingScreen', '-NoTextureStreaming', "-log=QQ_mrq.log")
 }

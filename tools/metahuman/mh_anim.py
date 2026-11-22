@@ -241,6 +241,7 @@ def step_render():
     aa.spatial_sample_count = 1; aa.temporal_sample_count = 1; aa.override_anti_aliasing = False
     aa.engine_warm_up_count = 16; aa.render_warm_up_count = 16
     global EXE
+    unreal.EditorPythonScripting.set_keep_python_script_alive(True)
     EXE = qs.render_queue_with_executor(unreal.MoviePipelinePIEExecutor)
     def done(executor, ok):
         log('render finished', ok, len(os.listdir(outdir)), 'frames'); LOG.flush()
