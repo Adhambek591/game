@@ -16,7 +16,7 @@ public class QQSpring : MonoBehaviour
 
     public static bool Wants(GameObject root)
     {
-        foreach (var t in root.GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Skirt") || t.name.StartsWith("Braid") || t.name == "Tail1" || t.name == "Plume1") return true;
+        foreach (var t in root.GetComponentsInChildren<Transform>()) if (t.name.StartsWith("Skirt") || t.name.StartsWith("Tasset") || t.name.StartsWith("Drape") || t.name.StartsWith("Braid") || t.name == "Tail1" || t.name == "Plume1") return true;
         return false;
     }
 
@@ -29,6 +29,8 @@ public class QQSpring : MonoBehaviour
         Transform foot; map.TryGetValue("LeftFoot", out foot);
         scale = hips && foot ? Vector3.Distance(hips.position, foot.position) / .87f : 1f;   // ~1 for a 1.75 m character
         for (int k = 0; k < 16; k++) Add(map, "Skirt" + k + "_", 1, 3, true, .55f, .35f, .25f);
+        for (int k = 0; k < 16; k++) Add(map, "Tasset" + k + "_", 1, 3, true, .9f, .3f, .1f);    // lamellar armour skirt: stiff plates
+        Add(map, "Drape", 1, 3, false, .5f, .3f, .4f);    // scarf tail down the back
         foreach (var s in new[] { "L", "R", "FL", "FR" }) Add(map, "Braid" + s, 1, 5, false, .3f, .3f, .7f);
         Add(map, "Tail", 1, 4, false, .22f, .25f, .5f);    // Qasqir's tail (tools/blender/appendage.py)
         Add(map, "Plume", 1, 4, false, .35f, .3f, .3f);

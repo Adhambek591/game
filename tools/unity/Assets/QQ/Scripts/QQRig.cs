@@ -9,14 +9,14 @@ public class QQRig : MonoBehaviour
     class RClip { public QQAnimLib.Clip src; public List<KeyValuePair<Transform, RTrack>> rot = new List<KeyValuePair<Transform, RTrack>>(); public Dictionary<Transform, RTrack> map = new Dictionary<Transform, RTrack>(); public float[] ht; public float[] hy; }
     static readonly string[] BONES = { "Hips", "Spine", "Spine01", "Spine02", "neck", "Head", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand", "RightShoulder", "RightArm", "RightForeArm", "RightHand", "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "RightUpLeg", "RightLeg", "RightFoot", "RightToeBase" };
     readonly Dictionary<string, Transform> B = new Dictionary<string, Transform>();
-    readonly Dictionary<Transform, Quaternion> bind = new Dictionary<Transform, Quaternion>();
+    readonly Dictionary<Transform, Quaternion> bind = new Dictionary<Transform, Quaternion>(), tpose = new Dictionary<Transform, Quaternion>();   // tpose: this model's standard reference pose (QQAnimLib.TPose)
     readonly Dictionary<string, RClip> rc = new Dictionary<string, RClip>();
     Transform hips; Vector3 hipsBind;
     string cur, prev; float tCur, tPrev, fade = 1f, fadeDur = .15f; bool loopCur = true, loopPrev = true;
     public float speed = 1f;
     // measured ground speed of the in-place mocap at x1 for a 1.75 m character (QQSetup.ClipStride): feet sweep vs time
     // Mixamo locomotion (QQMixamo.Bake) measured with QQSetup.ClipStride: female walk / run, male walk / run
-    public const float WALK_MS = 1.44f, RUN_MS = 2.12f, WALK_M_MS = 1.23f, RUN_M_MS = 2.54f;
+    public const float WALK_MS = 1.44f, RUN_MS = 2.12f, WALK_M_MS = 1.23f, RUN_M_MS = 2.12f;   // run_m = the same athletic run as run (the shield run went side-on)
     public bool male;   // men use the male walk / run / idle
     public bool desync = true;   // crowds: each fighter starts a loop at its own phase and pace (author: nobody moves in unison)
     float pace = 1f, sizeK = 1f;
@@ -54,12 +54,14 @@ public class QQRig : MonoBehaviour
         QQAnimLib.Load();
         foreach (var t in GetComponentsInChildren<Transform>(true)) if (!B.ContainsKey(t.name)) B[t.name] = t;
         foreach (var n in BONES) { Transform b; if (B.TryGetValue(n, out b)) bind[b] = b.localRotation; }
+        { QQAnimLib.TPose(B); foreach (var n in BONES) { Transform b; if (B.TryGetValue(n, out b)) { tpose[b] = b.localRotation; b.localRotation = bind[b]; } } }
         hips = Bone("Hips"); if (hips) hipsBind = hips.localPosition;
         Transform rt0 = transform.parent ? transform.parent : transform; if (hips) sizeK = Mathf.Clamp((hips.position.y - rt0.position.y) / 1.0f, .5f, 3f);   // stride grows with leg length
         pace = Random.Range(.94f, 1.06f);
         SetupFingers();
     }
 
+    // Mixamo clips (c.rest set) are retargeted T-pose to T-pose (standard humanoid retarget); the old mocap from bind to bind
     RClip Get(string name)
     {
         Init(); RClip r; if (rc.TryGetValue(name, out r)) return r;
@@ -69,7 +71,7 @@ public class QQRig : MonoBehaviour
         {
             Transform b; Quaternion rest;
             if (!B.TryGetValue(kv.Key, out b) || !bind.ContainsKey(b) || !(c.rest ?? QQAnimLib.restR).TryGetValue(kv.Key, out rest)) continue;
-            var qS = Quaternion.Inverse(QQAnimLib.Conv(rest)); var qT = bind[b]; var tr = kv.Value; int n = tr.t.Length; var qs = new Quaternion[n];
+            var qS = Quaternion.Inverse(QQAnimLib.Conv(rest)); Quaternion qT; if (c.rest == null || !tpose.TryGetValue(b, out qT)) qT = bind[b]; var tr = kv.Value; int n = tr.t.Length; var qs = new Quaternion[n];
             for (int i = 0; i < n; i++) qs[i] = qT * qS * QQAnimLib.Conv(new Quaternion(tr.v[i * 4], tr.v[i * 4 + 1], tr.v[i * 4 + 2], tr.v[i * 4 + 3]));
             var rt = new RTrack { t = tr.t, q = qs }; r.rot.Add(new KeyValuePair<Transform, RTrack>(b, rt)); r.map[b] = rt;
         }

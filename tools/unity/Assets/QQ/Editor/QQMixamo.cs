@@ -50,7 +50,7 @@ public static class QQMixamo
     // game clip name <- Mixamo file
     static readonly (string name, string file)[] MAP = {
         ("idle", "Female_Locomotion_Pack/idle"), ("walk", "Female_Locomotion_Pack/walking"), ("run", "Female_Locomotion_Pack/running"),
-        ("walk_m", "Pro_Sword_and_Shield_Pack/sword and shield walk"), ("run_m", "Pro_Sword_and_Shield_Pack/sword and shield run"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
+        ("walk_m", "Pro_Sword_and_Shield_Pack/sword and shield walk"), ("run_m", "Female_Locomotion_Pack/running"), ("idle_m", "Pro_Melee_Axe_Pack/standing idle"),
         ("combat", "Pro_Sword_and_Shield_Pack/sword and shield idle"),
         ("slash", "Pro_Sword_and_Shield_Pack/sword and shield slash"), ("attack", "Pro_Sword_and_Shield_Pack/sword and shield attack"),
         ("triple", "Pro_Sword_and_Shield_Pack/sword and shield slash (2)"), ("heavy", "Pro_Sword_and_Shield_Pack/sword and shield slash (3)"),
@@ -89,7 +89,7 @@ public static class QQMixamo
         var bindLocal = new Dictionary<string, Quaternion>(); foreach (var n in BODY) bindLocal[n] = B[n].localRotation; float hipsBindY = B["Hips"].localPosition.y, hipsBindW = B["Hips"].position.y - go.transform.position.y;   // Mecanim writes the hips in its own units: convert through the world height
         // avatar from a T-posed copy
         var tp = (GameObject)Object.Instantiate(src); var TB = new Dictionary<string, Transform>(); foreach (var t in tp.GetComponentsInChildren<Transform>(true)) if (!TB.ContainsKey(t.name)) TB[t.name] = t;
-        TPose(TB, tp.transform);
+        QQAnimLib.TPose(TB); var tposeLocal = new Dictionary<string, Quaternion>(); foreach (var n in BODY) tposeLocal[n] = TB[n].localRotation;
         var hd = new HumanDescription(); var hb = new List<HumanBone>();
         foreach (var kv in HUMAN) { var h = new HumanBone { boneName = kv.Key, humanName = kv.Value }; h.limit.useDefaultValues = true; hb.Add(h); }
         hd.human = hb.ToArray(); var sk = new List<SkeletonBone>();
@@ -101,7 +101,8 @@ public static class QQMixamo
         Vector3 r0 = B["RightUpLeg"].position - B["LeftUpLeg"].position; r0.y = 0; Vector3 fwd0 = Vector3.Cross(r0.normalized, Vector3.up);   // the character's forward at bind
 
         var sb = new StringBuilder(); sb.Append("LIB2\nHIPSY ").Append(F(hipsBindY)).Append('\n');
-        foreach (var n in BODY) { var q = Conv(bindLocal[n]); sb.Append("REST ").Append(n).Append(' ').Append(F(q.x)).Append(' ').Append(F(q.y)).Append(' ').Append(F(q.z)).Append(' ').Append(F(q.w)).Append(" 0 0 0\n"); }
+        foreach (var n in BODY) { var q = Conv(tposeLocal[n]);   // REST = the reference pose: clips are deltas from the T-pose, applied to each model's own T-pose
+            sb.Append("REST ").Append(n).Append(' ').Append(F(q.x)).Append(' ').Append(F(q.y)).Append(' ').Append(F(q.z)).Append(' ').Append(F(q.w)).Append(" 0 0 0\n"); }
         int done = 0; float hipsK = 0;
         foreach (var e in MAP)
         {
@@ -138,6 +139,17 @@ public static class QQMixamo
                     int pk2 = 1; float mx2 = 0; var sp2 = new float[n]; for (int i = 1; i < n; i++) { sp2[i] = (hand[i] - hand[i - 1]).magnitude; if (i > 2 && sp2[i] > mx2) { mx2 = sp2[i]; pk2 = i; } }
                     int a0 = pk2, a1 = pk2; while (a0 > 0 && sp2[a0] > mx2 * .15f) a0--; while (a1 < n - 1 && sp2[a1] > mx2 * .15f) a1++;
                     a0 = Mathf.Max(0, a0 - 6); a1 = Mathf.Min(n - 1, a1 + 6); var ys = yaws.GetRange(a0, a1 - a0 + 1); ys.Sort(); mid = ys[ys.Count / 2];
+                }
+                else if (e.name.StartsWith("walk") || e.name.StartsWith("run"))   // locomotion: the direction of travel = where the planted feet point (standard), not the twisted hips
+                {
+                    var fy = new List<float>();
+                    foreach (var sd in new[] { "Left", "Right" })
+                    {
+                        var hs = new float[n]; var ya = new float[n]; float mn = 1e9f;
+                        for (int i = 0; i < n; i++) { foreach (var b2 in BODY) B[b2].localRotation = keys[b2][i]; var f = B[sd + "Foot"]; var toe = B[sd + "ToeBase"]; hs[i] = f.position.y; mn = Mathf.Min(mn, hs[i]); var d = toe.position - f.position; d.y = 0; ya[i] = Vector3.SignedAngle(fwd0, d, Vector3.up); }
+                        for (int i = 0; i < n; i++) if (hs[i] < mn + .03f) fy.Add(ya[i]);
+                    }
+                    fy.Sort(); mid = fy.Count > 0 ? fy[fy.Count / 2] : 0;
                 }
                 else { var ys = new List<float>(yaws); ys.Sort(); mid = ys[ys.Count / 2]; }
                 if (Mathf.Abs(mid) > 4f && !e.name.StartsWith("dead"))

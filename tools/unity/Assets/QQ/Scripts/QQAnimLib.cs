@@ -12,6 +12,24 @@ public static class QQAnimLib
     public static float hipsY = 100f;
     public static Dictionary<string, Clip> clips;
 
+    // Standard humanoid reference pose (what Mecanim / Mixamo retargeting expects): legs straight down, arms out level, FEET POINTING
+    // STRAIGHT FORWARD. Meshy auto-rigs bind the feet toed-out and not symmetric (Guloyim: left -28 deg, right +7 deg), which made
+    // every character limp with one foot turned out. Mixamo clips are retargeted relative to this pose on both sides.
+    public static void TPose(Dictionary<string, Transform> B)
+    {
+        Transform lu, ru; if (!B.TryGetValue("LeftUpLeg", out lu) || !B.TryGetValue("RightUpLeg", out ru)) return;
+        Vector3 right = ru.position - lu.position; right.y = 0; right.Normalize(); Vector3 fwd = Vector3.Cross(right, Vector3.up);
+        System.Action<string, string, Vector3> aim = (b, c, dir) => { Transform t, tc; if (!B.TryGetValue(b, out t) || !B.TryGetValue(c, out tc)) return; var d = tc.position - t.position; t.rotation = Quaternion.FromToRotation(d, dir) * t.rotation; };
+        aim("LeftArm", "LeftForeArm", -right); aim("LeftForeArm", "LeftHand", -right); aim("RightArm", "RightForeArm", right); aim("RightForeArm", "RightHand", right);
+        aim("LeftUpLeg", "LeftLeg", Vector3.down); aim("LeftLeg", "LeftFoot", Vector3.down); aim("RightUpLeg", "RightLeg", Vector3.down); aim("RightLeg", "RightFoot", Vector3.down);
+        foreach (var s in new[] { "Left", "Right" })
+        {
+            Transform f, toe; if (!B.TryGetValue(s + "Foot", out f) || !B.TryGetValue(s + "ToeBase", out toe)) continue;
+            var d = toe.position - f.position; var h = new Vector3(d.x, 0, d.z); if (h.sqrMagnitude < 1e-8f) continue;
+            f.rotation = Quaternion.FromToRotation(h, fwd * h.magnitude) * f.rotation;   // yaw only: the foot keeps its own pitch
+        }
+    }
+
     public static void Load()
     {
         if (clips != null) return;

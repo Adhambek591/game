@@ -625,13 +625,25 @@ public static class QQSetup
     }
 
     // edit-mode skinning lags one sample behind the bones: bake the current pose into a plain mesh for the render
+    // bake EVERY skinned layer (layered characters have body + clothes + hair as separate meshes): edit-mode GPU skinning lags a frame
     static GameObject Snapshot(Unit u)
     {
-        var smr = u.GetComponentInChildren<SkinnedMeshRenderer>(); if (!smr) return null;
-        var m = new Mesh(); smr.BakeMesh(m, true); var go = new GameObject("snap"); go.transform.SetParent(smr.transform, false);   // BakeMesh(true) = smr-local points, as TransformPoint expects
-        go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials; smr.enabled = false; return go;
+        var all = u.GetComponentsInChildren<SkinnedMeshRenderer>(); if (all.Length == 0) return null;
+        var root = new GameObject("snap");
+        foreach (var smr in all)
+        {
+            if (!smr.enabled) continue;
+            var m = new Mesh(); smr.BakeMesh(m, true); var go = new GameObject("snap_" + smr.name); go.transform.SetParent(smr.transform, false);
+            go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterials = smr.sharedMaterials; smr.enabled = false;
+            go.transform.SetParent(root.transform, true);
+        }
+        return root;
     }
-    static void Unsnap(Unit u, GameObject g) { if (g) { Object.DestroyImmediate(g.GetComponent<MeshFilter>().sharedMesh); Object.DestroyImmediate(g); } var smr = u.GetComponentInChildren<SkinnedMeshRenderer>(); if (smr) smr.enabled = true; }
+    static void Unsnap(Unit u, GameObject g)
+    {
+        if (g) { foreach (var mf in g.GetComponentsInChildren<MeshFilter>()) Object.DestroyImmediate(mf.sharedMesh); Object.DestroyImmediate(g); }
+        foreach (var smr in u.GetComponentsInChildren<SkinnedMeshRenderer>()) smr.enabled = true;
+    }
 
     public static void RigProbe()
     {
@@ -840,6 +852,135 @@ public static class QQSetup
             }
         }
         sheet.Apply(); File.WriteAllBytes("Builds/sim/combo.png", sheet.EncodeToPNG()); Debug.Log("QQ SIMC OK");
+    }
+
+    // Guloyim walking and running seen from behind (chase cam at shoulder height, then the game camera's high angle); 12 frames per row
+    public static void BackSheet()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var t in Object.FindObjectsByType<Transform>(FindObjectsSortMode.None)) if (t && t.name == "Sarkop") t.gameObject.SetActive(false);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; Directory.CreateDirectory("Builds/sim");
+        const int N = 12, W = 160, H = 260; var rows = new[] { (1.5f, false), (4.5f, false), (4.5f, true) };
+        var sheet = new Texture2D(W * N, H * rows.Length, TextureFormat.RGB24, false);
+        for (int r = 0; r < rows.Length; r++)
+        {
+            float sp = rows[r].Item1; bool high = rows[r].Item2;
+            var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward); u.rig.desync = false; u.rig.male = true;
+            float dt = 1f / 60f; u.rig.Locomote(sp, .01f); for (int f = 0; f < 40; f++) { u.transform.position += Vector3.forward * sp * dt; u.rig.Locomote(sp, .15f); u.rig.Tick(dt); }
+            int step = sp < 2 ? 6 : 4;   // walk: 0.1 s apart, run: 0.067 s apart (about one full cycle per row)
+            for (int k = 0, s = 0; k < N; s++)
+            {
+                u.transform.position += Vector3.forward * sp * dt; u.rig.Locomote(sp, .15f); u.rig.Tick(dt);
+                if (s % step != 0) continue;
+                var snap = Snapshot(u); var c = u.transform.position + Vector3.up * (high ? .8f : 1f);
+                cam.fieldOfView = high ? 28 : 30; cam.nearClipPlane = .05f; cam.transform.position = high ? c + Vector3.back * 4.2f + Vector3.up * 5.4f : c + Vector3.back * 4.4f + Vector3.up * .35f; cam.transform.LookAt(c);
+                var rt = new RenderTexture(W, H, 24); cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); cam.Render(); RenderTexture.active = rt;
+                sheet.ReadPixels(new Rect(0, 0, W, H), k * W, (rows.Length - 1 - r) * H); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+                k++;
+            }
+            Object.DestroyImmediate(u.gameObject);
+        }
+        sheet.Apply(); File.WriteAllBytes("Builds/sim/back.png", sheet.EncodeToPNG()); Debug.Log("QQ BACK OK");
+    }
+
+    // video from behind on a white floor: walk -> speeds up into a run -> stops -> 4-hit combo -> forward dodge -> back dodge -> stance.
+    // 30 fps PNG frames to Builds/vid/, encoded with ffmpeg afterwards
+    public static void VideoBack()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        foreach (var r in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None)) r.enabled = false;
+        foreach (var tr in Object.FindObjectsByType<Terrain>(FindObjectsSortMode.None)) tr.enabled = false;
+        RenderSettings.fog = false; foreach (var l in Object.FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type == LightType.Directional) l.color = Color.white; RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat; RenderSettings.ambientLight = new Color(.75f, .75f, .78f);
+        var cam = Camera.main; cam.GetComponent<QQCam>().enabled = false; cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = Color.white; var acd = cam.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>(); if (acd) acd.renderPostProcessing = false;
+        var floor = GameObject.CreatePrimitive(PrimitiveType.Plane); floor.transform.localScale = Vector3.one * 60; floor.transform.position = new Vector3(0, 0, 60);
+        var fm = new Material(Shader.Find("Universal Render Pipeline/Lit")); fm.SetColor("_BaseColor", Color.white); fm.SetFloat("_Smoothness", 0); floor.GetComponent<Renderer>().sharedMaterial = fm;
+        var dir = "Builds/vid"; if (Directory.Exists(dir)) Directory.Delete(dir, true); Directory.CreateDirectory(dir);
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward); u.rig.desync = false; u.rig.male = true;
+        for (int w = 0; w < 60; w++) { u.rig.Locomote(1.5f, .15f); u.rig.Tick(1f / 60f); }   // warm up: no bind pose in frame 0
+        float T0 = 5.2f;   // combat starts here
+        var ev = new System.Collections.Generic.List<(float, System.Action)> {
+            (T0, () => u.rig.Play("combat", .25f)),
+            (T0 + .4f, () => u.rig.PlaySeg("attack", .2f, .3f, .05f)), (T0 + .75f, () => u.rig.PlaySeg("attack4", .26f, .3f, .05f)), (T0 + 1.15f, () => u.rig.PlaySeg("slash", .2f, .3f, .05f)), (T0 + 1.5f, () => u.rig.PlaySeg("heavy", .34f, .42f, .05f)),
+            (T0 + 2.3f, () => u.rig.Play("combat", .25f)), (T0 + 2.7f, () => u.rig.PlaySeg("dodge_f", .22f, .3f, .05f)), (T0 + 3.3f, () => u.rig.Play("combat", .25f)),
+            (T0 + 3.7f, () => u.rig.PlaySeg("roll", .22f, .3f, .05f)), (T0 + 4.3f, () => u.rig.Play("combat", .25f)) };
+        const int W = 960, H = 720; var img = new Texture2D(W, H, TextureFormat.RGB24, false);
+        float dt = 1f / 60f, time = 0, end = T0 + 5.2f; int ei = 0, frame = 0; Vector3 camPos = Vector3.zero; bool first = true;
+        for (int step = 0; time < end; step++)
+        {
+            while (ei < ev.Count && ev[ei].Item1 <= time) { ev[ei].Item2(); ei++; }
+            float sp = time < 2f ? 1.5f : time < 3.2f ? Mathf.Lerp(1.5f, 4.5f, Mathf.SmoothStep(0, 1, (time - 2f) / 1.2f)) : time < T0 - .3f ? 4.5f : time < T0 ? Mathf.Lerp(4.5f, 0, (time - (T0 - .3f)) / .3f) : 0f;
+            if (time < T0) { u.rig.Locomote(sp, .15f); u.transform.position += Vector3.forward * sp * dt; }
+            if (time > T0 + 2.75f && time < T0 + 3.2f) u.transform.position += Vector3.forward * 5f * dt;
+            if (time > T0 + 3.75f && time < T0 + 4.2f) u.transform.position -= Vector3.forward * 5f * dt;
+            u.rig.Tick(dt); time += dt;
+            Vector3 want = u.transform.position + Vector3.back * 4.8f + Vector3.up * 1.7f; camPos = first ? want : Vector3.Lerp(camPos, want, 1f - Mathf.Exp(-6f * dt)); first = false;
+            if (step % 2 != 0) continue;
+            var snap = Snapshot(u);
+            cam.fieldOfView = 34; cam.nearClipPlane = .05f; cam.transform.position = camPos; cam.transform.LookAt(new Vector3(u.transform.position.x, 1.0f, u.transform.position.z));
+            var rt = new RenderTexture(W, H, 24); rt.antiAliasing = 4; cam.targetTexture = rt; cam.aspect = (float)W / H; cam.Render(); RenderTexture.active = rt;
+            img.ReadPixels(new Rect(0, 0, W, H), 0, 0); img.Apply(); cam.targetTexture = null; RenderTexture.active = null; rt.Release(); Unsnap(u, snap);
+            File.WriteAllBytes(dir + "/f_" + frame.ToString("D4") + ".png", img.EncodeToPNG()); frame++;
+        }
+        Debug.Log("QQ VID OK " + frame);
+    }
+
+    // gait check: per frame of walk/run the foot heights, foot yaw (toe direction vs forward), knee spread; plant times of each foot -> limp / toe-out
+    public static void GaitProbe()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, null, "g"); u.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+        var lf = u.rig.Bone("LeftFoot"); var rf = u.rig.Bone("RightFoot"); var lt = u.rig.Bone("LeftToeBase"); var rt = u.rig.Bone("RightToeBase"); var hips = u.rig.Bone("Hips"); var lk = u.rig.Bone("LeftLeg"); var rk = u.rig.Bone("RightLeg");
+        foreach (var clip in new[] { "walk", "walk_m", "run", "run_m", "run_c1", "run_c2", "run_c3", "walk_c1", "walk_c2" })
+        {
+            if (!u.rig.Has(clip)) continue; int n = 24; var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < n; i++)
+            {
+                u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(i / (float)n);
+                System.Func<Transform, Transform, float> yaw = (f, t) => { if (!t) return 0; var d = t.position - f.position; d.y = 0; return Vector3.SignedAngle(Vector3.forward, d, Vector3.up); };
+                { var la = u.rig.Bone("LeftArm"); var ra = u.rig.Bone("RightArm"); var lu = u.rig.Bone("LeftUpLeg"); var ru = u.rig.Bone("RightUpLeg"); Vector3 sh = ra.position - la.position, th = ru.position - lu.position; sh.y = th.y = 0; sb.AppendFormat("TORSO sh{0:F0} th{1:F0} ", Vector3.SignedAngle(Vector3.right, sh, Vector3.up), Vector3.SignedAngle(Vector3.right, th, Vector3.up)); }
+                sb.AppendFormat("{0:D2} L h{1:F2} z{2:F2} yaw{3:F0} kx{4:F2} | R h{5:F2} z{6:F2} yaw{7:F0} kx{8:F2} | hips y{9:F2} x{10:F2}\n", i, lf.position.y, lf.position.z - hips.position.z, yaw(lf, lt), lk.position.x - hips.position.x, rf.position.y, rf.position.z - hips.position.z, yaw(rf, rt), rk.position.x - hips.position.x, hips.position.y, hips.position.x);
+            }
+            Debug.Log("QQ GAIT " + clip + " dur " + QQAnimLib.clips[clip].dur.ToString("F2") + "\n" + sb);
+        }
+    }
+
+    // rig symmetry: bind-pose left vs mirrored right bone vectors for every layered/rigged character
+    public static void RigSym()
+    {
+        string[] L = { "LeftUpLeg", "LeftLeg", "LeftFoot", "LeftToeBase", "LeftShoulder", "LeftArm", "LeftForeArm", "LeftHand" };
+        foreach (var g in AssetDatabase.FindAssets("t:GameObject", new[] { ART + "chars", ART + "models" }))
+        {
+            var path = AssetDatabase.GUIDToAssetPath(g); if (!path.EndsWith(".glb") || path.Contains("_low")) continue;
+            var go = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(path)); var all = go.GetComponentsInChildren<Transform>(true);
+            System.Func<string, Transform> B = n => { foreach (var t in all) if (t.name == n || t.name.EndsWith(":" + n) || t.name.EndsWith("_" + n)) return t; return null; };
+            var sb = new System.Text.StringBuilder(Path.GetFileNameWithoutExtension(path) + ": ");
+            for (int i = 0; i < L.Length - 1; i++)
+            {
+                if (i == 3) continue; var a = B(L[i]); var b = B(L[i + 1]); var ar_ = B(L[i].Replace("Left", "Right")); var br = B(L[i + 1].Replace("Left", "Right"));
+                if (!a || !b || !ar_ || !br) { sb.Append(L[i] + " ? "); continue; }
+                var vl = b.position - a.position; var vr = br.position - ar_.position; vr.x = -vr.x;
+                sb.AppendFormat("{0} len {1:F3}/{2:F3} ang {3:F0}  ", L[i].Substring(4), vl.magnitude, vr.magnitude, Vector3.Angle(vl, vr));
+            }
+            var lf = B("LeftFoot"); var lt = B("LeftToeBase"); var rf = B("RightFoot"); var rtt = B("RightToeBase");
+            if (lf && lt && rf && rtt) { var a = lt.position - lf.position; var b = rtt.position - rf.position; a.y = b.y = 0; sb.AppendFormat("| toe yaw L {0:F0} R {1:F0}", Vector3.SignedAngle(Vector3.forward, a, Vector3.up), Vector3.SignedAngle(Vector3.forward, b, Vector3.up)); }
+            Debug.Log("QQ SYM " + sb); Object.DestroyImmediate(go);
+        }
+    }
+
+    public static void ArmProbe()
+    {
+        EditorSceneManager.OpenScene(SCENE); var ar = Object.FindFirstObjectByType<QQArena>(); QQAnimLib.Load();
+        var u = ar.Spawn(Load<GameObject>(ART + "chars/L_gulayim.glb"), Vector3.zero, 0, 100, 10, 1.75f, ar.saber, "g");
+        var hand = u.rig.Bone("RightHand"); int n = 0; foreach (var t in u.GetComponentsInChildren<Transform>(true)) if (t.name == "RightHand") n++;
+        Transform sw = null; foreach (Transform c in hand) if (c.name.Contains("saber") || c.GetComponentInChildren<MeshFilter>()) sw = c;
+        var smr = u.GetComponentsInChildren<SkinnedMeshRenderer>(); Debug.Log("QQ ARM hands named RightHand " + n + " smr " + smr.Length + " sword " + (sw ? sw.name : "none"));
+        foreach (var clip in new[] { "idle", "attack", "slash" })
+        {
+            u.rig.Play(clip, .01f, true, true); u.rig.SampleAt(.5f);
+            var best = 1e9f; Vector3 bp = Vector3.zero;
+            foreach (var r in smr) { if (!r.name.Contains("body")) continue; var m = new Mesh(); r.BakeMesh(m, true); foreach (var v in m.vertices) { var w = r.transform.TransformPoint(v); float d = (w - hand.position).sqrMagnitude; if (d < best) { best = d; bp = w; } } }
+            Debug.Log("QQ ARM " + clip + " hand bone " + hand.position.ToString("F3") + " nearest body vert dist " + Mathf.Sqrt(best).ToString("F3") + " sword " + (sw ? (sw.position - hand.position).magnitude.ToString("F3") : "-"));
+        }
     }
 
     public static void FaceProbe()

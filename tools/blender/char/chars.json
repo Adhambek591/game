@@ -1,0 +1,133 @@
+{
+  "gulayim": {
+    "ref": "guloyim-blue turnaround (Higgsfield element af621a6e) + gulayim-ok close-up",
+    "macro": {
+      "gender": 0.0,
+      "age": 0.45,
+      "muscle": 0.62,
+      "weight": 0.42,
+      "proportions": 0.85,
+      "height": 0.62,
+      "cupsize": 0.35,
+      "firmness": 0.6,
+      "race": {
+        "asian": 0.55,
+        "caucasian": 0.4,
+        "african": 0.05
+      }
+    },
+    "targets": {
+      "eyebrows-angle-down": 0.35,
+      "nose-scale-horiz-decr": 0.15,
+      "nose-trans-up": 0.7,
+      "nose-scale-vert-decr": 0.35,
+      "nose-point-up": 0.3,
+      "mouth-trans-up": 0.45,
+      "mouth-lowerlip-volume-incr": 0.3,
+      "mouth-scale-horiz-decr": 0.1,
+      "r-eye-scale-incr": 0.45,
+      "l-eye-scale-incr": 0.45,
+      "r-eye-height2-incr": 0.5,
+      "l-eye-height2-incr": 0.5,
+      "r-eye-corner1-up": 0.3,
+      "l-eye-corner1-up": 0.3
+    },
+    "skin": [
+      0.6,
+      0.4,
+      0.29
+    ],
+    "tunic": [
+      0.085,
+      0.1,
+      0.42
+    ],
+    "trousers": [
+      0.17,
+      0.1,
+      0.07
+    ],
+    "boots": [
+      0.2,
+      0.12,
+      0.09
+    ],
+    "dress": {
+      "color": [
+        0.09,
+        0.11,
+        0.45
+      ],
+      "trim": [
+        0.25,
+        0.14,
+        0.1
+      ],
+      "hem": "knee",
+      "slit": true
+    },
+    "cuirass": {
+      "color": [
+        0.48,
+        0.48,
+        0.5
+      ],
+      "edge": [
+        0.3,
+        0.18,
+        0.12
+      ],
+      "pauldrons": true,
+      "tassets": true,
+      "bracers": true
+    },
+    "belt": [
+      0.33,
+      0.08,
+      0.07
+    ],
+    "scarf": {
+      "color": [
+        0.09,
+        0.11,
+        0.48
+      ],
+      "drape": true,
+      "jewels": true
+    },
+    "hair": [
+      0.02,
+      0.018,
+      0.016
+    ],
+    "braids": {
+      "front": true,
+      "tie": [
+        0.55,
+        0.1,
+        0.07
+      ]
+    },
+    "amulet": true,
+    "face": {
+      "img": "ref/gulayim_face.jpg",
+      "eyeR": [
+        540,
+        153
+      ],
+      "eyeL": [
+        702,
+        153
+      ],
+      "mouth": [
+        620,
+        292
+      ],
+      "skin_px": [
+        600,
+        330
+      ]
+    },
+    "jewels": true
+  }
+}
