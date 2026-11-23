@@ -8,8 +8,8 @@ from common import *
 from fitlib import *
 from mathutils.bvhtree import BVHTree
 low_priority(); reset()
-OUT_WRAP = os.path.join(BODY, "SK_Surtaysha_MHwrap.fbx")
-SHEET = r"F:\qirq-qiz-unity\Builds\surtaysha_wrap_check.png"
+OUT_WRAP = CFG["OUT_WRAP"]
+SHEET = CFG["SHEET_WRAP"]
 Z = np.load(os.path.join(WORK, "wrap.npz")); dy = float(Z["dy"]); mask = Z["mask"]; V0 = Z["V0"]; inv = Z["inv"]
 objs = [o for o in import_fbx(OUT_WRAP)]
 assert len(objs) == 1 and objs[0].type == 'MESH', "FBX must hold exactly one mesh"
@@ -18,9 +18,12 @@ V = co(wr)
 print("re-imported FBX: 1 mesh, %d verts (MH body %d), %d tris; max |re-imported - written| %.6f m -> order %s" % (
     len(V), len(V0), len(wr.data.polygons), np.abs(V - Z["V"]).max(), "identical" if np.abs(V - Z["V"]).max() < 1e-4 else "CHANGED"))
 print("height %.2f cm, min z %.2f cm; head nodes moved (max) %.6f m" % ((V[:, 2].max() - V[:, 2].min()) * 100, V[:, 2].min() * 100, np.abs(V - V0)[mask == 0].max()))
-bpy.ops.wm.append(directory=os.path.join(WORK, "hf_posed.blend", "Object"), filename="SK_Surtaysha_HF3D_apose")
-hf = bpy.data.objects["SK_Surtaysha_HF3D_apose"]; hf.name = "HF"
+bpy.ops.wm.append(directory=os.path.join(WORK, "hf_posed.blend", "Object"), filename=CFG["APOSE_NAME"])
+hf = bpy.data.objects[CFG["APOSE_NAME"]]; hf.name = "HF"
 set_co(hf, co(hf) + np.array([0, dy, 0]))
+HANDJ = Z["hand"] + np.array([0, dy, 0]) * 0; NECK_Z = float(Z["chin"]) - 0.046; FOOT_Z = 0.12 * HEIGHT / 1.85
+HX = abs(HANDJ[0][0]) - 0.03; HZ = HANDJ[0][2] + 0.08                 # hand region: beyond the wrist
+def is_hand(P): return (np.abs(P[..., 0]) > HX) & (P[..., 2] < HZ)
 
 # ---- faces: flipped vs the MH original, degenerate, self-intersections
 wr.data.calc_loop_triangles()
@@ -31,9 +34,9 @@ fl = cosn < 0
 cen = V[T].mean(1)
 print("faces reversed vs the MH original (includes MH armpit / crotch folds that opened out): %d of %d; turned > 60 deg: %d" % (fl.sum(), len(T), (cosn < 0.5).sum()))
 def region(c):
-    if c[2] < 0.12: return "foot"
-    if abs(c[0]) > 0.45 and c[2] < 1.15: return "hand"
-    if c[2] > 1.5: return "neck/head"
+    if c[2] < FOOT_Z: return "foot"
+    if is_hand(c): return "hand"
+    if c[2] > NECK_Z: return "neck/head"
     return "body"
 for r in ("foot", "hand", "neck/head", "body"):
     print("   flipped in %-9s %d" % (r, sum(1 for c in cen[fl] if region(c) == r)))
@@ -52,9 +55,12 @@ print("triangle area ratio wrap/MH on the fitted part: median %.2f, 1%% %.2f, 99
 hf.data.calc_loop_triangles(); HV = co(hf)
 HT = np.empty(len(hf.data.loop_triangles) * 3, dtype=np.int32); hf.data.loop_triangles.foreach_get("vertices", HT); HT = HT.reshape(-1, 3)
 bvh = BVHTree.FromPolygons([Vector(v) for v in HV], [tuple(int(i) for i in t) for t in HT])
-d = np.array([bvh.find_nearest(Vector(p))[3] for p in V])
-for nm, mk in (("body (neck down, no hands/feet)", (mask > 0.99) & ~((np.abs(V[:, 0]) > 0.45) & (V[:, 2] < 1.15)) & (V[:, 2] > 0.12)),
-               ("hands", (np.abs(V[:, 0]) > 0.45) & (V[:, 2] < 1.15)), ("feet", V[:, 2] < 0.12)):
+ht = hair_tris(hf)
+near = [bvh.find_nearest(Vector(p)) for p in V]
+d = np.array([q[3] for q in near]); under_hair = np.array([ht[q[2]] for q in near]) | (V[:, 2] > NECK_Z)
+if ht.any(): print("vertices below the neck whose nearest HF face is hair (shape there = MH prior, not HF): %d of %d" % ((under_hair & (mask > 0.99) & (V[:, 2] <= NECK_Z)).sum(), (mask > 0.99).sum()))
+for nm, mk in (("body (neck down, no hands/feet/hair)", (mask > 0.99) & ~is_hand(V) & (V[:, 2] > FOOT_Z) & ~under_hair),
+               ("hands", is_hand(V)), ("feet", V[:, 2] < FOOT_Z)):
     print("distance to HF, %-32s mean %.2f mm  p95 %.2f mm  max %.1f mm" % (nm, d[mk].mean() * 1000, np.percentile(d[mk], 95) * 1000, d[mk].max() * 1000))
 
 # real flips: a face pointing against the smoothed normal field of its own neighbourhood
@@ -73,11 +79,26 @@ fu = fn / np.maximum(np.linalg.norm(fn, axis=1, keepdims=True), 1e-20); f0u = fn
 cosh = (fu * nn[TI].mean(1)).sum(1)
 below = mask[T].min(1) > 0.5
 print("FLIPPED FACES below the neck (pointing against their neighbourhood): wrap %d ; more than 78 deg off: %d" % ((cosh[below] < 0).sum(), (cosh[below] < 0.2).sum()))
+# the same measure on the untouched MH template, and where the wrap's are
+nn0 = np.zeros((NN, 3))
+for i in range(3):
+    for c in range(3): nn0[:, c] += np.bincount(TI[:, i], fn0[:, c], NN)
+nn0 /= np.maximum(np.linalg.norm(nn0, axis=1, keepdims=True), 1e-20)
+for _ in range(3):
+    sm = np.zeros_like(nn0)
+    for c in range(3): sm[:, c] = np.bincount(E[:, 0], nn0[E[:, 1], c], NN) + np.bincount(E[:, 1], nn0[E[:, 0], c], NN)
+    nn0 = 0.5 * nn0 + 0.5 * sm / deg[:, None]
+nn0 /= np.maximum(np.linalg.norm(nn0, axis=1, keepdims=True), 1e-20)
+cosh0 = (f0u * nn0[TI].mean(1)).sum(1)
+bad = below & (cosh < 0)
+print("   same measure on the MH template itself: %d ; of the wrap's %d, already so in the template: %d ; by region: %s ; at %s" % (
+    (cosh0[below] < 0).sum(), bad.sum(), (bad & (cosh0 < 0)).sum(), {r: sum(1 for c in cen[bad] if region(c) == r) for r in ("foot", "hand", "neck/head", "body")}, cen[bad].round(2).tolist()[:8]))
 
 # ---- leg gap
 Pw = sample_surface(wr); Ph = sample_surface(hf)
+gz = [round(z * HEIGHT / 1.85, 2) for z in (0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.50, 0.40, 0.20)]
 print("leg gap (cm): z  HF  wrap")
-for z in (0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.50, 0.40, 0.20):
+for z in gz:
     g = [inner_gap(C, None, z) for C in (Ph, Pw)]
     print("   z=%.2f  %s" % (z, "  ".join("%5.1f" % (x * 100) if x and x > 0.0015 else "touch" for x in g)))
 
@@ -85,6 +106,7 @@ for z in (0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.50, 0.40, 0.20):
 W_, H_ = 1200, 1700
 sc = setup_render(W_, H_); sc.render.film_transparent = True
 wr.data.materials.clear(); hf.data.materials.clear()
+wr.data.polygons.foreach_set('material_index', np.zeros(len(wr.data.polygons), dtype=np.int32))
 wr.data.materials.append(mat("w", (0.75, 0.78, 0.84, 1))); hf.data.materials.append(mat("h", (1.0, 0.5, 0.15, 1)))
 for p in wr.data.polygons: p.use_smooth = True
 SCALE = 1.96
@@ -93,21 +115,41 @@ def grab(path):
     bpy.data.images.remove(im); return a
 cams = {"front": ortho_cam("front", (0, -6, 0.94), (0, 0, 0.94), SCALE), "side": ortho_cam("side", (6, -0.06, 0.94), (0, -0.06, 0.94), SCALE)}
 panels = []
-neck_row = int((0.5 - (1.55 - 0.94) / SCALE) * H_)             # image row of z = 1.55 m
+neck_row = int((0.5 - (NECK_Z - 0.94) / SCALE) * H_)             # image row of the neck line
+# with hair: HF is rendered as body faces and hair faces separately; the hair-free HF silhouette is the body
+# faces plus, where only hair covered the figure, whatever the wrap puts there (drawn green on the sheet)
+hfh = None
+if ht.any():
+    import bmesh
+    hfh = hf.copy(); hfh.data = hf.data.copy(); hfh.name = "HFHAIR"; bpy.context.scene.collection.objects.link(hfh)
+    for o, keep_hair in ((hf, False), (hfh, True)):
+        bm = bmesh.new(); bm.from_mesh(o.data); lay = bm.faces.layers.int.get("hair")
+        bmesh.ops.delete(bm, geom=[f for f in bm.faces if (f[lay] > 0) != keep_hair], context='FACES'); bm.to_mesh(o.data); bm.free()
 for nm, cam in cams.items():
     sil = {}
-    for o, other in ((wr, hf), (hf, wr)):
-        other.hide_render = True; o.hide_render = False
+    allo = [o for o in (wr, hf, hfh) if o is not None]
+    for o in allo:
+        for x in allo: x.hide_render = x is not o
         path = os.path.join(WORK, "wchk_%s_%s.png" % (nm, o.name)); render(cam, path); sil[o.name] = grab(path)[..., 3] > 0.5
     a, b = sil["WRAP"], sil["HF"]
+    hairfill = np.zeros_like(a)
+    if hfh is not None:
+        hairfill = sil["HFHAIR"] & ~b & a; b = b | hairfill
+        print("   %s: hair-only pixels %.1f%% of the HF silhouette, of which the wrap fills %.1f%%" % (nm, 100 * (sil["HFHAIR"] & ~sil["HF"]).sum() / b.sum(), 100 * hairfill.sum() / max((sil["HFHAIR"] & ~sil["HF"]).sum(), 1)))
     iou = (a & b).sum() / (a | b).sum(); iou_b = (a & b)[neck_row:].sum() / (a | b)[neck_row:].sum()
-    print("silhouette IoU %-5s: whole figure %.4f | neck down (z < 1.55 m) %.4f" % (nm, iou, iou_b))
+    print("silhouette IoU %-5s: whole figure %.4f | neck down (z < %.2f m) %.4f" % (nm, iou, NECK_Z, iou_b))
+    if hfh is not None:
+        b0 = sil["HF"]; print("   strict (HF body faces only, nothing granted under the hair): neck down %.4f" % ((a & b0)[neck_row:].sum() / (a | b0)[neck_row:].sum()))
     img = np.full((H_, W_, 3), 0.95, np.float32)
-    img[a & b] = (0.55, 0.55, 0.55); img[b & ~a] = (1.0, 0.45, 0.05); img[a & ~b] = (0.1, 0.35, 1.0)
+    img[a & b] = (0.55, 0.55, 0.55); img[b & ~a] = (1.0, 0.45, 0.05); img[a & ~b] = (0.1, 0.35, 1.0); img[hairfill] = (0.55, 0.75, 0.55)
     img[neck_row:neck_row + 2, :, :] *= 0.7
     panels.append(img)
 # shaded wrap with wireframe (edge flow), front and back three-quarter
 hf.hide_render = True; wr.hide_render = False
+if hfh is not None: hfh.hide_render = True
+import bmesh as _bm
+b_ = _bm.new(); b_.from_mesh(wr.data); _bm.ops.remove_doubles(b_, verts=b_.verts, dist=1e-6); b_.to_mesh(wr.data); b_.free()   # display copy: weld the split vertices
+for p_ in wr.data.polygons: p_.use_smooth = True
 wire = wr.modifiers.new("wire", 'WIREFRAME'); wire.thickness = 0.0006; wire.use_replace = False; wire.material_offset = 1
 wr.data.materials.append(mat("line", (0.05, 0.05, 0.08, 1)))
 for nm, loc, look in (("wfront", (0, -6, 0.94), (0, 0, 0.94)), ("wback", (3.5, 5, 1.6), (0, 0, 0.94))):

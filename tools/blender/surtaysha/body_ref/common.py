@@ -2,11 +2,23 @@
 import bpy, bmesh, ctypes, os, numpy as np
 from mathutils import Vector, Matrix
 
-BODY = r"F:\qirq-qiz\tools\blender\surtaysha\body"
-HF_FBX = os.path.join(BODY, "SK_Surtaysha_HF3D.fbx")
-MH_FBX = os.path.join(BODY, "SK_Surtaysha_MHBody.fbx")
-OUT_FBX = os.path.join(BODY, "SK_Surtaysha_HF3D_apose.fbx")
-WORK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "work")
+# Character selection: QQ_CHAR=surtaysha (default) or guloyim.
+CHAR = os.environ.get("QQ_CHAR", "surtaysha")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_BUILDS = r"F:\qirq-qiz-unity\Builds"
+if CHAR == "guloyim":
+    BODY = r"F:\qirq-qiz\tools\blender\guloyim_costume\body"
+    CFG = dict(HF_SRC=os.path.join(BODY, "SK_Guloyim_HF3D.glb"), MH_FBX=os.path.join(BODY, "SK_Guloyim_Final_FullBody.fbx"),
+               OUT_APOSE=os.path.join(BODY, "SK_Guloyim_HF3D_apose.fbx"), OUT_WRAP=os.path.join(BODY, "SK_Guloyim_MHwrap.fbx"),
+               APOSE_NAME="SK_Guloyim_HF3D_apose", WRAP_NAME="SK_Guloyim_MHwrap", WORK=os.path.join(_HERE, "work_g"), HEIGHT=1.71, HAIR=True,
+               SHEET_APOSE=os.path.join(_BUILDS, "guloyim_apose_check.png"), SHEET_WRAP=os.path.join(_BUILDS, "guloyim_wrap_check.png"))
+else:
+    BODY = r"F:\qirq-qiz\tools\blender\surtaysha\body"
+    CFG = dict(HF_SRC=os.path.join(BODY, "SK_Surtaysha_HF3D.fbx"), MH_FBX=os.path.join(BODY, "SK_Surtaysha_MHBody.fbx"),
+               OUT_APOSE=os.path.join(BODY, "SK_Surtaysha_HF3D_apose.fbx"), OUT_WRAP=os.path.join(BODY, "SK_Surtaysha_MHwrap.fbx"),
+               APOSE_NAME="SK_Surtaysha_HF3D_apose", WRAP_NAME="SK_Surtaysha_MHwrap", WORK=os.path.join(_HERE, "work"), HEIGHT=1.85, HAIR=False,
+               SHEET_APOSE=os.path.join(_BUILDS, "surtaysha_apose_check.png"), SHEET_WRAP=os.path.join(_BUILDS, "surtaysha_wrap_check.png"))
+HF_FBX, MH_FBX, OUT_FBX, WORK, HEIGHT = CFG["HF_SRC"], CFG["MH_FBX"], CFG["OUT_APOSE"], CFG["WORK"], CFG["HEIGHT"]
 os.makedirs(WORK, exist_ok=True)
 
 def low_priority():
@@ -164,14 +176,26 @@ def fix_nonmanifold(bm):
     print("fix_nonmanifold: left", sum(1 for e in bm.edges if not e.is_manifold), "non-manifold edges")
 
 
-def sample_surface(ob, spacing=0.003, seed=1):
+def hair_tris(ob):
+    """bool per loop triangle: True where the face carries the 'hair' attribute (set by stage1_guloyim)."""
+    me = ob.data; me.calc_loop_triangles()
+    n = len(me.loop_triangles)
+    at = me.attributes.get("hair")
+    if at is None: return np.zeros(n, bool)
+    pv = np.zeros(len(me.polygons), dtype=np.int32); at.data.foreach_get("value", pv)
+    pi = np.empty(n, dtype=np.int32); me.loop_triangles.foreach_get("polygon_index", pi)
+    return pv[pi] > 0
+
+def sample_surface(ob, spacing=0.003, seed=1, skip_hair=False):
     """Dense, even point cloud on the mesh surface (vertices + random points on the triangles), so slicing
-    does not depend on the mesh resolution."""
+    does not depend on the mesh resolution. skip_hair leaves out the faces flagged as hair."""
     me = ob.data
     me.calc_loop_triangles()
     n = len(me.loop_triangles)
     tri = np.empty(n * 3, dtype=np.int32); me.loop_triangles.foreach_get("vertices", tri); tri = tri.reshape(-1, 3)
     V = co(ob)
+    if skip_hair:
+        tri = tri[~hair_tris(ob)]; n = len(tri)
     a, b, c_ = V[tri[:, 0]], V[tri[:, 1]], V[tri[:, 2]]
     area = 0.5 * np.linalg.norm(np.cross(b - a, c_ - a), axis=1)
     rng = np.random.default_rng(seed)
@@ -179,4 +203,4 @@ def sample_surface(ob, spacing=0.003, seed=1):
     idx = np.repeat(np.arange(n), cnt)
     r1 = np.sqrt(rng.random(len(idx))); r2 = rng.random(len(idx))
     P = (1 - r1)[:, None] * a[idx] + (r1 * (1 - r2))[:, None] * b[idx] + (r1 * r2)[:, None] * c_[idx]
-    return np.vstack([V, P])
+    return np.vstack([V[np.unique(tri)], P])

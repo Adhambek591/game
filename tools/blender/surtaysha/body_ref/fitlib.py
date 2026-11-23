@@ -63,12 +63,26 @@ def zmap(z, La, Lb):
     kb = [0.0, Lb['crotch'], Lb['armpit'], Lb['chin'], Lb['top']]
     return float(np.interp(z, ka, kb))
 
+_full = {}
+def set_full(C, Cfull):
+    """register the complete cloud behind a hair-free cloud (see torso_box)"""
+    _full[id(C)] = Cfull
+
 def torso_box(C, z, tol=0.006):
     """bbox (xhalf, ymin, ymax) of the central cluster at height z (arms / hands excluded when separate)."""
     idx = []
+    F = _full.get(id(C))
     for s in (1, -1):
-        seg = side_segments(C, z, s, tol)
-        if seg: idx.append(seg[0])
+        if F is None:
+            seg = side_segments(C, z, s, tol)
+            if seg: idx.append(seg[0])
+        else:
+            # hair-free cloud: its sections have holes, so the extent of the central cluster comes from
+            # the full cloud and the points from the hair-free one
+            seg = side_segments(F, z, s, tol)
+            if seg:
+                xmax = (F[seg[0], 0] * s).max()
+                m = slab(C, z, tol); idx.append(m[(C[m, 0] * s > -0.002) & (C[m, 0] * s <= xmax + 0.002)])
     idx = np.concatenate(idx)
     P = C[idx]
     return float(np.abs(P[:, 0]).max()), float(P[:, 1].min()), float(P[:, 1].max())

@@ -13,9 +13,11 @@ bake_world(mh_ob)
 M = sample_surface(mh_ob)
 bpy.ops.wm.append(filepath=os.path.join(WORK, "hf_clean.blend", "Object", "HF"), directory=os.path.join(WORK, "hf_clean.blend", "Object"), filename="HF")
 hf = bpy.data.objects["HF"]
-H = sample_surface(hf)
+HFULL = sample_surface(hf)
+H = sample_surface(hf, skip_hair=True) if CFG["HAIR"] else HFULL        # hair faces never count as body
 
-LM, LH = levels(M), levels(H)
+if H is not HFULL: set_full(H, HFULL)
+LM, LH = levels(M), levels(HFULL)
 print("levels MH", {k: round(v, 3) for k, v in LM.items()})
 print("levels HF", {k: round(v, 3) for k, v in LH.items()})
 # The MH body has thighs that touch far below the real crotch, so its crotch level cannot be read from the
@@ -63,7 +65,7 @@ JH = {}
 # torso / head joints: same relative place inside the torso cross-section at the mapped height
 for b in ("pelvis", "spine_01", "spine_02", "spine_03", "spine_04", "spine_05", "neck_01", "neck_02", "head"):
     fx, fy = frac_of(M, J[b]); z = zmap(J[b][2], LM, LH)
-    p = from_frac(H, fx, fy, z); p[0] = 0.0
+    p = from_frac(HFULL if b in ("neck_01", "neck_02", "head") else H, fx, fy, z); p[0] = 0.0      # neck/head: no clean section without the hair; these bones are never rotated
     JH[b] = p
 for s, sg in (("l", 1), ("r", -1)):
     for b in ("clavicle_", "thigh_", "upperarm_"):

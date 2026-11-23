@@ -10,7 +10,7 @@ from common import *
 from fitlib import *
 from armfit import arm_analysis
 low_priority(); reset()
-SHEET = r"F:\qirq-qiz-unity\Builds\surtaysha_apose_check.png"
+SHEET = CFG["SHEET_APOSE"]
 fit = json.load(open(os.path.join(WORK, "fit.json"))); posed = json.load(open(os.path.join(WORK, "posed.json")))
 J = {k: np.array(v) for k, v in fit["MH"].items()}
 J0 = {k: np.array(v) for k, v in fit["HF"].items()}

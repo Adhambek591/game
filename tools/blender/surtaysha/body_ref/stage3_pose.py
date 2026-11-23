@@ -16,7 +16,6 @@ JH = {k: np.array(v) for k, v in fit["HF"].items()}
 LH = fit["LH"]; LM = fit["LM"]; HAND = fit["hand"]; CAL = fit["cal"]
 V = co(hf); NV = len(V)
 H = sample_surface(hf)
-HEIGHT = 1.85
 SIDES = (("l", 1), ("r", -1))
 
 # ------------------------------------------------------------------ rig
@@ -243,7 +242,7 @@ while True:
     if (min(gaps) >= 0.008 and Lp['crotch'] > LH['crotch'] - 0.08) or ankle_x > JH["foot_l"][0]:
         break
     ankle_x += 0.005
-print("scale to 1.85 m: %.5f, offset %s" % (sc, off.round(4)))
+print("scale to %.2f m: %.5f, offset %s" % (HEIGHT, sc, off.round(4)))
 print("pose deltas:", json.dumps(report))
 
 # ------------------------------------------------------------------ apply, drop the rig
@@ -256,7 +255,7 @@ bm = bmesh.new(); bm.from_mesh(hf.data)
 bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 bm.to_mesh(hf.data); bm.free()
 for p in hf.data.polygons: p.use_smooth = True
-hf.name = "SK_Surtaysha_HF3D_apose"; hf.data.name = "SK_Surtaysha_HF3D_apose"
+hf.name = CFG["APOSE_NAME"]; hf.data.name = CFG["APOSE_NAME"]
 st = mesh_stats(hf, "posed")
 c = co(hf)
 print("height %.4f m, min z %.5f, x [%.4f, %.4f], y [%.4f, %.4f]" % (c[:, 2].max() - c[:, 2].min(), c[:, 2].min(), c[:, 0].min(), c[:, 0].max(), c[:, 1].min(), c[:, 1].max()))

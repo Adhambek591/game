@@ -14,7 +14,7 @@ from fitlib import *
 from armfit import arm_analysis
 from mathutils.bvhtree import BVHTree
 low_priority(); reset()
-OUT_WRAP = os.path.join(BODY, "SK_Surtaysha_MHwrap.fbx")
+OUT_WRAP = CFG["OUT_WRAP"]
 fit = json.load(open(os.path.join(WORK, "fit.json"))); posed = json.load(open(os.path.join(WORK, "posed.json")))
 SIDES = (("l", 1), ("r", -1))
 def sstep(t): t = np.clip(t, 0, 1); return t * t * (3 - 2 * t)
@@ -76,19 +76,41 @@ vol = (N0[TN[:, 0]] * np.cross(N0[TN[:, 1]], N0[TN[:, 2]])).sum() / 6
 assert vol > 0, "MH normals point inward"
 
 # ------------------------------------------------------------------ target: re-posed HF, neck under the MH head
-bpy.ops.wm.append(directory=os.path.join(WORK, "hf_posed.blend", "Object"), filename="SK_Surtaysha_HF3D_apose")
-hf = bpy.data.objects["SK_Surtaysha_HF3D_apose"]
+bpy.ops.wm.append(directory=os.path.join(WORK, "hf_posed.blend", "Object"), filename=CFG["APOSE_NAME"])
+hf = bpy.data.objects[CFG["APOSE_NAME"]]
 JP = {k: np.array(v) for k, v in posed["HFp"].items()}
-dy = float(np.mean([J[b][1] - JP[b][1] for b in ("neck_01", "clavicle_l", "clavicle_r")]))
+M = sample_surface(mh); LMm = levels(M)
+HAIR = CFG["HAIR"]
+if HAIR:
+    # hair hides the neck and shoulders: line up the fronts of the throat (centre line, under the chin)
+    Hh = sample_surface(hf, skip_hair=True); Lh = levels(sample_surface(hf))
+    def throat(C, chin):
+        out = []
+        for z in np.arange(chin - 0.075, chin - 0.025, 0.005):
+            mm = slab(C, z, 0.004); mm = mm[np.abs(C[mm, 0]) < 0.02]
+            out.append(C[mm, 1].min())
+        return np.array(out)
+    dy = float(np.median(throat(M, LMm['chin']) - throat(Hh, Lh['chin'])))
+else:
+    dy = float(np.mean([J[b][1] - JP[b][1] for b in ("neck_01", "clavicle_l", "clavicle_r")]))
 print("HF target shifted in y by %+.4f m (neck base under the MH head)" % dy)
 SH = np.array([0, dy, 0])
 set_co(hf, co(hf) + SH); JP = {k: v + SH for k, v in JP.items()}
 HV = co(hf)
 hf.data.calc_loop_triangles()
 HT = np.empty(len(hf.data.loop_triangles) * 3, dtype=np.int32); hf.data.loop_triangles.foreach_get("vertices", HT); HT = HT.reshape(-1, 3)
+HFULL = sample_surface(hf); LHp = levels(HFULL)
+if HAIR:
+    # target = HF without the hair faces and without the head (the MH head stays); under the hair the wrap
+    # keeps the MH shape, carried by the smoothed displacement field
+    keep = ~hair_tris(hf) & (HV[HT][:, :, 2].mean(1) < LHp['chin'])
+    bvh_full = BVHTree.FromPolygons([Vector(v) for v in HV], [tuple(int(i) for i in t) for t in HT]); drop = ~keep
+    print("target faces: %d of %d (hair + head left out)" % (keep.sum(), len(HT)))
+    HT = HT[keep]
+    H = sample_surface(hf, skip_hair=True); set_full(H, HFULL)
+else:
+    H = HFULL
 bvh = BVHTree.FromPolygons([Vector(v) for v in HV], [tuple(int(i) for i in t) for t in HT])
-H = sample_surface(hf); M = sample_surface(mh)
-LHp, LMm = levels(H), levels(M)
 
 # ------------------------------------------------------------------ head mask (0 = keep MH, 1 = fit)
 m = np.clip(1 - W[:, MI["head"]] - 0.5 * W[:, MI["neck_02"]], 0, 1)
@@ -98,7 +120,9 @@ mask[W[:, MI["head"]] > 0.999] = np.minimum(mask[W[:, MI["head"]] > 0.999], 0.0)
 print("mask: fixed head nodes %d, blend %d, fitted %d" % ((mask == 0).sum(), ((mask > 0) & (mask < 1)).sum(), (mask == 1).sum()))
 
 # ------------------------------------------------------------------ A. coarse warp
-zt = np.arange(0.80, 1.66, 0.01)
+# section tables from just above the crotch up to the chin; with hair only up to the collar bones (above
+# that the hair-free sections are too incomplete) - np.interp holds the last box for the neck
+zt = np.arange(round(0.80 * HEIGHT / 1.85, 2), (J["clavicle_l"][2] - 0.02) if HAIR else 1.66, 0.01)
 def table(C):
     t = np.array([torso_box(C, z) for z in zt])
     k = np.ones(5) / 5
@@ -154,7 +178,12 @@ def correspond(P, n, maxd):
     Q = np.zeros_like(P); ok = np.zeros(NN, bool)
     for i in np.where(mask > 0)[0]:
         p = Vector(P[i]); nv = Vector(n[i])
+        if HAIR:
+            fl = bvh_full.find_nearest(p)
+            if fl[0] is not None and drop[fl[2]]: continue       # the node sits under hair: no target at all
         loc, nr, _, d = bvh.find_nearest(p, maxd)
+        if loc is not None and HAIR and d > 0.004 and abs((loc - p).dot(nv)) < 0.6 * d:
+            loc = None                                   # sideways pull toward the rim of a hair hole
         if loc is not None and nr.dot(nv) > 0.25:
             Q[i] = loc; ok[i] = True; continue
         best = None
@@ -171,6 +200,7 @@ def umeyama(A, B, scale_lim):
 hand_w = {s: sstep((wfing * (N0[:, 0] * sg > 0) - 0.2) / 0.6) for s, sg in SIDES}
 toe_w = {s: sstep((wtoe * (N0[:, 0] * sg > 0) - 0.2) / 0.6) for s, sg in SIDES}
 ITER = 60
+P0 = P.copy()
 for it in range(ITER):
     f = it / (ITER - 1)
     k = int(round(40 * (1 - f) ** 2 + 2)); maxd = 0.10 * (1 - f) + 0.025 * f; step = 0.5 + 0.4 * f
@@ -192,6 +222,17 @@ for it in range(ITER):
     if it % 6 == 0 or it == ITER - 1:
         r = np.linalg.norm(Q - P, axis=1)[ok & (mask == 1)]
         print("  it %2d  smooth %2d  maxd %.3f  matched %.1f%%  residual mean %.2f mm  p95 %.2f mm" % (it, k, maxd, 100 * ok[mask > 0].mean(), r.mean() * 1000, np.percentile(r, 95) * 1000))
+if HAIR:
+    # under the hair there is no target: there the surface is the coarse-warped MH shape (P0) plus a harmonic
+    # (membrane) continuation of the displacement found around it - no step at the rim of the hair, no bubble
+    blk0 = np.maximum.reduce([hand_w['l'], hand_w['r'], toe_w['l'], toe_w['r']])
+    U = (~ok) & (mask > 0) & (blk0 < 0.05)
+    Dt = P - P0
+    for _ in range(6000):
+        avg = nb_sum(Dt) / deg[:, None]
+        Dt[U] = avg[U]
+    P = P0 + Dt
+    print("  harmonic fill under the hair / unmatched: %d nodes" % U.sum())
 # fold repair: the MH armpits and crotch are deep skin folds (already self-intersecting in the template) that
 # the HF surface does not have; projecting them leaves crumpled / flipped triangles. Relax only the nodes of
 # flipped, sharply turned or self-intersecting triangles (+2 rings) until none are left.
@@ -215,12 +256,15 @@ def bad_nodes(P):
             hit[a] = hit[b] = True; nh += 1
     sel = np.zeros(NN, bool); sel[TN[turned | hit].ravel()] = True
     return sel, int((cosn < 0).sum()), int(turned.sum()), nh
+last = None
 for rep in range(25):
     sel, nflip, nturn, nh = bad_nodes(P)
     print("  fold repair %2d: flipped %d, facing > 78 deg off their neighbourhood %d, self-intersecting pairs below the neck %d, nodes %d" % (rep, nflip, nturn, nh, sel.sum()))
     if not sel.any(): break
     for _ in range(2): sel = sel | (nb_sum(sel[:, None].astype(float))[:, 0] > 0)
     sel &= (mask > 0) & (blk < 0.05)
+    if not sel.any() or (rep > 3 and (nturn, nh) == last): break      # only finger / toe triangles left, or stuck
+    last = (nturn, nh)
     for _ in range(12):
         avg = nb_sum(P) / deg[:, None]
         P[sel] = 0.5 * P[sel] + 0.5 * avg[sel]
@@ -236,8 +280,8 @@ mh.vertex_groups.clear()
 for o in list(bpy.data.objects):
     if o not in (mh, hf): bpy.data.objects.remove(o, do_unlink=True)
 set_co(mh, Vout)
-mh.name = "SK_Surtaysha_MHwrap"; mh.data.name = "SK_Surtaysha_MHwrap"
-np.savez(os.path.join(WORK, "wrap.npz"), V=Vout, V0=V0, dy=dy, mask=mask[inv], inv=inv)
+mh.name = CFG["WRAP_NAME"]; mh.data.name = CFG["WRAP_NAME"]
+np.savez(os.path.join(WORK, "wrap.npz"), V=Vout, V0=V0, dy=dy, mask=mask[inv], inv=inv, chin=LMm["chin"], hand=np.array([JP["hand_l"], JP["hand_r"]]))
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(WORK, "mh_wrap.blend"))
 bpy.ops.object.select_all(action='DESELECT'); mh.select_set(True); bpy.context.view_layer.objects.active = mh
 bpy.ops.export_scene.fbx(filepath=OUT_WRAP, use_selection=True, apply_unit_scale=True, global_scale=1.0, axis_forward='-Y', axis_up='Z',
