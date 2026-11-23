@@ -367,6 +367,32 @@ def attach_armour(actor, pj, lift, bind_mesh=None):
     if lift: actor.set_actor_location(unreal.Vector(0, 0, lift), False, False)
     log('armour attached', n, pj)
 
+def set_body(name, targets):
+    c = unreal.load_asset(f'/Game/QQ/{name}')
+    if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit ' + name)
+    try:
+        f0 = list(mhs.get_face_model_coefficients(c))
+        cons = list(mhs.get_body_constraints(c))
+        for k in cons:
+            n = str(k.name).lower().replace(' ', '_')
+            if n in targets: k.is_active = True; k.target_measurement = max(k.min_measurement, min(k.max_measurement, float(targets[n])))
+        mhs.set_body_constraints(c, cons); mhs.commit_body_state(c)
+        f1 = list(mhs.get_face_model_coefficients(c))
+        log('body set', name, json.dumps({str(k.name): round(k.target_measurement, 1) for k in mhs.get_body_constraints(c)}), 'face diff', max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 'n/a')
+    finally: mhs.remove_object_to_edit(c)
+    EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+
+def clear_outfit(name):
+    c = unreal.load_asset(f'/Game/QQ/{name}'); inst = c.internal_collection.default_instance
+    for slot in ('Outfits', 'Top Garment', 'Bottom Garment'):
+        try: r = inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey()); log('cleared slot', name, slot, r)
+        except Exception as e: log('clear slot fail', slot, e)
+    if mhs.try_add_object_to_edit(c):
+        try:
+            ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = True; ss.skin = sk; mhs.commit_skin_settings(c, ss)
+        finally: mhs.remove_object_to_edit(c)
+    EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+
 FEMALE_PRESETS = ['Ada', 'Aera', 'Aoi', 'Asha', 'Bo', 'Cameron', 'Celeste', 'Etta', 'Grace', 'Jelena', 'Lani', 'Sook-ja', 'Sunita', 'Tuya', 'Vivian', 'Zuri']
 def step_multishots(items, light):
     """items: [(character asset path, out png stem, [view names])] -> one preview actor at a time, 3/4 etc. in a neutral light"""
@@ -444,6 +470,9 @@ def step_multishots(items, light):
                 st['jobs'] = []
                 Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5); rb = (Hb * 0.56) / math.tan(math.radians(cc.fov_angle / 2))
                 for nm in views:
+                    if nm == 'oyoq':   # crotch / inner-thigh close-up from the front
+                        tg = unreal.Vector(head.x, head.y, Hb * 0.44); dd = unreal.Vector(fwd.x, fwd.y, 0)
+                        st['jobs'].append((f'{stem}_oyoq.png', unreal.Vector(tg.x + dd.x * rb * 0.33, tg.y + dd.y * rb * 0.33, tg.z), tg)); continue
                     full = nm.startswith('b_'); key = nm[2:] if full else nm
                     ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key]))
                     d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
@@ -490,6 +519,22 @@ try:
             if c and mhs.try_add_object_to_edit(c):
                 try: log('constraints', nm, json.dumps({str(k.name): round(k.target_measurement, 1) for k in mhs.get_body_constraints(c)}))
                 finally: mhs.remove_object_to_edit(c)
+    if 'step1b' in STEPS:
+        # Surtaysha: harsher face (more Aoi, less Bo), shaved cheeks + pointed goatee + long moustache, muscular body
+        make_look('MHC_surtaysha_k', {'src': '/Game/QQ/MHC_surtaysha', 'presets': [['Aoi', 0.65], ['Bo', 0.15]], 'tex': int(os.environ.get('QQ_S_TEX', '20')), 'u': 0.48, 'v': 0.62, 'lip_red': 0.5, 'lip_op': 0.0,
+                                      'hair': 'WI_Hair_S_SlickBack', 'brows': 'WI_Eyebrows_M_Thick', 'grooms': [['Beard', 'Beards', 'WI_Goatee_M_Pointed'], ['Mustache', 'Mustaches', 'WI_Mustache_L_Full']]})
+        set_body('MHC_surtaysha_k', {'height': 185, 'chest': 128, 'bicep': 45, 'forearm': 36, 'across_shoulder': 50, 'neck': 47, 'neck_base': 52, 'thigh': 60, 'hip': 102, 'high_hip': 98, 'waist': 94, 'underbust': 112, 'fat': -0.2, 'muscularity': 2.2, 'masculine/feminine': -1.8})
+        set_body('MHC_gulayim_final', {'height': 171, 'across_shoulder': 34, 'chest': 90, 'underbust': 72, 'waist': 69, 'hip': 91, 'high_hip': 86, 'inseam': 77, 'thigh': 54, 'muscularity': 0.5, 'fat': -0.8, 'bicep': 27, 'forearm': 23, 'neck': 32, 'neck_base': 34.5})
+        clear_outfit('MHC_gulayim_final')
+    if 'step1d' in STEPS:
+        # Surtaysha: match the approved bare-body turnaround (ref/surtaysha_body_turn.png) at 185 cm, very muscular, low fat, face unchanged
+        set_body('MHC_surtaysha_k', json.loads(os.environ.get('QQ_S_BODY', 'null')) or {'height': 185, 'across_shoulder': 58, 'chest': 150, 'underbust': 130, 'waist': 108, 'high_hip': 108, 'hip': 112,
+                 'thigh': 70, 'knee': 46, 'calf': 50, 'bicep': 58, 'elbow': 36, 'forearm': 44, 'wrist': 22, 'neck': 54, 'neck_base': 60, 'hand_circumference': 27, 'muscularity': 2.5, 'fat': -0.4, 'masculine/feminine': -2.0})
+    if 'step1e' in STEPS:
+        # Guloyim: match the approved bare-body turnaround (ref/guloyim_body_turn.png) at 171 cm: slim athletic, natural bust/waist/hips, gap between thighs, face unchanged
+        set_body('MHC_gulayim_final', json.loads(os.environ.get('QQ_G_BODY', 'null')) or {'height': 171, 'across_shoulder': 37, 'chest': 86, 'underbust': 73, 'waist': 67, 'high_hip': 83, 'hip': 92, 'inseam': 79,
+                 'thigh': 53, 'knee': 35, 'calf': 35, 'bicep': 27, 'forearm': 23, 'neck': 31.5, 'neck_base': 34.5, 'muscularity': 0.9, 'fat': -0.8})
+        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'notop' in STEPS:
         for nm in os.environ.get('QQ_NOTOP', 'MHC_gulayim_final,MHC_surtaysha_k').split(','):
             c = unreal.load_asset(f'/Game/QQ/{nm}')
