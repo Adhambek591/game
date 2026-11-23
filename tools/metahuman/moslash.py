@@ -20,4 +20,11 @@ for i, (lab, im) in enumerate(cells):
     if im.width > W: im = im.crop(((im.width - W) // 2, 0, (im.width - W) // 2 + W, H))
     sheet.paste(im, (i * W + (W - im.width) // 2, 70)); dr.text((i * W + 16, 16), lab, fill=(0, 0, 0), font=font)
 for y in range(70, H + 70, 110): dr.line([(0, y), (W * 4, y)], fill=(255, 0, 0), width=1)
-sheet.save(out); print('sheet', out, sheet.size)
+# second row: crotch / upper-leg crops of both front views at the same body-relative region, enlarged
+def crotch(im):
+    w = int(H * 0.17); cx = im.width // 2; return im.crop((cx - w, int(H * 0.47), cx + w, int(H * 0.66))).resize((W * 2 - 20, int((W * 2 - 20) * (H * 0.19) / (2 * w))), Image.LANCZOS)
+cr = [crotch(cells[0][1]), crotch(cells[1][1])]; h2 = max(c.height for c in cr) + 70
+full = Image.new('RGB', (sheet.width, sheet.height + h2), (200, 200, 200)); full.paste(sheet, (0, 0)); dr = ImageDraw.Draw(full)
+for i, (lab, c) in enumerate(zip(('ref oraliq (kesim)', 'bizniki oraliq (kesim)'), cr)):
+    full.paste(c, (i * W * 2 + 10, sheet.height + 60)); dr.text((i * W * 2 + 16, sheet.height + 10), lab, fill=(0, 0, 0), font=font)
+full.save(out); print('sheet', out, full.size)

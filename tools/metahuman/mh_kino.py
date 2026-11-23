@@ -16,7 +16,7 @@ def step_rig(name):
     try:
         log('can build before', mhs.can_build_meta_human(c))
         r = unreal.MetaHumanCharacterAutoRiggingRequestParams(); r.blocking = True; r.report_progress = False
-        rt = os.environ.get('QQ_RIGTYPE', 'JOINTS_AND_BLENDSHAPES')
+        rt = os.environ.get('QQ_RIGTYPE', 'JOINTS_AND_BLEND_SHAPES')
         r.rig_type = getattr(unreal.MetaHumanRigType, rt, unreal.MetaHumanRigType.JOINTS_ONLY)
         t0 = time.time(); res = mhs.request_auto_rigging(c, r)
         log('auto rig returned', res, 'in', round(time.time() - t0, 1), 's; can build after', mhs.can_build_meta_human(c))
@@ -43,6 +43,34 @@ def step_textures(name):
         if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
     EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
 
+def export_tex(tx, fn):
+    try:
+        task = unreal.AssetExportTask(); task.object = tx; task.filename = fn; task.automated = True; task.replace_identical = True; task.prompt = False
+        ok = unreal.Exporter.run_asset_export_task(task); log('exported', tx.get_name(), fn, ok)
+    except Exception as e: log('export fail', fn, e)
+
+def step_facetex(name):
+    # face albedo must be synthesized (and the high-res sources applied) before the build bakes T_Head_BC
+    c = unreal.load_asset(f'/Game/QQ/{name}')
+    if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+    try:
+        log('has hi-res', c.has_high_resolution_textures, 'face tex info', c.synthesized_face_textures_info)
+        ss = c.skin_settings; mhs.commit_skin_settings(c, ss)
+        try: mhs.commit_eyes_settings(c, c.eyes_settings)
+        except Exception as e: log('eyes commit', e)
+        try: mhs.commit_makeup_settings(c, c.makeup_settings)
+        except Exception as e: log('makeup commit', e)
+        for k in range(30):
+            unreal.SystemLibrary.delay if False else None
+            time.sleep(1)
+        ft = c.synthesized_face_textures
+        log('face textures', {str(k): (v.get_name(), v.blueprint_get_size_x(), v.blueprint_get_size_y()) if v else None for k, v in (ft.items() if hasattr(ft, 'items') else [])})
+        for k, v in (ft.items() if hasattr(ft, 'items') else []):
+            if v and 'albedo' in str(k).lower() or (v and 'base' in str(k).lower()): export_tex(v, f'{OUT}/facetex_{name}_{str(k).split(".")[-1]}.png')
+    finally:
+        if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
+    EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+
 def step_build(name):
     c = unreal.load_asset(f'/Game/QQ/{name}')
     if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
@@ -59,6 +87,8 @@ def step_build(name):
         if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
     unreal.EditorLoadingAndSavingUtils.save_dirty_packages(True, True)
     log('built', name, [a for a in EAL.list_assets(f'/Game/MetaHumans/{name}', recursive=False)][:10])
+    hb = unreal.load_asset(f'/Game/MetaHumans/{name}/Face/Baked/T_Head_BC')
+    if hb: export_tex(hb, f'{OUT}/baked_{name}_T_Head_BC.png')
 
 try:
     log('==== steps', STEPS, CHARS)
@@ -66,6 +96,7 @@ try:
         try:
             if 'rig' in STEPS: step_rig(n)
             if 'textures' in STEPS: step_textures(n)
+            if 'facetex' in STEPS: step_facetex(n)
             if 'build' in STEPS: step_build(n)
         except Exception as e: log('ERROR', n, e, traceback.format_exc())
 finally:

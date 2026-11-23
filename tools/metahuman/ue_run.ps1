@@ -7,7 +7,7 @@ $proj = '"F:\UnrealProjects\QQ_MetaHuman\QQ_MetaHuman.uproject"'
 if (Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'UnrealEditor*' -and $_.CommandLine -like '*QQ_MetaHuman*' }) { Write-Output 'QQ UE already running'; exit 2 }
 if ($mode -eq 'py') {
     $env:QQ_STEPS = $b; if ($c) { $env:QQ_TAG = $c }
-    $args2 = @($proj, "-ExecutePythonScript=`"$a`"", '-nosplash', '-RenderOffscreen', "-log=QQ_py.log", '-ddc=NoZenLocalFallback'); if (-not $env:QQ_ATTENDED) { $args2 += '-unattended' }
+    $args2 = @($proj, "-ExecutePythonScript=`"$a`"", '-nosplash', '-RenderOffscreen', "-log=QQ_py.log", '-ddc=NoZenLocalFallback', '-NoLiveCoding'); if (-not $env:QQ_ATTENDED) { $args2 += '-unattended' }
 } else {
     $args2 = @($proj, $a, '-game', "-LevelSequence=`"$b`"", "-MoviePipelineConfig=`"$c`"", '-windowed', '-resx=1280', '-resy=720', '-RenderOffscreen', '-unattended', '-nosplash', '-NoLoadingScreen', '-NoTextureStreaming', "-log=QQ_mrq.log")
 }

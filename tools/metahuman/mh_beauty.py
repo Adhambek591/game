@@ -420,7 +420,8 @@ def step_multishots(items, light):
     for cv in os.environ.get('QQ_CVARS', 'r.TextureStreaming 0;r.Streaming.FullyLoadUsedTextures 1').split(';'):
         if cv.strip(): unreal.SystemLibrary.execute_console_command(world, cv.strip()); log('cvar', cv)
     W = int(os.environ.get('QQ_RES', '1024'))
-    rt = unreal.RenderingLibrary.create_render_target2d(world, W, W, unreal.TextureRenderTargetFormat.RTF_RGBA8)
+    HH = int(os.environ.get('QQ_RES_H', str(W)))
+    rt = unreal.RenderingLibrary.create_render_target2d(world, W, HH, unreal.TextureRenderTargetFormat.RTF_RGBA8)
     cap = eas.spawn_actor_from_class(unreal.SceneCapture2D, unreal.Vector(0, 0, 0)); cc = cap.capture_component2d
     cc.texture_target = rt; cc.capture_source = unreal.SceneCaptureSource.SCS_FINAL_COLOR_LDR; cc.capture_every_frame = False
     cc.fov_angle = float(os.environ.get('QQ_FOV', '16'))
@@ -447,6 +448,17 @@ def step_multishots(items, light):
                     bpc = unreal.EditorAssetLibrary.load_blueprint_class(extra0['bp'])
                     st['c'] = None; st['actor'] = eas.spawn_actor_from_class(bpc, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
                     log('spawned bp', extra0['bp'], st['actor'])
+                    # grey-face fix: keep every texture of the assembled MetaHuman fully resident before capturing
+                    for mc in st['actor'].get_components_by_class(unreal.MeshComponent):
+                        try: mc.prestream_textures(120.0, True)
+                        except Exception as e: log('prestream fail', mc.get_name(), e)
+                        try:
+                            for mi in mc.get_materials():
+                                if mi is None: continue
+                                for tx in unreal.MaterialEditingLibrary.get_used_textures(mi) if hasattr(unreal.MaterialEditingLibrary, 'get_used_textures') else []:
+                                    try: tx.set_force_mip_levels_to_be_resident(120.0, 0)
+                                    except Exception: pass
+                        except Exception as e: log('resident fail', e)
                     if extra0.get('armour'): attach_armour(st['actor'], extra0['armour'], extra0.get('lift', 0), extra0.get('bind'))
                     st['phase'] = 'warm'; st['t'] = now; return
                 st['c'] = unreal.load_asset(path)
@@ -457,6 +469,14 @@ def step_multishots(items, light):
                 log('spawned', st['actor'])
                 extra = items[st['k']][3] if len(items[st['k']]) > 3 else {}
                 if extra.get('armour'): attach_armour(st['actor'], extra['armour'], extra.get('lift', 0), extra.get('bind'))
+                if extra.get('pose'):
+                    try:
+                        pa = unreal.load_asset(extra['pose'])
+                        for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
+                            if sk.does_socket_exist('thigh_l'):
+                                sk.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE); sk.set_animation(pa)
+                                sk.set_update_animation_in_editor(True); sk.set_play_rate(0.0); sk.set_position(0.0, False); log('pose on', sk.get_name(), extra['pose'])
+                    except Exception as e: log('pose fail', e)
                 st['phase'] = 'warm'; st['t'] = now; log('preview', path); return
             if st['phase'] == 'warm':
                 need = float(os.environ.get('QQ_WARM_S', '420')) if st['first'] else float(os.environ.get('QQ_WARM_EACH', '90'))
@@ -468,8 +488,38 @@ def step_multishots(items, light):
                 head = body.get_socket_location('head'); fwd = body.get_right_vector()
                 eye = unreal.Vector(head.x + fwd.x * 8, head.y + fwd.y * 8, head.z + 5); ex = items[st['k']][3] if len(items[st['k']]) > 3 else {}; r = float(ex.get('dist', os.environ.get('QQ_DIST', '95')))
                 st['jobs'] = []
-                Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5); rb = (Hb * 0.56) / math.tan(math.radians(cc.fov_angle / 2))
+                Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5); vf = 2 * math.degrees(math.atan(math.tan(math.radians(cc.fov_angle / 2)) * HH / W)); rb = (Hb * 0.56) / math.tan(math.radians(vf / 2))
+                if os.environ.get('QQ_SAVE_MAP') and not st.get('map_saved'):
+                    # viewing level: same lights/backdrop + the assembled character + a camera framing her
+                    try:
+                        rbv = (Hb * 0.56) / math.tan(math.radians(vf / 2)); camloc = unreal.Vector(ctr.x + fwd.x * rbv, ctr.y + fwd.y * rbv, ctr.z + 10)
+                        cam = eas.spawn_actor_from_class(unreal.CineCameraActor, camloc, unreal.MathLibrary.find_look_at_rotation(camloc, ctr))
+                        cam.set_actor_label('QQ_View_Camera')
+                        try:
+                            ccc = cam.get_cine_camera_component(); fb = ccc.filmback; fb.sensor_width = 36.0; fb.sensor_height = 20.25; ccc.filmback = fb
+                        except Exception as e: log('filmback', e)
+                        try: cam.get_cine_camera_component().set_editor_property('current_focal_length', 36.0 / (2 * math.tan(math.radians(cc.fov_angle / 2))))
+                        except Exception as e: log('cam lens', e)
+                        try: cam.get_cine_camera_component().focus_settings.manual_focus_distance = rbv
+                        except Exception: pass
+                        ok = unreal.EditorLoadingAndSavingUtils.save_map(world, os.environ['QQ_SAVE_MAP']); log('view map saved', os.environ['QQ_SAVE_MAP'], ok)
+                    except Exception as e: log('view map fail', e, traceback.format_exc())
+                    st['map_saved'] = True
                 for nm in views:
+                    if nm in ('tt360', 'face360'):
+                        fps = 24; n = int(fps * float(os.environ.get('QQ_TT_S' if nm == 'tt360' else 'QQ_FACE_S', '12' if nm == 'tt360' else '6')))
+                        os.makedirs(f'{OUT}/tt_{stem}', exist_ok=True)
+                        base = 0 if nm == 'tt360' else int(fps * float(os.environ.get('QQ_TT_S', '12')))
+                        for i in range(n):
+                            a = math.radians(360.0 * i / n) if nm == 'tt360' else math.radians(-60 + 120.0 * (0.5 - 0.5 * math.cos(math.pi * i / max(1, n - 1))))
+                            dx, dy = fwd.x * math.cos(a) - fwd.y * math.sin(a), fwd.x * math.sin(a) + fwd.y * math.cos(a)
+                            if nm == 'tt360':
+                                rbv = (Hb * 0.54) / math.tan(math.radians(vf / 2)); tg = unreal.Vector(ctr.x, ctr.y, ctr.z)
+                                st['jobs'].append((f'tt_{stem}/f_{base + i:04d}.png', unreal.Vector(tg.x + dx * rbv, tg.y + dy * rbv, tg.z + 10), tg))
+                            else:
+                                rf = 32.0 / math.tan(math.radians(vf / 2)) * 0.5; tg = unreal.Vector(eye.x, eye.y, eye.z - 4)
+                                st['jobs'].append((f'tt_{stem}/f_{base + i:04d}.png', unreal.Vector(tg.x + dx * rf, tg.y + dy * rf, tg.z + 2), tg))
+                        continue
                     if nm == 'oyoq':   # crotch / inner-thigh close-up from the front
                         tg = unreal.Vector(head.x, head.y, Hb * 0.44); dd = unreal.Vector(fwd.x, fwd.y, 0)
                         st['jobs'].append((f'{stem}_oyoq.png', unreal.Vector(tg.x + dd.x * rb * 0.33, tg.y + dd.y * rb * 0.33, tg.z), tg)); continue
@@ -483,8 +533,12 @@ def step_multishots(items, light):
                 if not st['jobs']: st['phase'] = 'next'; return
                 fn, loc, eye = st['jobs'][0]
                 if st['w'] == 0: cap.set_actor_location(loc, False, False); cap.set_actor_rotation(unreal.MathLibrary.find_look_at_rotation(loc, eye), False)
-                if st['w'] < 8: cc.capture_scene(); st['w'] += 1; return
-                unreal.RenderingLibrary.export_render_target(world, rt, os.environ.get('QQ_SHOT_DIR', f'{OUT}/shots'), fn); log('shot', fn)
+                tt = fn.startswith('tt_')
+                if st['w'] < (int(os.environ.get('QQ_TT_CAPS', '3')) if tt and not fn.endswith('f_0000.png') else 8): cc.capture_scene(); st['w'] += 1; return
+                if tt:
+                    d0, f0 = fn.split('/'); unreal.RenderingLibrary.export_render_target(world, rt, f'{OUT}/{d0}', f0)
+                    if f0.endswith('0.png'): log('tt frame', fn)
+                else: unreal.RenderingLibrary.export_render_target(world, rt, os.environ.get('QQ_SHOT_DIR', f'{OUT}/shots'), fn); log('shot', fn)
                 st['jobs'].pop(0); st['w'] = 0
         except Exception as e:
             unreal.log_error('QQB tick ERROR ' + repr(e)); log('tick ERROR', repr(e), traceback.format_exc()); st['phase'] = 'next'
@@ -526,6 +580,97 @@ try:
         set_body('MHC_surtaysha_k', {'height': 185, 'chest': 128, 'bicep': 45, 'forearm': 36, 'across_shoulder': 50, 'neck': 47, 'neck_base': 52, 'thigh': 60, 'hip': 102, 'high_hip': 98, 'waist': 94, 'underbust': 112, 'fat': -0.2, 'muscularity': 2.2, 'masculine/feminine': -1.8})
         set_body('MHC_gulayim_final', {'height': 171, 'across_shoulder': 34, 'chest': 90, 'underbust': 72, 'waist': 69, 'hip': 91, 'high_hip': 86, 'inseam': 77, 'thigh': 54, 'muscularity': 0.5, 'fat': -0.8, 'bicep': 27, 'forearm': 23, 'neck': 32, 'neck_base': 34.5})
         clear_outfit('MHC_gulayim_final')
+    if 'mkpose' in STEPS:
+        ang = math.radians(float(os.environ.get('QQ_ABD', '12'))); dst = '/Game/QQ/Anims/MM_WideStance'
+        idle = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH'); skel = idle.get_editor_property('skeleton')
+        if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
+        fac = unreal.AnimSequenceFactory(); fac.set_editor_property('target_skeleton', skel)
+        seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset('MM_WideStance', '/Game/QQ/Anims', unreal.AnimSequence, fac)
+        ref = unreal.AnimPoseExtensions.get_reference_pose(skel); W, Lc = unreal.AnimPoseSpaces.WORLD, unreal.AnimPoseSpaces.LOCAL
+        g = lambda b, sp: unreal.AnimPoseExtensions.get_bone_pose(ref, b, sp)
+        tl, tr = g('thigh_l', W).translation, g('thigh_r', W).translation
+        lat = unreal.Vector(tl.x - tr.x, tl.y - tr.y, 0); n = math.hypot(lat.x, lat.y); lat = unreal.Vector(lat.x / n, lat.y / n, 0)
+        fwd = unreal.Vector(-lat.y, lat.x, 0)   # horizontal axis perpendicular to the hips line
+        def qaxis(ax, a): s = math.sin(a / 2); return unreal.Quat(ax.x * s, ax.y * s, ax.z * s, math.cos(a / 2))
+        ctrl = seq.controller; ctrl.open_bracket(unreal.Text('wide stance'))
+        try: ctrl.set_frame_rate(unreal.FrameRate(30, 1))
+        except Exception as e: log('framerate', e)
+        ctrl.set_number_of_frames(unreal.FrameNumber(1))
+        for side, sgn in (('l', 1), ('r', -1)):
+            b = f'thigh_{side}'; tw = g(b, W); fw = g(f'foot_{side}', W).translation; pw = g('pelvis', W)
+            off = unreal.Vector(fw.x - tw.translation.x, fw.y - tw.translation.y, fw.z - tw.translation.z)
+            best = None
+            for s in (1, -1):
+                q = qaxis(fwd, s * ang); f2 = q.rotate_vector(off)
+                d = (tw.translation.x + f2.x - (tl.x + tr.x) / 2) * lat.x + (tw.translation.y + f2.y - (tl.y + tr.y) / 2) * lat.y
+                if best is None or d * sgn > best[0]: best = (d * sgn, q)
+            nw = best[1] * tw.rotation; loc = pw.rotation.inverse() * nw; tl0 = g(b, Lc)
+            try: ctrl.add_bone_curve(b)
+            except Exception: ctrl.add_bone_track(b)
+            ctrl.set_bone_track_keys(b, [tl0.translation] * 2, [loc] * 2, [tl0.scale3d] * 2)
+            # keep the feet flat: counter-rotate the foot by the same angle
+            fb = f'foot_{side}'; fl = g(fb, Lc); cw = g(f'calf_{side}', W); fwr = g(fb, W)
+            fnew = cw.rotation.inverse() * (best[1] * cw.rotation)  # not used: calf follows thigh, foot inherits; flatten foot in world
+            fl_new = (best[1] * cw.rotation).inverse() * fwr.rotation
+            try: ctrl.add_bone_curve(fb)
+            except Exception: ctrl.add_bone_track(fb)
+            ctrl.set_bone_track_keys(fb, [fl.translation] * 2, [fl_new] * 2, [fl.scale3d] * 2)
+            log('pose bone', b, 'spread', round(best[0], 1))
+        ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); log('pose saved', dst, math.degrees(ang))
+    if 'srestore' in STEPS:
+        # put the pre-conform parametric Surtaysha back (backup made before the HF3D conform)
+        k, b = '/Game/QQ/MHC_surtaysha_k', '/Game/QQ/MHC_surtaysha_k_param'
+        if EAL.does_asset_exist(b):
+            if EAL.does_asset_exist('/Game/QQ/MHC_surtaysha_k_hf3d'): EAL.delete_asset('/Game/QQ/MHC_surtaysha_k_hf3d')
+            ok = EAL.rename_asset(k, '/Game/QQ/MHC_surtaysha_k_hf3d'); log('conformed kept as MHC_surtaysha_k_hf3d', ok)
+            d = EAL.duplicate_asset(b, k); log('restored', k, 'from', b, d)
+            c = unreal.load_asset(k)
+            if mhs.try_add_object_to_edit(c):
+                try: log('restored constraints', json.dumps({str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}))
+                finally: mhs.remove_object_to_edit(c)
+    if 'sconform' in STEPS:
+        # Surtaysha body = conform (BODY_ONLY) to the Higgsfield 3D model of the approved turnaround; the face stays MetaHuman
+        src = os.environ.get('QQ_STGT', 'F:/qirq-qiz/tools/blender/surtaysha/body/SK_Surtaysha_HF3D.fbx')
+        task = unreal.AssetImportTask(); task.filename = src; task.destination_path = '/Game/QQ/Targets'; task.destination_name = 'SK_Surtaysha_HF3D'
+        task.automated = True; task.replace_existing = True; task.save = True; unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+        tgt = unreal.load_asset('/Game/QQ/Targets/SK_Surtaysha_HF3D'); log('target asset', tgt, task.imported_object_paths)
+        if not EAL.does_asset_exist('/Game/QQ/MHC_surtaysha_k_param'): EAL.duplicate_asset('/Game/QQ/MHC_surtaysha_k', '/Game/QQ/MHC_surtaysha_k_param'); log('backup -> MHC_surtaysha_k_param')
+        c = unreal.load_asset('/Game/QQ/MHC_surtaysha_k')
+        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+        try:
+            verts, idx, *_ = mhs.get_mesh_data_for_conforming(tgt)
+            xs, ys, zs = [v.x for v in verts], [v.y for v in verts], [v.z for v in verts]
+            log('target verts', len(verts), 'x %.1f..%.1f y %.1f..%.1f z %.1f..%.1f' % (min(xs), max(xs), min(ys), max(ys), min(zs), max(zs)))
+            # nose direction check: the head's most forward vertices (z > 160) tell which way the model faces
+            hy = [v.y for v in verts if v.z > 160]; log('head y range', round(min(hy), 1), round(max(hy), 1))
+            f0 = list(mhs.get_face_model_coefficients(c))
+            p = unreal.ConformTargetParams()
+            p.conform_target_mesh.target_parts_type = unreal.TargetPartsType.BODY_ONLY
+            p.conform_target_mesh.body_vertices = verts; p.conform_target_mesh.body_vertex_indices = idx
+            p.estimate_body_joints_from_mesh = True; p.auto_solve = True
+            p.body_conform_solve_settings.pipeline_name = 'body_only'
+            key = unreal.MetaHumanCharacterTargetMeshKey(); key.body_mesh = tgt
+            ok = mhs.conform_to_target_meshes(c, key, p); log('surt body conform', ok)
+            if ok:
+                try: mhs.commit_posed_state_as_a_pose(c, key)
+                except Exception as e: log('commit pose skipped', e)
+            f1 = list(mhs.get_face_model_coefficients(c)); d = max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 0
+            log('face diff after conform', d)
+            if d > 1e-4:
+                try: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c); log('face restored')
+                except Exception as e: log('face restore fail', e)
+            log('constraints after', json.dumps({str(k.name): round(k.target_measurement, 1) for k in mhs.get_body_constraints(c)}))
+        finally: mhs.remove_object_to_edit(c)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+    if 'clist' in STEPS:
+        c = unreal.load_asset('/Game/QQ/MHC_surtaysha_k')
+        if mhs.try_add_object_to_edit(c):
+            try:
+                for k in mhs.get_body_constraints(c):
+                    log('constraint', str(k.name), 'active', k.is_active, 'target', round(k.target_measurement, 2), 'min', round(k.min_measurement, 2), 'max', round(k.max_measurement, 2))
+                log('body api', [m for m in dir(mhs) if 'body' in m.lower() or 'pose' in m.lower() or 'anim' in m.lower()])
+                log('char props', [m for m in dir(c) if not m.startswith('_')])
+            finally: mhs.remove_object_to_edit(c)
     if 'step1d' in STEPS:
         # Surtaysha: match the approved bare-body turnaround (ref/surtaysha_body_turn.png) at 185 cm, very muscular, low fat, face unchanged
         set_body('MHC_surtaysha_k', json.loads(os.environ.get('QQ_S_BODY', 'null')) or {'height': 185, 'across_shoulder': 58, 'chest': 150, 'underbust': 130, 'waist': 108, 'high_hip': 108, 'hip': 112,
