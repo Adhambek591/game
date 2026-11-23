@@ -634,7 +634,12 @@ try:
         task = unreal.AssetImportTask(); task.filename = src; task.destination_path = '/Game/QQ/Targets'; task.destination_name = 'SK_Surtaysha_HF3D'
         task.automated = True; task.replace_existing = True; task.save = True; unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
         tgt = unreal.load_asset('/Game/QQ/Targets/SK_Surtaysha_HF3D'); log('target asset', tgt, task.imported_object_paths)
-        if not EAL.does_asset_exist('/Game/QQ/MHC_surtaysha_k_param'): EAL.duplicate_asset('/Game/QQ/MHC_surtaysha_k', '/Game/QQ/MHC_surtaysha_k_param'); log('backup -> MHC_surtaysha_k_param')
+        bk = os.environ.get('QQ_SBACKUP', '/Game/QQ/MHC_surtaysha_k_bak')
+        if not EAL.does_asset_exist(bk): EAL.duplicate_asset('/Game/QQ/MHC_surtaysha_k', bk)
+        EAL.save_asset(bk, only_if_is_dirty=False)
+        bf = 'F:/UnrealProjects/QQ_MetaHuman/Content' + bk[len('/Game'):] + '.uasset'
+        log('backup', bk, 'on disk', os.path.exists(bf), os.path.getsize(bf) if os.path.exists(bf) else 0)
+        if not os.path.exists(bf): raise RuntimeError('backup not on disk - not conforming')
         c = unreal.load_asset('/Game/QQ/MHC_surtaysha_k')
         if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
         try:
