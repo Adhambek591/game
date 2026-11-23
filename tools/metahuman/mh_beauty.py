@@ -617,6 +617,11 @@ try:
             ctrl.set_bone_track_keys(fb, [fl.translation] * 2, [fl_new] * 2, [fl.scale3d] * 2)
             log('pose bone', b, 'spread', round(best[0], 1))
         ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); log('pose saved', dst, math.degrees(ang))
+    if 'skinlist' in STEPS:
+        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); sk = c.skin_settings.skin
+        log('skin fields', {m: str(getattr(sk, m)) for m in dir(sk) if not m.startswith('_') and not callable(getattr(sk, m))})
+        try: log('underwear enums', [x for x in dir(unreal) if 'nderwear' in x])
+        except Exception as e: log('enum list', e)
     if 'srestore' in STEPS:
         # put the pre-conform parametric Surtaysha back (backup made before the HF3D conform)
         k, b = '/Game/QQ/MHC_surtaysha_k', '/Game/QQ/MHC_surtaysha_k_param'
@@ -628,6 +633,78 @@ try:
             if mhs.try_add_object_to_edit(c):
                 try: log('restored constraints', json.dumps({str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}))
                 finally: mhs.remove_object_to_edit(c)
+    if 'sdirect' in STEPS:
+        # wrap mesh has the MetaHuman body topology: apply it as-is (no parametric auto-solve), restore from the on-disk backup first
+        k = '/Game/QQ/' + os.environ.get('QQ_DCHAR', 'MHC_surtaysha_k'); bk = k + '_bak'
+        if not EAL.does_asset_exist(bk):
+            EAL.duplicate_asset(k, bk); EAL.save_asset(bk, only_if_is_dirty=False)
+            bf = 'F:/UnrealProjects/QQ_MetaHuman/Content' + bk[len('/Game'):] + '.uasset'
+            log('backup', bk, 'on disk', os.path.exists(bf))
+            if not os.path.exists(bf): raise RuntimeError('backup not on disk')
+        elif os.environ.get('QQ_FROM_BAK', '1') == '1':
+            EAL.delete_asset(k); EAL.duplicate_asset(bk, k); EAL.save_asset(k, only_if_is_dirty=False); log('restored from', bk)
+        for fn in ('conform_to_target_meshes', 'set_body_mesh', 'set_body_joints', 'get_joints_for_body_conforming', 'get_mesh_for_body_conforming', 'conform_body', 'conform_body_to_target'):
+            try: log('doc', fn, (getattr(mhs, fn).__doc__ or '').replace(chr(10), ' ')[:600])
+            except Exception as e: log('doc fail', fn, e)
+        src = os.environ.get('QQ_STGT') or 'F:/qirq-qiz/tools/blender/surtaysha/body/SK_Surtaysha_MHwrap.fbx'; task = unreal.AssetImportTask(); task.filename = src; task.destination_path = '/Game/QQ/Targets'; task.destination_name = 'SK_Target_Direct'
+        task.automated = True; task.replace_existing = True; task.save = True; unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+        tgt = unreal.load_asset('/Game/QQ/Targets/SK_Target_Direct'); c = unreal.load_asset(k)
+        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+        try:
+            verts, idx, *_ = mhs.get_mesh_data_for_conforming(tgt); f0 = list(mhs.get_face_model_coefficients(c))
+            mode = os.environ.get('QQ_DIRECT', 'noauto')
+            # optional reshaping of the target before the solve: overall height scale + shorter, thicker neck
+            hs = float(os.environ.get('QQ_HSCALE', '1.0')); nk = float(os.environ.get('QQ_NECK', '1.0')); nt = float(os.environ.get('QQ_NECK_THICK', '1.0'))
+            if hs != 1.0 or nk != 1.0 or nt != 1.0:
+                H = max(v.z for v in verts); z0, z1 = H * float(os.environ.get('QQ_NECK_Z0', '0.82')), H * float(os.environ.get('QQ_NECK_Z1', '0.92'))
+                nv = [v for v in verts if z0 < v.z < z1 and abs(v.x) < 14]; cy = sum(v.y for v in nv) / max(1, len(nv))
+                out = []; VT = type(verts[0])
+                for v in verts:
+                    x, y, z = v.x, v.y, v.z
+                    if z > z0:
+                        zz = z0 + (min(z, z1) - z0) * nk + max(0.0, z - z1)
+                        if z < z1 and abs(x) < 16:
+                            w = 1.0 - abs((z - z0) / (z1 - z0) - 0.35) * 1.2; w = max(0.0, min(1.0, w)); s = 1.0 + (nt - 1.0) * w
+                            x, y = x * s, cy + (y - cy) * s
+                        z = zz
+                    out.append(VT(x * hs, y * hs, z * hs))
+                log('target reshaped: height', round(H, 1), '->', round(max(v.z for v in out), 1), 'neck', nk, 'thick', nt, 'neck verts', len(nv))
+                verts = unreal.Array(VT); [verts.append(o) for o in out]
+            if mode == 'restore': log('restore only, no conform')
+            elif mode == 'noauto':
+                p = unreal.ConformTargetParams(); p.conform_target_mesh.target_parts_type = unreal.TargetPartsType.BODY_ONLY
+                p.conform_target_mesh.body_vertices = verts; p.conform_target_mesh.body_vertex_indices = idx
+                p.estimate_body_joints_from_mesh = True; p.auto_solve = False
+                try: p.body_conform_solve_settings.pipeline_name = 'body_only'
+                except Exception: pass
+                key = unreal.MetaHumanCharacterTargetMeshKey(); key.body_mesh = tgt
+                ok = mhs.conform_to_target_meshes(c, key, p); log('direct conform noauto', ok, len(verts))
+                if ok:
+                    try: mhs.commit_posed_state_as_a_pose(c, key)
+                    except Exception as e: log('commit pose skipped', e)
+            elif mode == 'cbt':
+                v3 = [unreal.Vector3f(v.x, v.y, v.z) for v in verts]
+                ok = mhs.conform_body_to_target(c, v3, [], True, True); log('conform_body_to_target', ok, len(v3))
+                try: mhs.commit_body_state(c)
+                except Exception as e: log('commit body', e)
+            elif mode == 'mesh':
+                v3 = [unreal.Vector3f(v.x, v.y, v.z) for v in verts]
+                ok = mhs.set_body_mesh(c, v3, True); log('set_body_mesh', ok, len(v3))
+            else:
+                try: j = mhs.get_joints_for_body_conforming(c, tgt); log('joints', type(j), len(j) if hasattr(j, '__len__') else '')
+                except Exception as e: j = None; log('joints fail', e)
+                try: ok = mhs.set_body_mesh(c, verts); log('set_body_mesh', ok)
+                except Exception as e: log('set_body_mesh fail', e)
+                if j is not None:
+                    try: log('set_body_joints', mhs.set_body_joints(c, j))
+                    except Exception as e: log('set_body_joints fail', e)
+                try: mhs.commit_body_state(c)
+                except Exception as e: log('commit body', e)
+            f1 = list(mhs.get_face_model_coefficients(c)); d = max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 0; log('face diff', d)
+            if d > 1e-4: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c); log('face restored')
+            log('constraints after', json.dumps({str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}))
+        finally: mhs.remove_object_to_edit(c)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'sconform' in STEPS:
         # Surtaysha body = conform (BODY_ONLY) to the Higgsfield 3D model of the approved turnaround; the face stays MetaHuman
         src = os.environ.get('QQ_STGT', 'F:/qirq-qiz/tools/blender/surtaysha/body/SK_Surtaysha_HF3D.fbx')
