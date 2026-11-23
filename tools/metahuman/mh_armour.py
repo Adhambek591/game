@@ -40,6 +40,7 @@ def make_mat(setname):
     dark, rough = IRON.get(setname, (1.0, 1.0))
     if setname == 'Plume':
         m.set_editor_property('blend_mode', unreal.BlendMode.BLEND_MASKED); m.set_editor_property('two_sided', True)
+    if os.environ.get('QQ_ARM_TWOSIDED') == '1': m.set_editor_property('two_sided', True)   # single-layer cloth / plates exported one-sided
     s_bc = MEL.create_material_expression(m, unreal.MaterialExpressionTextureSample, -900, -200); s_bc.texture = bc
     mul = MEL.create_material_expression(m, unreal.MaterialExpressionMultiply, -600, -200)
     MEL.connect_material_expressions(s_bc, 'RGB', mul, 'A')
@@ -93,6 +94,7 @@ def imp_meshes(mats):
             sm = unreal.load_asset(ap)
             if not isinstance(sm, unreal.StaticMesh): continue
             piece = next((pn for pn in gd['pieces'] if sm.get_name().endswith(pn) or sm.get_name() == pn), None)
+            if piece is None and len(gd['pieces']) == 1: piece = gd['pieces'][0]   # single-object FBX: asset is named after the file
             if piece is None: log('unmatched mesh', sm.get_name()); continue
             pd = MAN['pieces'][piece]; mset = pd['material'].replace('M_', '')
             for i in range(len(sm.static_materials)): sm.set_material(i, mats[mset])

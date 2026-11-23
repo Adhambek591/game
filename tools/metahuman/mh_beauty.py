@@ -329,8 +329,14 @@ def step_fitphoto():
         if mhs.is_object_added_for_editing(c): mhs.remove_object_to_edit(c)
     EAL.save_asset(char, only_if_is_dirty=False)
 
-def attach_armour(actor, pj, lift):
+def attach_armour(actor, pj, lift, bind_mesh=None):
     eas = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+    # the costume was fitted to the exported FullBody in ITS bind pose: take each follow bone's transform there and attach the piece
+    # with that relative transform, so it follows the bone in whatever reference pose the assembled body actually uses
+    bind = None
+    if bind_mesh:
+        bm = unreal.load_asset(bind_mesh)
+        if bm: bind = eas.spawn_actor_from_object(bm, unreal.Vector(0, 0, 0)); bind.set_actor_label('BIND_REF'); log('bind ref', bind_mesh)
     comps = actor.get_components_by_class(unreal.SkeletalMeshComponent)
     body = next((x for x in comps if x.does_socket_exist('head') and 'body' in x.get_name().lower()), None) or next(x for x in comps if x.does_socket_exist('head'))
     n = 0; skip = set(os.environ.get('QQ_ARMOUR_SKIP', 'SUR_Coat_Sim').split(','))
@@ -343,7 +349,21 @@ def attach_armour(actor, pj, lift):
             m = d['matrix']; xa = unreal.Vector(m[0][0], -m[1][0], m[2][0]); za = unreal.Vector(m[0][2], -m[1][2], m[2][2])
             a.set_actor_location(unreal.Vector(m[0][3] * 100, -m[1][3] * 100, m[2][3] * 100), False, False); a.set_actor_rotation(unreal.MathLibrary.make_rot_from_xz(xa, za), False)
             if d['group'] == 'Weapon': bone = 'pelvis'
-        a.attach_to_component(body, bone, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, False); n += 1
+        if bind is not None:
+            bt = bind.skeletal_mesh_component.get_socket_transform(bone, unreal.RelativeTransformSpace.RTS_WORLD)
+            rel = a.get_actor_transform().make_relative(bt)
+            a.attach_to_component(body, bone, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.KEEP_RELATIVE, False)
+            a.root_component.set_relative_transform(rel, False, False)
+        else:
+            a.attach_to_component(body, bone, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, False)
+        n += 1
+    if bind is not None:
+        try:
+            log('bounds bind', bind.skeletal_mesh_component.bounds.box_extent, bind.skeletal_mesh_component.bounds.origin, 'bp body', body.bounds.box_extent, body.bounds.origin)
+            for bn in ('head', 'clavicle_l', 'upperarm_l', 'lowerarm_l', 'hand_l', 'foot_l'):
+                b1 = bind.skeletal_mesh_component.get_socket_location(bn); b2 = body.get_socket_location(bn); log('bone check', bn, 'bind', b1, 'bp', b2)
+        except Exception as e: log('bone check fail', e)
+        bind.destroy_actor()
     if lift: actor.set_actor_location(unreal.Vector(0, 0, lift), False, False)
     log('armour attached', n, pj)
 
@@ -365,19 +385,22 @@ def step_multishots(items, light):
             lc = d.light_component; lc.set_intensity(inten); lc.set_light_color(unreal.LinearColor(*col, 1)); lc.set_editor_property('light_source_angle', 12.0)
         sl.recapture_sky()
         bgm = unreal.load_asset('/Game/QQ/Mat/M_QQ_Backdrop')
-        dome = eas.spawn_actor_from_object(unreal.load_asset('/Engine/BasicShapes/Sphere'), unreal.Vector(0, 0, 150)); dome.set_actor_scale3d(unreal.Vector(12, 12, 12))
+        dome = eas.spawn_actor_from_object(unreal.load_asset('/Engine/BasicShapes/Sphere'), unreal.Vector(0, 0, 150)); dome.set_actor_scale3d(unreal.Vector(30, 30, 30))
         if bgm: dome.static_mesh_component.set_material(0, bgm)
         dome.static_mesh_component.set_cast_shadow(False)
     else:
         les.load_level('/MetaHumanCharacter/LightingEnvironments/' + light)   # read-only, never saved
     world = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem).get_editor_world()
+    for cv in os.environ.get('QQ_CVARS', 'r.TextureStreaming 0;r.Streaming.FullyLoadUsedTextures 1').split(';'):
+        if cv.strip(): unreal.SystemLibrary.execute_console_command(world, cv.strip()); log('cvar', cv)
     W = int(os.environ.get('QQ_RES', '1024'))
     rt = unreal.RenderingLibrary.create_render_target2d(world, W, W, unreal.TextureRenderTargetFormat.RTF_RGBA8)
     cap = eas.spawn_actor_from_class(unreal.SceneCapture2D, unreal.Vector(0, 0, 0)); cc = cap.capture_component2d
     cc.texture_target = rt; cc.capture_source = unreal.SceneCaptureSource.SCS_FINAL_COLOR_LDR; cc.capture_every_frame = False
     cc.fov_angle = float(os.environ.get('QQ_FOV', '16'))
     pps = cc.post_process_settings; pps.override_vignette_intensity = True; pps.vignette_intensity = 0.0; cc.post_process_settings = pps
-    ANG = {'old': 0, '34': 38, 'yon': 88, 'orqa': 180, 'q34': 38}
+    ANG = {'old': 0, '34': 38, 'yon': 88, 'orqa': 180, 'q34': 38, 'yuz': 0, 'yuz34': 38}
+    pps = cc.post_process_settings; pps.override_auto_exposure_bias = True; pps.auto_exposure_bias = float(os.environ.get('QQ_SHOT_EXPO', '1.0')); cc.post_process_settings = pps
     st = {'k': -1, 'phase': 'next', 't': time.time(), 'c': None, 'actor': None, 'jobs': [], 'w': 0, 'first': True}
     def tick(dt):
         if st.get('busy'): return          # open_editor / spawn pump nested Slate ticks: no re-entry
@@ -398,7 +421,7 @@ def step_multishots(items, light):
                     bpc = unreal.EditorAssetLibrary.load_blueprint_class(extra0['bp'])
                     st['c'] = None; st['actor'] = eas.spawn_actor_from_class(bpc, unreal.Vector(0, 0, 0), unreal.Rotator(0, 0, 0))
                     log('spawned bp', extra0['bp'], st['actor'])
-                    if extra0.get('armour'): attach_armour(st['actor'], extra0['armour'], extra0.get('lift', 0))
+                    if extra0.get('armour'): attach_armour(st['actor'], extra0['armour'], extra0.get('lift', 0), extra0.get('bind'))
                     st['phase'] = 'warm'; st['t'] = now; return
                 st['c'] = unreal.load_asset(path)
                 if st['c'] is None: log('missing', path); return
@@ -407,7 +430,7 @@ def step_multishots(items, light):
                 st['actor'] = mhs.spawn_meta_human_actor(character=st['c'])
                 log('spawned', st['actor'])
                 extra = items[st['k']][3] if len(items[st['k']]) > 3 else {}
-                if extra.get('armour'): attach_armour(st['actor'], extra['armour'], extra.get('lift', 0))
+                if extra.get('armour'): attach_armour(st['actor'], extra['armour'], extra.get('lift', 0), extra.get('bind'))
                 st['phase'] = 'warm'; st['t'] = now; log('preview', path); return
             if st['phase'] == 'warm':
                 need = float(os.environ.get('QQ_WARM_S', '420')) if st['first'] else float(os.environ.get('QQ_WARM_EACH', '90'))
@@ -417,7 +440,7 @@ def step_multishots(items, light):
                 comps = st['actor'].get_components_by_class(unreal.SkeletalMeshComponent)
                 body = next((x for x in comps if x.does_socket_exist('head') and 'body' in x.get_name().lower()), None) or next(x for x in comps if x.does_socket_exist('head'))
                 head = body.get_socket_location('head'); fwd = body.get_right_vector()
-                eye = unreal.Vector(head.x + fwd.x * 8, head.y + fwd.y * 8, head.z + 5); r = float(os.environ.get('QQ_DIST', '95'))
+                eye = unreal.Vector(head.x + fwd.x * 8, head.y + fwd.y * 8, head.z + 5); ex = items[st['k']][3] if len(items[st['k']]) > 3 else {}; r = float(ex.get('dist', os.environ.get('QQ_DIST', '95')))
                 st['jobs'] = []
                 Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5); rb = (Hb * 0.56) / math.tan(math.radians(cc.fov_angle / 2))
                 for nm in views:
@@ -457,10 +480,24 @@ try:
         exec(open('F:/qirq-qiz/tools/metahuman/mh_armour.py', encoding='utf-8').read(), {'__name__': 'armour'}); log('armour import ran', env.get('QQ_ARM_PREFIX'))
     if 'armour_g' in STEPS:
         run_armour({'QQ_ARM_SRC': 'F:/qirq-qiz/tools/blender/guloyim_costume/out', 'QQ_ARM_DST': '/Game/QQ/Gul', 'QQ_ARM_MANIFEST': 'guloyim_costume_manifest.json', 'QQ_ARM_PREFIX': 'Gul',
-                    'QQ_ARM_OUT': f'{OUT}/gul_pieces.json', 'QQ_ARM_TINT': json.dumps({'Cloth': [0.42, 0.45, 0.62, 1.0]}), 'QQ_ARM_IRON': json.dumps({'Armor': [0.85, 1.08], 'Lamellar': [0.8, 1.1]}), 'QQ_ARM_CALM': 'Lamellar'})
+                    'QQ_ARM_OUT': f'{OUT}/gul_pieces.json', 'QQ_ARM_TINT': json.dumps({'Cloth': [0.42, 0.45, 0.62, 1.0]}), 'QQ_ARM_IRON': json.dumps({'Armor': [0.85, 1.08], 'Lamellar': [0.8, 1.1]}), 'QQ_ARM_CALM': 'Lamellar', 'QQ_ARM_TWOSIDED': '1'})
     if 'armour_s' in STEPS:
         run_armour({'QQ_ARM_SRC': 'F:/qirq-qiz/tools/blender/surtaysha/out', 'QQ_ARM_DST': '/Game/QQ/Surt', 'QQ_ARM_MANIFEST': 'surtaysha_manifest.json', 'QQ_ARM_PREFIX': 'Surt',
-                    'QQ_ARM_OUT': f'{OUT}/surt_pieces.json', 'QQ_ARM_TINT': 'null', 'QQ_ARM_IRON': 'null', 'QQ_ARM_CALM': 'Lamellar'})
+                    'QQ_ARM_OUT': f'{OUT}/surt_pieces.json', 'QQ_ARM_TINT': json.dumps({'Trim': [0.78, 0.66, 0.5, 1.12]}), 'QQ_ARM_IRON': 'null', 'QQ_ARM_CALM': 'Lamellar', 'QQ_ARM_TWOSIDED': '0'})
+    if 'measure' in STEPS:
+        for nm in ('MHC_surtaysha', 'MHC_surtaysha_k', 'MHC_gulayim_final'):
+            c = unreal.load_asset(f'/Game/QQ/{nm}')
+            if c and mhs.try_add_object_to_edit(c):
+                try: log('constraints', nm, json.dumps({str(k.name): round(k.target_measurement, 1) for k in mhs.get_body_constraints(c)}))
+                finally: mhs.remove_object_to_edit(c)
+    if 'notop' in STEPS:
+        for nm in os.environ.get('QQ_NOTOP', 'MHC_gulayim_final,MHC_surtaysha_k').split(','):
+            c = unreal.load_asset(f'/Game/QQ/{nm}')
+            if mhs.try_add_object_to_edit(c):
+                try:
+                    ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = os.environ.get('QQ_TOP', '0') == '1'; ss.skin = sk; mhs.commit_skin_settings(c, ss); log('top underwear', sk.show_top_underwear, nm)
+                finally: mhs.remove_object_to_edit(c)
+                EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)
         step_multishots(json.load(open(os.environ['QQ_TURN_FILE'])), os.environ.get('QQ_LIGHT', 'daylight'))
