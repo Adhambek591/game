@@ -409,6 +409,11 @@ def step_multishots(items, light):
         for yaw, pitch, inten, col in ((-120, -22, float(os.environ.get('QQ_KEY', '5.0')), (1.0, 0.98, 0.95)), (-60, -8, float(os.environ.get('QQ_FILL', '2.6')), (1.0, 0.93, 0.85)), (75, -30, 2.0, (1, 1, 1)), (-90, 25, 0.8, (1.0, 0.95, 0.9))):
             d = eas.spawn_actor_from_class(unreal.DirectionalLight, unreal.Vector(0, 0, 300), unreal.Rotator(roll=0, pitch=pitch, yaw=yaw))
             lc = d.light_component; lc.set_intensity(inten); lc.set_light_color(unreal.LinearColor(*col, 1)); lc.set_editor_property('light_source_angle', 12.0)
+        if os.environ.get('QQ_ALLROUND'):
+            for yw in (0, 90, 180, 270):
+                d = eas.spawn_actor_from_class(unreal.DirectionalLight, unreal.Vector(0, 0, 300), unreal.Rotator(roll=0, pitch=-25, yaw=yw))
+                lc = d.light_component; lc.set_intensity(float(os.environ['QQ_ALLROUND'])); lc.set_editor_property('light_source_angle', 20.0); lc.set_cast_shadows(False)
+            log('all-round fill', os.environ['QQ_ALLROUND'])
         sl.recapture_sky()
         bgm = unreal.load_asset('/Game/QQ/Mat/M_QQ_Backdrop')
         if os.environ.get('QQ_BG_WHITE'):
@@ -489,18 +494,33 @@ def step_multishots(items, light):
                                     pass
                                 log('body swapped', sk.get_name(), extra['body'], 'mats', len(mats), '->', sk.get_num_materials())
                     except Exception as e: log('body swap fail', e)
+                for sp in extra.get('static', []):
+                    try:
+                        body_c = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l') and 'body' in x.get_name().lower())
+                        M = sp['m']; S = lambda v: unreal.Vector(v[0], -v[1], v[2])
+                        xa, za = S([M[0][0], M[1][0], M[2][0]]), S([M[0][2], M[1][2], M[2][2]])
+                        loc = unreal.Vector(M[0][3] * 100, -M[1][3] * 100, M[2][3] * 100)
+                        sa = eas.spawn_actor_from_object(unreal.load_asset(sp['mesh']), loc, unreal.MathLibrary.make_rot_from_xz(xa, za))
+                        sa.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+                        sa.root_component.attach_to_component(body_c, sp['bone'], unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, False); log('static placed', sp['mesh'], sp['bone'])
+                    except Exception as e: log('static fail', sp.get('mesh'), e)
+                if extra.get('lift'):
+                    st['actor'].set_actor_location(unreal.Vector(0, 0, float(extra['lift'])), False, False)
                 for cp in extra.get('costume', []):
                     try:
                         body_c = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l') and 'body' in x.get_name().lower())
                         a = unreal.load_asset(cp)
                         if isinstance(a, unreal.SkeletalMesh):
-                            sc = st['actor'].add_component_by_class(unreal.SkeletalMeshComponent, True, unreal.Transform(), False)
-                            sc.set_skeletal_mesh_asset(a); sc.attach_to_component(body_c, '', unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, False)
-                            sc.set_leader_pose_component(body_c); log('costume skinned', cp)
+                            ka = eas.spawn_actor_from_object(a, body_c.get_world_location(), body_c.get_world_rotation()); sc = ka.skeletal_mesh_component
+                            sc.set_mobility(unreal.ComponentMobility.MOVABLE)
+                            ka.root_component.attach_to_component(body_c, '', unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, False)
+                            off = extra.get('costume_offset', {}).get(cp.split('/')[-1])
+                            if off:
+                                ka.root_component.set_relative_location(unreal.Vector(*off[:3]), False, False)
+                                if len(off) > 3: ka.root_component.set_relative_scale3d(unreal.Vector(off[3], off[3], off[3]))
+                            sc.set_leader_pose_component(body_c); sc.set_update_animation_in_editor(True); log('costume skinned', cp, off)
                         else:
-                            sm = st['actor'].add_component_by_class(unreal.StaticMeshComponent, True, unreal.Transform(), False); sm.set_static_mesh(a)
-                            bone = extra.get('costume_bones', {}).get(cp.split('/')[-1], 'spine_05')
-                            sm.attach_to_component(body_c, bone, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.KEEP_RELATIVE, False); log('costume static', cp, bone)
+                            log('costume skipped (static in costume list)', cp)
                     except Exception as e: log('costume fail', cp, e)
                 if extra.get('pose'):
                     try:
@@ -645,6 +665,47 @@ try:
             tk.automated = True; tk.replace_existing = True; tk.save = True; tk.options = ui
             unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tk]); m = unreal.load_asset(f'/Game/QQ/BodyDirect/{name}')
             log('imported', name, m, m.skeleton.get_path_name() if m and m.skeleton else None, m.get_bounds() if m else None)
+    if 'ghair' in STEPS:
+        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('guloyim hair re-added')
+    if 'import_costume' in STEPS:
+        # skinned costume groups (BodyOnly armature) -> skeletal meshes on the MH body skeleton, Gul materials by slot keyword
+        skel = unreal.load_asset('/Game/MetaHumans/MHC_gulayim_final/Body/SKM_MHC_gulayim_final_BodyMesh').skeleton
+        cdir = os.environ.get('QQ_COSTUME_DIR'); pref = os.environ.get('QQ_COSTUME_MAT', '/Game/QQ/Gul/Mat/M_Gul_')
+        keys = os.environ.get('QQ_COSTUME_KEYS', 'Amulet,Lamellar,Cloth,Jewel,Trim,Weapon,Armor').split(',')
+        for f in sorted(os.listdir(cdir)):
+            if not f.lower().endswith('.fbx'): continue
+            name = f[:-4]; ui = unreal.FbxImportUI(); ui.import_as_skeletal = True; ui.import_mesh = True; ui.import_materials = False; ui.import_textures = False; ui.import_animations = False
+            ui.skeleton = skel; ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_SKELETAL_MESH
+            tk = unreal.AssetImportTask(); tk.filename = f'{cdir}/{f}'; tk.destination_path = '/Game/QQ/Costume'; tk.destination_name = name
+            tk.automated = True; tk.replace_existing = True; tk.save = True; tk.options = ui
+            unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tk]); m = unreal.load_asset(f'/Game/QQ/Costume/{name}')
+            if not m: log('costume import fail', f); continue
+            mats = m.materials; out = []
+            for sm in mats:
+                sn = str(sm.material_slot_name); k = next((k for k in keys if k.lower() in sn.lower()), 'Armor')
+                mi = unreal.load_asset(pref + k); sm.material_interface = mi or sm.material_interface; out.append(sm); log('slot', name, sn, '->', k, bool(mi))
+            m.materials = out; EAL.save_asset(m.get_path_name(), only_if_is_dirty=False); log('costume imported', name, m.skeleton.get_name())
+        for f in [x for x in os.environ.get('QQ_STATIC_FBX', '').split(';') if x]:
+            name = os.path.basename(f)[:-4]; ui = unreal.FbxImportUI(); ui.import_as_skeletal = False; ui.import_mesh = True; ui.import_materials = False; ui.import_textures = False
+            ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_STATIC_MESH
+            try: ui.static_mesh_import_data.set_editor_property('combine_meshes', True)
+            except Exception: pass
+            tk = unreal.AssetImportTask(); tk.filename = f; tk.destination_path = '/Game/QQ/Costume'; tk.destination_name = name; tk.automated = True; tk.replace_existing = True; tk.save = True; tk.options = ui
+            unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tk]); sm_ = unreal.load_asset(f'/Game/QQ/Costume/{name}')
+            if sm_:
+                k = 'Amulet' if 'mulet' in name else 'Weapon'; mi = unreal.load_asset(pref + k)
+                for i in range(len(sm_.static_materials)): sm_.set_material(i, mi)
+                EAL.save_asset(sm_.get_path_name(), only_if_is_dirty=False); log('static imported', name, k)
+    if 'gfix' in STEPS:
+        # Guloyim: no MH top underwear, card/mesh eyelashes instead of the lash groom (the groom drifted onto the cheeks after the body swap)
+        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final')
+        if mhs.try_add_object_to_edit(c):
+            try:
+                ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = False; ss.skin = sk; mhs.commit_skin_settings(c, ss)
+                hm = c.head_model_settings; el = hm.eyelashes; el.enable_grooms = os.environ.get('QQ_LASH_GROOM', '0') == '1'; hm.eyelashes = el; mhs.commit_head_model_settings(c, hm)
+                log('gfix: top underwear off, lash grooms', el.enable_grooms)
+            finally: mhs.remove_object_to_edit(c)
+            EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'mkhead' in STEPS:
         # single-frame anim: only the head bone scaled (QQ_HEAD_S), everything else reference pose
         hsc = float(os.environ.get('QQ_HEAD_S', '1.07')); dst = '/Game/QQ/Anims/MM_HeadScale'
