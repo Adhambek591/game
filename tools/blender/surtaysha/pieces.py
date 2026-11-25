@@ -122,12 +122,26 @@ def build_belt():
     done(gm.build('SUR_Belt_Gold', [M_ARM]), 'spine_01', 'Torso')
 
 # =========================================================== tassets (front, sides, back)
+def _tas_table():
+    """tasset cone: hugs the hips, flares only as much as the thighs need; monotonic so the plate rows stay smooth"""
+    a0, bf0, bb0, n = interp_table(TORSO, 1.08)
+    rows = []; ra = rf = rb = 0.0
+    for k in range(26):
+        v = 1.06 - 0.02 * k
+        d = max(0.0, 1.04 - v)
+        nx, nf, nb = FIT.body_at(max(v, 0.55))
+        ra = max(ra, a0 + 0.008 + d * 0.09, nx + 0.030)
+        rf = max(rf, bf0 + 0.008 + d * 0.05, nf + 0.030)
+        rb = max(rb, bb0 + 0.010 + d * 0.11, nb + 0.030)
+        rows.append((v, ra, rf, rb))
+    rows = rows[::-1]
+    for _ in range(3):        # smooth
+        rows = [rows[0]] + [(rows[i][0],) + tuple((rows[i - 1][j] + 2 * rows[i][j] + rows[i + 1][j]) / 4 for j in (1, 2, 3)) for i in range(1, len(rows) - 1)] + [rows[-1]]
+    return rows
+TAS_TAB = _tas_table()
 def tas_dims(v):
-    d = max(0.0, 1.04 - v)
-    a, bf, bb, n = interp_table(TORSO, 1.08)
-    a, bf, bb = a + 0.008 + d * 0.09, bf + 0.008 + d * 0.05, bb + 0.010 + d * 0.11
-    nx, nf, nb = FIT.body_at(max(v, 0.55))          # always clear the thighs
-    return max(a, nx + 0.030), max(bf, nf + 0.030), max(bb, nb + 0.030), 2.4
+    a, bf, bb = interp_table(TAS_TAB, v)
+    return a, bf, bb, 2.4
 def tas_S(u, v, grow=0.0):
     a, bf, bb, n = tas_dims(v)
     return torso_S(u, v, grow=grow, tab=[(v, a, bf, bb, n)])
