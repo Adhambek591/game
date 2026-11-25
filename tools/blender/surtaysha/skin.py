@@ -147,6 +147,24 @@ for o in pieces:
     report[n] = {'groups': len(o.vertex_groups), 'verts': len(me.vertices), 'rigid_islands': sum(1 for I in islands(me) if len(I) <= 400)}
     print('SKIN %-28s groups %3d islands %d' % (n, report[n]['groups'], report[n]['rigid_islands']))
 
+# ------------------------------------------------------------------ head-bone scale compensation
+# UE scales the head bone by 1.0549 (MetaHuman head sized to 1/7 of the height). The helmet / plume / aventail were fitted
+# around the already-scaled head, so pre-shrink every vertex about the head joint by its head weight: after UE's scale it
+# lands exactly where it was fitted (brim above the brows, nasal on the bridge of the nose).
+HEAD_BONE_SCALE = 1.0549
+hj = arm.matrix_world @ arm.data.bones['head'].head_local
+for o in pieces:
+    gi = o.vertex_groups.get('head')
+    if not gi: continue
+    me = o.data; mw = o.matrix_world; mwi = mw.inverted(); n = 0
+    for v in me.vertices:
+        w = next((g.weight for g in v.groups if g.group == gi.index), 0.0)
+        if w <= 0: continue
+        p = mw @ v.co
+        v.co = mwi @ (hj + (p - hj) / (1.0 + (HEAD_BONE_SCALE - 1.0) * w)); n += 1
+    me.update()
+    print('HEADSCALE %-26s %d verts pre-shrunk' % (o.name, n))
+
 # ------------------------------------------------------------------ test poses (clipping check renders), then back to rest
 def pose(rot):
     """rot: bone -> (world axis, degrees), applied about the bone head in world space, parents first"""

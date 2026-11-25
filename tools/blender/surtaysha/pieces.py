@@ -71,7 +71,8 @@ ROBE = FIT.hug(ROBE_V1, 0.006)
 
 def build_robe_torso():
     mb = MB()
-    zs = [0.98 + (1.62 - 0.98) * j / 26 for j in range(27)]
+    ztop = bone('neck_01').z + 0.028          # collar stops at the neck base (no robe in front of the mouth/chin)
+    zs = [0.98 + (ztop - 0.98) * j / 26 for j in range(27)]
     G = [[torso_S(2 * math.pi * i / 52, z, tab=ROBE) for i in range(52)] for z in zs]
     shell(mb, G, 0.004, out_fn=lambda p: Vector((p.x, p.y, 0)), closed_u=True, back=False)
     done(mb.build('SUR_Robe_Torso', [M_CLOTH]), 'spine_03', 'Cloth')
