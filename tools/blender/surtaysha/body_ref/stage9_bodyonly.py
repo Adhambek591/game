@@ -1,8 +1,8 @@
 # Stage 9: BODY-ONLY skinned mesh. The MH FullBody FBX holds the head on UV tile 0 and the body on UV tile 1
 # (no polygon mixes the two); this keeps the body part only (its vertices in their original relative order,
 # weights, material slot), with the wrap shape and the re-fitted skeleton of stage 8. The neck seam vertices
-# are put exactly where the MH head's seam is (Surtaysha: where it is after the head is scaled 1.0549 about
-# the head joint in UE), and that correction fades out over the collar.
+# are put exactly on the MH head mesh neck ring at scale 1.0 (in UE the head scale is on the head bone only and
+# the ring is skinned to the unscaled neck bones), and that correction fades out over the collar.
 # QQ_CHAR=surtaysha|guloyim, after stage 8. Writes body\SK_<Name>_BodyOnly.fbx + Builds\<name>_bodyonly_check.png
 import bpy, sys, os, json, bmesh
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -49,9 +49,11 @@ cnt = np.zeros((inv0.max() + 1, 2), int)
 np.add.at(cnt[:, 0], inv0[~body], 1); np.add.at(cnt[:, 1], inv0[body], 1)
 seam_node = (cnt[:, 0] > 0) & (cnt[:, 1] > 0)
 seam = body & seam_node[inv0]
-target = piv + (V0 - piv) * HS                              # where the head's seam is (head scaled about the head joint)
+# In UE the head scale sits on the HEAD bone only; the face mesh's neck ring is skinned to neck_01 / neck_02,
+# which are not scaled, so the ring stays at its original size: the body seam goes on the UNSCALED ring.
+target = V0.copy()
 err0 = np.linalg.norm(V1[seam] - target[seam], axis=1)
-print("neck seam: %d body vertices on %d positions; before the fix they are %.1f mm (max %.1f) from the head seam (head scale %.4f)" % (seam.sum(), seam_node.sum(), err0.mean() * 1000, err0.max() * 1000, HS))
+print("neck seam: %d body vertices on %d positions; before the fix they are %.1f mm (max %.1f) from the head seam (unscaled ring; head bone scale in UE %.4f)" % (seam.sum(), seam_node.sum(), err0.mean() * 1000, err0.max() * 1000, HS))
 # correction field: exact on the seam, diffused over the body surface, zero beyond RINGS rings
 me.data.calc_loop_triangles()
 T = np.empty(len(me.data.loop_triangles) * 3, dtype=np.int32); me.data.loop_triangles.foreach_get("vertices", T); T = T.reshape(-1, 3)
@@ -104,7 +106,11 @@ print("neck seam after: max %.6f m from the head seam; collar blend touches %d b
 head_ob = me.copy(); head_ob.data = me.data.copy(); head_ob.name = "HEADREF"; bpy.context.scene.collection.objects.link(head_ob)
 head_ob.parent = None; head_ob.matrix_world = Matrix.Identity(4)
 for m in list(head_ob.modifiers): head_ob.modifiers.remove(m)
-head_ob.data.vertices.foreach_set("co", (piv + (V0 - piv) * HS).ravel())
+gh = me.vertex_groups["head"].index; wh = np.zeros(NV)
+for v in me.data.vertices:
+    for g in v.groups:
+        if g.group == gh: wh[v.index] = g.weight
+head_ob.data.vertices.foreach_set("co", (V0 + (V0 - piv) * (HS - 1) * wh[:, None]).ravel())     # as UE shows it: scale on the head bone only
 bmh = bmesh.new(); bmh.from_mesh(head_ob.data); bmh.verts.ensure_lookup_table()
 bmesh.ops.delete(bmh, geom=[v for v in bmh.verts if body[v.index]], context='VERTS'); bmh.to_mesh(head_ob.data); bmh.free()
 
