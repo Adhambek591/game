@@ -27,26 +27,25 @@ function dialog(lines) {
     d.onpointerdown = e => { e.preventDefault(); next(); }; G.onEnter = next; show();
   });
 }
-// Videos: only the author's 14 approved clips may be shown (CLAUDE.md). v2 = 03+07, c2 = 11, c3 = 08+12, c4 = 13, c6 = 14, e1 = 09 (cut before the amulet close-up) + 05 (cut before the red-dress shot), v1 = 01.
-// Slots without an approved clip play the still + narration until a new clip is approved. VIDV busts the browser cache when a clip file is replaced.
-const NOVID = new Set(['v3', 'v4', 'c5', 'c7', 'e2']), VIDV = 2;
+// NO VIDEOS (author, Nov 26): every story slot is a still picture (slow pan) + the narration line as on-screen text in the chosen language + the narrator's voice
+// (assets/audio/<narKey>.mp3, plays whenever the file exists). The slot ends when the voice is over, or after a reading time when a line has no recording.
+// Skip (button / Enter / tap): ends it; it only counts once the slot really runs (a double tap from the lore card must not kill it). `key` is kept for call sites only.
+const STILL = new Set(['nar1', 'nar2', 'nark1', 'nar3m', 'nar4', 'nar5', 'nar6', 'nar7', 'nar8', 'nar9', 'nar10', 'nar11', 'nar12']);
 function cutscene(key, narKey, still) {
-  // urgent5: narration (baqsı voice) and video are sequential/cooperative — a cutscene waits for a narration line that is still being spoken, the line plays on the
-  // WebAudio voice bus (an iOS <video> with sound no longer pauses it), the video's own sound is lowered while the line plays, and the cutscene only ends when BOTH the
-  // video and the line are finished. Skip: 1st press drops the video but lets the sentence finish (subtitle + still stay), 2nd press skips everything.
   return new Promise(async res => {
     const fast = qs.get('fast'); if (!fast) await waitVoice(25);
-    const c = $('cut'), v = c.querySelector('video'), st = c.querySelector('.still'); duck(true); c.classList.add('on'); $('fade').classList.remove('in');
-    $('cnar').textContent = narKey ? t(narKey) : ''; $('cnar').style.display = narKey ? 'block' : 'none'; $('cskip').textContent = t('skip'); const img = `./assets/img/${still || 'keyart'}.jpg`; st.style.backgroundImage = `url(${img})`; v.poster = img;
-    let voice = null, vEnd = !narKey || !!fast, mEnd = false, done = false, to, skips = 0, tReady = 0; const ready = () => { if (!tReady) tReady = performance.now(); };
-    const fin = () => { if (done) return; done = true; clearTimeout(to); try { v.pause(); } catch (e) { } if (voice && voice.playing) voice.stop(); v.onended = v.onerror = v.onplaying = null; unbindMedia(v); c.classList.remove('on'); duck(false); G.onEnter = null; res(); };
-    const soft = () => { mEnd = true; if (vEnd) fin(); };   /* video over: if the line is still being spoken, hold the still + subtitle until it ends */
-    if (narKey && !fast) { preloadVoice(narKey); setTimeout(() => { if (done) return; voice = playVoice(narKey); ready(); voice.done.then(() => { vEnd = true; if (done) return; bindMedia(v, 'music', 1); if (mEnd) setTimeout(fin, 700); }); }, 900); }
-    const fallback = () => { ready(); v.style.display = 'none'; to = setTimeout(soft, fast ? 300 : 6500); };
-    if (key && NOVID.has(key)) key = null;   /* no author-approved clip for this slot yet: still + narration only */
-    if (key && !fast) { v.style.display = 'block'; v.muted = false; bindMedia(v, 'music', narKey ? .35 : 1); const src = `./assets/video/${key}.mp4?v=${VIDV}`; if ((v.getAttribute('src') || '') !== src) v.src = src; else { try { v.currentTime = 0; } catch (e) { } } v.onended = soft; v.onerror = fallback; v.onplaying = () => { v.onplaying = null; ready(); }; const pr = v.play(); if (pr) pr.catch(() => { v.muted = true; v.play().catch(fallback); }); } else fallback();
-    const skip = () => { if (!tReady || performance.now() - tReady < 800) return;   /* a double Enter/tap from the lore card (or a key queued during a long first frame) must not kill the cutscene: skips count only once it is really playing */
-      if (!vEnd && skips === 0) { skips = 1; mEnd = true; clearTimeout(to); try { v.pause(); } catch (e) { } v.style.display = 'none'; return; } fin(); };
+    if (narKey && STILL.has(narKey)) still = 'st_' + narKey;   /* frames from the author-approved clips (docs/approved_video_frames) */
+    const c = $('cut'), st = c.querySelector('.still'), txt = narKey ? t(narKey) : ''; duck(true); c.classList.add('on'); $('fade').classList.remove('in');
+    $('cnar').textContent = txt; $('cnar').style.display = txt ? 'block' : 'none'; $('cskip').textContent = t('skip');
+    st.style.backgroundImage = `url(./assets/img/${still || 'keyart'}.jpg)`; st.classList.remove('kb'); void st.offsetWidth; st.classList.add('kb');
+    const readS = Math.min(16, Math.max(5, txt.length * .062));   /* reading time for a line without a recording */
+    let voice = null, done = false, to = 0, t0 = performance.now();
+    const fin = () => { if (done) return; done = true; clearTimeout(to); if (voice && voice.playing) voice.stop(); c.classList.remove('on'); st.classList.remove('kb'); duck(false); G.onEnter = null; res(); };
+    if (fast) to = setTimeout(fin, 300);
+    else if (narKey) { preloadVoice(narKey); to = setTimeout(fin, (readS + 22) * 1000);   /* safety: never hang on a file that does not load */
+      setTimeout(() => { if (done) return; const vt = performance.now(); voice = playVoice(narKey); voice.done.then(() => { if (done) return; const spoke = (performance.now() - vt) / 1000; clearTimeout(to); to = setTimeout(fin, spoke > 2 ? 900 : Math.max(0, readS * 1000 - (performance.now() - t0))); }); }, 700); }
+    else to = setTimeout(fin, 4500);
+    const skip = () => { if (performance.now() - t0 < 900) return; fin(); };
     $('cskip').onclick = skip; G.onEnter = skip;
   });
 }
@@ -422,6 +421,6 @@ loadAssets(f => { $('loadbar').firstChild.style.width = (f * 100) + '%'; }).then
   ready = true; $('loadbar').style.display = 'none'; $('tplay').style.display = 'block'; if (prog) $('tcont').style.display = 'block'; texts(); setMood(NIGHT); start();
   const s = qs.get('start'); if (s) begin(qs.get('legacy') ? (s === 'prolog' ? prolog : /^ch[1-7]$/.test(s) ? CHAP[+s[2]] : () => mission1(s === 'm1' ? undefined : s)) : /^m?[0-7]-([0-4]|C[1-4]|Q|S)$/.test(s) ? () => runMission(s.replace(/^m/, '')) : s === 'tut' ? () => runMission('0-0') : /^ch[1-7]$/.test(s) ? () => runMission(s[2] + '-1') : s === 'prolog' ? () => runMission('0-1') : () => mission1(s === 'm1' ? undefined : s));
 }).catch(e => { $('loadtxt').textContent = 'Error: ' + e.message; console.error(e); });
-// urgent5: prefetch the prologue cutscene (v1 + nar1) when Start leads to 0-1, so it does not open on a black frame; fill the title buttons' texts before the load finishes
-$('tplay').addEventListener('click', () => { try { const tut = localStorage.getItem('qq_tut') || localStorage.getItem('qq_prog') || '0-0' in (JSON.parse(localStorage.getItem('qq_stars') || '{}') || {}); if (!tut || qs.get('fast')) return; const v = $('cut').querySelector('video'); if (!v.getAttribute('src')) { v.preload = 'auto'; v.src = './assets/video/v1.mp4?v=' + VIDV; v.load(); } preloadVoice('nar1'); } catch (e) { } });
+// prefetch the prologue narration when Start is pressed; fill the title buttons' texts before the load finishes
+$('tplay').addEventListener('click', () => { try { if (!qs.get('fast')) preloadVoice('nar1'); } catch (e) { } });   /* prefetch the prologue narration (no videos any more) */
 try { texts(); } catch (e) { }
