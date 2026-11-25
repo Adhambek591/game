@@ -19,7 +19,8 @@ class Fit:
         self.sl = {}
         for i in range(50, 166):
             z = round(i * 0.01, 2)
-            t = [p for p in self.V if abs(p.z - z) < 0.006 and abs(p.x) < 0.34 and all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in arms)]
+            xl = 0.34 if z < 1.22 else B('upperarm_l').x - 0.005      # above the armpit the torso is never wider than the shoulder joints
+            t = [p for p in self.V if abs(p.z - z) < 0.006 and abs(p.x) < xl and all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in arms)]
             if t: self.sl[z] = (max(abs(p.x) for p in t), -min(p.y for p in t), max(p.y for p in t))
         # head offset (helmet / aventail follow the head bone)
         self.head_d = B('head') - Vector(V1['head']['head'])
