@@ -50,7 +50,7 @@ for i in range(44):
                 if dd < 0.006 and q.z > 0.001: d -= (1 - dd / 0.006) ** 2 * 0.0007
             return d
         h = bc.make_high(low, level=3, bevel=0.0004, disp=disp, seed=seed)
-        mt = mats.iron('PLATE_%d' % i, seed=seed, tint=(0.115, 0.13, 0.155), rust=0.30, rough=0.40, patina=0.45)
+        mt = mats.iron('PLATE_%d' % i, seed=seed, tint=(0.072, 0.080, 0.094), rust=0.28, rough=0.42, patina=0.55)
     h.data.materials.clear(); h.data.materials.append(mt)
     hmats.append(mt)
     pairs.append((low, [h]))

@@ -7,7 +7,10 @@
 import bpy, json, os, math
 from mathutils import Vector
 OUT = r"F:\qirq-qiz\tools\blender\surtaysha\out"
-REAL = r"F:\qirq-qiz\tools\blender\surtaysha\body\SK_Surtaysha_MHBody.fbx"
+_BD = r"F:\qirq-qiz\tools\blender\surtaysha\body"
+REAL = next((os.path.join(_BD, f) for f in ('SK_Surtaysha_BodyDirect.fbx', 'SK_Surtaysha_FINAL.fbx', 'SK_Surtaysha_MHBody.fbx')
+             if os.path.exists(os.path.join(_BD, f))), os.path.join(_BD, 'SK_Surtaysha_MHBody.fbx'))
+print('BODY FILE', REAL)
 SKIP = ('_in_', '_out_', 'bulge', 'half', 'side', 'palm', 'dip', 'pip', 'mcp', 'Cor', 'corrective', 'fwd', 'bck', 'slide')
 
 bpy.ops.wm.read_factory_settings(use_empty=True)

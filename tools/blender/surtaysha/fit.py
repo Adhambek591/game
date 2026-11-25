@@ -17,12 +17,17 @@ class Fit:
             d = b - a; t = max(0, min(1, (p - a).dot(d) / d.length_squared)); return (p - (a + d * t)).length
         arms = [(B('upperarm_' + s), B('lowerarm_' + s)) for s in 'lr'] + [(B('lowerarm_' + s), B('hand_' + s)) for s in 'lr']
         self.sl = {}
-        for i in range(95, 166):
+        for i in range(50, 166):
             z = round(i * 0.01, 2)
             t = [p for p in self.V if abs(p.z - z) < 0.006 and abs(p.x) < 0.34 and all(segd(p, a, b) > 0.115 or abs(p.x) < 0.12 for a, b in arms)]
             if t: self.sl[z] = (max(abs(p.x) for p in t), -min(p.y for p in t), max(p.y for p in t))
         # head offset (helmet / aventail follow the head bone)
         self.head_d = B('head') - Vector(V1['head']['head'])
+        # head size (helmet / aventail scale): half-width of the skull 9 cm above the head bone, vs the MHBody it was designed on
+        hb = B('head'); hz = hb.z + 0.09
+        hv = [p for p in self.V if abs(p.z - hz) < 0.006 and abs(p.x) < 0.2 and abs(p.y - hb.y) < 0.2]
+        self.head_hx = max(abs(p.x) for p in hv) if hv else 0.0860
+        self.head_scale = self.head_hx / 0.0860
         # foot: map v1 boot y values onto the new foot (heel->ball length ratio)
         f0, b0 = Vector(V1['foot_l']['head']), Vector(V1['ball_l']['head'])
         f1, b1 = B('foot_l'), B('ball_l')
@@ -73,4 +78,16 @@ class Fit:
             k = min(self.sl, key=lambda q: abs(q - z))
             nx, nf, nb = self.sl[k]
             out.append((row[0], max(row[1], nx + clear), max(row[2], nf + clear), max(row[3], nb + clear)) + tuple(row[4:]))
+        return out
+
+    def body_at(self, z):
+        k = min(self.sl, key=lambda q: abs(q - round(z, 2)))
+        return self.sl[k]
+
+    def hug(self, tab, clear):
+        """rows sized directly from the body slice at that height + clearance (armour hugs the body)"""
+        out = []
+        for row in tab:
+            nx, nf, nb = self.body_at(min(max(row[0], 0.55), 1.65))
+            out.append((row[0], nx + clear, nf + clear, nb + clear) + tuple(row[4:]))
         return out

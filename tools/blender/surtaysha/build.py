@@ -35,7 +35,7 @@ TORSO_V1 = [(1.08, 0.222, 0.183, 0.100, 2.5), (1.20, 0.232, 0.192, 0.115, 2.5), 
          (1.44, 0.232, 0.180, 0.150, 2.6), (1.52, 0.200, 0.140, 0.140, 2.4)]
 import fit; importlib.reload(fit)
 FIT = fit.Fit(proxy, BONES)
-TORSO = FIT.cover(FIT.fit_table(TORSO_V1), 0.032)
+TORSO = FIT.hug(TORSO_V1, 0.016)          # cuirass ~1-1.5 cm over the chest
 json.dump({'TORSO': TORSO, 'source': LM.get('source', 'standin')}, open(OUT + "/fit.json", 'w'), indent=1)
 print('FIT TORSO', [tuple(round(x, 3) for x in r) for r in TORSO])
 def torso_S(u, v, grow=0.0, tab=None):
@@ -84,6 +84,11 @@ def want(n):
 
 import build_parts; importlib.reload(build_parts); from build_parts import *
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "pieces.py"), encoding="utf-8").read())
+def _xw(names):
+    xs = [ (o.matrix_world @ v.co).x for n in names for o in [bpy.data.objects.get(n)] if o for v in o.data.vertices]
+    return (max(xs) - min(xs)) if xs else 0.0
+_hw = _xw(['SUR_Helmet_Bowl']); _pw = _xw(['SUR_Pauldron_Lamellar_L', 'SUR_Pauldron_Lamellar_R', 'SUR_Pauldron_Trim_L', 'SUR_Pauldron_Trim_R'])
+print('RATIO helmet %.3f m : pauldrons %.3f m = 1 : %.2f (turnaround ~1 : 2.6)' % (_hw, _pw, _pw / max(_hw, 1e-6)))
 bpy.ops.wm.save_as_mainfile(filepath=os.environ.get('SUR_OUT_BLEND') or OUT + r"\armor_low.blend")   # SUR_OUT_BLEND: partial test builds
 for o in parts.values():
     me = o.data

@@ -67,7 +67,7 @@ def build_cuirass():
 ROBE_V1 = [(0.98, 0.205, 0.168, 0.095, 2.3), (1.20, 0.212, 0.172, 0.100, 2.4), (1.32, 0.222, 0.172, 0.118, 2.4),
         (1.44, 0.210, 0.150, 0.125, 2.4), (1.52, 0.150, 0.100, 0.115, 2.2), (1.575, 0.085, 0.075, 0.090, 2.0),
         (1.62, 0.078, 0.070, 0.080, 2.0)]
-ROBE = FIT.cover(FIT.fit_table(ROBE_V1), 0.012)
+ROBE = FIT.hug(ROBE_V1, 0.006)
 
 def build_robe_torso():
     mb = MB()
@@ -125,7 +125,9 @@ def build_belt():
 def tas_dims(v):
     d = max(0.0, 1.04 - v)
     a, bf, bb, n = interp_table(TORSO, 1.08)
-    return a + 0.012 + d * 0.21, bf + 0.010 + d * 0.16, bb + 0.012 + d * 0.30, 2.4
+    a, bf, bb = a + 0.008 + d * 0.09, bf + 0.008 + d * 0.05, bb + 0.010 + d * 0.11
+    nx, nf, nb = FIT.body_at(max(v, 0.55))          # always clear the thighs
+    return max(a, nx + 0.030), max(bf, nf + 0.030), max(bb, nb + 0.030), 2.4
 def tas_S(u, v, grow=0.0):
     a, bf, bb, n = tas_dims(v)
     return torso_S(u, v, grow=grow, tab=[(v, a, bf, bb, n)])
@@ -172,8 +174,10 @@ def build_tassets():
 # =========================================================== coat skirt, trousers
 _CD = FIT.torso_delta(1.10)
 def coat_dims(z):
-    a, bf, bb, n = coat_dims_v1(z)
-    return a + _CD[0], bf + _CD[1], bb + _CD[2], n
+    nx, nf, nb = FIT.body_at(max(z, 0.55))
+    fl = max(0.0, 1.06 - z) * 0.035
+    w = FIT.body_at(1.06)
+    return max(nx, w[0]) + 0.012 + fl, max(nf, w[1] * 0.9) + 0.012 + fl * 0.6, max(nb, w[2]) + 0.012 + fl * 1.2, 2.3
 def coat_dims_v1(z):
     t = (1.06 - z) / 0.66
     return 0.214 + t * 0.045, 0.180 + t * 0.035, 0.110 + t * 0.10, 2.3
@@ -290,16 +294,16 @@ def build_sleeves():
             pa = math.atan2(dirv.dot(y0), dirv.dot(x0)) % (2 * math.pi)
             rb = prof[int(pa / (2 * math.pi) * K) % K]
             if upper:
-                pad = 0.024 + 0.006 * math.sin(ang * 3 + j * 0.7)             # padded robe sleeve
+                pad = 0.010 + 0.003 * math.sin(ang * 3 + j * 0.7)             # robe sleeve following the arm
                 # compression folds in the armpit / elbow crease (inner side = toward the body / front)
                 inner = max(0.0, -dirv.x) if True else 0.0
-                pad += 0.007 * inner * max(0.0, math.sin(j * 1.9)) * smoothstep(0.55, 0.95, t)
+                pad += 0.004 * inner * max(0.0, math.sin(j * 1.9)) * smoothstep(0.55, 0.95, t)
                 r = rb + pad
             elif j == len(st) - 1:
                 r = 0.036
             else:
-                pad = 0.020 * (1 - smoothstep(0.18, 0.30, t)) + 0.008
-                fold = 0.006 * max(0.0, math.sin(j * 2.1 + ang)) * (1 - smoothstep(0.15, 0.28, t))
+                pad = 0.006 * (1 - smoothstep(0.18, 0.30, t)) + 0.007
+                fold = 0.004 * max(0.0, math.sin(j * 2.1 + ang)) * (1 - smoothstep(0.15, 0.28, t))
                 r = min(rb + pad + fold, Rb(t) - 0.008) if t > 0.26 else rb + pad + fold
             row.append(c + dirv * r)
         G.append(row)
@@ -320,7 +324,7 @@ def pauldron_frame():
 def paul_S(u, v, dr=0.0):
     J, D, Up, F = pauldron_frame()
     s = -v
-    R = SLEEVE_R0 + 0.030 + 0.012 * smoothstep(0.0, 0.24, s) + 0.020 * smoothstep(0.0, -0.06, s) + dr
+    R = SLEEVE_R0 + 0.020 + 0.008 * smoothstep(0.0, 0.24, s) + 0.012 * smoothstep(0.0, -0.06, s) + dr
     # flatten the outer face a little, flare at front/back bottoms
     return J + D * s + (Up * math.cos(u) * 0.96 + F * math.sin(u) * 1.08) * R
 def build_pauldrons():
@@ -481,18 +485,20 @@ def build_cape():
     o = done(sim.build('SUR_Cape_Sim', [M_CLOTH]), 'spine_05', 'Cloth'); o['sim_mesh'] = 1; o['bake_skip'] = 1; o.hide_render = True
 
 # =========================================================== helmet
-HC = Vector((0.0, 0.004, 1.762)) + FIT.head_d     # rim centre, follows the head bone
-HRX, HRY = 0.113, 0.128
+HS = FIT.head_scale                               # helmet sized to the head (designed on the MHBody head)
+HC = bone('head') + Vector((0.0, 0.001, 0.091)) * HS      # rim centre, follows the head bone
+HRX, HRY = 0.113 * HS, 0.128 * HS
+print('HELMET scale %.3f head half-width %.3f' % (HS, FIT.head_hx))
 HPROF = [(1.000, 0.000), (1.002, 0.018), (0.992, 0.040), (0.962, 0.066), (0.905, 0.092), (0.815, 0.116),
          (0.690, 0.138), (0.530, 0.156), (0.355, 0.168), (0.190, 0.175), (0.060, 0.178)]
 def helm_pt(a, k, grow=0.0):
     """a = azimuth (0 = front), k = profile param 0..len-1 (float)"""
     i = min(int(k), len(HPROF) - 2); f = k - i
     r = HPROF[i][0] * (1 - f) + HPROF[i + 1][0] * f
-    z = HPROF[i][1] * (1 - f) + HPROF[i + 1][1] * f
+    z = (HPROF[i][1] * (1 - f) + HPROF[i + 1][1] * f) * HS
     # rim tilt: back sits 2.5 cm lower than front
-    tilt = -0.025 * (1 - math.cos(a)) / 2 * (1 - z / 0.178)
-    return HC + Vector((math.sin(a) * (r * HRX + grow), -math.cos(a) * (r * HRY + grow), z + tilt + grow * 0.3 * z / 0.178))
+    tilt = -0.025 * HS * (1 - math.cos(a)) / 2 * (1 - z / (0.178 * HS))
+    return HC + Vector((math.sin(a) * (r * HRX + grow), -math.cos(a) * (r * HRY + grow), z + tilt + grow * 0.3 * z / (0.178 * HS)))
 def helm_n(a, k):
     e = 0.01
     p = helm_pt(a, k)
@@ -528,7 +534,7 @@ def build_helmet():
     nas = []
     for j in range(9):
         t = j / 8
-        z = 0.004 - t * 0.072
+        z = 0.004 - t * 0.072 * HS
         w = 0.026 - 0.008 * t
         row = []
         for i in range(5):
@@ -574,14 +580,17 @@ def build_helmet():
 def build_aventail():
     mb = MB(); tm = MB()
     ctr = lambda p: Vector((HC.x, HC.y, p.z))
+    zt, zb = HC.z - 0.027 * HS, HC.z - 0.232 * HS
     def S(u, v):
-        t = smoothstep(1.735, 1.53, v)
-        rx = 0.118 + t * 0.090
-        ry = 0.132 + t * 0.072
-        tilt = -0.022 * (1 - math.cos(u)) / 2
+        t = smoothstep(zt, zb, v)
+        rx = 0.118 * HS + t * (0.208 - 0.118 * HS)
+        ry = 0.132 * HS + t * (0.204 - 0.132 * HS)
+        tilt = -0.022 * HS * (1 - math.cos(u)) / 2
         return Vector((HC.x + math.sin(u) * rx, HC.y - math.cos(u) * ry, v + tilt * (1 - t)))
     gap = 0.66
-    rows = [1.548 + 0.0365 * k for k in range(6)]
+    r0, r1 = HC.z - 0.214 * HS, HC.z - 0.032 * HS
+    nrow = max(4, round((r1 - r0) / 0.0365))
+    rows = [r0 + (r1 - r0) * k / nrow for k in range(nrow)]
     place_rows(mb, S, rows, 0.0215, ctr, rng, PLATES, LACES, closed=False, u_range=(gap, 2 * math.pi - gap), scale=(0.80, 0.80, 1.0),
                tilt=math.radians(-8))
     # suspension band under the rim + edging on the opening and hem

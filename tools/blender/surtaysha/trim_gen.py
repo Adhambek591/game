@@ -119,7 +119,13 @@ tw = np.abs(np.sin((xm / 0.004 + y * 1.0) * np.pi))
 col[m] = (np.array([0.22, 0.14, 0.08]) * (0.6 + 0.6 * tw[..., None]))[m]; rough[m] = 0.7; metal[m] = 0; hm[m] = (tw * 0.0005)[m]
 # solid gold/brass block for rivets and buckles
 m, y = rowmask('metal')
-gold_fill(m, (fine - 0.5) * 0.0001)
+# bronze block for rivets, studs and buckles: warm cast bronze, rubbed bright on edges, dark brown-green patina in the dips
+b_ = np.array([0.50, 0.30, 0.13], np.float32) * (0.80 + 0.35 * blot[..., None])
+pat = np.clip((0.52 - fine) * 3.0, 0, 1) * 0.55
+c = b_ * (1 - pat[..., None]) + np.array([0.10, 0.10, 0.06]) * pat[..., None]
+scr = np.clip(1 - np.abs(npt.fbm(N, N, 3, 260, 2, rng) - 0.5) * 60, 0, 1) * (wearn > 0.55)
+c = c * (1 - scr[..., None] * 0.35) + np.array([0.78, 0.55, 0.30]) * scr[..., None] * 0.35
+col[m] = c[m]; rough[m] = (0.34 + pat * 0.40 + (blot - 0.5) * 0.12)[m]; metal[m] = (1 - pat * 0.7)[m]; hm[m] = ((fine - 0.5) * 0.0001)[m]
 
 nrm = npt.normal_from_height(hm, PX, 1.0)
 ao = npt.cavity_ao(hm, PX, radius_px=5, depth=0.0006)
