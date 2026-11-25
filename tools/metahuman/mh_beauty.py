@@ -411,6 +411,14 @@ def step_multishots(items, light):
             lc = d.light_component; lc.set_intensity(inten); lc.set_light_color(unreal.LinearColor(*col, 1)); lc.set_editor_property('light_source_angle', 12.0)
         sl.recapture_sky()
         bgm = unreal.load_asset('/Game/QQ/Mat/M_QQ_Backdrop')
+        if os.environ.get('QQ_BG_WHITE'):
+            wv = float(os.environ['QQ_BG_WHITE']); wn = '/Game/QQ/Mat/M_QQ_White'
+            if EAL.does_asset_exist(wn): EAL.delete_asset(wn)
+            MEL = unreal.MaterialEditingLibrary
+            wm = unreal.AssetToolsHelpers.get_asset_tools().create_asset('M_QQ_White', '/Game/QQ/Mat', unreal.Material, unreal.MaterialFactoryNew())
+            cc3 = MEL.create_material_expression(wm, unreal.MaterialExpressionConstant3Vector, -300, 0); cc3.constant = unreal.LinearColor(wv, wv, wv, 1)
+            wm.set_editor_property('shading_model', unreal.MaterialShadingModel.MSM_UNLIT); wm.set_editor_property('two_sided', True)
+            MEL.connect_material_property(cc3, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR); MEL.recompile_material(wm); EAL.save_asset(wn); bgm = wm; log('white backdrop', wv)
         dome = eas.spawn_actor_from_object(unreal.load_asset('/Engine/BasicShapes/Sphere'), unreal.Vector(0, 0, 150)); dome.set_actor_scale3d(unreal.Vector(30, 30, 30))
         if bgm: dome.static_mesh_component.set_material(0, bgm)
         dome.static_mesh_component.set_cast_shadow(False)
@@ -469,11 +477,23 @@ def step_multishots(items, light):
                 log('spawned', st['actor'])
                 extra = items[st['k']][3] if len(items[st['k']]) > 3 else {}
                 if extra.get('armour'): attach_armour(st['actor'], extra['armour'], extra.get('lift', 0), extra.get('bind'))
+                if extra.get('body'):
+                    try:
+                        nb = unreal.load_asset(extra['body'])
+                        for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
+                            if sk.does_socket_exist('thigh_l') and 'body' in sk.get_name().lower():
+                                mats = [sk.get_material(i) for i in range(sk.get_num_materials())]
+                                sk.set_skeletal_mesh_asset(nb)
+                                for i, mt in enumerate(mats[:sk.get_num_materials()]): sk.set_material(i, mt)
+                                if extra.get('head_scale'):
+                                    pass
+                                log('body swapped', sk.get_name(), extra['body'], 'mats', len(mats), '->', sk.get_num_materials())
+                    except Exception as e: log('body swap fail', e)
                 if extra.get('pose'):
                     try:
                         pa = unreal.load_asset(extra['pose'])
                         for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
-                            if sk.does_socket_exist('thigh_l'):
+                            if sk.does_socket_exist('thigh_l') or (extra.get('pose_all') and sk.does_socket_exist('head')):
                                 sk.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE); sk.set_animation(pa)
                                 sk.set_update_animation_in_editor(True); sk.set_play_rate(0.0); sk.set_position(0.0, False); log('pose on', sk.get_name(), extra['pose'])
                     except Exception as e: log('pose fail', e)
@@ -580,6 +600,54 @@ try:
         set_body('MHC_surtaysha_k', {'height': 185, 'chest': 128, 'bicep': 45, 'forearm': 36, 'across_shoulder': 50, 'neck': 47, 'neck_base': 52, 'thigh': 60, 'hip': 102, 'high_hip': 98, 'waist': 94, 'underbust': 112, 'fat': -0.2, 'muscularity': 2.2, 'masculine/feminine': -1.8})
         set_body('MHC_gulayim_final', {'height': 171, 'across_shoulder': 34, 'chest': 90, 'underbust': 72, 'waist': 69, 'hip': 91, 'high_hip': 86, 'inseam': 77, 'thigh': 54, 'muscularity': 0.5, 'fat': -0.8, 'bicep': 27, 'forearm': 23, 'neck': 32, 'neck_base': 34.5})
         clear_outfit('MHC_gulayim_final')
+    if 'export_final' in STEPS:
+        # final body -> full-body skeletal mesh (A-pose, cm) exported as FBX for the costume refit
+        nm = os.environ.get('QQ_DCHAR', 'MHC_surtaysha_k'); geo = f'/Game/QQ/Geo_{nm}'; fn = os.environ['QQ_FINAL_FBX']
+        c = unreal.load_asset(f'/Game/QQ/{nm}')
+        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+        try:
+            g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
+            unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(c, g)
+        finally: mhs.remove_object_to_edit(c)
+        EAL.save_directory(geo, only_if_is_dirty=False, recursive=True)
+        fb = unreal.load_asset(f'{geo}/{nm}_FullBody'); log('final bounds', nm, fb.get_bounds() if fb else None)
+        tk = unreal.AssetExportTask(); tk.object = fb; tk.filename = fn; tk.automated = True; tk.replace_identical = True; tk.prompt = False
+        tk.exporter = unreal.SkeletalMeshExporterFBX(); o = unreal.FbxExportOption(); o.collision = False; o.level_of_detail = False; o.export_morph_targets = False
+        o.fbx_export_compatibility = unreal.FbxExportCompatibility.FBX_2020; tk.options = o; log('final fbx', fn, unreal.Exporter.run_asset_export_task(tk), os.path.exists(fn))
+    if 'import_direct' in STEPS:
+        # skinned body meshes built in Blender from the wraps (MH vertex order + weights) -> skeletal meshes on the MetaHuman body skeleton
+        ref = unreal.load_asset('/Game/MetaHumans/MHC_gulayim_final/Body/SKM_MHC_gulayim_final_BodyMesh'); skel = ref.skeleton
+        log('mh body skeleton', skel.get_path_name() if skel else None)
+        for src, name in [x.split('=') for x in os.environ.get('QQ_DIRECT_FBX', '').split(';') if '=' in x]:
+            if not os.path.exists(src): log('missing', src); continue
+            ui = unreal.FbxImportUI(); ui.import_as_skeletal = True; ui.import_mesh = True; ui.import_materials = False; ui.import_textures = False; ui.import_animations = False
+            ui.skeleton = skel; ui.mesh_type_to_import = unreal.FBXImportType.FBXIT_SKELETAL_MESH
+            sd = ui.skeletal_mesh_import_data
+            for k_, v_ in (('import_morph_targets', False), ('use_t0_as_ref_pose', False), ('preserve_smoothing_groups', True)):
+                try: sd.set_editor_property(k_, v_)
+                except Exception: pass
+            try: sd.set_editor_property('normal_import_method', unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS)
+            except Exception: pass
+            tk = unreal.AssetImportTask(); tk.filename = src; tk.destination_path = '/Game/QQ/BodyDirect'; tk.destination_name = name
+            tk.automated = True; tk.replace_existing = True; tk.save = True; tk.options = ui
+            unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tk]); m = unreal.load_asset(f'/Game/QQ/BodyDirect/{name}')
+            log('imported', name, m, m.skeleton.get_path_name() if m and m.skeleton else None, m.get_bounds() if m else None)
+    if 'mkhead' in STEPS:
+        # single-frame anim: only the head bone scaled (QQ_HEAD_S), everything else reference pose
+        hsc = float(os.environ.get('QQ_HEAD_S', '1.07')); dst = '/Game/QQ/Anims/MM_HeadScale'
+        idle = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH'); skel = idle.get_editor_property('skeleton')
+        if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
+        fac = unreal.AnimSequenceFactory(); fac.set_editor_property('target_skeleton', skel)
+        seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset('MM_HeadScale', '/Game/QQ/Anims', unreal.AnimSequence, fac)
+        ref = unreal.AnimPoseExtensions.get_reference_pose(skel); hl = unreal.AnimPoseExtensions.get_bone_pose(ref, 'head', unreal.AnimPoseSpaces.LOCAL)
+        ctrl = seq.controller; ctrl.open_bracket(unreal.Text('head scale'))
+        try: ctrl.set_frame_rate(unreal.FrameRate(30, 1))
+        except Exception as e: log('framerate', e)
+        ctrl.set_number_of_frames(unreal.FrameNumber(1))
+        try: ctrl.add_bone_curve('head')
+        except Exception: ctrl.add_bone_track('head')
+        ctrl.set_bone_track_keys('head', [hl.translation] * 2, [hl.rotation] * 2, [unreal.Vector(hsc, hsc, hsc)] * 2)
+        ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); log('head scale anim saved', hsc)
     if 'mkpose' in STEPS:
         ang = math.radians(float(os.environ.get('QQ_ABD', '12'))); dst = '/Game/QQ/Anims/MM_WideStance'
         idle = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH'); skel = idle.get_editor_property('skeleton')
@@ -668,6 +736,30 @@ try:
                             x, y = x * s, cy + (y - cy) * s
                         z = zz
                     out.append(VT(x * hs, y * hs, z * hs))
+                # limb mass compensation (the noauto solve thins limbs ~12-18%) + wider leg gap
+                fl, fa, fd, gap = float(os.environ.get('QQ_LEG_F', '1.0')), float(os.environ.get('QQ_ARM_F', '1.0')), float(os.environ.get('QQ_DELT_F', '1.0')), float(os.environ.get('QQ_GAP_CM', '0'))
+                if fl != 1.0 or fa != 1.0 or fd != 1.0 or gap:
+                    H2 = max(v.z for v in out); zc = H2 * 0.47
+                    def bins(sel, key):
+                        d = {}
+                        for i in sel:
+                            b = int(key(out[i]) // 4); s = d.setdefault(b, [0.0, 0.0, 0.0, 0]); s[0] += out[i].x; s[1] += out[i].y; s[2] += out[i].z; s[3] += 1
+                        return {b: (s[0] / s[3], s[1] / s[3], s[2] / s[3]) for b, s in d.items()}
+                    new = list(out)
+                    for side in (1, -1):
+                        legs = [i for i, v in enumerate(out) if v.z < zc + 4 and v.x * side > 0]; cl = bins(legs, lambda v: v.z)
+                        for i in legs:
+                            v = out[i]; cx, cy, _ = cl[int(v.z // 4)]; w = 1.0 if v.z < zc - 4 else max(0.0, (zc + 4 - v.z) / 8)
+                            s = 1 + (fl - 1) * w; sh = gap * side * w * (1.0 if v.z > H2 * 0.08 else v.z / (H2 * 0.08))
+                            new[i] = VT(cx + (v.x - cx) * s + sh, cy + (v.y - cy) * s, v.z)
+                        arms = [i for i, v in enumerate(out) if v.x * side > 21 and v.z > H2 * 0.45]; ca = bins(arms, lambda v: abs(v.x))
+                        for i in arms:
+                            v = out[i]; _, cy, cz = ca[int(abs(v.x) // 4)]; w = min(1.0, (abs(v.x) - 21) / 6)
+                            s = 1 + (fa - 1) * w; new[i] = VT(v.x, cy + (v.y - cy) * s, cz + (v.z - cz) * s)
+                        for i, v in enumerate(out):
+                            if 14 < v.x * side < 30 and H2 * 0.76 < v.z < H2 * 0.88:
+                                w = 1.0 - abs((v.z / H2 - 0.82) / 0.06); new[i] = VT(new[i].x * (1 + (fd - 1) * max(0.0, w)), new[i].y, new[i].z)
+                    out = new; log('limbs: leg', fl, 'arm', fa, 'delt', fd, 'gap cm', gap)
                 log('target reshaped: height', round(H, 1), '->', round(max(v.z for v in out), 1), 'neck', nk, 'thick', nt, 'neck verts', len(nv))
                 verts = unreal.Array(VT); [verts.append(o) for o in out]
             if mode == 'restore': log('restore only, no conform')
