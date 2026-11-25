@@ -36,6 +36,7 @@ def node_normals(P):
     for i in range(3):
         for c in range(3): n[:, c] += np.bincount(TN[:, i], fn[:, c], NN)
     return n / np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-12), fn
+def sstep(t): t = np.clip(t, 0, 1); return t * t * (3 - 2 * t)
 def cloud(P, spacing=0.0025, seed=3):
     a, b, c = P[TN[:, 0]], P[TN[:, 1]], P[TN[:, 2]]
     area = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1); rng = np.random.default_rng(seed)
@@ -124,6 +125,54 @@ nn /= np.maximum(np.linalg.norm(nn, axis=1, keepdims=True), 1e-20)
 fu = fn / np.maximum(np.linalg.norm(fn, axis=1, keepdims=True), 1e-20)
 cosn = (fu * nn[TN].mean(1)).sum(1); body = (mask[TN].min(1) > 0.5) & (P[TN][:, :, 2].mean(1) > 0.95) & (np.abs(P[TN][:, :, 0].mean(1)) < 0.25)
 print("faces pointing against their neighbourhood on the torso: %d" % (cosn[body] < 0).sum())
+
+# ------------------------------------------------------------------ upper back: no hump
+# The upper back lay under the hair (MH shape blended into HF) and bulged at the shoulder blades / trapezius.
+# Give it the profile of a slim straight back: from the real back below the hair up to the neck base the
+# back line is the straight chord plus a gentle (15 mm) thoracic curve, the same across the back (flat between
+# the shoulder blades), fading out toward the shoulders. Only what stands out beyond that line is pressed in.
+def back_profile(C, zs, xa, xb, tol=0.004):
+    o = np.argsort(C[:, 2]); Zc = C[o, 2]; Yc = C[o, 1]; Xc = np.abs(C[o, 0]); out = np.full(len(zs), np.nan)
+    for i, zq in enumerate(zs):
+        a_, b_ = np.searchsorted(Zc, zq - tol), np.searchsorted(Zc, zq + tol)
+        k = (Xc[a_:b_] >= xa) & (Xc[a_:b_] < xb)
+        if k.any(): out[i] = Yc[a_:b_][k].max()
+    return out
+BZ = np.arange(1.08, 1.50, 0.005)
+ZA, ZB = 1.15, 1.445                       # real back below the hair .. neck base
+XFLAT, XEND = 0.125, 0.205                 # flat across the back up to XFLAT, blended out by XEND (shoulders)
+C = cloud(P)
+bk_before = back_profile(C, BZ, 0, XFLAT); bk_side_before = back_profile(C, BZ, 0, 0.30)
+ya_, yb_n = np.interp(ZA, BZ, bk_before), np.interp(ZB, BZ, back_profile(C, BZ, 0, 0.05))
+tt = np.clip((BZ - ZA) / (ZB - ZA), 0, 1)
+target = ya_ + (yb_n - ya_) * tt + 0.015 * 4 * tt * (1 - tt)
+ztap = np.clip((BZ - (ZA - 0.03)) / 0.03, 0, 1) * np.clip(((ZB + 0.02) - BZ) / 0.03, 0, 1)
+Pb = P.copy()
+for it in range(3):
+    C = cloud(P); n, _ = node_normals(P)
+    cur = back_profile(C, BZ, 0, XEND)
+    excess = np.nan_to_num(np.maximum(cur - target, 0)) * ztap
+    z = P[:, 2]; ex = np.interp(z, BZ, excess, left=0, right=0); tg = np.interp(z, BZ, target); cu = np.interp(z, BZ, np.nan_to_num(cur))
+    yref = tg - 0.05                                        # only the outer 5 cm shell of the back is squeezed
+    wx = 1 - sstep((np.abs(P[:, 0]) - XFLAT) / (XEND - XFLAT))
+    sel = (n[:, 1] > 0.1) & (P[:, 1] > yref) & (ex > 0) & (mask > 0)
+    newy = yref + (P[:, 1] - yref) * (tg - yref) / np.maximum(cu - yref, 1e-4)
+    D = np.zeros_like(P); D[sel, 1] = (np.minimum(newy, P[:, 1]) - P[:, 1])[sel] * wx[sel]
+    for _ in range(4): D = 0.5 * D + 0.5 * nb_sum(D) / deg[:, None]
+    P = P + D * mask[:, None]
+    print("  back pass %d: largest excess over the straight-back line %.1f mm, nodes moved %d" % (it, excess.max() * 1000, (np.abs(D[:, 1]) > 1e-4).sum()))
+# relax the pressed area lightly so it runs smoothly into the shoulders
+mv = np.linalg.norm(P - Pb, axis=1) > 5e-4
+for _ in range(2): mv = mv | (nb_sum(mv[:, None].astype(float))[:, 0] > 0)
+mv &= mask > 0
+for _ in range(8):
+    avg = nb_sum(P) / deg[:, None]; P[mv] = 0.6 * P[mv] + 0.4 * avg[mv]
+C = cloud(P); bk_after = back_profile(C, BZ, 0, XFLAT); bk_side_after = back_profile(C, BZ, 0, 0.30)
+print("upper back (mm, back-most y):   z   centre |x|<12.5 before  after   straight-back line | whole width before  after")
+for i in range(0, len(BZ), 6):
+    print("     %.2f   %6.1f  %6.1f  %6.1f | %6.1f  %6.1f" % (BZ[i], bk_before[i] * 1000, bk_after[i] * 1000, target[i] * 1000, bk_side_before[i] * 1000, bk_side_after[i] * 1000))
+print("upper back: max move %.1f mm, nodes moved > 0.5 mm: %d; nodes outside the back region moved: %d" % (
+    np.abs(P - Pb).max() * 1000, (np.linalg.norm(P - Pb, axis=1) > 5e-4).sum(), ((np.linalg.norm(P - Pb, axis=1) > 1e-6) & ((Pb[:, 2] < ZA - 0.08) | (Pb[:, 1] < 0))).sum()))
 
 # ------------------------------------------------------------------ weld onto the 51,619-vertex body, Surtaysha's MH order
 objs = import_fbx(S_FBX)
@@ -254,13 +303,13 @@ def to_p1(y, z): return [((X0 + yy * SC - c0) * k, (FL - zz * SC - r0) * k) for 
 poly(p1, to_p1(y_before, ZS), BLU, 2); poly(p1, to_p1(y_after, ZS), RED, 2); poly(p1, to_p1(ref_y(ZS), ZS), GRN, 1)
 p1 = np.pad(p1, ((0, PH - p1.shape[0]), (0, 0), (0, 0)), constant_values=0.95)
 # panel 2
-W2 = 900
+W2 = 1150
 sc_ = setup_render(W2, PH); sc_.render.film_transparent = True
 for o in bpy.data.objects: o.hide_render = o is not sm
 sm.data.materials.clear(); sm.data.materials.append(mat("w", (0.78, 0.78, 0.8, 1)))
 for p in sm.data.polygons: p.use_smooth = True
 OS = (zt - zb)                                                   # ortho scale = visible height
-cam = ortho_cam("side", (6, -0.025, 0.5 * (zt + zb)), (0, -0.025, 0.5 * (zt + zb)), OS)
+cam = ortho_cam("side", (6, 0.0, 0.5 * (zt + zb)), (0, 0.0, 0.5 * (zt + zb)), OS)
 path = os.path.join(WORK, "s7_side.png"); render(cam, path)
 im = bpy.data.images.load(path); g = np.array(im.pixels[:], dtype=np.float32).reshape(PH, W2, 4)[::-1].copy(); bpy.data.images.remove(im)
 p2 = np.full((PH, W2, 3), 0.95, np.float32); p2 = p2 * (1 - g[..., 3:4]) + g[..., :3] * g[..., 3:4]
@@ -270,6 +319,15 @@ def to_p2(y, z):
         q = cam.matrix_world.inverted() @ Vector((0, yy, zz)); out.append(((0.5 + q.x / (OS * W2 / PH)) * W2, (0.5 - q.y / OS) * PH))
     return out
 poly(p2, to_p2(ref_y(ZS), ZS), GRN, 2); poly(p2, to_p2(y_before, ZS), BLU, 1)
+okb = ~np.isnan(bk_side_before) & ~np.isnan(bk_side_after)
+poly(p2, to_p2(bk_side_before[okb], BZ[okb]), BLU, 2); poly(p2, to_p2(bk_side_after[okb], BZ[okb]), RED, 1)       # back line before / after
+# panel 4: back view
+W4 = 1000
+sc_ = setup_render(W4, PH); sc_.render.film_transparent = True
+camb = ortho_cam("back", (0, 6, 0.5 * (zt + zb)), (0, 0, 0.5 * (zt + zb)), OS * W4 / PH)
+pathb = os.path.join(WORK, "s7_back.png"); render(camb, pathb)
+im = bpy.data.images.load(pathb); gb = np.array(im.pixels[:], dtype=np.float32).reshape(PH, W4, 4)[::-1].copy(); bpy.data.images.remove(im)
+p4 = np.full((PH, W4, 3), 0.95, np.float32); p4 = p4 * (1 - gb[..., 3:4]) + gb[..., :3] * gb[..., 3:4]
 # panel 3: plot, 1 cm grid, x = depth (front to the left), y = height
 W3 = 700; p3 = np.full((PH, W3, 3), 1.0, np.float32)
 ya, yb_ = -0.16, -0.02
@@ -280,7 +338,7 @@ for zz in np.arange(zb, zt + 1e-6, 0.01):
     y = int((zt - zz) / (zt - zb) * PH); p3[y:y + 1, :] = 0.85 if round(zz * 100) % 10 else 0.6
 poly(p3, to_p3(yhf, ZS), YEL, 2); poly(p3, to_p3(y_before, ZS), BLU, 2); poly(p3, to_p3(ref_y(ZS), ZS), GRN, 2); poly(p3, to_p3(y_after, ZS), RED, 2)
 gap = np.ones((PH, 12, 3), np.float32)
-sheet = np.concatenate([p1, gap, p2, gap, p3], axis=1)
+sheet = np.concatenate([p1, gap, p2, gap, p4, gap, p3], axis=1)
 sheet = np.concatenate([sheet, np.ones(sheet.shape[:2] + (1,), np.float32)], axis=2)
 out = bpy.data.images.new("sheet", sheet.shape[1], sheet.shape[0], alpha=False)
 out.pixels.foreach_set(sheet[::-1].ravel()); out.filepath_raw = SHEET; out.file_format = 'PNG'; out.save()
