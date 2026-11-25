@@ -8,14 +8,14 @@ import sys, os, json
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-REF = r"F:\qirq-qiz\tools\blender\char\ref\gulayim_turn.png"
+REF = os.environ.get('QQ_REF', r"F:\qirq-qiz\tools\blender\char\ref\guloyim_final_turn.png")
 MD = sys.argv[1] if len(sys.argv) > 1 else r"F:\qirq-qiz\tools\blender\guloyim_costume\out\moslash"
 OD = sys.argv[2] if len(sys.argv) > 2 else r"F:\qirq-qiz-unity\Builds"
 PXM, FLOOR_ROW, W, H = 500, 907.5, 800, 950
 Z = lambda z: FLOOR_ROW - (z + 0.015) * PXM          # model z (m) -> row
 # model landmark heights (m): belt centre, tasset bottom, hem, boot top, sole
 LM = json.load(open(os.path.join(MD, 'landmarks_model.json'))) if os.path.exists(os.path.join(MD, 'landmarks_model.json')) else \
-    {'belt': 1.010, 'tasset': 0.835, 'hem': 0.48, 'boot': 0.378, 'shoulder': 1.45}
+    {'belt': 1.010, 'tasset': 0.835, 'hem': 0.49, 'boot': 0.38, 'shoulder': 1.45}
 
 ref = np.asarray(Image.open(REF).convert('RGB')).astype(np.float32) / 255.0
 rh, rw, _ = ref.shape
@@ -47,12 +47,17 @@ def ref_landmarks(m):
 
 def ref_view(name):
     x0, x1 = FIG[name]
-    pad = 60
+    pad = 12
     m = fg[:, max(0, x0 - pad):min(rw, x1 + pad)]
     img = ref[:, max(0, x0 - pad):min(rw, x1 + pad)]
     top, sole = ref_landmarks(m)
-    # belt centre: the author's sheet has it at 0.397 of the figure height from the top (front) / 0.393 (side)
-    belt = top + (sole - top) * (0.397 if name == 'front' else 0.393)
+    # belt centre: the row with the most dark-red belt leather between 30 % and 50 % of the figure height
+    r_, g_, b_ = img[..., 0], img[..., 1], img[..., 2]
+    red = (r_ > g_ + 0.08) & (r_ > b_ + 0.04) & (img.max(2) > 0.18) & (img.max(2) < 0.7) & m
+    r0_, r1_ = int(top + (sole - top) * 0.30), int(top + (sole - top) * 0.50)
+    cnt = red[r0_:r1_].sum(1)
+    belt = r0_ + int(np.argmax(np.convolve(cnt, np.ones(9) / 9, 'same')))
+    print(name, 'belt fraction %.3f' % ((belt - top) / (sole - top)))
     s = ((LM['belt'] + 0.015) * PXM) / (sole - belt)
     nw, nh = int(m.shape[1] * s), int(m.shape[0] * s)
     M = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((nw, nh), Image.BILINEAR)) > 127
@@ -65,6 +70,11 @@ def ref_view(name):
     out = np.zeros((H, W), bool); outi = np.full((H, W, 3), 230, np.uint8)
     dy = int(round(FLOOR_ROW - sole_s))
     return M, I, dy, cxr, s, top * s + dy
+
+def hair_mask(I):
+    f = I.astype(np.float32) / 255.0
+    mxx = f.max(2); mnn = f.min(2)
+    return (mxx < 0.105) & ((mxx - mnn) < 0.07)
 
 def place(M, I, dy, dx):
     out = np.zeros((H, W), bool); outi = np.full((H, W, 3), 230, np.uint8)
@@ -110,7 +120,8 @@ for name in ('front', 'side'):
         R, RI = place(M, I, dy, dx + dx2)
     # the reference's arms hang beside the body: remove reference pixels lying outside the model torso columns
     # in the torso band only where our arms (excluded) are, so both sides compare the same thing
-    R_cmp = R & ~arm
+    hm = hair_mask(RI); hm[int(Z(LM['belt'])):] = False
+    R_cmp = R & ~arm & ~hm
     groups = {
         'head_scarf': (Z(1.80), Z(1.45)),
         'torso_armour': (Z(1.45), Z(LM['tasset'])),
@@ -136,13 +147,13 @@ for name in ('front', 'side'):
     ov[edgeR] = (255, 40, 40); ov[edgeM] = (40, 220, 40)
     diff = np.full((H, W, 3), 245, np.uint8)
     diff[R_cmp & mm] = (150, 150, 150); diff[R_cmp & ~mm] = (230, 60, 60); diff[~R_cmp & mm] = (40, 170, 60)
-    diff[arm] = (215, 235, 215)
+    diff[arm] = (215, 235, 215); diff[hm & ~mm] = (230, 230, 120)
     mod = a.astype(np.uint8).copy(); mod[a.sum(2) <= 30] = (230, 230, 230)
     sheet = Image.new('RGB', (W * 4, H + 70), (250, 250, 250))
     for k, im in enumerate((RI, mod, ov, diff)):
         sheet.paste(Image.fromarray(im), (k * W, 70))
     d = ImageDraw.Draw(sheet)
-    d.text((10, 8), 'turnaround (scaled belt->sole)   |   model classes   |   outlines: red = turnaround, green = model   |   difference: red = only turnaround, green = only model, pale green = arms (excluded)', fill=(0, 0, 0))
+    d.text((10, 8), 'turnaround (scaled belt->sole)   |   model classes   |   outlines: red = turnaround, green = model   |   difference: red = only turnaround, green = only model, pale green = arms, yellow = hair (excluded)', fill=(0, 0, 0))
     d.text((10, 32), name.upper() + '  IoU: ' + '   '.join('%s %.2f' % kv for kv in res.items()), fill=(0, 0, 0))
     for g, (r0, r1) in groups.items():
         for k in range(4): d.line([(k * W, 70 + int(r0)), (k * W + W, 70 + int(r0))], fill=(120, 120, 255))

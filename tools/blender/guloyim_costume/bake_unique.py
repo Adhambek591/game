@@ -13,7 +13,7 @@ WANT = args[0].split(',') if args else ['T_Cloth', 'T_Armor', 'T_Jewel', 'T_Weap
 SIZE = int(args[1]) if len(args) > 1 else 4096
 PACK_ONLY = len(args) > 2 and args[2] == 'pack'
 SETS = {'T_Cloth': 'M_Cloth', 'T_Armor': 'M_Armor', 'T_Jewel': 'M_Jewel', 'T_Weapon': 'M_Weapon', 'T_Amulet': 'M_Amulet'}
-SIZES = {'T_Jewel': min(SIZE, 2048), 'T_Amulet': min(SIZE, 2048)}
+SIZES = {}                     # everything at 4K (crisp close-ups)
 
 BLUE = (0.020, 0.030, 0.150)          # deep indigo / cobalt wool (the turnaround), not saturated royal blue
 def kind_of(name):

@@ -67,6 +67,16 @@ class BodyFit:
         hit = self.bvh(cats).ray_cast(origin, direction.normalized(), maxd)
         return None if hit[0] is None else hit[3]
 
+    def ray_dist_outer(self, cats, origin, direction, maxd=0.6):
+        """distance to the LAST surface along the ray (skips inner shells: eyes, mouth, teeth of a full head mesh)"""
+        t = self.bvh(cats); d = direction.normalized(); o = origin.copy(); acc = 0.0; last = None
+        for _ in range(12):
+            hit = t.ray_cast(o, d, maxd - acc)
+            if hit[0] is None: break
+            acc += hit[3] + 1e-4; last = acc
+            o = hit[0] + d * 1e-4
+        return last
+
     def conform(self, p, cats, clear, iters=2):
         """push p out of the region surface so it sits at least `clear` above it (never pulls in)"""
         t = self.bvh(cats)

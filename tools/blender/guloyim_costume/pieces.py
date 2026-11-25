@@ -174,7 +174,7 @@ def _skirt_dims():
         tc = 0.012 + 0.014 * smoothstep(0.975, 0.90, z)   # clears the baggy trousers on the thighs, stays under the belt at the waist
         a += tc; bf += tc; bb += tc - 0.002
         fl = max(0.0, 0.96 - z)
-        a += fl * 0.15; bf += fl * 0.10; bb += fl * 0.15
+        a += fl * 0.05; bf += fl * 0.05; bb += fl * 0.08
         if prev and z < 0.97:
             a, bf, bb = max(a, prev[1]), max(bf, prev[2]), max(bb, prev[3])
         prev = (z, a, bf, bb)
@@ -344,8 +344,8 @@ def build_trousers():
     n = len(path)
     def clear(j):
         z = path[j].z
-        c = 0.012 + 0.008 * smoothstep(0.95, 0.80, z)                       # roomy seat / thighs
-        c += 0.017 * math.exp(-((z - 0.415) / 0.050) ** 2)                  # bloused over the boot tops
+        c = 0.011 + 0.004 * smoothstep(0.95, 0.80, z)                       # roomy seat / thighs
+        c += 0.013 * math.exp(-((z - 0.42) / 0.050) ** 2)                   # bloused over the boot tops
         c += 0.008 * math.exp(-((z - 0.55) / 0.08) ** 2)                    # baggy at the knee
         c -= (c - 0.0035) * smoothstep(0.385, 0.355, z)                     # tucked into the boot shaft
         return c
@@ -515,7 +515,7 @@ def tas_S(u, v, grow=0.0):
     return skirt_S(u, v, grow=0.014 + grow)
 def build_tassets():
     mb = MB(); tm = MB()
-    panels = [(0.055, 0.96), (-0.96, -0.055), (1.06, 2.02), (-2.02, -1.06), (2.12, 2 * math.pi - 2.12)]
+    panels = [(0.56, 2.55), (-2.55, -0.56)]          # approved picture: one wrap-around plate skirt on each hip, tunic open front and back
     for (u0, u1) in panels:
         S = lambda u, w: tas_S(u, TAS_BOT + w)
         mg = 0.013 / 0.22
@@ -580,12 +580,12 @@ def _paul_r(s_, u):
 def paul_S(u, v, dr=0.0):
     J, D, Up, F = pauldron_frame()
     s_ = -v
-    R = _paul_r(s_, u) + 0.021 + 0.010 * smoothstep(0.02, 0.19, s_) + dr      # over sleeve + backing, slight flare of the lower layers
+    R = _paul_r(s_, u) + 0.022 + 0.020 * smoothstep(0.0, 0.21, s_) ** 1.3 + dr      # over sleeve + backing, slight flare of the lower layers
     return J + D * s_ + (Up * math.cos(u) + F * math.sin(u)) * R
 def build_pauldrons():
     J, D, Up, F = pauldron_frame()
     mb = MB(); tm = MB(); bk = MB()
-    s0, s1 = -0.060, 0.205
+    s0, s1 = -0.060, 0.220
     umax = 1.72
     ctr = lambda p: J + D * (p - J).dot(D)
     rows = []
@@ -766,7 +766,7 @@ def _boot_grid():
             c = Vector(((s[0] + s[1]) / 2, (s[2] + s[3]) / 2, z))
             R = fill_circ([FIT.ray_dist(('legL',), c, Vector((math.sin(2 * math.pi * i / BNU), -math.cos(2 * math.pi * i / BNU), 0)), 0.3) for i in range(BNU)])
         R = circ_smooth(hull_radii(R), 1)
-        clr = 0.0060 if z < 0.06 else (0.0055 + 0.0110 * smoothstep(0.13, 0.22, z))     # fuller shaft over the trousers
+        clr = 0.0060 if z < 0.06 else (0.0055 + 0.0070 * smoothstep(0.13, 0.22, z))     # shaft over the tucked trousers
         clr += 0.005 * smoothstep(0.34, BOOT_TOP, z)
         row = []
         for i in range(BNU):

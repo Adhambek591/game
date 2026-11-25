@@ -41,7 +41,7 @@ def build_amulet():
     done(cm.build('GUL_Amulet_Chain', [M_TRIM]), 'spine_05', 'Torso')
 
 # =========================================================== SABRE (local: grip centre at origin, blade +Z, spine +Y)
-SB_L = 0.72
+SB_L = 0.68
 def sb_path(s):
     return Vector((0, 0.088 * s ** 2.0, s * SB_L))
 def sb_width(s):
@@ -96,8 +96,8 @@ def build_sabre(group='Weapon'):
 
 # =========================================================== SCABBARD on the left hip (built in the sabre's frame)
 def _sheath(dzx):
-    mouth = Vector((0.236, -0.058, 0.938))
-    dz = Vector((dzx, 0.24, -0.97)).normalized()          # blade direction in the scabbard: down and back, along the leg
+    mouth = Vector((0.226, -0.075, 0.945))
+    dz = Vector((dzx, 0.13, -0.99)).normalized()          # blade direction in the scabbard: down and back, along the leg
     up = Vector((0.0, 0.85, 0.50)); up = (up - dz * up.dot(dz)).normalized()   # spine side up/back, edge down
     xx = up.cross(dz).normalized()
     M = Matrix((xx, up, dz)).transposed().to_4x4()

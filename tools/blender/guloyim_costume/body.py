@@ -4,7 +4,8 @@ import bpy, json, os
 from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
-SRC = [os.path.join(HERE, "body", "SK_Guloyim_Final_FullBody.fbx"),
+SRC = [os.path.join(HERE, "body", "SK_Guloyim_BodyDirect.fbx"),
+       os.path.join(HERE, "body", "SK_Guloyim_Final_FullBody.fbx"),
        r"F:\qirq-qiz-unity\Assets\QQ\Models\MH\MH_gulayim_FullBody.fbx",
        r"F:\qirq-qiz\tools\metahuman\out\gulayim_MHC_gulayim_clean_FullBody.fbx"]
 SKIP = ('_in_', '_out_', 'bulge', 'half', 'side', 'palm', 'dip', 'pip', 'mcp', 'Cor', 'corrective', 'fwd', 'bck', 'slide')
@@ -14,7 +15,7 @@ src = None
 for s in SRC:
     if not os.path.exists(s): continue
     bpy.ops.import_scene.fbx(filepath=s)
-    meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH' and len(o.data.vertices) > 20000]
+    meshes = [o for o in bpy.context.scene.objects if o.type == 'MESH' and len(o.data.vertices) > 5000]
     if meshes: src = s; break
     for o in list(bpy.context.scene.objects): bpy.data.objects.remove(o)
 assert src, 'no MetaHuman body mesh found'

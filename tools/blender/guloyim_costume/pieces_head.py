@@ -8,16 +8,16 @@ X = Vector((1, 0, 0))
 def hair_mer(theta):
     """hair (+ scarf) offset above the skin along the sagittal line; theta = elevation from the front (deg)"""
     if theta < 22: return 0.0035
-    if theta < 34: return 0.0035 + (0.010 - 0.0035) * (theta - 22) / 12
-    if theta < 95: return 0.010 + 0.005 * (theta - 34) / 61
-    return 0.015 + 0.008 * smoothstep(95, 160, theta)
+    if theta < 34: return 0.0035 + (0.009 - 0.0035) * (theta - 22) / 12
+    if theta < 95: return 0.009 + 0.004 * (theta - 34) / 61
+    return 0.011 + 0.006 * smoothstep(95, 160, theta)
 
 def _meridian():
     pts = []; th = []
     for k in range(0, 84):
         t = 8.0 + 2.5 * k                    # 8 .. 215.5 deg
         d = Vector((0, -math.cos(math.radians(t)), math.sin(math.radians(t))))
-        r = FIT.ray_dist(('head',), HC, d, 0.3)
+        r = FIT.ray_dist_outer(('head',), HC, d, 0.3)
         if r is None: continue
         pts.append(HC + d * (r + hair_mer(t) + 0.0025)); th.append(t)
     # below the occiput: down the back of the neck / upper back over the hair curtain
@@ -50,12 +50,12 @@ def mer_at(s):
     return MER[-1], Vector((0, 0, -1)), Vector((0, 1, 0))
 
 PHI_H = math.radians(84)
-def section(s, side_hair=0.021, base=None, phi_max=PHI_H, hang=True, ulen=0.40):
+def section(s, side_hair=0.022, base=None, phi_max=PHI_H, hang=True, ulen=0.40):
     """one cross-section of the hood at meridian arc s: returns list of (signed arc u, point)"""
     M, tg, n = mer_at(s)
     A = M - n * 0.072
     th_off = (M - A).length
-    h0 = (M - A).length - (FIT.ray_dist(('head', 'neck', 'torso'), A, n, 0.3) or th_off - 0.012)
+    h0 = (M - A).length - ((FIT.ray_dist_outer(('head', 'neck'), A, n, 0.2) if s < S_OCC else FIT.ray_dist(('head', 'neck', 'torso'), A, n, 0.3)) or th_off - 0.012)
     out = {}
     for sg in (1, -1):
         pts = [M]
@@ -63,7 +63,7 @@ def section(s, side_hair=0.021, base=None, phi_max=PHI_H, hang=True, ulen=0.40):
         for k in range(1, 60):
             ph = phi_max * k / 59
             d = n * math.cos(ph) + X * (sg * math.sin(ph))
-            r = FIT.ray_dist(('head', 'neck', 'torso'), A, d, 0.3)
+            r = FIT.ray_dist_outer(('head', 'neck'), A, d, 0.2) if s < S_OCC else FIT.ray_dist(('head', 'neck', 'torso'), A, d, 0.3)
             if r is None: r = last_r if last_r else th_off - h0
             last_r = r
             hair = (h0 if base is None else base) + ((side_hair if base is None else base) - (h0 if base is None else base)) * smoothstep(0.0, 1.25, ph)
@@ -99,10 +99,12 @@ def build_scarf():
     mb = MB()
     s_end = max(MER_S)
     # back point: where the meridian reaches z ~ 1.355
-    S_TOT = next((MER_S[i] for i in range(len(MER)) if MER_S[i] > 0.15 and MER[i].z < 1.372 + SH_DZ), s_end)
-    S_C = 0.27
-    U, NU, NR = 0.29, 24, 22
-    hem = lambda u: S_TOT - (S_TOT - S_C) * (0.22 * abs(u) / U + 0.78 * (abs(u) / U) ** 1.9)
+    S_TOT = next((MER_S[i] for i in range(len(MER)) if MER_S[i] > 0.15 and MER[i].z < 1.415 + SH_DZ), s_end)
+    # approved picture: a folded kerchief - front edge temple to temple, hem straight from each temple corner down to the
+    # back point at shoulder height; the long hair falls out below it at the sides and down the back
+    S_C = 0.075
+    U, NU, NR = 0.24, 20, 20
+    hem = lambda u: S_TOT - (S_TOT - S_C) * (abs(u) / U) ** 0.85
     SG = [S_TOT * k / 120 for k in range(121)]
     SEC = [section(s) for s in SG]
     def P(u, s):
@@ -138,7 +140,7 @@ def build_scarf():
                 if 0 <= jj <= NR and 0 <= ii <= NU:
                     rest = (flat(jj, ii) - flat(j, i)).length
                     # the free side panels are gathered a little (no buckled flaps at the ears)
-                    gather = 1.0 - 0.06 * smoothstep(A_H - 0.02, A_H + 0.06, abs(-U + 2 * U * i / NU)) * (1.0 if dj == 0 else 0.4)
+                    gather = 1.0 - 0.0 * smoothstep(A_H - 0.02, A_H + 0.06, abs(-U + 2 * U * i / NU)) * (1.0 if dj == 0 else 0.4)
                     cons.append((idx(j, i), idx(jj, ii), rest * gather, k))
     clear = lambda p: 0.016 + 0.023 * smoothstep(1.47, 1.42, p.z)
     X = gfit.pbd_drape(P0, cons, pinned, FIT, ('head', 'neck', 'torso', 'armL', 'armR'), clear, iters=220)
