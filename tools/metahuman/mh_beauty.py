@@ -489,6 +489,19 @@ def step_multishots(items, light):
                                     pass
                                 log('body swapped', sk.get_name(), extra['body'], 'mats', len(mats), '->', sk.get_num_materials())
                     except Exception as e: log('body swap fail', e)
+                for cp in extra.get('costume', []):
+                    try:
+                        body_c = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l') and 'body' in x.get_name().lower())
+                        a = unreal.load_asset(cp)
+                        if isinstance(a, unreal.SkeletalMesh):
+                            sc = st['actor'].add_component_by_class(unreal.SkeletalMeshComponent, True, unreal.Transform(), False)
+                            sc.set_skeletal_mesh_asset(a); sc.attach_to_component(body_c, '', unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, False)
+                            sc.set_leader_pose_component(body_c); log('costume skinned', cp)
+                        else:
+                            sm = st['actor'].add_component_by_class(unreal.StaticMeshComponent, True, unreal.Transform(), False); sm.set_static_mesh(a)
+                            bone = extra.get('costume_bones', {}).get(cp.split('/')[-1], 'spine_05')
+                            sm.attach_to_component(body_c, bone, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.SNAP_TO_TARGET, unreal.AttachmentRule.KEEP_RELATIVE, False); log('costume static', cp, bone)
+                    except Exception as e: log('costume fail', cp, e)
                 if extra.get('pose'):
                     try:
                         pa = unreal.load_asset(extra['pose'])
