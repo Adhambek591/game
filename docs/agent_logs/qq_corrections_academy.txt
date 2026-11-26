@@ -1,0 +1,119 @@
+Qırq qız — qaraqalpaqsha tekst ózgerisleri (tek ózgergenleri). Format: key | edi | endi
+Sózlik: https://qaraqalpaq.academy/soz (Qaraqalpaq tiliniń túsindirme sózligi)
+
+=== i18n.js ===
+tu2_move | Joystikti jılıstırıń — altın sheńberge barıń | Basqarıw dóńgelegin jılıstırıń — altın sheńberge barıń
+tu2_combo | ⚔ túymesin 3 ret tez basıń — quwırshaqqa 3 soqqı | ⚔ túymesin 3 mártebe tez basıń — quwırshaqqa 3 soqqı
+tu2_dodge | {n} qılısh kóterse — ➤ túymesin basıń (2 ret) | {n} qılısh kóterse — ➤ túymesin basıń (2 mártebe)
+tu2_block | Qalqan túymesin BASIP TURIŃ — soqqını toqtatıń (2 ret) | Qalqan túymesin BASIP TURIŃ — soqqını toqtatıń (2 mártebe)
+f3_h_ride7 | Altın saqıynalar arasınan shawıp ótiń hám waqıtında jetiń | Altın saqıynalar arasınan atıńızdı jeldirip ótiń hám waqıtında jetiń
+f3o_2_3 | Kárwandı qudıqqa shekem aman alıp barıń | Kárwandı qudıqqa deyin aman alıp barıń
+f3_cv_m | Qudıqqa shekem {n} m | Qudıqqa deyin {n} m
+ar_alarm | DABÍL! Súren shalındı! | DABÍL! Súren salındı!
+ar_d3a | Lager dáryanıń arǵı betinde. Bir saqshı súren shalsa, pútkil lager oyanadı. Bir oq — bir saqshı. | Lager dáryanıń arǵı betinde. Bir saqshı súren salsa, pútkil lager oyanadı. Bir oq — bir saqshı.
+tu_duel_t | Shınıǵıw jekpe-jegi — ólimge shekem emes | Shınıǵıw jekpe-jegi — ólimge deyin emes
+tu_d_sa2 | Aq atıń erlendi! Saqıynalar arasınan shawıp ót — batırdıń qalay at shabatuǵının kórset. | Aq atıń erlendi! Saqıynalar arasınan atıńdı jeldirip ót — batırdıń qalay at minetuǵının kórset.
+tu_d_sa4 | Qashan ayaǵan edim? Qızlar, sheńber bolıp turıń! | Qashan ayadım? Qızlar, sheńber bolıp turıń!
+tu_d_sa6 | Jeter, jeter — jeńildim! Iynim muni bir hápte umıtpaydı. | Jeter, jeter — jeńildim! Iynim bunı bir hápte umıtpaydı.
+tu_d_gu5 | Atlanıń, qızlar! Sarkopqa shabamız! | Atlanıń, qızlar! Sarkopqa qaray jónelemiz!
+tu_t_move | Joystik penen shınıǵıw quwırshaqlarına barıń | Basqarıw dóńgelegi menen shınıǵıw quwırshaqlarına barıń
+tu_t_light | ⚔ túymesin tez-tez basıń — quwırshaqqa 3 soqqılı kombo beriń | ⚔ túymesin tez-tez basıń — quwırshaqqa izbe-iz 3 soqqı beriń
+tu_t_roll | ➤ túymesin eki ret tez basıń — soqqısı astınan domalap ótiń | ➤ túymesin eki mártebe tez basıń — soqqısı astınan domalap ótiń
+tu_t_ride | Barlıq altın saqıynalar arasınan shawıp ótiń | Barlıq altın saqıynalar arasınan atıńızdı jeldirip ótiń
+tu_b_hold | Qalqan shıdadı! Túymeni uzaǵıraq basıp tur! | Qalqan shıdam berdi! Túymeni uzaǵıraq basıp tur!
+tu_b_hit | Tiydi! Jáne bir ret! | Tiydi! Jáne bir mártebe!
+tu_a2 | Jáne! Jáne bir ret! | Jáne! Jáne bir mártebe!
+cv_wheel1 | Dóńgelek sındı! Dushpan tap usını kútip turǵan edi! | Dóńgelek sındı! Dushpan tap sonı kútip turǵan edi!
+cv_d1 | Gúlayım, azat etilgen adamlar sharshaǵan. Arbalar áste júredi. | Gúlayım, azat etilgen adamlar talǵan. Arbalar áste júredi.
+cv_d3 | Hámme aman. Endi nawbet Qum dáwine! | Hámme aman. Endi náwbet Qum dáwine!
+lore_sur | Surtaysha sıyqırshılar járdeminde óziniń qúdiretin asırıp, jawıngerlerin bóri qálpine keltiriwshi jeńilmes dárejege jetkerdi. Bul ishki qúdiret emes edi, onı tek ǵana sap kewilli áskerler ǵana jeńe aladı. Biraq Allayar buǵan tayar emes edi. Sol sebepli ol jeńildi. Óziniń kúsh-qúdiretin bolsa óz tumarına ótkerip ketti. Surtaysha ózin jeńilmes dep oylaǵanı menen, Gúlayımnıń ǵazebinen bárbir qorqatuǵın edi. | Surtaysha sıyqırshılar járdeminde qúdiretin asırıp, jawıngerlerin bóri qálpine keltiretuǵın jeńilmes dárejege jetti. Bul ishki qúdiret emes edi, onı tek pák kewilli áskerler ǵana jeńe aladı. Biraq Allayar buǵan tayar emes edi. Sol sebepli ol jeńildi. Kúsh-qúdiretin bolsa óz tumarına ótkerip ketti. Surtaysha ózin jeńilmes dep oylaǵanı menen, Gúlayımnıń ǵázebinen qorqatuǵın edi.
+s_nodeath | Bir ret te jıǵılmadıńız | Bir mártebe de jıǵılmadıńız
+s_resist | Aqırına shekem qarsılıq kórsettińiz | Aqırına deyin qarsılıq kórsettińiz
+combo | KOMBO ×2! | IZBE-IZ ×2!
+adRevive | 📺 Reklama kórip usı jerde tiriliw | 📺 Reklama kórip bul jerde tiriliw
+w_ja | Jalladtıń shınjırları ápiwayı soqqını qaytaradı. Jer soqqısı (1) menen onı esenkiretiń! | Jálladtıń shınjırları ápiwayı soqqını qaytaradı. Jer soqqısı (1) menen onı eseńkiretiń!
+lore0 | «Qırq qız» — qaraqalpaq xalqınıń qaharmanlıq dástanı. Onı ásirler dawamında jırawlar qobız shertip jırlap kelgen. Sarkop qalasında Allayar bay degen márt adam jasaǵan. Onıń altı ulı hám Gúlayım atlı batır qızı bar edi. Gúlayım on tórt jasında-aq ákesinen Miywali jerin sorap alıp, ol jerde qorǵan saldırdı hám qırq qızǵa qılıshlasıwdı hám oq-jay atıwdı úyretti. Kúnlerdiń birinde, tań sáhárde qalmaq xanı Surtaysha qırq mıń láshkeri menen Sarkopqa basıp keldi… | «Qırq qız» — qaraqalpaq xalqınıń qaharmanlıq dástanı. Onı ásirler dawamında jırawlar qobız tartıp jırlap kelgen. Sarkop qalasında Allayar bay degen márt adam jasaǵan. Onıń altı ulı hám Gúlayım atlı batır qızı bar edi. Gúlayım on tórt jasında-aq ákesinen Miywali jerin sorap alıp, ol jerde qorǵan saldırdı hám qırq qızǵa qılıshlasıwdı hám oq-jay atıwdı úyretti. Kúnlerdiń birinde, tań sáhárde qalmaq xanı Surtaysha qırq mıń láshkeri menen Sarkopqa basıp keldi…
+lore1 | Hújim waqtında Gúlayım qırq qızı menen Qıran tawında áskeriy shınıǵıwda edi. Ol qalaǵa qaytqanında Sarkop kúlge aylanǵan, ákesi hám altı aǵası qaza bolǵan, xalıq bolsa qullıqqa aydalǵan edi. Tek ǵana anası tiri qalıp, qaralı otırar edi. Gúlayım ákesiniń qunın alıwǵa hám xalqın qutqarıwǵa ant ishedi. | Hújim waqtında Gúlayım qırq qızı menen Qıran tawında áskeriy shınıǵıwda edi. Ol qalaǵa qaytqanında Sarkop kúlge aylanǵan, ákesi hám altı aǵası qaza bolǵan, xalıq bolsa qullıqqa aydalǵan edi. Tek ǵana anası tiri qalıp, qaralı otırǵan edi. Gúlayım ákesiniń qunın alıwǵa hám xalqın qutqarıwǵa ant ishedi.
+lore2 | Dástanda Sarkoptıń ayırım jigitleri — Bayımbet, Sayımbet, Erimbet, Sherimbet — qorqıp Surtayshaǵa bas iyedi.
+
+Gúlayım bolsa satqınlıq penen qorqıwdı ayıra bilgen. Bul bapta ol satqınlardıń biri menen ushırasadı. | Dástanda Sarkoptıń ayırım jigitleri — Bayımbet, Sayımbet, Erimbet, Sherimbet — qorqıp Surtayshaǵa bas iyedi. Xalıq olardı ele de «satqın» dep eske aladı.
+
+Gúlayım bolsa satqınlıq penen qorqıwdı ayıra bilgen. Bul bapta ol satqınlardıń biri menen ushırasadı.
+lore3 | Sarkoptıń batırı Otbasqan tutqınlıqta da bas iymegen. Dástanda Surtaysha onı qıynap, ústine eki qap júk artıp aydaydı, biraq ol bir awız da jalınbaydı.
+
+Bul bapta Gúlayım qul kárwanına hújim etip, Otbasqandı azat etedi. | Sarkoptıń batırı Otbasqan tutqınlıqta da bas iymegen. Dástanda Surtaysha onı qıynap, ústine eki qap júk artıp aydaydı, biraq ol bir awız da jalınbaydı.
+
+Bul bapta Gúlayım tutqınlar kárwanına hújim etip, Otbasqandı azat etedi.
+lore4 | Gúlayım qırq qızı menen Astraxan teńizi boylap júrip, qalmaq kárwanların oljaǵa túsiredi.
+
+Oyında qalmaqlar tutqınlardı kemelerde alıp ketpekshi, olardı teńiz aydarhası qorıqlaydı. | Gúlayım qırq qızı menen Astraxan teńizi boylap júrip, qalmaq kárwanların oljaǵa túsiredi. Dástanda bul júris uzaq hám awır — qızlar teńiz boyında túnep, at ústinde kún keshiredi.
+
+Oyında qalmaqlar tutqınlardı kemelerde alıp ketpekshi, olardı teńiz aydarhası qorıqlaydı.
+use6 | Gúlayım, Jer soqqısı (1) menen shınjırlı, sawıtlı dushpanlardı esenkiretiwge boladı. Keyingi jallad ushın tap usı kerek. | Gúlayım, Jer soqqısı (1) menen shınjırlı, sawıtlı dushpanlardı eseńkiretiwge boladı. Keyingi jállad ushın tap sol kerek.
+use7 | Shınjır (2) dushpandı tartıp keledi. Suwdaǵı maxluqtı da jaǵaǵa súyrep shıǵarıwǵa boladı. | Shınjır (2) dushpandı tartıp keledi. Suwdaǵı jalmawızdı da jaǵaǵa súyrep shıǵarıwǵa boladı.
+use9 | Dáw kúshi (▼) menen qısqa waqıt dáwge aylanasań. Altı arshınlı Qarǵashıqqa teńlesiw ushın usı kerek. | Dáw kúshi (▼) menen qısqa waqıt dáwge aylanasań. Altı arshınlı Qarǵashıqqa teńlesiw ushın sol kerek.
+use0 | Qara atlı (▼) — arwaq-at dushpan qatarın jarıp ótedi. Surtayshanıń ordasında topardı usı menen jarasań. | Qara atlı (▼) — arwaq-at dushpan qatarın jarıp ótedi. Surtayshanıń ordasında topardı sonıń menen jarasań.
+x3a | Qarańlar, dárya boyında gúlxan tútini kórinip tur. Kárwan usı jerde toqtaǵan! | Qarańlar, dárya boyında ot tútini kórinip tur. Kárwan sol jerde toqtaǵan!
+x3b | Aldın tutqınlardı azat etemiz, keyin jalladtıń jazasın beremiz. Otbasqan aǵa da sol jerde! | Aldın tutqınlardı azat etemiz, keyin jálladtıń jazasın beremiz. Otbasqan aǵa da sol jerde!
+x7a | Mine, Surtayshanıń qanlı ordası! Ákemniń qádemi usı jerge jete almaǵan edi… | Mine, Surtayshanıń qanlı ordası! Ákemniń qádemi bul jerge jete almaǵan edi…
+x7b | Biz jetip keldik, Gúlayım! Qırq qız aqırına shekem seniń menen birge! | Biz jetip keldik, Gúlayım! Qırq qız aqırına deyin seniń menen birge!
+ch5n | Darbent asuwı | Darbent asıwı
+n_ja | Shınjırshı jallad | Shınjırshı jállad
+nar9 | Darbent tawı asuwında dushpan duzaq qoyǵan edi. Dáw Qunqar Otbasqandı awır jaralap jıqtı. Endi onıń óshin alıw Sárbinazǵa qaldı. | Darbent tawı asıwında dushpan duzaq qoyǵan edi. Dáw Qunqar Otbasqandı awır jaralap jıqtı. Endi onıń óshin alıw Sárbinazǵa qaldı.
+nar12 | Surtaysha jer tislep jıǵıldı. Onıń qara sıyqırı joq bolıp, maxluqqa aylanǵan áskerler qaytadan adam qálpine qayttı. | Surtaysha jer tislep jıǵıldı. Onıń qara sıyqırı joq bolıp, jalmawızǵa aylanǵan áskerler qaytadan adam qálpine qayttı.
+h_chain | Jańa qábilet ashıldı — Shınjır! | Jańa qabilet ashıldı — Shınjır!
+h_helm | Dubılǵaǵa qılısh ótpeydi. Shınjırdı (2) úsh ret atıp, onı basınan julıp alıń | Dubılǵaǵa qılısh ótpeydi. Shınjırdı (2) úsh mártebe atıp, onı basınan julıp alıń
+pw6d | Jerge urıp átiraptaǵılardı esenkiretedi (1) | Jerge urıp átiraptaǵılardı eseńkiretedi (1)
+d_qd1 | Duz hám qum — meniń denem. Bul sheksiz shól seni tiriley jutıp jiberedi! | Duz hám qum — meniń denem. Bul shetsiz-sheksiz shól seni tiriley jutıp jiberedi!
+d_gu8 | Sol shınjırlarıń menen ózińdi buwıp óltiremen, jallad! | Sol shınjırlarıń menen ózińdi buwıp óltiremen, jállad!
+nar3m | Shabarmannıń xabarın esitken Gúlayım qırq qızı menen atqa minip, Qıran tawınan Sarkopqa shawıp ketti. Alıstan qara tútin kórindi… | Shabarmannıń xabarın esitken Gúlayım qırq qızı menen atqa minip, Qıran tawınan Sarkopqa qaray jóneldi. Alıstan qara tútin kórindi…
+h_move | Shep jaqtaǵı joystik (yamasa WASD) penen júriń | Shep jaqtaǵı basqarıw dóńgelegi (yamasa WASD) menen júriń
+v3o_2_3 | Qum boranında azat etilgenlerdi qudıqqa shekem qorǵań | Qum boranında azat etilgenlerdi qudıqqa deyin qorǵań
+v3t_bay | Sınaw — ólimge shekem emes | Sınaw — ólimge deyin emes
+v3d_bay | Kúshińdi kórset, Gúlayım. Qılısh penen, biraq ólimge shekem emes. | Kúshińdi kórset, Gúlayım. Qılısh penen, biraq ólimge deyin emes.
+v3d_33 | Hámme kópirden ótkenshe bir adım da sheginbeymiz! | Hámme kópirden ótkenshe bir adım da keyin qaytpaymız!
+d_al2 | Denemde janım bar ekenshe, elimiń topıraǵına qádem basa almaysań, qanxor! | Denemde janım barda, elimiń topıraǵına qádem basa almaysań, qanxor!
+
+=== wave4.js ===
+w4_manj | Manjanıq arba | Tas atqısh arba
+w4_cap | {ch}: kúsheytiw shegi — {c}-dáreje | {ch}: eń joqarı kúsheytiw — {c}-dáreje
+w4_capN | Keyingi shek bul baptıń sońǵı urısında jeńiske erisgende ashıladı | Keyingi dáreje bul baptıń sońǵı urısında jeńiske erisilgende ashıladı
+w4_capped | SHEK | EŃ JOQARÍ
+w4_capUp | Jeńis! Kúsheytiw shegi endi {c}-dáreje | Jeńis! Eń joqarı kúsheytiw endi {c}-dáreje
+f3o_7_1 | Dushpan lagerine shawıp jetiń hám onı talqanlań | Dushpan lagerine atıńızdı jeldirip jetiń hám onı talqanlań
+w4_stag | Esenkiredi! | Eseńkiredi!
+w_qd | Qum sawıtı qılısh soqqısın jutadı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sawıtı jarıladı! | Qum sawıtı qılısh soqqısın jutadı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 mártebe qashıń — sawıtı jarıladı!
+w_ja | Jalladtıń shınjırları ápiwayı soqqını qaytaradı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — ol esenkireydi! | Jálladtıń shınjırları ápiwayı soqqını qaytaradı. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 mártebe qashıń — ol eseńkireydi!
+w_qu | Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń — sonda hújim etiń! | Qunqardıń otlı denesi qılıshtı ótpes etedi. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 mártebe qashıń — sonda hújim etiń!
+w_qg | Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 ret qashıń! | Qarǵashıq altı arshın dáw — ápiwayı soqqı oǵan shıbın shaqqanday. Tumar tolǵanda 🔺 basıń yamasa soqqısınan ➤ penen 3 mártebe qashıń!
+w4_pw_mid | shegarada | ortasha
+w4_ms1 | Gúlayım! Men Sarkoptan shabarmanman… Qıran tawına toqtamay shawıp keldim. Tań sáhárde Surtaysha qırq mıń láshker menen Sarkopqa hújim etti! | Gúlayım! Men Sarkoptan shabarmanman… Qıran tawına toqtamay at jeldirip keldim. Tań sáhárde Surtaysha qırq mıń láshker menen Sarkopqa hújim etti!
+w4_ms2 | Allayar bay altı ulı menen dárwaza aldında turdı. Xalıq qalaǵa kirip alǵansha sheginbedi… | Allayar bay altı ulı menen dárwaza aldında turdı. Xalıq qalaǵa kirip alǵansha keyin qaytpadı…
+w4_sg_cat | Manjanıqlarımız diywaldı urıp atır! Qorǵannan shıqqan dushpandı jeńiń | Tas atqıshlarımız diywaldı urıp atır! Qorǵannan shıqqan dushpandı jeńiń
+w4_sg_gate | Manjanıqlar dárwazanı urıp atır! | Tas atqıshlar dárwazanı urıp atır!
+w4_camp_out | Shatırlardan jańa áskerler shıqtı! | Otawlardan jańa áskerler shıqtı!
+tu4_dodge | Jerdegi qızıl sheńberden qashıń: ➤ túymesin basıń (2 ret) | Jerdegi qızıl sheńberden qashıń: ➤ túymesin basıń (2 mártebe)
+tu4_parry | {n} qılısh kótergende ➤ túymesin basıń — soqqını qaytarıp, óziń soǵasań (2 ret) | {n} qılısh kótergende ➤ túymesin basıń — soqqını qaytarıp, óziń soǵasań (2 mártebe)
+h_helm | Dubılǵaǵa qılısh ótpeydi. Surtaysha qasıńda ⚔ basıń — Shınjır ózi atıladı; úsh ret tiygizip, dubılǵasın julıp alıń | Dubılǵaǵa qılısh ótpeydi. Surtaysha qasıńda ⚔ basıń — Shınjır ózi atıladı; úsh mártebe tiygizip, dubılǵasın julıp alıń
+pw6d | Jerge urıp átiraptaǵılardı esenkiretedi (tumar; tas dárwaza hám totem qasında ⚔) | Jerge urıp átiraptaǵılardı eseńkiretedi (tumar; tas dárwaza hám totem qasında ⚔)
+
+=== meta.js ===
+e_charge | Shaqırq {n}% tezirek toladı | Uran {n}% tezirek toladı
+b_charge | Shaqırq {n}% tezirek toladı | Uran {n}% tezirek toladı
+b_startulti | Sawash {n}% shaqırq penen baslanadı | Sawash {n}% uran menen baslanadı
+q_skills | Sheberliklerdi {n} ret qollanıń | Sheberliklerdi {n} mártebe qollanıń
+
+=== Sózlikten tabılmaǵan / tekseriw kerek sózler ===
+edi / edim — kómekshi feyil «e-» formaları; túsindirme sózlikte bas sóz emes. Grammatikalıq forma bolǵanı ushın qaldırıldı.
+reklama — sózlikte joq (1982–92 jılǵı sózlik); almastırıwshı sóz tabılmadı — adGold, adX2, adRevive, ad_s qatarlarında qaldı. Avtor sheshsin.
+joystik — sózlikte joq → «basqarıw dóńgelegi» menen almastırıldı. Avtor tekserip kórsin.
+ret — sózlikte joq → «mártebe» (sózlikte «bir mártebe» = bir ret).
+shawıw / shabıw — sózlikte bas sóz emes → «atın jeldiriw», «jóneliw» menen almastırıldı.
+Jallad — sózlikte «jállad» → jállad dep dúzetildi (boss atı da usı sóz).
+kúsheytiw shegi (shek, shegara) — sózlikte «shek», «shegara» bas sóz emes → «eń joqarı kúsheytiw», «dáreje», «ortasha».
+QIRQ QIZ (title) — bas háriplerde qaraqalpaqsha «QÍRQ QÍZ» bolıwı kerek; logotip bolǵanı ushın tiyilmedi.
+usı — sózlikte bas sóz emes → «sol» / «bul» menen almastırıldı (6 qatar).
+tekseriw usılı — hár sóz túbiri boyınsha avtomat tekserildi (qosımtalar alınıp); OCR qátesi bar bas sózler (k/q, u/ú) qabıl etildi — bir neshe qáte «bar» belgisi bolıwı múmkin.
+i18n.js adGold: not in dictionary: reklama
+i18n.js adX2: not in dictionary: reklama
+meta.js ad_s: not in dictionary: reklama

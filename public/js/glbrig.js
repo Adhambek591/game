@@ -1,7 +1,7 @@
 // Skinned GLB character driven by the same procedural pose parameters as Rig
 import * as THREE from 'three';
-import { J, BASE, POSE, MAP } from './rig.js?v=1795716693';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795716693';
+import { J, BASE, POSE, MAP } from './rig.js?v=1795718425';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795718425';
 const PI = Math.PI, S = Math.sin, DOWN = new THREE.Vector3(0, -1, 0);
 const ZETA = { by: .75, bRx: 1, bRy: 1, bRz: .55, hipY: .8, spRx: .55, spRy: .5, spRz: .5, hdRx: .42, hdRy: .4, aLx: .5, aLz: .5, eL: .38, aRx: .55, aRz: .55, eR: .4, lL: .9, kL: .9, lR: .9, kR: .9, wRx: .45 };
 const WMUL = { lL: 1.9, kL: 1.9, lR: 1.9, kR: 1.9, by: 1.5, hdRx: .62, hdRy: .62, eL: .7, eR: .75, aLx: .8, aLz: .8, spRx: .85, spRy: .8, spRz: .8, wRx: .85, bRz: .7 };

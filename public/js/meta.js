@@ -2,10 +2,10 @@
 // Systems: hero level/XP · skill upgrade tiers · equipment · maidens roster · daily/weekly quests · achievements · star chests · Camp screen.
 // Public API: window.__META (see bottom). Combat code may read __META.mul('spin.dmg') etc. — every key defaults to 1 (add() to 0).
 // Rules kept on purpose: one currency (the game's coins), no timers/energy, nothing sold for real money, every bonus is small and capped.
-import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795716693';
-import { t, lang } from './i18n.js?v=1795716693';
-import { Sfx } from './audio.js?v=1795716693';
-import { MLIST } from './missions.js?v=1795716693';
+import { G, $, SAVE, saveGame, UPG, hudGold, HERO_SK, ringFx, burst, num, flash, T as TD } from './engine.js?v=1795718425';
+import { t, lang } from './i18n.js?v=1795718425';
+import { Sfx } from './audio.js?v=1795718425';
+import { MLIST } from './missions.js?v=1795718425';
 
 const KEY = 'qq_meta', VER = 2, MAXLV = 30, TEAM = 3;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -53,7 +53,7 @@ const S = {
   e_hit: ['Qo\'shimcha zarba', 'Qosımsha soqqı', 'Дополнительный удар', 'Extra hit'],
   e_wave: ['Oxirida to\'lqin zarbasi', 'Aqırında tolqın soqqısı', 'Ударная волна в конце', 'Shockwave on finish'],
   e_volley: ['Yana 2 to\'lqin o\'q · zanjir ikkinchi dushmanga ham uradi', 'Jáne 2 tolqın oq · shınjır ekinshi dushpanǵa da uradı', 'Ещё 2 залпа · цепь бьёт второго врага', '+2 volleys · chain strikes a second enemy'],
-  e_charge: ['Chaqiriq {n}% tezroq to\'ladi', 'Shaqırq {n}% tezirek toladı', 'Призыв копится на {n}% быстрее', 'Call charges {n}% faster'],
+  e_charge: ['Chaqiriq {n}% tezroq to\'ladi', 'Uran {n}% tezirek toladı', 'Призыв копится на {n}% быстрее', 'Call charges {n}% faster'],
   e_heal: ['Qo\'llaganda jon +{n}%', 'Qollanǵanda jan +{n}%', 'При применении здоровье +{n}%', 'Restores {n}% health on use'],
   // hero skill names that i18n.js does not have
   n_bash: ['Qalqon zarbasi', 'Qalqan soqqısı', 'Удар щитом', 'Shield Bash'],
@@ -85,12 +85,12 @@ const S = {
   b_ranged: ['O\'q va zanjir zarbasi +{n}%', 'Oq hám shınjır soqqısı +{n}%', 'Урон стрел и цепи +{n}%', 'Arrow and chain damage +{n}%'],
   b_gold: ['Oltin +{n}%', 'Altın +{n}%', 'Золото +{n}%', 'Gold +{n}%'],
   b_xp: ['Tajriba +{n}%', 'Tájiriybe +{n}%', 'Опыт +{n}%', 'Experience +{n}%'],
-  b_charge: ['Chaqiriq {n}% tezroq to\'ladi', 'Shaqırq {n}% tezirek toladı', 'Призыв копится на {n}% быстрее', 'Call charges {n}% faster'],
+  b_charge: ['Chaqiriq {n}% tezroq to\'ladi', 'Uran {n}% tezirek toladı', 'Призыв копится на {n}% быстрее', 'Call charges {n}% faster'],
   b_cd: ['Tayyorlanish vaqti −{n}%', 'Tayarlanıw waqtı −{n}%', 'Перезарядка −{n}%', 'Cooldowns −{n}%'],
   b_regen: ['Jon asta tiklanadi', 'Jan áste tiklenedi', 'Здоровье медленно восстанавливается', 'Health slowly regenerates'],
   b_killheal: ['Dushman yengilganda jon +{n}%', 'Dushpan jeńilgende jan +{n}%', 'За побеждённого врага здоровье +{n}%', 'Heal {n}% per defeated enemy'],
   b_boss: ['Boss jangida zarba +{n}%', 'Boss sawashında soqqı +{n}%', 'В бою с боссом удар +{n}%', 'Attack +{n}% in boss fights'],
-  b_startulti: ['Jang {n}% chaqiriq bilan boshlanadi', 'Sawash {n}% shaqırq penen baslanadı', 'Бой начинается с {n}% призыва', 'Start battles with {n}% Call'],
+  b_startulti: ['Jang {n}% chaqiriq bilan boshlanadi', 'Sawash {n}% uran menen baslanadı', 'Бой начинается с {n}% призыва', 'Start battles with {n}% Call'],
   b_laststand: ['Jon oz qolganda zarba +{n}%', 'Jan az qalǵanda soqqı +{n}%', 'При малом здоровье удар +{n}%', 'Attack +{n}% at low health'],
   // unlock sources
   src_start: ['Boshidan bor', 'Basınan bar', 'Есть с начала', 'Yours from the start'],
@@ -113,7 +113,7 @@ const S = {
   q_kills: ['{n} dushmanni yenging', '{n} dushpandı jeńiń', 'Побеждённые враги: {n}', 'Defeat {n} enemies'],
   q_missions: ['{n} topshiriqni bajaring', '{n} tapsırmanı pitkeriń', 'Пройденные задания: {n}', 'Complete {n} missions'],
   q_stars: ['{n} yulduz yig\'ing', '{n} juldız jıynań', 'Собранные звёзды: {n}', 'Earn {n} stars'],
-  q_skills: ['Mahoratlarni {n} marta qo\'llang', 'Sheberliklerdi {n} ret qollanıń', 'Примените умения: {n}', 'Use skills {n} times'],
+  q_skills: ['Mahoratlarni {n} marta qo\'llang', 'Sheberliklerdi {n} mártebe qollanıń', 'Примените умения: {n}', 'Use skills {n} times'],
   q_heavy: ['{n} kuchli dushmanni yenging', '{n} kúshli dushpandı jeńiń', 'Побеждённые сильные враги: {n}', 'Defeat {n} strong enemies'],
   q_gold: ['Jangda {n} oltin yig\'ing', 'Sawashta {n} altın jıynań', 'Золото, собранное в бою: {n}', 'Collect {n} gold in battle'],
   q_s3: ['{n} topshiriqni 3 yulduz bilan bajaring', '{n} tapsırmanı 3 juldız benen pitkeriń', 'Задания на 3 звезды: {n}', 'Finish {n} missions with 3 stars'],
@@ -297,7 +297,7 @@ export function pdMul(kk) {
   return mul('hero.dmg') * k * (B.boss && G.boss && !G.boss.dead ? 1 + B.boss / 100 : 1) * (B.laststand && p.hp < p.maxHp * .35 ? 1 + B.laststand / 100 : 1);
 }
 // if engine.js carries the pdMul hook, the dmgBoost emulation is switched off (self-healing: if the hook disappears, emulation stays on)
-try { fetch(new URL('./engine.js?v=1795716693', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
+try { fetch(new URL('./engine.js?v=1795718425', import.meta.url)).then(r => r.text()).then(x => { if (x.includes('__META.pdMul')) NATIVE.dmg = 1; }).catch(() => { }); } catch (e) { }   // combat code that applies a group itself calls __META.native('dmg' | 'cd' | 'extras' | 'hp') to switch the emulation here off
 
 // ---------------------------------------------------------------- rewards
 let goldSeen = SAVE.gold;
