@@ -5,7 +5,7 @@ module.exports = async (p, shot) => {
   const only = process.env.ONLY ? process.env.ONLY.split(',') : null;
   for (const [k, n, s] of L) {
     if (only && !only.includes(n)) continue;
-    await p.evaluate(`window.__cd=0;__T.cut(${JSON.stringify(k)},'${n}',${JSON.stringify(s||null)}).then(()=>window.__cd=1)`);
+    await p.evaluate(`window.__cd=0;__T.cut(${JSON.stringify(k)},'${n}',${JSON.stringify(s||null)}).then(()=>window.__cd=1);0`);
     await p.waitForTimeout(1600);
     const r = await p.evaluate(`(()=>{const c=document.getElementById('cut'),st=c.querySelector('.still'),bg=st.style.backgroundImage.match(/img\\/(.*?)\\.jpg/);return {on:c.classList.contains('on'),still:bg&&bg[1],txt:document.getElementById('cnar').textContent.slice(0,70),skip:document.getElementById('cskip').textContent,vis:getComputedStyle(document.getElementById('cnar')).display}})()`);
     await shot(n);
@@ -16,7 +16,7 @@ module.exports = async (p, shot) => {
   }
   if (process.env.NOLORE) return;
   for (const k of ['lore0','lore_sur','lore1','lore2','lore3','lore4','lore5','lore6','lore7']) {
-    await p.evaluate(`window.__ld=0;__T.lore('${k}').then(()=>window.__ld=1)`); await p.waitForTimeout(700);
+    await p.evaluate(`window.__ld=0;__T.lore('${k}').then(()=>window.__ld=1);0`); await p.waitForTimeout(700);
     const r = await p.evaluate(`(()=>{const e=document.getElementById('lore');return {on:e.classList.contains('on'),h:e.querySelector('h3').textContent,p:e.querySelector('p').textContent.slice(0,60)}})()`);
     if (k === 'lore0') await shot(k);
     await p.evaluate("document.querySelector('#lore button').click()"); await p.waitForTimeout(300);
