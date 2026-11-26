@@ -691,7 +691,7 @@ try:
         set_body('MHC_surtaysha_k', {'height': 185, 'chest': 128, 'bicep': 45, 'forearm': 36, 'across_shoulder': 50, 'neck': 47, 'neck_base': 52, 'thigh': 60, 'hip': 102, 'high_hip': 98, 'waist': 94, 'underbust': 112, 'fat': -0.2, 'muscularity': 2.2, 'masculine/feminine': -1.8})
         set_body('MHC_gulayim_final', {'height': 171, 'across_shoulder': 34, 'chest': 90, 'underbust': 72, 'waist': 69, 'hip': 91, 'high_hip': 86, 'inseam': 77, 'thigh': 54, 'muscularity': 0.5, 'fat': -0.8, 'bicep': 27, 'forearm': 23, 'neck': 32, 'neck_base': 34.5})
         clear_outfit('MHC_gulayim_final')
-    if 'export_final' in STEPS:
+    def _export_final():
         # final body -> full-body skeletal mesh (A-pose, cm) exported as FBX for the costume refit
         nm = os.environ.get('QQ_DCHAR', 'MHC_surtaysha_k'); geo = f'/Game/QQ/Geo_{nm}'; fn = os.environ['QQ_FINAL_FBX']
         c = unreal.load_asset(f'/Game/QQ/{nm}')
@@ -705,6 +705,7 @@ try:
         tk = unreal.AssetExportTask(); tk.object = fb; tk.filename = fn; tk.automated = True; tk.replace_identical = True; tk.prompt = False
         tk.exporter = unreal.SkeletalMeshExporterFBX(); o = unreal.FbxExportOption(); o.collision = False; o.level_of_detail = False; o.export_morph_targets = False
         o.fbx_export_compatibility = unreal.FbxExportCompatibility.FBX_2020; tk.options = o; log('final fbx', fn, unreal.Exporter.run_asset_export_task(tk), os.path.exists(fn))
+    if 'export_final' in STEPS: _export_final()
     if 'import_direct' in STEPS:
         # skinned body meshes built in Blender from the wraps (MH vertex order + weights) -> skeletal meshes on the MetaHuman body skeleton
         ref = unreal.load_asset('/Game/MetaHumans/MHC_gulayim_final/Body/SKM_MHC_gulayim_final_BodyMesh'); skel = ref.skeleton
@@ -1058,131 +1059,170 @@ try:
         # noauto solve alone loses the flat upper back and the bust). The target is reshaped first: neck base lifted (the real
         # MetaHuman head carries a shorter neck than the HF model, so the head sat low), small thigh gap, uniform scale so the
         # exported full body is 171 cm (second pass corrects the scale from the measured height). Face coefficients restored.
-        nm = os.environ.get('QQ_GX_CHAR', 'MHC_gulayim_final'); k = f'/Game/QQ/{nm}'; bk = k + '_bak'
-        EAL.delete_asset(k); EAL.duplicate_asset(bk, k); EAL.save_asset(k, only_if_is_dirty=False); log('gexact: restored from', bk)
-        src = os.environ.get('QQ_GX_TGT', 'F:/qirq-qiz/tools/blender/guloyim_costume/body/SK_Guloyim_MHwrap51k.fbx')
-        task = unreal.AssetImportTask(); task.filename = src; task.destination_path = '/Game/QQ/Targets'; task.destination_name = 'SK_Target_Direct'
-        task.automated = True; task.replace_existing = True; task.save = True; unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
-        tgt = unreal.load_asset('/Game/QQ/Targets/SK_Target_Direct'); c = unreal.load_asset(k)
-        hs = float(os.environ.get('QQ_GX_SCALE', '1.09')); LIFT = float(os.environ.get('QQ_GX_NECK', '5.5')); GAP = float(os.environ.get('QQ_GX_GAP', '1.5')); WANT = float(os.environ.get('QQ_GX_HEIGHT', '171'))
-        REF = {}; COMP = {'b': {}, 'f': {}}
-        def sstep(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
-        def reshape(vs, VT, hs, tag, no_shape=False):
-            # canonical frame: x lateral (centred), y depth, z up from the soles, cm at the unscaled target size (171.2)
-            P = [(v.x, v.y, v.z) for v in vs]; mn = [min(q[i] for q in P) for i in range(3)]; mx = [max(q[i] for q in P) for i in range(3)]; ex = [mx[i] - mn[i] for i in range(3)]
-            up = ex.index(max(ex)); rest = [i for i in range(3) if i != up]; lat = max(rest, key=lambda i: ex[i]); dep = [i for i in rest if i != lat][0]
-            if tag == 'raw': REF['lat'] = ex[lat]          # the imported target is in cm; other vertex sets are brought to it by the hand-to-hand span
-            u = 1.0 if tag in ('raw', 'result') else REF['lat'] / ex[lat]; lc = (mn[lat] + mx[lat]) / 2          # raw / exported result are in cm
-            C = [((q[lat] - lc) * u, q[dep] * u, (q[up] - mn[up]) * u) for q in P]
-            toes = [q[1] for q in C if q[2] < 3]; pelv = [q[1] for q in C if 85 < q[2] < 95 and abs(q[0]) < 12]
-            fs = 1.0 if sum(toes) / len(toes) > sum(pelv) / len(pelv) else -1.0          # +1: larger depth = forward
-            if no_shape: return [(x, y * fs, z) for x, y, z in C]
-            if COMP['b'] or COMP['f']:
-                # measured pre-compensation of the conform's loss: back / front surface moved in depth per 1 cm of height
-                lo = {}; hi = {}
-                for x, y, z in C:
-                    if 96 <= z < 134 and abs(x) < 13:
-                        kb = int(z - 96); yf = y * fs; lo[kb] = min(lo.get(kb, 1e9), yf); hi[kb] = max(hi.get(kb, -1e9), yf)
-                C2 = []
-                for x, y, z in C:
-                    kb = int(z - 96)
-                    if 96 <= z < 134 and abs(x) < 20 and kb in lo:
-                        yf = y * fs; mid = (lo[kb] + hi[kb]) / 2; half = max(1.0, (hi[kb] - lo[kb]) / 2)
-                        t = sstep(0.5 + (yf - mid) / (1.2 * half)); wl = 1.0 - sstep((abs(x) - 11.0) / 9.0); wzc = sstep((z - 96.0) / 5.0) * (1.0 - sstep((z - 129.0) / 5.0))
-                        yf += (COMP['b'].get(kb, 0.0) * (1 - t) + COMP['f'].get(kb, 0.0) * t) * wl * wzc; y = yf * fs
-                    C2.append((x, y, z))
-                C = C2
-            nk = [q[1] for q in C if 144 < q[2] < 148 and abs(q[0]) < 8]; cyn = sum(nk) / max(1, len(nk))
-            out = []; n_l = n_g = 0
-            for x, y, z in C:
-                if LIFT and z > 134:
-                    wz = sstep((z - 134.0) / 7.5); r = math.hypot(x, y - cyn); wr = 1.0 - sstep((r - 7.5) / 7.5)
-                    w = 1.0 if z >= 145 else (wz * (wr * (1 - (z - 143) / 2) + (z - 143) / 2) if z >= 143 else wz * wr)
-                    z += LIFT * w; n_l += 1 if w > 0.01 else 0
-                if GAP and z < 80 and abs(x) < 24:
-                    w = 1.0 if z < 70 else (80 - z) / 10.0; x += GAP * w * (1 if x > 0 else -1); n_g += 1
-                x, y, z = x * hs, y * hs, z * hs
-                q = [0.0, 0.0, 0.0]; q[lat] = x / u + lc; q[dep] = y / u; q[up] = z / u + mn[up]; out.append(VT(q[0], q[1], q[2]))
-            log('gexact reshape', tag, 'n', len(P), 'axes up/lat/dep', up, lat, dep, 'unit', round(u, 4), 'extent', [round(e, 2) for e in ex], 'neck centre depth', round(cyn, 2), 'lifted', n_l, 'gap verts', n_g, 'scale', round(hs, 4))
-            return out
-        def dump(name, vs):
-            json.dump([[round(v.x, 3), round(v.y, 3), round(v.z, 3)] for v in vs], open(f'{OUT}/gx_{name}.json', 'w')); log('gexact dump', name, len(vs))
-        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
-        try:
-            raw, idx, *_ = mhs.get_mesh_data_for_conforming(tgt); f0 = list(mhs.get_face_model_coefficients(c)); dump('target_raw', raw)
-            def prof(C):
-                back = {}; front = {}
-                for x, y, z in C:
-                    if 96 <= z < 132:
+        def gx_run(X):
+            nm = os.environ.get('QQ_GX_CHAR', 'MHC_gulayim_final'); k = f'/Game/QQ/{nm}'; bk = k + '_bak'
+            EAL.delete_asset(k); EAL.duplicate_asset(bk, k); EAL.save_asset(k, only_if_is_dirty=False); log('gexact: restored from', bk)
+            src = os.environ.get('QQ_GX_TGT', 'F:/qirq-qiz/tools/blender/guloyim_costume/body/SK_Guloyim_MHwrap51k.fbx')
+            task = unreal.AssetImportTask(); task.filename = src; task.destination_path = '/Game/QQ/Targets'; task.destination_name = 'SK_Target_Direct'
+            task.automated = True; task.replace_existing = True; task.save = True; unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+            tgt = unreal.load_asset('/Game/QQ/Targets/SK_Target_Direct'); c = unreal.load_asset(k)
+            hs = float(X.get('scale', os.environ.get('QQ_GX_SCALE', '1.0'))); LIFT = float(X.get('lift', os.environ.get('QQ_GX_NECK', '0'))); GAP = float(X.get('gap', os.environ.get('QQ_GX_GAP', '1.5'))); WANT = float(os.environ.get('QQ_GX_HEIGHT', '171'))
+            REF = {}; COMP = {'b': {}, 'f': {}}
+            def sstep(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
+            def reshape(vs, VT, hs, tag, no_shape=False):
+                # canonical frame: x lateral (centred), y depth, z up from the soles, cm at the unscaled target size (171.2)
+                P = [(v.x, v.y, v.z) for v in vs]; mn = [min(q[i] for q in P) for i in range(3)]; mx = [max(q[i] for q in P) for i in range(3)]; ex = [mx[i] - mn[i] for i in range(3)]
+                up = ex.index(max(ex)); rest = [i for i in range(3) if i != up]; lat = max(rest, key=lambda i: ex[i]); dep = [i for i in rest if i != lat][0]
+                if tag == 'raw': REF['lat'] = ex[lat]          # the imported target is in cm; other vertex sets are brought to it by the hand-to-hand span
+                u = 1.0 if tag in ('raw', 'result') else REF['lat'] / ex[lat]; lc = (mn[lat] + mx[lat]) / 2          # raw / exported result are in cm
+                C = [((q[lat] - lc) * u, q[dep] * u, (q[up] - mn[up]) * u) for q in P]
+                toes = [q[1] for q in C if q[2] < 3]; pelv = [q[1] for q in C if 85 < q[2] < 95 and abs(q[0]) < 12]
+                fs = 1.0 if sum(toes) / len(toes) > sum(pelv) / len(pelv) else -1.0          # +1: larger depth = forward
+                if no_shape: return [(x, y * fs, z) for x, y, z in C]
+                if COMP['b'] or COMP['f']:
+                    # measured pre-compensation of the conform's loss: back / front surface moved in depth per 1 cm of height
+                    lo = {}; hi = {}
+                    for x, y, z in C:
+                        if 96 <= z < 134 and abs(x) < 13:
+                            kb = int(z - 96); yf = y * fs; lo[kb] = min(lo.get(kb, 1e9), yf); hi[kb] = max(hi.get(kb, -1e9), yf)
+                    C2 = []
+                    for x, y, z in C:
                         kb = int(z - 96)
-                        if abs(x) < 5: back[kb] = min(back.get(kb, 1e9), y)
-                        if 3 < abs(x) < 13: front[kb] = max(front.get(kb, -1e9), y)
-                v = [y for x, y, z in C if 86 < z < 94 and abs(x) < 12]; return back, front, (min(v) + max(v)) / 2
-            def smooth(d):
-                return {kb: sum(d[q] for q in range(kb - 2, kb + 3) if q in d) / max(1, sum(1 for q in range(kb - 2, kb + 3) if q in d)) for kb in d}
-            tb, tf, tp = prof(reshape(raw, None, 1.0, 'raw', True))        # intended shape: the wrap itself, forward-positive depth
-            NU = int(os.environ.get('QQ_GX_UNITS', '2')); NP = int(os.environ.get('QQ_GX_PASSES', '3')); NECK = float(os.environ.get('QQ_GX_NECKLEN', '7.0'))
-            key = unreal.MetaHumanCharacterTargetMeshKey(); key.body_mesh = tgt
-            def restore_face(tag):
-                f1 = list(mhs.get_face_model_coefficients(c)); d = max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 0
-                if d > 1e-6: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c)
-                f2 = list(mhs.get_face_model_coefficients(c)); log('gexact face', tag, 'diff before restore', round(d, 4), 'after', max(abs(a - b) for a, b in zip(f0, f2)))
-            def conform_once(hs):
-                rv = reshape(raw, type(raw[0]), hs, 'raw'); arr = unreal.Array(type(raw[0])); [arr.append(o) for o in rv]
-                p = unreal.ConformTargetParams(); p.conform_target_mesh.target_parts_type = unreal.TargetPartsType.BODY_ONLY
-                p.conform_target_mesh.body_vertices = arr; p.conform_target_mesh.body_vertex_indices = idx
-                p.estimate_body_joints_from_mesh = True; p.auto_solve = False
-                try: p.body_conform_solve_settings.pipeline_name = 'body_only'
-                except Exception: pass
-                ok = mhs.conform_to_target_meshes(c, key, p)
-                if ok:
-                    try: mhs.commit_posed_state_as_a_pose(c, key)
-                    except Exception as e: log('commit pose skipped', e)
-                restore_face('conform'); return ok, rv
-            def measure(tag, hs, save=None):
-                geo = f'/Game/QQ/Geo_{nm}'; g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
-                unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(c, g)
-                fb = unreal.load_asset(f'{geo}/{nm}_FullBody'); rr, _i, *_ = mhs.get_mesh_data_for_conforming(fb)
-                RC = reshape(rr, None, 1.0, 'result', True); xs = [q[0] for q in RC]; Hm = max(q[2] for q in RC)
-                rb, rf, rp = prof([(x / hs, y / hs, z / hs) for x, y, z in RC])
-                db = {kb: (rb[kb] - rp) - (tb[kb] - tp) for kb in tb if kb in rb}; df = {kb: (rf[kb] - rp) - (tf[kb] - tp) for kb in tf if kb in rf}
-                # posture (lean of the trunk in MetaHuman's A-pose) removed: what is left is the shape difference of each surface
-                hb = {kb: db[kb] - (db[kb] + df[kb]) / 2 for kb in db if kb in df}
-                try:
-                    nl = {str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}; nl = {q: nl.get(q) for q in ('Height', 'Shoulder Height', 'Neck Length', 'Hip', 'Waist', 'Chest', 'Underbust', 'Thigh', 'Inseam', 'Across Shoulder')}
-                except Exception as e: nl = str(e)
-                log('gexact', tag, 'scale', round(hs, 4), 'HEIGHT', round(Hm, 2), 'span', round(max(xs) - min(xs), 1), 'lean at chest (cm, - = back)', round(sum((db[q] + df[q]) / 2 for q in hb if 18 <= q <= 30) / max(1, sum(1 for q in hb if 18 <= q <= 30)), 2),
-                    'thickness diff max (cm)', round(max(abs(2 * v) for v in hb.values()), 2), nl)
-                log('gexact thickness diff by z (result-target, cm)', ' '.join('%d:%.1f' % (96 + q, -2 * hb[q]) for q in sorted(hb) if q % 3 == 0))
-                if save: dump(save, rr)
-                return Hm, rb, rf, rp
-            rv = None
-            for un in range(NU):
-                for ps in range(NP):
-                    ok, rv = conform_once(hs); log('gexact unit', un, 'conform pass', ps, ok)
-                Ha, ab, af, ap = measure(f'unit {un} after conform', hs)
-                Hm = Ha
-                if NECK > 0:
+                        if 96 <= z < 134 and abs(x) < 20 and kb in lo:
+                            yf = y * fs; mid = (lo[kb] + hi[kb]) / 2; half = max(1.0, (hi[kb] - lo[kb]) / 2)
+                            t = sstep(0.5 + (yf - mid) / (1.2 * half)); wl = 1.0 - sstep((abs(x) - 11.0) / 9.0); wzc = sstep((z - 96.0) / 5.0) * (1.0 - sstep((z - 129.0) / 5.0))
+                            yf += (COMP['b'].get(kb, 0.0) * (1 - t) + COMP['f'].get(kb, 0.0) * t) * wl * wzc; y = yf * fs
+                        C2.append((x, y, z))
+                    C = C2
+                nk = [q[1] for q in C if 144 < q[2] < 148 and abs(q[0]) < 8]; cyn = sum(nk) / max(1, len(nk))
+                out = []; n_l = n_g = 0
+                for x, y, z in C:
+                    if LIFT and z > 134:
+                        wz = sstep((z - 134.0) / 7.5); r = math.hypot(x, y - cyn); wr = 1.0 - sstep((r - 7.5) / 7.5)
+                        w = 1.0 if z >= 145 else (wz * (wr * (1 - (z - 143) / 2) + (z - 143) / 2) if z >= 143 else wz * wr)
+                        z += LIFT * w; n_l += 1 if w > 0.01 else 0
+                    if GAP and z < 80 and abs(x) < 24:
+                        w = 1.0 if z < 70 else (80 - z) / 10.0; x += GAP * w * (1 if x > 0 else -1); n_g += 1
+                    x, y, z = x * hs, y * hs, z * hs
+                    q = [0.0, 0.0, 0.0]; q[lat] = x / u + lc; q[dep] = y / u; q[up] = z / u + mn[up]; out.append(VT(q[0], q[1], q[2]))
+                log('gexact reshape', tag, 'n', len(P), 'axes up/lat/dep', up, lat, dep, 'unit', round(u, 4), 'extent', [round(e, 2) for e in ex], 'neck centre depth', round(cyn, 2), 'lifted', n_l, 'gap verts', n_g, 'scale', round(hs, 4))
+                return out
+            def dump(name, vs):
+                json.dump([[round(v.x, 3), round(v.y, 3), round(v.z, 3)] for v in vs], open(f'{OUT}/gx_{name}.json', 'w')); log('gexact dump', name, len(vs))
+            if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit')
+            try:
+                raw, idx, *_ = mhs.get_mesh_data_for_conforming(tgt); f0 = list(mhs.get_face_model_coefficients(c)); dump('target_raw', raw)
+                def prof(C):
+                    back = {}; front = {}
+                    for x, y, z in C:
+                        if 96 <= z < 132:
+                            kb = int(z - 96)
+                            if abs(x) < 5: back[kb] = min(back.get(kb, 1e9), y)
+                            if 3 < abs(x) < 13: front[kb] = max(front.get(kb, -1e9), y)
+                    v = [y for x, y, z in C if 86 < z < 94 and abs(x) < 12]; return back, front, (min(v) + max(v)) / 2
+                def smooth(d):
+                    return {kb: sum(d[q] for q in range(kb - 2, kb + 3) if q in d) / max(1, sum(1 for q in range(kb - 2, kb + 3) if q in d)) for kb in d}
+                tb, tf, tp = prof(reshape(raw, None, 1.0, 'raw', True))        # intended shape: the wrap itself, forward-positive depth
+                NU = int(X.get('units', os.environ.get('QQ_GX_UNITS', '1'))); NP = int(X.get('passes', os.environ.get('QQ_GX_PASSES', '3'))); NECK = float(X.get('necklen', os.environ.get('QQ_GX_NECKLEN', '0'))); TAG = X.get('name', 'final'); KPT = {}; ONCE = {}
+                # COMBINED: the wrap's head region is a target too, so the head/neck are placed where the HF model has them
+                # (BODY_ONLY leaves them to the body model's prior: short neck, head sunk, 153 cm for a 171 cm target)
+                PARTS = X.get('parts', os.environ.get('QQ_GX_PARTS', 'BODY_ONLY')); key = unreal.MetaHumanCharacterTargetMeshKey()
+                if PARTS == 'COMBINED': key.combined_mesh = tgt
+                else: key.body_mesh = tgt
+                log('gexact parts', PARTS, [x for x in dir(unreal.TargetPartsType) if x.isupper()], 'solve settings', [x for x in dir(unreal.BodyConformSolveSettings()) if not x.startswith('_')][:40])
+                def restore_face(tag):
+                    f1 = list(mhs.get_face_model_coefficients(c)); d = max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 0
+                    if d > 1e-6: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c)
+                    f2 = list(mhs.get_face_model_coefficients(c)); log('gexact face', tag, 'diff before restore', round(d, 4), 'after', max(abs(a - b) for a, b in zip(f0, f2)))
+                def conform_once(hs):
+                    rv = reshape(raw, type(raw[0]), hs, 'raw'); arr = unreal.Array(type(raw[0])); [arr.append(o) for o in rv]
+                    p = unreal.ConformTargetParams(); p.conform_target_mesh.target_parts_type = getattr(unreal.TargetPartsType, PARTS)
+                    p.conform_target_mesh.body_vertices = arr; p.conform_target_mesh.body_vertex_indices = idx
+                    p.estimate_body_joints_from_mesh = True; p.auto_solve = False
+                    if PARTS == 'BODY_ONLY':
+                        try: p.body_conform_solve_settings.pipeline_name = 'body_only'
+                        except Exception: pass
+                    s_ = p.body_conform_solve_settings
+                    if 'defaults' not in ONCE:
+                        ONCE['defaults'] = 1
+                        try: log('gexact solve settings', PARTS, {q: str(v_) for q, v_ in s_.to_dict().items()})
+                        except Exception as e: log('settings dump n/a', e)
+                    for q, v_ in X.get('settings', {}).items():
+                        try:
+                            cur = getattr(s_, q)
+                            if isinstance(cur, bool): setattr(s_, q, bool(v_))
+                            elif isinstance(cur, int): setattr(s_, q, int(v_))
+                            elif isinstance(cur, float): setattr(s_, q, float(v_))
+                            elif isinstance(cur, str) or 'Name' in type(cur).__name__: setattr(s_, q, v_)
+                            else:
+                                w_ = type(cur)(); w_.start = float(v_); w_.end = float(v_); setattr(s_, q, w_)
+                        except Exception as e: log('setting FAIL', q, v_, e)
+                    p.body_conform_solve_settings = s_
+                    if X.get('kp'):
+                        try:
+                            if not KPT:
+                                kp = mhs.get_preset_body_key_points(c); log('gexact preset body key points', {str(q): int(v_) for q, v_ in kp.items()})
+                                r_ = (getattr(mhs, 'get_mesh_for_body_conforming_from_template', None) or mhs.get_mesh_for_body_conforming)(c, tgt, None, True)
+                                vt = list(r_[-1] if isinstance(r_, tuple) else r_); KPT['vt'] = vt; KPT['kp'] = {str(q): int(v_) for q, v_ in kp.items()}
+                            v2 = reshape(KPT['vt'], unreal.Vector3f, hs, 'template'); kt = {i_: v2[i_] for n_, i_ in KPT['kp'].items() if 0 <= i_ < len(v2)}
+                            p.key_point_targets = kt; log('gexact key point targets', len(kt), 'of', len(KPT['kp']), 'template verts', len(v2))
+                        except Exception as e: log('gexact key points FAIL', e, traceback.format_exc())
+                    ok = mhs.conform_to_target_meshes(c, key, p)
+                    if ok:
+                        try: mhs.commit_posed_state_as_a_pose(c, key)
+                        except Exception as e: log('commit pose skipped', e)
+                    if X.get('restore_each', True): restore_face('conform')
+                    return ok, rv
+                def measure(tag, hs, save=None):
+                    geo = f'/Game/QQ/Geo_{nm}'; g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
+                    unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(c, g)
+                    fb = unreal.load_asset(f'{geo}/{nm}_FullBody'); rr, _i, *_ = mhs.get_mesh_data_for_conforming(fb)
+                    RC = reshape(rr, None, 1.0, 'result', True); xs = [q[0] for q in RC]; Hm = max(q[2] for q in RC)
+                    rb, rf, rp = prof([(x / hs, y / hs, z / hs) for x, y, z in RC])
+                    db = {kb: (rb[kb] - rp) - (tb[kb] - tp) for kb in tb if kb in rb}; df = {kb: (rf[kb] - rp) - (tf[kb] - tp) for kb in tf if kb in rf}
+                    # posture (lean of the trunk in MetaHuman's A-pose) removed: what is left is the shape difference of each surface
+                    hb = {kb: db[kb] - (db[kb] + df[kb]) / 2 for kb in db if kb in df}
                     try:
-                        cons = list(mhs.get_body_constraints(c))
-                        for x in cons:
-                            if str(x.name) == 'Neck Length': x.is_active = True; x.target_measurement = max(x.min_measurement, min(x.max_measurement, NECK * hs))
-                        mhs.set_body_constraints(c, cons); mhs.commit_body_state(c); restore_face('neck')
-                        Hb, bb, bf, bp = measure(f'unit {un} after neck length {NECK}', hs)
-                        ch = max([abs((bb[q] - bp) - (ab[q] - ap)) for q in ab if q in bb] + [abs((bf[q] - bp) - (af[q] - ap)) for q in af if q in bf])
-                        log('gexact neck constraint: height', round(Ha, 2), '->', round(Hb, 2), 'trunk profile change max (cm)', round(ch, 2))
-                        if ch > float(os.environ.get('QQ_GX_NECK_TOL', '1.5')) or Hb < Ha + 1.0:
-                            log('gexact neck constraint REJECTED (it re-solved the body or did not lengthen the neck): re-conforming'); NECK = 0.0
-                            for ps in range(NP): conform_once(hs)
-                            Hm, *_ = measure(f'unit {un} restored', hs)
-                        else: Hm = Hb
-                    except Exception as e: log('gexact neck constraint FAIL', e, traceback.format_exc())
-                if un == NU - 1 or abs(Hm - WANT) < 0.5: break
-                hs = hs * WANT / Hm
-            measure('FINAL', hs, 'result_final')
-            dump('target_final', rv); json.dump({'scale': hs, 'gap': GAP, 'neck': NECK}, open(f'{OUT}/gx_params.json', 'w'))
-        finally: mhs.remove_object_to_edit(c)
-        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('gexact saved', k)
+                        nl = {str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}; nl = {q: nl.get(q) for q in ('Height', 'Shoulder Height', 'Neck Length', 'Hip', 'Waist', 'Chest', 'Underbust', 'Thigh', 'Inseam', 'Across Shoulder')}
+                    except Exception as e: nl = str(e)
+                    log('gexact', tag, 'scale', round(hs, 4), 'HEIGHT', round(Hm, 2), 'span', round(max(xs) - min(xs), 1), 'lean at chest (cm, - = back)', round(sum((db[q] + df[q]) / 2 for q in hb if 18 <= q <= 30) / max(1, sum(1 for q in hb if 18 <= q <= 30)), 2),
+                        'thickness diff max (cm)', round(max(abs(2 * v) for v in hb.values()), 2), nl)
+                    log('gexact thickness diff by z (result-target, cm)', ' '.join('%d:%.1f' % (96 + q, -2 * hb[q]) for q in sorted(hb) if q % 3 == 0))
+                    if save: dump(save, rr)
+                    return Hm, rb, rf, rp
+                rv = None
+                for un in range(NU):
+                    for ps in range(NP):
+                        ok, rv = conform_once(hs); log('gexact unit', un, 'conform pass', ps, ok)
+                    Ha, ab, af, ap = measure(f'unit {un} after conform', hs)
+                    Hm = Ha
+                    if NECK > 0:
+                        try:
+                            cons = list(mhs.get_body_constraints(c))
+                            for x in cons:
+                                if str(x.name) == 'Neck Length': x.is_active = True; x.target_measurement = max(x.min_measurement, min(x.max_measurement, NECK * hs))
+                            mhs.set_body_constraints(c, cons); mhs.commit_body_state(c); restore_face('neck')
+                            Hb, bb, bf, bp = measure(f'unit {un} after neck length {NECK}', hs)
+                            ch = max([abs((bb[q] - bp) - (ab[q] - ap)) for q in ab if q in bb] + [abs((bf[q] - bp) - (af[q] - ap)) for q in af if q in bf])
+                            log('gexact neck constraint: height', round(Ha, 2), '->', round(Hb, 2), 'trunk profile change max (cm)', round(ch, 2))
+                            if ch > float(os.environ.get('QQ_GX_NECK_TOL', '1.5')) or Hb < Ha + 1.0:
+                                log('gexact neck constraint REJECTED (it re-solved the body or did not lengthen the neck): re-conforming'); NECK = 0.0
+                                for ps in range(NP): conform_once(hs)
+                                Hm, *_ = measure(f'unit {un} restored', hs)
+                            else: Hm = Hb
+                        except Exception as e: log('gexact neck constraint FAIL', e, traceback.format_exc())
+                    if un == NU - 1 or abs(Hm - WANT) < 0.5: break
+                    hs = hs * WANT / Hm
+                if not X.get('restore_each', True):
+                    measure('before face restore', hs, 'result_' + TAG + '_pre'); restore_face('end')
+                measure('FINAL ' + TAG, hs, 'result_' + TAG)
+                dump('target_final', rv); json.dump({'scale': hs, 'gap': GAP, 'neck': NECK}, open(f'{OUT}/gx_params.json', 'w'))
+            finally: mhs.remove_object_to_edit(c)
+            EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('gexact saved', k)
+        for X in (json.load(open(os.environ['QQ_GX_EXPS'])) if os.environ.get('QQ_GX_EXPS') else [{}]):
+            log('==== gexact experiment', X)
+            try: gx_run(X)
+            except Exception as e: log('gexact exp FAIL', X, e, traceback.format_exc())
     if 'pure' in STEPS:
         # PURE MetaHuman (author, 26 Nov): no body swap, no head scale. Each character keeps its own parametric body, so neck,
         # grooms, underwear and rig are native. Guloyim = approved parametric body; Surtaysha (MHC_surtaysha_f, run 'snew' first
@@ -1227,6 +1267,22 @@ try:
                     import time as _t; t0 = _t.time(); r = mhs.request_texture_sources(c, t); log('texture sources', nm, r, round(_t.time() - t0, 1), 's hi-res', c.has_high_resolution_textures)
                 finally: mhs.remove_object_to_edit(c)
             EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+    if 'shead' in STEPS:
+        # MetaHuman's own Head Scale (Creator slider, 0.8..1.3, stored in face_evaluation_settings): not a bone scale, the
+        # face mesh and the grooms are produced at that size. QQ_HEAD_CHAR, QQ_HEAD_NATIVE.
+        nm_ = os.environ.get('QQ_HEAD_CHAR', 'MHC_surtaysha_k'); c = unreal.load_asset(f'/Game/QQ/{nm_}'); hv = float(os.environ.get('QQ_HEAD_NATIVE', '1.06'))
+        fes = c.face_evaluation_settings; log('shead before', nm_, fes)
+        fes.head_scale = hv; c.set_editor_property('face_evaluation_settings', fes)
+        if mhs.try_add_object_to_edit(c):
+            try:
+                for fn_ in ('commit_face_evaluation_settings', 'apply_face_evaluation_settings'):
+                    if hasattr(mhs, fn_):
+                        try: getattr(mhs, fn_)(c, fes); log('shead', fn_, 'ok')
+                        except Exception as e: log('shead', fn_, e)
+                f0_ = list(mhs.get_face_model_coefficients(c)); mhs.set_face_model_coefficients(c, f0_); mhs.commit_face_state(c)      # re-evaluate the face with the new setting
+            finally: mhs.remove_object_to_edit(c)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('shead saved', nm_, unreal.load_asset(f'/Game/QQ/{nm_}').face_evaluation_settings)
+    if 'export_after' in STEPS: _export_final()      # same export, but after the conform / native steps of this session
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)
         step_multishots(json.load(open(os.environ['QQ_TURN_FILE'])), os.environ.get('QQ_LIGHT', 'daylight'))

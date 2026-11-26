@@ -1,0 +1,3 @@
+[{"name": "kp", "parts": "BODY_ONLY", "passes": 2, "kp": true},
+ {"name": "comb_1", "parts": "COMBINED", "passes": 1, "restore_each": false},
+ {"name": "comb_3", "parts": "COMBINED", "passes": 3, "restore_each": false}]
