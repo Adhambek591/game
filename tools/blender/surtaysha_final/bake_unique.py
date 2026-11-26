@@ -32,7 +32,7 @@ def kind_of(name):
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
         'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
         'SUR_Trousers_L': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
-        'SUR_Trousers': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
+        'SUR_Trousers': ('cloth', dict(tint=(0.055, 0.048, 0.043), dust=0.9), bc.d_cloth, 1),      # dark brown-grey wool (reference), not black
         'SUR_Sleeve_L': ('cloth', dict(tint=(0.055, 0.038, 0.028), dust=0.4), bc.d_cloth, 1),
         'SUR_Cape': ('cloth', dict(tint=(0.028, 0.020, 0.017), dust=0.3, weave=1000.0), bc.d_cloth, 1),
         'SUR_Sabre_Blade': ('iron', dict(tint=(0.50, 0.51, 0.53), rust=0.15, rough=0.24, patina=0.15), bc.d_gold, 2),

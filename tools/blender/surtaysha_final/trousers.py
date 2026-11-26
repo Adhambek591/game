@@ -25,6 +25,11 @@ def build_trousers():
     def leg_at(z):
         k = min(zk, key=lambda q: abs(q - z)); return LEG[k]
 
+    # loose straight leg: from the widest part of the thigh the cloth hangs down to the boot top (no "knee waist"),
+    # bunches over the boot top and is tucked into the shaft
+    z_wide = max((q for q in zk if q > BOOT_TOP + 0.25), key=lambda q: LEG[q][1]); R_WX = LEG[z_wide][1] + 0.030; R_WY = LEG[z_wide][3] + 0.030
+    R_TOP = 0.116
+    print('TROUSERS widest thigh z %.3f rx %.3f ry %.3f' % (z_wide, R_WX, R_WY))
     def leg_ring(z, side):
         zz = min(z, crotch - 0.004)
         cx, hx, cy, hy = leg_at(zz)
@@ -35,9 +40,9 @@ def build_trousers():
         rx, ry = (hx + ease) * shr, (hy + ease) * shr
         if z < BOOT_TOP - 0.004:                          # tucked into the boot
             rx, ry = min(rx, hx + 0.004), min(ry, hy + 0.004)
-        elif z < BOOT_TOP + 0.12:                         # balloons over the boot top, then falls back to the leg
-            b = 0.121 - 0.034 * smoothstep(BOOT_TOP + 0.035, BOOT_TOP + 0.12, z)
-            rx, ry = max(rx, b), max(ry, b * 1.04)
+        elif z < z_wide:
+            t = (z - BOOT_TOP) / (z_wide - BOOT_TOP)
+            rx, ry = max(rx, R_TOP + (R_WX - R_TOP) * t), max(ry, R_TOP * 1.04 + (R_WY - R_TOP * 1.04) * t)
         ring = []
         for i in range(NA):
             a = 2 * math.pi * i / NA
@@ -88,12 +93,22 @@ def build_trousers():
     m = ob.modifiers.new('rm', 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = 0.0075; m.use_smooth_shade = True
     m = ob.modifiers.new('sm', 'SMOOTH'); m.factor = 0.6; m.iterations = 30
     bake_mods()
+    # folds: long hanging folds down the leg, bunched rings over the boot top
+    for v in ob.data.vertices:
+        p = v.co
+        if p.z >= crotch - 0.02 or p.z < BOOT_TOP - 0.01: continue
+        cx, hx, cy, hy = leg_at(p.z); sd = 1 if p.x > 0 else -1
+        d = Vector((p.x - sd * cx, p.y - cy, 0)); a = math.atan2(d.y, d.x * sd)
+        if d.length < 1e-4: continue
+        f = 0.0045 * math.sin(9 * a + 1.3 * math.sin(p.z * 14.0)) * smoothstep(BOOT_TOP + 0.03, BOOT_TOP + 0.12, p.z) * (1 - smoothstep(crotch - 0.14, crotch - 0.03, p.z))
+        f += 0.0055 * math.sin((p.z - BOOT_TOP) / 0.052 * 2 * math.pi + 2.0 * math.sin(3 * a)) * (1 - smoothstep(BOOT_TOP + 0.04, BOOT_TOP + 0.17, p.z)) * smoothstep(BOOT_TOP - 0.005, BOOT_TOP + 0.02, p.z)
+        v.co = p + d.normalized() * f
     # cut open: waist and cuffs
     bm = bmesh.new(); bm.from_mesh(ob.data)
     for co, no, outer in ((Vector((0, 0, z_waist)), Vector((0, 0, 1)), True), (Vector((0, 0, z_cuff)), Vector((0, 0, 1)), False)):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=outer, clear_inner=not outer)
     bm.to_mesh(ob.data); bm.free()
-    m = ob.modifiers.new('dc', 'DECIMATE'); m.ratio = min(1.0, 11000.0 / max(1, sum(len(p.vertices) - 2 for p in ob.data.polygons)))
+    m = ob.modifiers.new('dc', 'DECIMATE'); m.ratio = min(1.0, 16000.0 / max(1, sum(len(p.vertices) - 2 for p in ob.data.polygons)))
     bake_mods()
     bm = bmesh.new(); bm.from_mesh(ob.data)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)

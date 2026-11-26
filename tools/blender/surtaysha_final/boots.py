@@ -10,9 +10,15 @@ import numpy as _np
 import boot_hull; _il.reload(boot_hull)
 
 BOOT_TOP = 0.450
-HULL = boot_hull.Hull()
+# the boot points where this body's foot points (heel centre -> toe centre), not at a fixed toe-out
+_ft = [p for p in FIT.V if p.x > 0.02 and p.z < 0.10]
+_fy0, _fy1 = min(p.y for p in _ft), max(p.y for p in _ft)
+_hl = [p for p in _ft if p.y > _fy1 - 0.04]; _te = [p for p in _ft if p.y < _fy0 + 0.05]
+FOOT_THETA = math.atan2(sum(p.x for p in _te) / len(_te) - sum(p.x for p in _hl) / len(_hl), -(sum(p.y for p in _te) / len(_te) - sum(p.y for p in _hl) / len(_hl)))
+print('FOOT toe-out %.1f deg, foot y %.3f..%.3f' % (math.degrees(FOOT_THETA), _fy0, _fy1))
+HULL = boot_hull.Hull(theta=FOOT_THETA)
 _lg = [FIT.leg_at(0.26 + 0.02 * k) for k in range(8)]
-BOOT_O = (sum(c[0] for c in _lg) / len(_lg), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg))   # shaft axis = leg centre at mid shaft
+BOOT_O = (sum(c[0] for c in _lg) / len(_lg), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg) - 0.008)   # 8 mm forward: toe room for this body's long foot;   # shaft axis = leg centre at mid shaft
 print('BOOT origin', BOOT_O, 'toe-out %.1f deg' % math.degrees(HULL.theta))
 
 def BW(p):
