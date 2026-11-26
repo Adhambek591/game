@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out'); SK = os.path.join(OUT, 'skinned'); os.makedirs(SK, exist_ok=True)
 SRC = os.path.join(HERE, 'body', 'SK_Guloyim_BodyOnly.fbx')
 GROUPS = {'Torso': 'SK_Guloyim_Torso', 'Arms': 'SK_Guloyim_Arms', 'Legs': 'SK_Guloyim_Legs',
-          'Cloth': 'SK_Guloyim_Cloth', 'Head': 'SK_Guloyim_Headband'}
+          'Cloth': 'SK_Guloyim_Cloth', 'Scarf': 'SK_Guloyim_Scarf', 'Head': 'SK_Guloyim_Headband'}
 
 for o in list(bpy.data.objects):
     if o.name == 'GUL_Body': bpy.data.objects.remove(o)
@@ -109,8 +109,10 @@ for o in parts:
         apply_mods(o)
         names, W = weights_matrix(o)
         isl, adj = islands(o.data)
-        # smoothing over the mesh (4 passes)
-        for _ in range(4):
+        # tight cloth layers (tunic, sleeves, trousers, collar) keep the body's own weights (no smoothing, 8 influences)
+        # so they deform exactly like the skin underneath and the body never pokes through; looser / rigid parts are smoothed
+        tight = any(k in o.name for k in ('Tunic_Torso', 'Sleeve', 'Trousers', 'Collar'))
+        for _ in range(0 if tight else 4):
             W2 = W.copy()
             for i, nb in enumerate(adj):
                 if nb: W2[i] = 0.5 * W[i] + 0.5 * W[nb].mean(0)
@@ -121,7 +123,7 @@ for o in parts:
         for comp in isl:
             if (rigid_name and len(comp) <= 400) or len(comp) <= 60:
                 W[comp] = W[comp].mean(0); nr += 1
-        write_weights(o, names, W)
+        write_weights(o, names, W, limit=8 if tight else 4)
         report[o.name] = {'rigid_islands': nr}
     o.parent = arm
     o.matrix_parent_inverse = arm.matrix_world.inverted()
@@ -162,12 +164,16 @@ for o in parts:
 print('PENETRATION % (test pose, >4 mm inside the body):', {k: v for k, v in sorted(pen.items(), key=lambda kv: -kv[1]) if v > 0.5})
 # quick workbench sheet of the test pose
 sc = bpy.context.scene
-sc.render.engine = 'BLENDER_WORKBENCH'; sc.display.shading.light = 'STUDIO'; sc.display.shading.color_type = 'MATERIAL'
+sc.render.engine = 'BLENDER_WORKBENCH'; sc.display.shading.light = 'STUDIO'; sc.display.shading.color_type = 'OBJECT'
+for o in bpy.data.objects:
+    if o.type != 'MESH': continue
+    m = o.data.materials[0].name if o.data.materials else ''
+    o.color = (1.0, 0.05, 0.05, 1) if o == body else ((0.06, 0.10, 0.45, 1) if m == 'M_Cloth' else (0.45, 0.45, 0.47, 1))   # bare skin shows red
 sc.display.shading.show_cavity = True
 sc.render.resolution_x, sc.render.resolution_y = 900, 1200
 cam = bpy.data.cameras.new('tp'); co = bpy.data.objects.new('tp', cam); sc.collection.objects.link(co); sc.camera = co
 cam.type = 'ORTHO'; cam.ortho_scale = 2.0
-for nm, loc, r in (('front', (0, -5, 0.9), (math.pi / 2, 0, 0)), ('q34', (-3.5, -3.5, 0.9), (math.pi / 2, 0, -math.pi / 4)), ('side', (5, 0, 0.9), (math.pi / 2, 0, math.pi / 2))):
+for nm, loc, r in (('front', (0, -5, 0.9), (math.pi / 2, 0, 0)), ('q34', (-3.5, -3.5, 0.9), (math.pi / 2, 0, -math.pi / 4)), ('side', (5, 0, 0.9), (math.pi / 2, 0, math.pi / 2)), ('back', (0, 5, 0.9), (math.pi / 2, 0, math.pi)), ('backq', (3.5, 3.5, 1.1), (math.pi / 2, 0, 3 * math.pi / 4))):
     co.location, co.rotation_euler = loc, r
     sc.render.filepath = os.path.join(SK, 'testpose_' + nm + '.png'); bpy.ops.render.render(write_still=True)
 # back to rest for export

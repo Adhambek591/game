@@ -7,8 +7,7 @@ X = Vector((1, 0, 0))
 
 def hair_mer(theta):
     """hair (+ scarf) offset above the skin along the sagittal line; theta = elevation from the front (deg)"""
-    if theta < 22: return 0.0035
-    if theta < 34: return 0.0035 + (0.009 - 0.0035) * (theta - 22) / 12
+    if theta < 34: return 0.0085 + 0.0005 * (theta - 22) / 12          # scarf edge rides just over the coin band top
     if theta < 95: return 0.009 + 0.004 * (theta - 34) / 61
     return 0.011 + 0.006 * smoothstep(95, 160, theta)
 
@@ -95,6 +94,14 @@ def section(s, side_hair=0.022, base=None, phi_max=PHI_H, hang=True, ulen=0.40):
         return pts[-1]
     return at
 
+def head_outer(p, clear):
+    """push p radially (from the cranium centre) outside the OUTER head surface (inner shells ignored)"""
+    d = p - HC
+    if d.length < 1e-6 or p.z < HC.z - 0.09: return p
+    r = FIT.ray_dist_outer(('head',), HC, d, 0.3)
+    if r is None or d.length >= r + clear: return p
+    return HC + d.normalized() * (r + clear)
+
 def build_scarf():
     mb = MB()
     s_end = max(MER_S)
@@ -105,31 +112,34 @@ def build_scarf():
     S_C = 0.075
     U, NU, NR = 0.24, 20, 20
     hem = lambda u: S_TOT - (S_TOT - S_C) * (abs(u) / U) ** 0.85
-    SG = [S_TOT * k / 120 for k in range(121)]
+    S0 = -0.0135                      # front edge brought forward/down: just behind the coin band, covers the hairline
+    SG = [S0 + (S_TOT - S0) * k / 120 for k in range(121)]
+    sj = lambda u, j: S0 + (hem(u) - S0) * j / NR
     SEC = [section(s) for s in SG]
     def P(u, s):
-        f = min(max(s / S_TOT * 120, 0.0), 119.999); k = int(f); t = f - k
+        f = min(max((s - S0) / (S_TOT - S0) * 120, 0.0), 119.999); k = int(f); t = f - k
         return SEC[k](u).lerp(SEC[k + 1](u), t)
     G = []; UV = []
     for j in range(NR + 1):
         row = []
         for i in range(NU + 1):
             u = -U + 2 * U * i / NU
-            row.append(P(u, hem(u) * j / NR))
+            row.append(P(u, sj(u, j)))
         G.append(row)
     gfit.smooth_grid(G, 2, fix_rows=(0, NR), fac=0.35)
     for j in range(NR + 1):
-        G[j] = [FIT.conform(FIT.conform(p, ('torso', 'armL', 'armR'), 0.020 + 0.018 * smoothstep(1.47, 1.42, p.z)), ('head', 'neck'), 0.007) for p in G[j]]
+        G[j] = [FIT.conform(FIT.conform(p, ('torso', 'armL', 'armR'), 0.020 + 0.018 * smoothstep(1.47, 1.42, p.z), maxd=0.06), ('neck',), 0.007, maxd=0.03) for p in G[j]]
+        G[j] = [head_outer(p, 0.007) for p in G[j]]
     gfit.smooth_grid(G, 1, fix_rows=(0, NR), fac=0.25)
     # flat-fabric drape: the part on the head is pinned, the back point and the side panels hang over hair + armour
     A_H = 0.15
     idx = lambda j, i: j * (NU + 1) + i
-    flat = lambda j, i: Vector((-U + 2 * U * i / NU, hem(-U + 2 * U * i / NU) * j / NR, 0))
+    flat = lambda j, i: Vector((-U + 2 * U * i / NU, sj(-U + 2 * U * i / NU, j), 0))
     P0 = [G[j][i] for j in range(NR + 1) for i in range(NU + 1)]
     pinned = set()
     for j in range(NR + 1):
         for i in range(NU + 1):
-            u = -U + 2 * U * i / NU; sv = hem(u) * j / NR
+            u = -U + 2 * U * i / NU; sv = sj(u, j)
             if sv < S_OCC - 0.05 - 0.10 * smoothstep(A_H, U, abs(u)) or j == 0:
                 pinned.add(idx(j, i))
     cons = []
@@ -152,15 +162,15 @@ def build_scarf():
     for j in range(NR):
         for i in range(NU):
             u0, u1 = -U + 2 * U * i / NU, -U + 2 * U * (i + 1) / NU
-            sv = lambda u, jj: hem(u) * jj / NR
+            sv = lambda u, jj: sj(u, jj)
             mb.add_f((ids[j][i], ids[j][i + 1], ids[j + 1][i + 1], ids[j + 1][i]),
                      ((u0, -sv(u0, j)), (u1, -sv(u1, j)), (u1, -sv(u1, j + 1)), (u0, -sv(u0, j + 1))))
     for j in range(NR + 1):
         for i in range(NU + 1):
-            u = -U + 2 * U * i / NU; s = hem(u) * j / NR
+            u = -U + 2 * U * i / NU; s = sj(u, j)
             vi = ids[j][i]
             mb.set_attr('pu', vi, u); mb.set_attr('pv', vi, s)
-            dists = [(s, u), (hem(u) - s, u), (U - abs(u), s)]
+            dists = [(s - S0, u), (hem(u) - s, u), (U - abs(u), s)]
             d, al = min(dists)
             mb.set_attr('edist', vi, d); mb.set_attr('ealong', vi, al)
     # outward winding (away from the head)
@@ -168,7 +178,7 @@ def build_scarf():
     pa, pb, pc = (Vector(mb.v[k]) for k in f0[:3])
     if (pb - pa).cross(pc - pa).dot(pa - HC) < 0:
         mb.f = [tuple(reversed(f)) for f in mb.f]; mb.uv = [list(reversed(u)) for u in mb.uv]
-    o = done(mb.build('GUL_Headscarf', [M_CLOTH]), 'head', 'Cloth')
+    o = done(mb.build('GUL_Headscarf', [M_CLOTH]), 'head', 'Scarf')      # own FBX: UE can adjust scarf and band separately
     o['sheet'] = 1; o['chaos_cloth'] = 1
 
     print('SCARF S_TOT %.3f rows %d cols %d' % (S_TOT, NR, NU))

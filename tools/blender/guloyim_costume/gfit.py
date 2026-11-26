@@ -77,12 +77,13 @@ class BodyFit:
             o = hit[0] + d * 1e-4
         return last
 
-    def conform(self, p, cats, clear, iters=2):
-        """push p out of the region surface so it sits at least `clear` above it (never pulls in)"""
+    def conform(self, p, cats, clear, iters=2, maxd=None):
+        """push p out of the region surface so it sits at least `clear` above it (never pulls in);
+        maxd: ignore surfaces farther than this (a far surface's normal says nothing about this point)"""
         t = self.bvh(cats)
         q = p.copy()
         for _ in range(iters):
-            loc, nrm, idx, d = t.find_nearest(q)
+            loc, nrm, idx, d = t.find_nearest(q) if maxd is None else t.find_nearest(q, maxd)
             if loc is None: return q
             n = nrm.normalized()
             s = (q - loc).dot(n)

@@ -1,5 +1,5 @@
 # Fast workbench check views of the low meshes: blender -b out/costume_low.blend --python quickshot.py -- <prefix> [zc ortho] [views]
-import bpy, sys, math
+import bpy, sys, math, os
 a = sys.argv[sys.argv.index('--') + 1:]
 pre = a[0]
 zc = float(a[1]) if len(a) > 1 else 0.86
@@ -9,7 +9,7 @@ COL = {'M_Cloth': (0.06, 0.10, 0.45), 'M_Lamellar': (0.32, 0.33, 0.35), 'M_Trim'
        'M_Jewel': (0.75, 0.75, 0.78), 'M_Weapon': (0.18, 0.12, 0.08), 'M_Amulet': (0.95, 0.70, 0.2)}
 for o in bpy.data.objects:
     if o.type != 'MESH': continue
-    if o.name == 'GUL_Body': o.color = (0.5, 0.5, 0.5, 1)
+    if o.name == 'GUL_Body': o.color = (1.0, 0.05, 0.05, 1) if os.environ.get('QQ_SKIN_RED') else (0.5, 0.5, 0.5, 1)
     elif o.data.materials: o.color = (*COL.get(o.data.materials[0].name, (1, 0, 1)), 1)
     if o.get('sim_mesh'): o.hide_render = True
 from mathutils import Matrix

@@ -6,7 +6,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, 'out')
 LM = json.load(open(os.path.join(OUT, 'landmarks.json')))
 GROUPS = {'Head': 'SK_Guloyim_Headband', 'Torso': 'SK_Guloyim_Torso', 'Arms': 'SK_Guloyim_Arms', 'Legs': 'SK_Guloyim_Legs',
-          'Cloth': 'SK_Guloyim_Cloth', 'Weapon': 'SM_Guloyim_Sabre', 'Amulet': 'SM_Guloyim_Amulet'}
+          'Cloth': 'SK_Guloyim_Cloth', 'Scarf': 'SK_Guloyim_Scarf', 'Weapon': 'SM_Guloyim_Sabre', 'Amulet': 'SM_Guloyim_Amulet'}
 TEXSET = {'M_Lamellar': 'T_Lamellar', 'M_Trim': 'T_Trim', 'M_Armor': 'T_Armor', 'M_Cloth': 'T_Cloth',
           'M_Jewel': 'T_Jewel', 'M_Weapon': 'T_Weapon', 'M_Amulet': 'T_Amulet'}
 
