@@ -412,7 +412,7 @@ def step_multishots(items, light):
         if os.environ.get('QQ_ALLROUND'):
             for yw in (0, 90, 180, 270):
                 d = eas.spawn_actor_from_class(unreal.DirectionalLight, unreal.Vector(0, 0, 300), unreal.Rotator(roll=0, pitch=-25, yaw=yw))
-                lc = d.light_component; lc.set_intensity(float(os.environ['QQ_ALLROUND'])); lc.set_editor_property('light_source_angle', 20.0); lc.set_cast_shadows(False)
+                lc = d.light_component; lc.set_intensity(float(os.environ['QQ_ALLROUND'])); lc.set_editor_property('light_source_angle', 20.0); lc.set_cast_shadows(os.environ.get('QQ_ALLROUND_SHADOW', '0') == '1')   # unshadowed fill passes through the head and makes dark hair glow blond (hair transmission): use shadows for hair shots
             log('all-round fill', os.environ['QQ_ALLROUND'])
         sl.recapture_sky()
         bgm = unreal.load_asset('/Game/QQ/Mat/M_QQ_Backdrop')
@@ -881,7 +881,7 @@ try:
             if mhs.try_add_object_to_edit(c):
                 try: log('restored constraints', json.dumps({str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}))
                 finally: mhs.remove_object_to_edit(c)
-    if 'sdirect' in STEPS:
+    def _sdirect():
         # wrap mesh has the MetaHuman body topology: apply it as-is (no parametric auto-solve), restore from the on-disk backup first
         k = '/Game/QQ/' + os.environ.get('QQ_DCHAR', 'MHC_surtaysha_k'); bk = k + '_bak'
         if not EAL.does_asset_exist(bk):
@@ -973,10 +973,20 @@ try:
                 try: mhs.commit_body_state(c)
                 except Exception as e: log('commit body', e)
             f1 = list(mhs.get_face_model_coefficients(c)); d = max(abs(a - b) for a, b in zip(f0, f1)) if f0 else 0; log('face diff', d)
-            if d > 1e-4: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c); log('face restored')
+            if d > 1e-4:
+                mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c); f2 = list(mhs.get_face_model_coefficients(c))
+                log('face restored, remaining coefficient diff', max(abs(a - b) for a, b in zip(f0, f2)))
             log('constraints after', json.dumps({str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}))
         finally: mhs.remove_object_to_edit(c)
         EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+    if 'sdirect' in STEPS:
+        # QQ_DJOBS = json file: list of env dicts, one conform per entry (several characters in one editor session)
+        for j in (json.load(open(os.environ['QQ_DJOBS'])) if os.environ.get('QQ_DJOBS') else [{}]):
+            for kk in ('QQ_DCHAR', 'QQ_STGT', 'QQ_HSCALE', 'QQ_NECK', 'QQ_NECK_THICK', 'QQ_LEG_F', 'QQ_ARM_F', 'QQ_DELT_F', 'QQ_GAP_CM', 'QQ_DIRECT', 'QQ_FROM_BAK'): os.environ.pop(kk, None)
+            for kk, vv in j.items(): os.environ[kk] = str(vv)
+            log('---- sdirect job', j)
+            try: _sdirect()
+            except Exception as e: log('sdirect job FAIL', j, e, traceback.format_exc())
     if 'sconform' in STEPS:
         # Surtaysha body = conform (BODY_ONLY) to the Higgsfield 3D model of the approved turnaround; the face stays MetaHuman
         src = os.environ.get('QQ_STGT', 'F:/qirq-qiz/tools/blender/surtaysha/body/SK_Surtaysha_HF3D.fbx')
@@ -1059,17 +1069,33 @@ try:
                 finally: mhs.remove_object_to_edit(c)
             EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
         who = os.environ.get('QQ_PURE', 'g,s').split(',')
+        pb = os.environ.get('QQ_PURE_BODY', '1') == '1'; SCH = os.environ.get('QQ_S_CHAR', 'MHC_surtaysha_f')   # QQ_PURE_BODY=0: keep the (conformed) body, only native settings/grooms
         if 'g' in who:
-            set_body('MHC_gulayim_final', json.loads(os.environ.get('QQ_G_BODY', 'null')) or {'height': 171, 'across_shoulder': 37, 'chest': 86, 'underbust': 73, 'waist': 67, 'high_hip': 83, 'hip': 92, 'inseam': 79,
+            if pb: set_body('MHC_gulayim_final', json.loads(os.environ.get('QQ_G_BODY', 'null')) or {'height': 171, 'across_shoulder': 37, 'chest': 86, 'underbust': 73, 'waist': 67, 'high_hip': 83, 'hip': 92, 'inseam': 79,
                      'thigh': 53, 'knee': 35, 'calf': 35, 'bicep': 27, 'forearm': 23, 'neck': 31.5, 'neck_base': 34.5, 'muscularity': 0.9, 'fat': -0.8})
             c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
             native('MHC_gulayim_final', True)
         if 's' in who:
-            set_body('MHC_surtaysha_f', json.loads(os.environ.get('QQ_S_BODY', 'null')) or {'height': 185, 'across_shoulder': 54, 'chest': 150, 'underbust': 130, 'waist': 108, 'high_hip': 108, 'hip': 112,
+            if pb: set_body(SCH, json.loads(os.environ.get('QQ_S_BODY', 'null')) or {'height': 185, 'across_shoulder': 54, 'chest': 150, 'underbust': 130, 'waist': 108, 'high_hip': 108, 'hip': 112,
                      'thigh': 70, 'knee': 46, 'calf': 50, 'bicep': 58, 'elbow': 36, 'forearm': 44, 'wrist': 22, 'neck': 54, 'neck_base': 60, 'hand_circumference': 27, 'muscularity': 2.5, 'fat': -0.4, 'masculine/feminine': -2.0})
             if os.environ.get('QQ_S_HAIR'):   # e.g. WI_Hair_S_BuzzCut (the body ref has cropped hair)
-                c = unreal.load_asset('/Game/QQ/MHC_surtaysha_f'); h = os.environ['QQ_S_HAIR']; add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/{h}.{h}'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
-            native('MHC_surtaysha_f', False)
+                c = unreal.load_asset('/Game/QQ/' + SCH); h = os.environ['QQ_S_HAIR']; add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/{h}.{h}'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+            native(SCH, False)
+        for nm in [x for x in os.environ.get('QQ_TEX_CHARS', '').split(',') if x]:
+            # high-resolution (4k) texture sources from the MetaHuman service, blocking; stored in the character asset
+            c = unreal.load_asset(f'/Game/QQ/{nm}')
+            if c.has_high_resolution_textures: log('hi-res already', nm); continue
+            if mhs.try_add_object_to_edit(c):
+                try:
+                    ss = c.skin_settings; dr = ss.desired_texture_sources_resolutions
+                    for fld in ('face_albedo', 'face_normal', 'face_cavity', 'face_animated_maps', 'body_albedo', 'body_normal', 'body_cavity', 'body_masks'):
+                        try: en = type(getattr(dr, fld)); setattr(dr, fld, getattr(en, [m for m in dir(en) if m.isupper() and '4' in m][0]))
+                        except Exception as e: log('res fld', fld, e)
+                    ss.desired_texture_sources_resolutions = dr; mhs.commit_skin_settings(c, ss)
+                    t = unreal.MetaHumanCharacterTextureRequestParams(); t.blocking = True; t.report_progress = False
+                    import time as _t; t0 = _t.time(); r = mhs.request_texture_sources(c, t); log('texture sources', nm, r, round(_t.time() - t0, 1), 's hi-res', c.has_high_resolution_textures)
+                finally: mhs.remove_object_to_edit(c)
+            EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)
         step_multishots(json.load(open(os.environ['QQ_TURN_FILE'])), os.environ.get('QQ_LIGHT', 'daylight'))
