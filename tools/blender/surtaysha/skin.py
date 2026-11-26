@@ -114,6 +114,16 @@ for o in pieces:
             for i, d in enumerate(W):
                 if sum(d.values()) <= 0.05:
                     W[i] = dict(W[good[kd.find(me.vertices[i].co)[1]]]) if good else dict(fallback)
+        if n == 'SUR_Robe_Torso':
+            # the collar never follows the head (UE scales/offsets the head bone): head-side weights go to neck_01
+            W2 = []
+            for d in W:
+                dd = {}
+                for g, w in d.items():
+                    if g in ('head', 'neck_02') or g.startswith(('FACIAL', 'jaw', 'teeth', 'tongue')): g = 'neck_01'
+                    dd[g] = dd.get(g, 0.0) + w
+                W2.append(dd)
+            W = W2
         if big:
             # continuous parts (cloth, edging, straps): Laplacian smoothing of the transferred weights over the edges
             nb = [[] for _ in me.vertices]

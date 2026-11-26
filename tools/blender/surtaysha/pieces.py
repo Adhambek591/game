@@ -71,11 +71,24 @@ ROBE = FIT.hug(ROBE_V1, 0.006)
 
 def build_robe_torso():
     mb = MB()
-    ztop = bone('neck_01').z + 0.028          # collar stops at the neck base (no robe in front of the mouth/chin)
+    # collar stops at the neck base and at least 2 cm under the chin (mouth and beard fully visible)
+    hb = bone('head')
+    prof = []
+    for k in range(40):                       # front profile of the face going down from the head joint
+        z = hb.z + 0.02 - 0.005 * k
+        ys = [p.y for p in FIT.V if abs(p.x) < 0.03 and abs(p.z - z) < 0.003 and p.y < hb.y]
+        if ys: prof.append((z, min(ys)))
+    chin = hb.z - 0.08; best = 1.0
+    for z, y in prof:
+        if y < best: best = y
+        elif y > best + 0.030 and z < hb.z - 0.03:      # profile jumps back: under the chin (throat)
+            chin = z + 0.005; break
+    ztop = min(bone('neck_01').z + 0.028, chin - 0.02)
+    print('COLLAR top %.3f (chin %.3f)' % (ztop, chin))
     zs = [0.98 + (ztop - 0.98) * j / 26 for j in range(27)]
     G = [[torso_S(2 * math.pi * i / 52, z, tab=ROBE) for i in range(52)] for z in zs]
     shell(mb, G, 0.004, out_fn=lambda p: Vector((p.x, p.y, 0)), closed_u=True, back=False)
-    done(mb.build('SUR_Robe_Torso', [M_CLOTH]), 'spine_03', 'Cloth')
+    done(mb.build('SUR_Robe_Torso', [M_CLOTH]), 'spine_05', 'Torso')
 
 # =========================================================== waist guard, belt, plaques, buckle
 def guard_top(u):
