@@ -25,7 +25,7 @@ HANDK = ('thumb', 'index', 'middle', 'ring', 'pinky')
 LEGK = ('thigh', 'calf', 'foot', 'ball', 'toe')
 HEADK = ('head', 'FACIAL')
 ARMW = [wsum(v, ARMK) for v in me.vertices]; LEGW = [wsum(v, LEGK) for v in me.vertices]; HEADW = [wsum(v, HEADK) for v in me.vertices]; HANDW = [wsum(v, HANDK) for v in me.vertices]
-KAFT, SHELL = 0.0045, 0.006
+KAFT, SHELL = 0.0045, 0.0055
 
 def mat(name, col, metal=0.0, rough=0.6):
     m = bpy.data.materials.get(name) or bpy.data.materials.new(name)
@@ -300,7 +300,7 @@ def stage2():
     zc0 = bone('clavicle_l').z
     bmesh.ops.delete(bm, geom=[f for f in bm.faces if in_neck(f.calc_center_median())], context='FACES')
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
-    def snap(lo=0.005, hi=0.007):
+    def snap(lo=SHELL - 0.0004, hi=SHELL + 0.0004):
         n_ = 0
         for v in bm.verts:
             q, n, s = K.near(v.co)
@@ -367,6 +367,137 @@ def stage2():
     kin = [v.co for v in kaft.data.vertices if abs(S.near(v.co)[2]) < 0.02 and (S.near(v.co)[0] - v.co).length < 0.012]
     report2('kaftan (under the shell) -> shell', kin, S)
 
-{1: stage1, 2: stage2}.get(STAGE, lambda: print('stage not in this file yet'))()
+def geodesic_from_hem(sh, z_hem):
+    """per vertex: distance ALONG the shell surface up from the hem (rows of plates are its level lines)"""
+    import heapq
+    m = sh.data; n = len(m.vertices); adj = [[] for _ in range(n)]
+    for e in m.edges:
+        a, b = e.vertices; l = (m.vertices[a].co - m.vertices[b].co).length; adj[a].append((b, l)); adj[b].append((a, l))
+    for pl in m.polygons:      # ... and across the quads, so that paths are not forced to zigzag
+        vs = list(pl.vertices)
+        if len(vs) == 4:
+            for a, b in ((vs[0], vs[2]), (vs[1], vs[3])): l = (m.vertices[a].co - m.vertices[b].co).length; adj[a].append((b, l)); adj[b].append((a, l))
+    f = [1e9] * n; hq = []
+    for v in m.vertices:
+        if v.co.z < z_hem + 0.0015: f[v.index] = v.co.z - z_hem; heapq.heappush(hq, (f[v.index], v.index))
+    while hq:
+        d, i = heapq.heappop(hq)
+        if d > f[i]: continue
+        for j, l in adj[i]:
+            if d + l < f[j]: f[j] = d + l; heapq.heappush(hq, (f[j], j))
+    # edge-path distances zigzag: scale to the true (straight) surface distance and relax
+    fixed = [v.co.z < z_hem + 0.0015 for v in m.vertices]
+    for _ in range(12):
+        g = f[:]
+        for i in range(n):
+            if not fixed[i] and adj[i]: g[i] = 0.5 * f[i] + 0.5 * sum(f[j] for j, _l in adj[i]) / len(adj[i])
+        f = g
+    return f
+def iso_lines(sh, f, level):
+    """level lines of f on the mesh as chains of points"""
+    m = sh.data; m.calc_loop_triangles(); seg = {}; pt = {}
+    def cross(a, b):
+        k = (min(a, b), max(a, b))
+        if k not in pt:
+            t = (level - f[a]) / (f[b] - f[a]); pt[k] = m.vertices[a].co.lerp(m.vertices[b].co, t)
+        return k
+    for t in m.loop_triangles:
+        a, b, c = t.vertices; ks = [cross(u, v) for u, v in ((a, b), (b, c), (c, a)) if (f[u] > level) != (f[v] > level)]
+        if len(ks) == 2: seg.setdefault(ks[0], []).append(ks[1]); seg.setdefault(ks[1], []).append(ks[0])
+    used = set(); chains = []
+    starts = [k for k in seg if len(seg[k]) == 1] + list(seg)
+    for k0 in starts:
+        if k0 in used: continue
+        ch = [k0]; used.add(k0)
+        while True:
+            nx = [k for k in seg[ch[-1]] if k not in used]
+            if not nx: break
+            ch.append(nx[0]); used.add(nx[0])
+        closed = len(ch) > 2 and ch[0] in seg[ch[-1]]
+        chains.append(([pt[k] for k in ch], closed))
+    return chains
+def resample_open(pts, step, closed):
+    P = pts + ([pts[0]] if closed else []); L = [0.0]
+    for i in range(1, len(P)): L.append(L[-1] + (P[i] - P[i - 1]).length)
+    if L[-1] < step: return []
+    n = int(L[-1] / step); st = L[-1] / n if closed else step; off = 0.0 if closed else (L[-1] - n * step) / 2; out = []; j = 0
+    for k in range(n if closed else n + 1):
+        d = off + st * k
+        while j < len(L) - 2 and L[j + 1] < d: j += 1
+        t = (d - L[j]) / max(1e-9, L[j + 1] - L[j]); out.append(P[j].lerp(P[j + 1], min(1.0, max(0.0, t))))
+    return out
+
+ROW, PW, PPITCH, PT, PA, PB = 0.030, 0.0225, 0.0205, 0.0012, 0.0005, 0.0020      # row pitch, plate width, pitch along the row, thickness, lift at the top / bottom edge
+PH = ROW / 0.70                                                                # plate length: every row covers 30 % of the row below
+def stage3():
+    sh = bpy.data.objects['SUR_Cuirass_Backing']; S = Surf(sh); K = Surf(bpy.data.objects['SUR_Robe_Torso']); BD = Surf(body)
+    for n_ in ('SUR_Cuirass_Lamellar', 'SUR_Cuirass_Lace'):
+        if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
+    z_hem = min(v.co.z for v in sh.data.vertices); zc = bone('clavicle_l').z; f = geodesic_from_hem(sh, z_hem)
+    zt = float(os.environ.get('SUR_LAM_TOP', str(zc - 0.005)))      # lamellae up to the collar bones; above: the leather yoke with the straps
+    bm = bmesh.new(); lb = bmesh.new(); rng = random.Random(7); nrow = 0; npl = 0; skipped = 0; rows_dev = []
+    VS = (0.0, 0.34, 0.68, 1.0)
+    lev = PH + 0.004
+    while lev < max(f) :
+        row_in = []
+        for pts, closed in iso_lines(sh, f, lev):
+            if len(pts) < 4: continue
+            pts = [S.near(p)[0] for p in (smooth_closed(pts, 3) if closed else pts)]
+            run = []
+            cs = resample_open(pts, PPITCH, closed)
+            for i, p in enumerate(cs):
+                q0, n0, _d = S.near(p)
+                a = cs[i - 1] if (i > 0 or closed) else cs[i]; b = cs[(i + 1) % len(cs)] if (i < len(cs) - 1 or closed) else cs[i]
+                t = (b - a); t = (t - n0 * t.dot(n0)).normalized(); down = n0.cross(t)
+                if down.z > 0: down = -down; t = -t
+                if p.z > zt: run = lace_run(lb, run); continue
+                ok = True; inner = []; outer = []
+                for v in VS:
+                    for u in (-0.5, -0.17, 0.17, 0.5):
+                        P = p + t * (u * PW) + down * (v * PH - PH * 0.0); q, n, _d = S.near(P)
+                        if S.at_edge(q, 0.0015) and v < 0.99: ok = False
+                        dome = 0.0006 * (1 - (2 * u) ** 2)                      # plates are slightly domed across
+                        lift = PA + (PB - PA) * v
+                        inner.append(q + n * lift); outer.append(q + n * (lift + PT + dome))
+                if ok and (min(K.sd(o) for o in outer) < PT + 0.004 or min(BD.sd(o) for o in outer) < 0.006): ok = False      # no room: the sleeve / the arm is there
+                if not ok: skipped += 1; run = lace_run(lb, run); continue
+                vi = [bm.verts.new(c) for c in inner]; vo = [bm.verts.new(c) for c in outer]
+                for r in range(3):
+                    for c in range(3):
+                        i0 = r * 4 + c; bm.faces.new((vo[i0], vo[i0 + 1], vo[i0 + 5], vo[i0 + 4]))
+                for r in range(3): bm.faces.new((vi[r * 4], vo[r * 4], vo[r * 4 + 4], vi[r * 4 + 4])); bm.faces.new((vo[r * 4 + 3], vi[r * 4 + 3], vi[r * 4 + 7], vo[r * 4 + 7]))
+                for c in range(3): bm.faces.new((vi[c + 1], vo[c + 1], vo[c], vi[c])); bm.faces.new((vi[12 + c], vo[12 + c], vo[13 + c], vi[13 + c]))
+                npl += 1; row_in += inner
+                qa, na, _d = S.near(p + down * (0.2 * PH)); run.append(qa + na * (PA + (PB - PA) * 0.2 + PT + 0.0006 + 0.0011))
+            lace_run(lb, run, closed and len(run) == len(cs))
+        if row_in:
+            d = [S.sd(c) for c in row_in]; rows_dev.append((lev, min(d), max(d), sum(c.z for c in row_in) / len(row_in), len(row_in) // 16)); nrow += 1
+        lev += ROW
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bmesh.ops.recalc_face_normals(lb, faces=lb.faces)
+    lam = obj_from(bm, 'SUR_Cuirass_Lamellar', M_IRON); lace = obj_from(lb, 'SUR_Cuirass_Lace', M_LEATH)
+    for p_ in lam.data.polygons: p_.use_smooth = False
+    print('STAGE 3 lamellae: rows %d, plates %d, left out at rims / creases %d, row pitch %.0f mm, plate %.1f x %.1f mm, overlap %.0f %%' % (nrow, npl, skipped, ROW * 1000, PW * 1000, PH * 1000, (1 - ROW / PH) * 100))
+    for lev, lo, hi, zz, n_ in rows_dev: print('ROW at %3.0f mm along the surface (mean height %.3f m): %3d plates, inner face to shell %+.1f .. %+.1f mm' % (lev * 1000, zz, n_, lo * 1000, hi * 1000))
+    P = [v.co for v in lam.data.vertices]
+    report2('plates -> cuirass base', P, S, ZONES())
+    report2('plates -> kaftan', P, K, ZONES())
+    report2('plates -> body', P, BD)
+    report2('laces -> cuirass base', [v.co for v in lace.data.vertices], S)
+    report2('laces -> kaftan', [v.co for v in lace.data.vertices], K)
+def lace_run(lb, run, closed=False):
+    """a leather thong over a run of neighbouring plates"""
+    if len(run) >= 2:
+        r, seg = 0.0011, 5; rings = []; n = len(run)
+        for i, p in enumerate(run):
+            a = run[i - 1] if (i > 0 or closed) else run[i]; b = run[(i + 1) % n] if (i < n - 1 or closed) else run[i]
+            t = (b - a).normalized(); up = Vector((0, 0, 1)); s_ = t.cross(up)
+            s_ = s_.normalized() if s_.length > 1e-6 else Vector((1, 0, 0)); u2 = s_.cross(t)
+            rings.append([lb.verts.new(p + (s_ * math.cos(2 * math.pi * k / seg) + u2 * math.sin(2 * math.pi * k / seg)) * r) for k in range(seg)])
+        for i in range(n - (0 if closed else 1)):
+            a, b = rings[i], rings[(i + 1) % n]
+            for k in range(seg): lb.faces.new((a[k], a[(k + 1) % seg], b[(k + 1) % seg], b[k]))
+    return []
+
+{1: stage1, 2: stage2, 3: stage3}.get(STAGE, lambda: print('stage not in this file yet'))()
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'armor_C.blend'))
 print('SAVED armor_C.blend after stage', STAGE)
