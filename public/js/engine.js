@@ -240,7 +240,7 @@ function collide(e) {
   for (const c of G.colC) { const dx = e.x - c.x, dz = e.z - c.z, rr = c.r + e.r, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); e.x = c.x + dx / d * rr; e.z = c.z + dz / d * rr; e.bump = { nx: dx / d, nz: dz / d }; } }
   for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { e.bumpB = b; const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
   for (const f of G.fires) { if (f.y - f.size > 1.2) continue; const rr = f.size * .62 + e.r, dx = e.x - f.x, dz = e.z - f.z, d2 = dx * dx + dz * dz; if (d2 < rr * rr) { const d = Math.sqrt(d2) || .01; e.x = f.x + dx / d * rr; e.z = f.z + dz / d * rr; if (!e.bump) e.bump = { nx: dx / d, nz: dz / d }; } }
-  e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && (e._lz ?? e.z) >= G.limitZ + .8 && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
+  e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && ((e._lz ?? e.z) >= G.limitZ + .8 || (e.unrT || 0) > 3) && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
   if (e.bump) { const n = e.bump, vn = (e.kx || 0) * n.nx + (e.kz || 0) * n.nz; if (vn < 0) { const fast = vn < -3; e.kx -= 1.6 * vn * n.nx; e.kz -= 1.6 * vn * n.nz; e.kx *= .6; e.kz *= .6; if (fast && !e.wallT) { e.wallT = .3; burst(e.x - n.nx * e.r, e.h * .5, e.z - n.nz * e.r, 0xbfa58a, 1.2, true); G.shake = Math.max(G.shake, .18); Sfx.hit(); if (e !== G.player && e.team === 'enemy' && !e.d.heavy) e.damage(6, null, { silent: true }); } } }
   if (e.wallT > 0) e.wallT -= 1 / 60;
 }
@@ -266,10 +266,12 @@ function pickTarget(e) {
   const P = G.player, ally = e.team === 'ally', sight = ally ? (e.d.follow ? 30 : 48) : 60; let b = null, bs = 1e9;
   for (const o of G.ents) {
     if (o.dead || o.gone || o.bg || !hostile(e.team, o.team)) continue; const dd = Math.hypot(o.x - e.x, o.z - e.z) - o.r; if (dd > sight) continue;
-    if (ally && P && !e.vict && Math.hypot(o.x - P.x, o.z - P.z) > (o === e.tg ? 12.5 : 10)) continue;  /* allies only fight what is near the hero */
+    const onMe = ally && (o.tg === e || dd < 3.5);   /* testers: an ally hit (or brushed) by an enemy fights back instead of walking off 'searching' while it hacks at her */
+    if (ally && P && !e.vict && !onMe && Math.hypot(o.x - P.x, o.z - P.z) > (o === e.tg ? 15 : 13)) continue;  /* allies fight what is near the hero (was 10 / 12.5 m: half the wave stood idle) */
     if (ally && (o.farT || 0) < -1e8 && o.hp >= o.maxHp) continue;  // allies leave sleeping camps alone (no maiden starts a fight beyond the gate on her own)
     const n = (o.tn || 0) - (e.tg === o ? 1 : 0); let s = dd + n * 2.5;
-    if (n >= tCap(o)) { if (ally) continue; s += 30; }
+    if (n >= tCap(o)) { if (ally && !onMe) continue; s += 30; }
+    if (onMe) s -= 4;
     if (o === e.tg) s -= 3; if (!ally && o === P && dd < 7) s -= 3;
     if (ally && o.hunt) s += 20;  // leave the captain to the hero unless nothing else is left
     if (!ally && o === P) { if (e.hunt || e.d.heavy) s -= 15; else if (!(e.provT > G.time) && guarded(e)) continue; }  // roles: rank-and-file fight the maidens; the player is the named captains' business
@@ -506,8 +508,8 @@ function slideDir(e, dx, dz) { const n = e.bump; if (!n || dx * n.nx + dz * n.nz
     e.slS = sg; }
   return { x: tx * e.slS * .92 + n.nx * .08, z: tz * e.slS * .92 + n.nz * .08 }; }
 function blockedAt(x, z, r) { for (const b of G.colB) if (!b.off && x > b.x1 - r && x < b.x2 + r && z > b.z1 - r && z < b.z2 + r) return true; for (const c of G.colC) if (Math.hypot(x - c.x, z - c.z) < c.r + r) return true; return false; }
-// last resort: a follower left > 30 m behind for 5 s (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
-function rejoin(e, P, pdist, dt) { if (pdist < 30 || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < 5) return false;
+// last resort: a follower left > 22 m behind for 3 s (mounted: 20 m, 1.5 s) (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
+function rejoin(e, P, pdist, dt) { const mt = e.mounted; if (pdist < (mt ? 20 : 22) || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < (mt ? 1.5 : 3)) return false;   /* testers (4-1 ride, 4-2 deck): nobody stays > 22 m behind — was 30 m for 5 s */
   if (onScreen(e.x, e.z, 1.2)) return false; for (let i = 0; i < 6; i++) { const x = clamp(P.x + rnd(-5, 5), -G.W + 1, G.W - 1), z = P.z + rnd(14, 20); if (z > 5.5 || onScreen(x, z, 1.2) || barrierBetween(P.z, z) || blockedAt(x, z, (e.r || .5) + .3)) continue; let ok = true; for (const b of G.colB) if (b.ravine && !b.off && ((z > b.z2 && P.z < b.z1) || (z < b.z1 && P.z > b.z2))) ok = false; if (!ok) continue;
     e.x = e._lx = x; e.z = e._lz = z; e.o.position.set(x, 0, z); e.alT = 0; e.hm = null; G.rejoined = (G.rejoined || 0) + 1; return true; }
   return false; }
@@ -523,7 +525,7 @@ function drift(e, dt) {
   if (rejoin(e, P, pdist, dt)) return;
   const gx = h.x - e.x, gz = h.z - e.z, gl = Math.hypot(gx, gz);
   if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.35 : 1.12), pv * 1.15) * (mt ? 2 : 1) : (hMov ? Math.max(e.speed * pe.pace, pv) * (pdist > 7 ? 1.1 : .95) : (mt ? 4.6 : 2.3) * pe.pace);
-    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
+    if (mt) { steer(e, h.x, h.z, Math.max(Math.min(sp, gl * 1.5 + 1), pdist > 12 ? pv * 1.25 : 0), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
   else { e.mv = 0; if (mt && e.cav && e.cav.v > .1) steer(e, e.x + Math.sin(e.rot), e.z + Math.cos(e.rot), 0, dt); idleAct(e, dt); }
 }
 // generic boss phases (66% / 33%): roar + shockwave moment, then faster and with new ground attacks
@@ -1343,6 +1345,7 @@ function pullSpot(p) {  // ahead of the player (the way she is going), just past
 function straggle(e, p, dt) {  // an awake enemy far away / out of contact walks to the fight (no teleport); only a unit stuck for long is moved, and only where nobody can see it
   if ((e.farT || 0) < -1e8 || G.duel) return;  // asleep / scripted (posted guards, handlers, sentries) — the mission kit wakes them
   const dP = Math.hypot(e.x - p.x, e.z - p.z), tg = e.tg, reach = 10 + (e.d.keep || 0), unreach = G.limitZ > -1e8 && e.z < G.limitZ - .5;
+  e.unrT = unreach ? (e.unrT || 0) + dt : 0;   /* QA 1-2 soft-lock: the shaman backed off behind the closed gate (-114) in sight of the hero and was never pulled (only off-screen units are). An awake enemy beyond the closed gate for 3 s steps through to her side (movement clamp, line 'stays on her side') */
   if (e.cT === undefined || unreach ? e.cT === undefined : dP < reach || e.hp < (e.hpC ?? e.hp) || (tg && !tg.dead && Math.hypot(tg.x - e.x, tg.z - e.z) < reach)) e.cT = G.time; e.hpC = e.hp;
   if (Math.abs(e.x) > G.W + .5 || !isFinite(e.x + e.z)) { e.x = clamp(e.x || 0, -G.W + 1, G.W - 1); if (!isFinite(e.z)) e.z = p.z - 15; }
   const few = (G.awakeN || 0) <= 3, far = dP > 25 || e.z > p.z + 16 || (unreach && G.time - e.cT > 4), lone = dP > 9 && G.time - e.cT > (few ? 6 : 20);
