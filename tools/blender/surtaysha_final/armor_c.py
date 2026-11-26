@@ -209,10 +209,14 @@ def trouser_legs():
     tr = bpy.data.objects.get('SUR_Trousers')
     if not tr: return
     z_boot = 0.70 * bone('calf_l').z; bm = bmesh.new(); z_hi = None
+    # the fitted trousers' lower edge is ragged (it was hidden in the old boots): cut it level first
+    zc = min(v.co.z for v in tr.data.vertices) + 0.062; bt_ = bmesh.new(); bt_.from_mesh(tr.data)
+    bmesh.ops.bisect_plane(bt_, geom=bt_.verts[:] + bt_.edges[:] + bt_.faces[:], plane_co=Vector((0, 0, zc)), plane_no=Vector((0, 0, -1)), clear_outer=True, clear_inner=False)
+    bt_.to_mesh(tr.data); bt_.free(); tr.data.update(); print('fitted trousers cut level at z %.3f' % zc)
     for sx in (1, -1):
         sd = 'l' if sx > 0 else 'r'; c0 = bone('foot_' + sd); c1 = bone('calf_' + sd)
         def cen(z): t = (z - c0.z) / (c1.z - c0.z); return c0.x + (c1.x - c0.x) * t, c0.y + (c1.y - c0.y) * t
-        hem = min(v.co.z for v in tr.data.vertices if v.co.x * sx > 0.02); z_hi = hem + 0.05
+        hem = zc; z_hi = hem + 0.03
         P = [v.co for i, v in enumerate(me.vertices) if LEGW[i] > 0.5 and v.co.x * sx > 0 and v.co.z < z_hi + 0.05]
         T = [v.co for v in tr.data.vertices if v.co.x * sx > 0 and v.co.z < z_hi + 0.05]
         zs_ = []; z = z_hi
@@ -637,7 +641,7 @@ def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None, drop_at_rim=False, 
                 if not ok: skipped += 1; run = lace_run(lb, run); continue
                 vi = [bm.verts.new(c) for c in inner]; vo = [bm.verts.new(c) for c in outer]
                 ti = rng.randrange(40); tu0, tv0 = (ti % ATLAS_COLS) * TILE_W, (ti // ATLAS_COLS) * TILE_H      # one of the 40 baked plate variants
-                UV = [(tu0 + TILE_W * (0.06 + (0.10 + 0.80 * c / 3) * 0.40), tv0 + TILE_H * (0.04 + (0.08 + 0.74 * (1 - VS[r])) * 0.92)) for r in range(4) for c in range(4)]
+                UV = [(tu0 + TILE_W * (0.04 + 0.92 * c / 3), tv0 + TILE_H * (0.04 + 0.92 * (1 - VS[r]))) for r in range(4) for c in range(4)]
                 def q(ix, uvx): fuv(bm, [(vo if o_ else vi)[j] for o_, j in ix], [UV[j] for j in uvx])
                 for r in range(3):
                     for c in range(3):
@@ -648,7 +652,7 @@ def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None, drop_at_rim=False, 
                     q([(0, c + 1), (1, c + 1), (1, c), (0, c)], (c + 1, c + 1, c, c)); q([(0, 12 + c), (1, 12 + c), (1, 13 + c), (0, 13 + c)], (12 + c, 12 + c, 13 + c, 13 + c))
                 npl += 1; row_in += inner
                 if nedge > 5 or nclip > 5: run = lace_run(lb, run); continue
-                qa, na, _d = S.near(p + down * (0.2 * PH_)); run.append(qa + na * (PA + (PB - PA) * 0.2 + PT_ + 0.0006 + 0.0011))
+                qa, na, _d = S.near(p + down * (0.34 * PH_)); run.append((qa + na * (PA + (PB - PA) * 0.34 + 0.0007 + PT_ + 0.0006), na, down))
             lace_run(lb, run, closed and len(run) == len(cs))
         if row_in:
             d = [S.sd(c) for c in row_in]; rows_dev.append((lev, min(d), max(d), sum(c.z for c in row_in) / len(row_in), len(row_in) // 16)); nrow += 1
@@ -663,18 +667,14 @@ def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None, drop_at_rim=False, 
     for rn, RS in reports[:2]: report2('laces -> ' + rn, [v.co for v in lace.data.vertices], RS)
     return lam, lace
 def lace_run(lb, run, closed=False):
-    """a leather thong over a run of neighbouring plates"""
+    """a flat leather lace over a run of neighbouring plates (4.4 mm wide, 0.8 mm thick), lying on them"""
     if len(run) >= 2:
-        r, seg = 0.0011, 5; rings = []; n = len(run)
-        for i, p in enumerate(run):
-            a = run[i - 1] if (i > 0 or closed) else run[i]; b = run[(i + 1) % n] if (i < n - 1 or closed) else run[i]
-            t = (b - a).normalized(); up = Vector((0, 0, 1)); s_ = t.cross(up)
-            s_ = s_.normalized() if s_.length > 1e-6 else Vector((1, 0, 0)); u2 = s_.cross(t)
-            rings.append([lb.verts.new(p + (s_ * math.cos(2 * math.pi * k / seg) + u2 * math.sin(2 * math.pi * k / seg)) * r) for k in range(seg)])
-        v0, v1 = TRIM['cord']; u = 0.0
+        n = len(run); w_, th_ = 0.0022, 0.0008; v0, v1 = TRIM['strap']; rows = []
+        for p_, n_, d_ in run: rows.append([lb.verts.new(p_ + d_ * w_), lb.verts.new(p_ + d_ * w_ + n_ * th_), lb.verts.new(p_ - d_ * w_ + n_ * th_), lb.verts.new(p_ - d_ * w_)])
+        u = 0.0
         for i in range(n - (0 if closed else 1)):
-            a, b = rings[i], rings[(i + 1) % n]; u1 = u + (run[(i + 1) % n] - run[i]).length / 0.60
-            for k in range(seg): fuv(lb, (a[k], a[(k + 1) % seg], b[(k + 1) % seg], b[k]), ((u, v0 + (v1 - v0) * k / seg), (u, v0 + (v1 - v0) * (k + 1) / seg), (u1, v0 + (v1 - v0) * (k + 1) / seg), (u1, v0 + (v1 - v0) * k / seg)))
+            a_, b_ = rows[i], rows[(i + 1) % n]; u1 = u + (run[(i + 1) % n][0] - run[i][0]).length / 0.60
+            for k, (va, vb) in enumerate(((v0, v0), (v0, v1), (v1, v1))): fuv(lb, (a_[k], a_[k + 1], b_[k + 1], b_[k]), ((u, va), (u, vb), (u1, vb), (u1, va)))
             u = u1
     return []
 
@@ -1072,7 +1072,7 @@ def stage6():
     if sum(f.normal.dot(Vector((f.calc_center_median().x, f.calc_center_median().y - cy, 0))) for f in ab.faces) < 0: bmesh.ops.reverse_faces(ab, faces=ab.faces)
     border = ringsA[0] + [r_[-1] for r_ in ringsA[1:]] + ringsA[-1][-2::-1] + [r_[0] for r_ in ringsA[-2:0:-1]]
     av = obj_from(ab, 'SUR_Aventail_Backing', M_LEATH); AV = Surf(av)
-    tb = bmesh.new(); tube_along(tb, resample(border, 0.006), lambda p: AV.near(p)[1], r=0.0042, lift=0.0); bmesh.ops.recalc_face_normals(tb, faces=tb.faces); obj_from(tb, 'SUR_Aventail_Trim', M_LEATH)
+    tb = bmesh.new(); tube_along(tb, resample(border, 0.006), lambda p: AV.near(p)[1], r=0.0068, lift=0.0); bmesh.ops.recalc_face_normals(tb, faces=tb.faces); obj_from(tb, 'SUR_Aventail_Trim', M_LEATH)
     ds_ = tot / (NR - 1); f = [(NR - 1 - (i // (NC + 1))) * ds_ for i in range(len(av.data.vertices))]      # distance up from the hem along the hood
     print('hood: %d rings x %d, length along the surface %.0f mm, hem at z %.3f' % (NR, NC + 1, tot * 1000, z_bot))
     lam, lace = lam_on(av, f, 99.0, ('SUR_Aventail_Lamellar', 'SUR_Aventail_Lace'), [], 'STAGE 6 aventail', [('aventail backing', AV), ('body', BD), ('kaftan', K)], lev0=PH * 0.62 + 0.004, ps=0.62)
