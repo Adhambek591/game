@@ -488,6 +488,7 @@ def step_multishots(items, light):
                         for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
                             if sk.does_socket_exist('thigh_l') and 'body' in sk.get_name().lower():
                                 mats = [sk.get_material(i) for i in range(sk.get_num_materials())]
+                                st['h0'] = sk.get_socket_location('head'); log('head before swap', st['h0'])
                                 sk.set_skeletal_mesh_asset(nb)
                                 for i, mt in enumerate(mats[:sk.get_num_materials()]): sk.set_material(i, mt)
                                 if extra.get('head_scale'):
@@ -500,8 +501,12 @@ def step_multishots(items, light):
                         M = sp['m']; S = lambda v: unreal.Vector(v[0], -v[1], v[2])
                         xa, za = S([M[0][0], M[1][0], M[2][0]]), S([M[0][2], M[1][2], M[2][2]])
                         loc = unreal.Vector(M[0][3] * 100, -M[1][3] * 100, M[2][3] * 100)
+                        if sp.get('fwd_cm'):
+                            fv = body_c.get_right_vector(); loc = unreal.Vector(loc.x + fv.x * sp['fwd_cm'], loc.y + fv.y * sp['fwd_cm'], loc.z)
+                        if sp.get('scale'): pass
                         sa = eas.spawn_actor_from_object(unreal.load_asset(sp['mesh']), loc, unreal.MathLibrary.make_rot_from_xz(xa, za))
                         sa.static_mesh_component.set_mobility(unreal.ComponentMobility.MOVABLE)
+                        if sp.get('scale'): sa.set_actor_scale3d(unreal.Vector(sp['scale'], sp['scale'], sp['scale']))
                         sa.root_component.attach_to_component(body_c, sp['bone'], unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, unreal.AttachmentRule.KEEP_WORLD, False); log('static placed', sp['mesh'], sp['bone'])
                     except Exception as e: log('static fail', sp.get('mesh'), e)
                 if extra.get('lift'):
@@ -537,6 +542,13 @@ def step_multishots(items, light):
                 st['first'] = False
                 path, stem, views = items[st['k']][:3]
                 exg = items[st['k']][3] if len(items[st['k']]) > 3 else {}
+                if exg.get('groom_follow') and st.get('h0') is not None:
+                    try:
+                        bodyc = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l'))
+                        H1 = bodyc.get_socket_location('head'); H0 = st['h0']; d = unreal.Vector(H1.x - H0.x, H1.y - H0.y, H1.z - H0.z); log('head after swap', H1, 'delta', d)
+                        for g in st['actor'].get_components_by_class(unreal.GroomComponent):
+                            L0 = g.get_world_location(); g.set_world_location(unreal.Vector(L0.x + d.x, L0.y + d.y, L0.z + d.z), False, False); log('groom moved', g.get_name())
+                    except Exception as e: log('groom follow fail', e)
                 if exg.get('groom_scale'):
                     try:
                         gs = float(exg['groom_scale']); bodyc = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l'))
@@ -687,6 +699,11 @@ try:
             k = add_groom(c, slot, f'{G}/{sub}/{wi}.{wi}')
             if k is None and sub != slot: add_groom(c, slot, f'{G}/{slot}/{wi}.{wi}')
         EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('surtaysha grooms re-added')
+    if 'snew' in STEPS:
+        # clean Surtaysha: same face recipe as step1b on the unconformed source, standard body (the BodyOnly swap replaces the body at render)
+        make_look('MHC_surtaysha_f', {'src': '/Game/QQ/MHC_surtaysha', 'presets': [['Aoi', 0.65], ['Bo', 0.15]], 'tex': int(os.environ.get('QQ_S_TEX', '20')), 'u': 0.48, 'v': 0.62, 'lip_red': 0.5, 'lip_op': 0.0,
+                                      'hair': 'WI_Hair_S_SlickBack', 'brows': 'WI_Eyebrows_M_Thick', 'grooms': [['Beard', 'Beards', 'WI_Goatee_M_Pointed'], ['Mustache', 'Mustaches', 'WI_Mustache_L_Full']]})
+        log('MHC_surtaysha_f made')
     if 'ghair' in STEPS:
         c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('guloyim hair re-added')
     if 'import_costume' in STEPS:
