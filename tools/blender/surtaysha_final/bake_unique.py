@@ -39,7 +39,51 @@ def kind_of(name):
         'SUR_Sabre_Guard': ('gold', dict(wear=1.1), bc.d_gold, 2),
         'SUR_Sabre_Grip': ('leather', dict(tint=(0.07, 0.035, 0.02)), 'wrap', 2),
     }
+    K.update({
+        'SUR_WaistGuard': ('leather', dict(tint=(0.090, 0.048, 0.025), gilt=True), 'tooled_c', 4),
+        'SUR_Belt': ('leather', dict(tint=(0.060, 0.032, 0.018)), 'belt_c', 3),
+        'SUR_Belt_Gold': ('gold', dict(wear=1.0), 'relief_c', 4),
+        'SUR_Cuirass_Backing': ('leather', dict(tint=(0.075, 0.040, 0.022)), bc.d_leather, 1),
+        'SUR_Cuirass_Straps': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 2),
+        'SUR_Cuirass_Yoke': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 2),
+        'SUR_Tassets_Backing': ('leather', dict(tint=(0.075, 0.040, 0.022)), bc.d_leather, 1),
+        'SUR_Pauldron_Backing': ('leather', dict(tint=(0.070, 0.036, 0.020)), bc.d_leather, 1),
+        'SUR_Aventail_Backing': ('leather', dict(tint=(0.070, 0.036, 0.020)), bc.d_leather, 1),
+        'SUR_Bracer': ('iron', dict(tint=(0.15, 0.165, 0.19), rust=0.30, rough=0.36, patina=0.3), bc.d_iron, 2),
+        'SUR_Bracer_Gold': ('gold', dict(wear=1.0), bc.d_gold, 1),
+        'SUR_Bracer_Straps': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 1),
+        'SUR_Helmet_Plume': ('cloth', dict(tint=(0.012, 0.011, 0.011), dust=0.15, weave=1400.0), 'plume_c', 2),
+        'SUR_Coat': ('cloth', dict(tint=(0.090, 0.058, 0.038), dust=0.45), 'skirt_c', 2),
+    })
     return K.get(name) or (K.get(name[:-2] + '_L') if name.endswith('_R') else None)
+_META = None
+def meta():
+    global _META
+    if _META is None: _META = json.load(open(os.path.join(bc.TEX, '..', 'armor_c_meta.json')))
+    return _META
+def d_tooled_c(p, s):
+    # the waist guard: grained leather, a stitched line inside each bound edge, a tooled scroll on the front above and below the belt
+    m = meta(); u = math.atan2(p.x, -(p.y - m['yax'])); h = bc.d_leather(p, s) * 0.6
+    for zc in (m['g_top'] - 0.011, m['g_bot'] + 0.011): h -= 0.0006 * math.exp(-((p.z - zc) / 0.0016) ** 2)
+    if abs(u) < 0.75:
+        for z0, z1 in ((m['belt_z'] + m['belt_h'] + 0.006, m['g_top'] - 0.016), (m['g_bot'] + 0.016, m['belt_z'] - m['belt_h'] - 0.006)):
+            if z0 < p.z < z1:
+                yy = (p.z - (z0 + z1) / 2) / max(z1 - z0, 1e-3); xx = abs(u) * 0.20
+                sc = math.sin(xx / 0.016 * 6.283 + math.sin(yy * 9.0) * 1.6) * math.cos(yy * 3.1416)
+                h += 0.00050 * max(0.0, abs(sc) - 0.35) / 0.65 * min(1.0, (0.75 - abs(u)) / 0.1)
+    return h
+def d_belt_c(p, s):
+    m = meta(); h = bc.d_leather(p, s) * 0.5
+    for zc in (m['belt_z'] + m['belt_h'] - 0.004, m['belt_z'] - m['belt_h'] + 0.004): h -= 0.0005 * math.exp(-((p.z - zc) / 0.0012) ** 2)
+    return h
+def d_relief_c(p, s):
+    return d_relief(p, s, [(Vector(c), r0, big) for c, r0, big in meta()['plaques']])
+def d_skirt_c(p, s):
+    # the kaftan's skirt: wool weave + long hanging folds that deepen toward the hem
+    m = meta(); u = math.atan2(p.x, -(p.y - m['yax'])); t = max(0.0, min(1.0, (m['skirt_top'] - p.z) / max(1e-3, m['skirt_top'] - m['skirt_hem'])))
+    return bc.d_cloth(p, s) + 0.0016 * t * math.sin(29 * u + 3.0 * math.sin(4 * u) + 2.0 * t) + 0.0008 * t * math.sin(53 * u + 1.7)
+def d_plume_c(p, s):
+    return 0.0012 * math.sin(p.x * 900 + 3 * math.sin(p.z * 40)) * math.sin(p.y * 700 + p.z * 15)
 
 def d_relief(p, s, centres=[]):
     # embossed rosettes on plaques / beast-mask scrolls on the buckle, done in object space
@@ -189,6 +233,8 @@ for tset in WANT:
             afun = lambda p: relief.guard_orn(p)[1]
         elif disp == 'wrap':
             dfun = d_wrap
+        elif disp in ('tooled_c', 'belt_c', 'relief_c', 'skirt_c', 'plume_c'):
+            dfun = {'tooled_c': d_tooled_c, 'belt_c': d_belt_c, 'relief_c': d_relief_c, 'skirt_c': d_skirt_c, 'plume_c': d_plume_c}[disp]
         elif disp == 'trouser':
             # fitted riding trousers: the wrinkles live in the normal map only (creases behind the knee, a slight gather
             # at the boot top); design-space heights: knee 0.50, boot top 0.45
@@ -203,7 +249,7 @@ for tset in WANT:
         # the pieces were built at the kit's design size and scaled back to the real body: the relief / crease functions
         # are written in design coordinates, so evaluate them there
         _K = float(os.environ.get('SUR_DESIGN_K', '1.0'))
-        if _K != 1.0:
+        if _K != 1.0 and disp not in ('tooled_c', 'belt_c', 'relief_c', 'skirt_c', 'plume_c'):      # (the new pieces are built at real size)
             if callable(dfun): dfun = (lambda f: (lambda p, s_: f(p * _K, s_)))(dfun)
             if callable(afun): afun = (lambda f: (lambda p: f(p * _K)))(afun)
         h = bc.make_high(o, level=lvl, bevel=0.0006 if shader != 'cloth' else 0.0, disp=dfun, seed=i * 1.7, attr=afun)

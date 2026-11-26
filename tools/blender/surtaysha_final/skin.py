@@ -73,7 +73,7 @@ for o in pieces:
     me = o.data
     if n in HEAD_ONLY:
         set_weights(o, [{'head': 1.0}] * len(me.vertices))
-    elif n in AVENTAIL:
+    elif n in AVENTAIL or n.startswith('SUR_Aventail'):
         isl = islands(me); wm = [None] * len(me.vertices)
         hz, nz = head_z.z, neck_z.z
         for I in isl:
@@ -161,7 +161,7 @@ for o in pieces:
 # UE scales the head bone by 1.0549 (MetaHuman head sized to 1/7 of the height). The helmet / plume / aventail were fitted
 # around the already-scaled head, so pre-shrink every vertex about the head joint by its head weight: after UE's scale it
 # lands exactly where it was fitted (brim above the brows, nasal on the bridge of the nose).
-HEAD_BONE_SCALE = 1.0549
+HEAD_BONE_SCALE = float(os.environ.get('SUR_HEAD_BONE_SCALE', '1.0'))      # pure MetaHuman: the head is not bone-scaled
 hj = arm.matrix_world @ arm.data.bones['head'].head_local
 for o in pieces:
     gi = o.vertex_groups.get('head')

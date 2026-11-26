@@ -648,6 +648,9 @@ def step_multishots(items, light):
                     if nm == 'oyoq':   # crotch / inner-thigh close-up from the front
                         tg = unreal.Vector(head.x, head.y, Hb * 0.44); dd = unreal.Vector(fwd.x, fwd.y, 0)
                         st['jobs'].append((f'{stem}_oyoq.png', unreal.Vector(tg.x + dd.x * rb * 0.33, tg.y + dd.y * rb * 0.33, tg.z), tg)); continue
+                    if nm.startswith('n_'):   # neck close-up (head-to-body join): n_old / n_yon / n_orqa / n_q34
+                        key = nm[2:]; ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key])); d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
+                        tg = unreal.Vector(eye.x, eye.y, eye.z - 16); st['jobs'].append((f'{stem}_boyin_{key}.png', unreal.Vector(tg.x + d.x * r * 1.15, tg.y + d.y * r * 1.15, tg.z + 2), tg)); continue
                     full = nm.startswith('b_'); key = nm[2:] if full else nm
                     ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key]))
                     d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
@@ -1460,6 +1463,129 @@ try:
             json.dump({'source': {q: v[0] for q, v in ADA.items()}, 'scale': sc, 'asked': asked, 'readback': rb}, open(f'{OUT}/ga_final.json', 'w'), indent=1)
         finally: mhs.remove_object_to_edit(c)
         EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('gada saved', nm)
+    if 'mkupright' in STEPS:
+        # Upright presentation posture (author, 26 Nov: the MetaHuman bind pose stands with a rounded upper back, shoulders
+        # rolled forward and the head forward): a one-frame AnimSequence used for the renders and as the base of the idle.
+        # Upper spine extended, collar bones drawn back and a little down, neck back so the ear sits over the shoulder, head
+        # kept level. QQ_UP = json {spine: deg per spine_03/04/05, neck: deg per neck_01/02, clav_back, clav_down, name}.
+        UP = {'spine': 2.5, 'neck': 3.5, 'clav_back': 8.0, 'clav_down': 3.0, 'name': 'MM_Upright'}; UP.update(json.loads(os.environ.get('QQ_UP', 'null')) or {})
+        dst = '/Game/QQ/Anims/' + UP['name']; idle = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH'); skel = idle.get_editor_property('skeleton')
+        if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
+        fac = unreal.AnimSequenceFactory(); fac.set_editor_property('target_skeleton', skel)
+        seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(UP['name'], '/Game/QQ/Anims', unreal.AnimSequence, fac)
+        ref = unreal.AnimPoseExtensions.get_reference_pose(skel); W, Lc = unreal.AnimPoseSpaces.WORLD, unreal.AnimPoseSpaces.LOCAL
+        g = lambda b, sp: unreal.AnimPoseExtensions.get_bone_pose(ref, b, sp)
+        def vsub(a, b): return unreal.Vector(a.x - b.x, a.y - b.y, a.z - b.z)
+        def dot(a, b): return a.x * b.x + a.y * b.y + a.z * b.z
+        def qaxis(ax, a): s_ = math.sin(a / 2); return unreal.Quat(ax.x * s_, ax.y * s_, ax.z * s_, math.cos(a / 2))
+        f0 = vsub(g('ball_l', W).translation, g('foot_l', W).translation); n_ = math.hypot(f0.x, f0.y); fwd = unreal.Vector(f0.x / n_, f0.y / n_, 0)      # the way she faces
+        lat = unreal.Vector(-fwd.y, fwd.x, 0); up = unreal.Vector(0, 0, 1)
+        def back_q(bone, child, ax, deg):
+            # rotation about ax by deg, signed so that the child joint moves BACK (against fwd)
+            off = vsub(g(child, W).translation, g(bone, W).translation); best = None
+            for s_ in (1, -1):
+                q = qaxis(ax, math.radians(deg) * s_); d = dot(q.rotate_vector(off), fwd)
+                if best is None or d < best[0]: best = (d, q)
+            return best[1]
+        def down_q(bone, child, ax, deg):
+            off = vsub(g(child, W).translation, g(bone, W).translation); best = None
+            for s_ in (1, -1):
+                q = qaxis(ax, math.radians(deg) * s_); d = q.rotate_vector(off).z
+                if best is None or d < best[0]: best = (d, q)
+            return best[1]
+        ident = unreal.Quat(0, 0, 0, 1); D = {'spine_02': ident}
+        D['spine_03'] = back_q('spine_03', 'spine_04', lat, UP['spine'])
+        D['spine_04'] = back_q('spine_04', 'spine_05', lat, UP['spine']) * D['spine_03']
+        D['spine_05'] = back_q('spine_05', 'neck_01', lat, UP['spine']) * D['spine_04']
+        D['neck_01'] = back_q('neck_01', 'neck_02', lat, UP['neck']) * D['spine_05']
+        D['neck_02'] = back_q('neck_02', 'head', lat, UP['neck']) * D['neck_01']
+        D['head'] = ident                                                                    # the head stays level
+        for sd in ('l', 'r'):
+            D['clavicle_' + sd] = down_q('clavicle_' + sd, 'upperarm_' + sd, fwd, UP['clav_down']) * back_q('clavicle_' + sd, 'upperarm_' + sd, up, UP['clav_back']) * D['spine_05']
+            D['upperarm_' + sd] = D['spine_05']                                              # the arm itself keeps the trunk's lean only (no extra swing from the collar bone)
+        PAR = {'spine_03': 'spine_02', 'spine_04': 'spine_03', 'spine_05': 'spine_04', 'neck_01': 'spine_05', 'neck_02': 'neck_01', 'head': 'neck_02',
+               'clavicle_l': 'spine_05', 'clavicle_r': 'spine_05', 'upperarm_l': 'clavicle_l', 'upperarm_r': 'clavicle_r'}
+        ctrl = seq.controller; ctrl.open_bracket(unreal.Text('upright posture'))
+        try: ctrl.set_frame_rate(unreal.FrameRate(30, 1))
+        except Exception as e: log('framerate', e)
+        ctrl.set_number_of_frames(unreal.FrameNumber(1))
+        for b, par in PAR.items():
+            nw = D[b] * g(b, W).rotation; pw = D[par] * g(par, W).rotation; loc = pw.inverse() * nw; l0 = g(b, Lc)
+            try: ctrl.add_bone_curve(b)
+            except Exception: ctrl.add_bone_track(b)
+            ctrl.set_bone_track_keys(b, [l0.translation] * 2, [loc] * 2, [l0.scale3d] * 2)
+            log('upright bone', b, 'local rot', [round(x, 4) for x in (loc.x, loc.y, loc.z, loc.w)], 'ref', [round(x, 4) for x in (l0.rotation.x, l0.rotation.y, l0.rotation.z, l0.rotation.w)])
+        ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); log('upright pose saved', dst, json.dumps(UP))
+    if 'gada2' in STEPS:
+        # Guloyim = the Ada preset's body EXACTLY (author, 26 Nov night: re-solving Ada's measures did not give Ada's shape).
+        # The new character IS a copy of the preset asset (its own body state, untouched); Guloyim's face coefficients, skin,
+        # eyes, make-up, head-model settings and grooms are put onto it. QQ_GA2_DST (default MHC_gulayim_ada), QQ_GA2_FACE.
+        srcp = f"{OPT}/Presets/{os.environ.get('QQ_GA_SRC', 'Ada')}"; G = unreal.load_asset('/Game/QQ/' + os.environ.get('QQ_GA2_FACE', 'MHC_gulayim_final'))
+        dn = os.environ.get('QQ_GA2_DST', 'MHC_gulayim_ada'); dst = '/Game/QQ/' + dn
+        if EAL.does_asset_exist('/Game/QQ/MHC_ada_ref'): clear_outfit('MHC_ada_ref')      # the reference copy of the preset in underwear, for the comparison renders
+        if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
+        N = EAL.duplicate_asset(srcp, dst); log('gada2: duplicated', srcp, '->', dst)
+        def ga2_dump(ch, tag):
+            geo = f'/Game/QQ/Geo_{tag}'; g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
+            unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(ch, g); fb = None
+            for a in EAL.list_assets(geo, recursive=True):
+                o = unreal.load_asset(a.split('.')[0])
+                if isinstance(o, unreal.SkeletalMesh) and 'FullBody' in a: fb = o
+            rr, ii, *_ = mhs.get_mesh_data_for_conforming(fb)
+            json.dump({'v': [[round(v.x, 3), round(v.y, 3), round(v.z, 3)] for v in rr], 'i': [int(q) for q in ii]}, open(f'{OUT}/gp_mesh_{tag}.json', 'w')); log('gada2 mesh dump', tag, len(rr))
+        if not mhs.try_add_object_to_edit(G): raise RuntimeError('cannot edit the face source')
+        try:
+            fG = list(mhs.get_face_model_coefficients(G)); ssG = G.skin_settings; esG = G.eyes_settings; mkG = G.makeup_settings; hmG = G.head_model_settings
+            sels = []
+            try:
+                for s_ in G.internal_collection.default_instance.get_editor_property('slot_selections'):
+                    k_ = s_.selected_item; nm_ = str(G.internal_collection.get_item_display_name(k_)); pa = None
+                    for attr in ('principal_asset', 'principal_asset_path', 'asset'):
+                        try: pa = k_.get_editor_property(attr); break
+                        except Exception: pass
+                    sels.append((str(s_.slot_name), nm_, str(pa.get_path_name()) if hasattr(pa, 'get_path_name') else str(pa)))
+            except Exception as e: log('gada2 selections fail', e)
+            log('gada2 face source selections', sels)
+        finally: mhs.remove_object_to_edit(G)
+        if not mhs.try_add_object_to_edit(N): raise RuntimeError('cannot edit ' + dst)
+        try:
+            b0 = {str(x.name): round(x.target_measurement, 2) for x in mhs.get_body_constraints(N)}
+            try: ga2_dump(N, 'ada_before')
+            except Exception as e: log('gada2 dump before failed', e)
+            mhs.set_face_model_coefficients(N, fG); mhs.commit_face_state(N)
+            f1 = list(mhs.get_face_model_coefficients(N)); log('gada2 face set, max diff to source', max(abs(a - b_) for a, b_ in zip(fG, f1)))
+            N.preview_material_type = unreal.MetaHumanCharacterSkinPreviewMaterial.EDITABLE
+            sk_ = ssG.skin; sk_.show_top_underwear = True; ssG.skin = sk_
+            mhs.commit_skin_settings(N, ssG); mhs.commit_eyes_settings(N, esG); mhs.commit_makeup_settings(N, mkG)
+            try: mhs.commit_head_model_settings(N, hmG)
+            except Exception as e: log('gada2 head model', e)
+            b1 = {str(x.name): round(x.target_measurement, 2) for x in mhs.get_body_constraints(N)}
+            log('gada2 body measures before / after the face', json.dumps(b0), json.dumps(b1), 'changed', {q: (b0[q], b1[q]) for q in b0 if abs(b0[q] - b1[q]) > 0.05})
+        finally: mhs.remove_object_to_edit(N)
+        # outfit off (underwear on), Guloyim's grooms
+        inst = N.internal_collection.default_instance
+        for slot in ('Outfits', 'Top Garment', 'Bottom Garment'):
+            try: log('gada2 cleared slot', slot, inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey()))
+            except Exception as e: log('gada2 clear slot fail', slot, e)
+        Gp = f'{OPT}/Grooms/Bindings'; FOLD = {'Hair': 'Hair', 'Eyebrows': 'Eyebrows', 'Eyelashes': 'Eyelashes', 'Peachfuzz': 'Peachfuzz', 'Beard': 'Beard', 'Mustache': 'Mustache'}
+        DEF = {'Hair': 'WI_Hair_L_Straight', 'Eyebrows': 'WI_Eyebrows_M_SlightArch', 'Eyelashes': 'WI_Eyelashes_L_SlightCurl', 'Peachfuzz': 'WI_Peachfuzz_M_Thin'}
+        want = dict(DEF)
+        for slot, nm_, pa in sels:
+            if slot in FOLD:
+                wi = pa.split('.')[-1] if pa and 'WI_' in pa else (nm_ if nm_.startswith('WI_') else None)
+                if wi: want[slot] = wi
+        for slot in ('Beard', 'Mustache'):
+            try: inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey())
+            except Exception: pass
+        for slot, wi in want.items(): add_groom(N, slot, f'{Gp}/{FOLD[slot]}/{wi}.{wi}')
+        if mhs.try_add_object_to_edit(N):
+            try:
+                mhs.assemble_for_preview(character=N)
+                try: ga2_dump(N, 'guloyim_ada')
+                except Exception as e: log('gada2 dump after failed', e)
+            except Exception as e: log('gada2 assemble fail', e, traceback.format_exc())
+            finally: mhs.remove_object_to_edit(N)
+        EAL.save_asset(dst, only_if_is_dirty=False); log('gada2 saved', dst)
     if 'export_after' in STEPS: _export_final()      # same export, but after the conform / native steps of this session
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)
