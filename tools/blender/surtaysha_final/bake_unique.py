@@ -29,8 +29,8 @@ def kind_of(name):
         'SUR_Boot_L': ('leather', dict(tint=(0.074, 0.046, 0.032), wear=0.9, scuff=True), 'boot', 2),
         'SUR_Boot_Shaft_L': ('leather', dict(tint=(0.082, 0.087, 0.093), wear=1.25, worn_col=(0.27, 0.28, 0.29), dirt_col=(0.022, 0.022, 0.022), rough=0.50), 'panel', 2),
         'SUR_Boot_Sole_L': ('leather', dict(tint=(0.050, 0.040, 0.034), wear=0.7, worn_col=(0.16, 0.13, 0.11)), bc.d_leather, 2),
-        'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
-        'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
+        'SUR_Robe_Torso': ('cloth', dict(tint=(0.105, 0.066, 0.042), dust=0.5), bc.d_cloth, 1),      # brown wool kaftan (reference)
+        'SUR_Coat': ('cloth', dict(tint=(0.090, 0.058, 0.038), dust=0.45), bc.d_cloth, 1),
         'SUR_Trousers_L': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
         'SUR_Trousers': ('cloth', dict(tint=(0.055, 0.048, 0.043), dust=0.9), 'trouser', 1),      # dark brown-grey wool (reference), not black
         'SUR_Sleeve_L': ('cloth', dict(tint=(0.055, 0.038, 0.028), dust=0.4), bc.d_cloth, 1),

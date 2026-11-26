@@ -203,9 +203,9 @@ def build_tassets():
 _CD = FIT.torso_delta(1.10)
 def coat_dims(z):
     nx, nf, nb = FIT.body_at(max(z, 0.55))
-    fl = max(0.0, 1.06 - z) * 0.035
+    fl = max(0.0, 1.06 - z) * 0.010          # hangs close: the kaftan skirt must stay inside the lamellar panels
     w = FIT.body_at(1.06)
-    return max(nx, w[0]) + 0.012 + fl, max(nf, w[1] * 0.9) + 0.012 + fl * 0.6, max(nb, w[2]) + 0.012 + fl * 1.2, 2.3
+    return max(nx, w[0]) + 0.007 + fl, max(nf, w[1] * 0.9) + 0.007 + fl * 0.6, max(nb, w[2]) + 0.007 + fl * 1.2, 2.3
 def coat_dims_v1(z):
     t = (1.06 - z) / 0.66
     return 0.214 + t * 0.045, 0.180 + t * 0.035, 0.110 + t * 0.10, 2.3
@@ -475,6 +475,7 @@ exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'boots.py'), 
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trousers.py'), encoding='utf-8').read())   # whole pair built on the final body (replaces build_trousers above)
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kaftan.py'), encoding='utf-8').read())     # kaftan upper on the body surface (replaces build_robe_torso / build_sleeves)
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trousers_fit.py'), encoding='utf-8').read())     # trousers on the body surface (replaces the lofted pair)
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'cuirass_native.py'), encoding='utf-8').read())     # cuirass made on this body at real size (replaces build_cuirass)
 
 # =========================================================== cape
 def cape_back_y(z):
