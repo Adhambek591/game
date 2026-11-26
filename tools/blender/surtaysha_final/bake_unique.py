@@ -53,7 +53,8 @@ def kind_of(name):
         'SUR_Bracer_Gold': ('gold', dict(wear=1.0), bc.d_gold, 1),
         'SUR_Bracer_Straps': ('leather', dict(tint=(0.085, 0.045, 0.024)), bc.d_leather, 1),
         'SUR_Helmet_Plume': ('cloth', dict(tint=(0.012, 0.011, 0.011), dust=0.15, weave=1400.0), 'plume_c', 2),
-        'SUR_Coat': ('cloth', dict(tint=(0.040, 0.047, 0.058), dust=0.5), 'skirt_c', 3),      # dark grey-blue skirt flaps (reference)
+        'SUR_Coat': ('cloth', dict(tint=(0.040, 0.047, 0.058), dust=0.5), 'skirt_c', 3),
+        'SUR_Trousers_Lower': ('cloth', dict(tint=(0.055, 0.048, 0.043), dust=0.9), bc.d_cloth, 2),      # dark grey-blue skirt flaps (reference)
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.062, 0.041, 0.029), dust=0.5), bc.d_cloth, 1),      # darker brown wool, as in the reference
     })
     return K.get(name) or (K.get(name[:-2] + '_L') if name.endswith('_R') else None)

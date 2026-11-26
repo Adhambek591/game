@@ -194,6 +194,43 @@ def lower_boots(ratio=0.70):
             bm_ = bmesh.new(); bm_.from_mesh(o.data); zc_ = float(os.environ.get('SUR_BOOT_PANEL_Z', '0.150'))
             g_ = bm_.verts[:] + bm_.edges[:] + bm_.faces[:]; bmesh.ops.bisect_plane(bm_, geom=g_, plane_co=Vector((0, 0, zc_)), plane_no=Vector((0, 0, -1)), clear_outer=True, clear_inner=False)
             bm_.to_mesh(o.data); bm_.free(); o.data.update(); print('boot panel', o.name, 'cut level at z %.3f' % zc_)
+    # the right panel = the mirror of the left one (same cut, same topology), baked on its own
+    L_, R_ = bpy.data.objects.get('SUR_Boot_Shaft_L'), bpy.data.objects.get('SUR_Boot_Shaft_R')
+    if L_ and R_:
+        bm_ = bmesh.new(); bm_.from_mesh(L_.data)
+        for v in bm_.verts: v.co.x = -v.co.x
+        bmesh.ops.reverse_faces(bm_, faces=bm_.faces[:]); bm_.to_mesh(R_.data); bm_.free(); R_.data.update()
+        if 'bake_skip' in R_: del R_['bake_skip']
+
+def trouser_legs():
+    """the fitted trousers end where the old, taller boots began: continue each leg down into the new boot top as a smooth
+    convex tube (2 mm over the leg inside the boot, a soft blouse of up to 8 mm above it)"""
+    if 'SUR_Trousers_Lower' in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects['SUR_Trousers_Lower'])
+    tr = bpy.data.objects.get('SUR_Trousers')
+    if not tr: return
+    z_boot = 0.70 * bone('calf_l').z; bm = bmesh.new(); z_hi = None
+    for sx in (1, -1):
+        sd = 'l' if sx > 0 else 'r'; c0 = bone('foot_' + sd); c1 = bone('calf_' + sd)
+        def cen(z): t = (z - c0.z) / (c1.z - c0.z); return c0.x + (c1.x - c0.x) * t, c0.y + (c1.y - c0.y) * t
+        hem = min(v.co.z for v in tr.data.vertices if v.co.x * sx > 0.02); z_hi = hem + 0.05
+        P = [v.co for i, v in enumerate(me.vertices) if LEGW[i] > 0.5 and v.co.x * sx > 0 and v.co.z < z_hi + 0.05]
+        T = [v.co for v in tr.data.vertices if v.co.x * sx > 0 and v.co.z < z_hi + 0.05]
+        zs_ = []; z = z_hi
+        while z > z_boot - 0.045: zs_.append(z); z -= 0.0125
+        rings = []
+        for z in zs_:
+            cx, cy = cen(z); hb_ = hull2([(q.x - cx, q.y - cy) for q in P if abs(q.z - z) < 0.012]); ht_ = hull2([(q.x - cx, q.y - cy) for q in T if abs(q.z - z) < 0.012])
+            tb = max(0.0, min(1.0, (z - z_boot) / 0.03)); blouse = 0.008 * math.sin(math.pi * max(0.0, min(1.0, (z - z_boot) / max(1e-6, hem - z_boot)))) if z > z_boot else 0.0
+            ring = []
+            for k in range(48):
+                a_ = 2 * math.pi * k / 48; ca, sa = math.cos(a_), math.sin(a_); r_ = ray_poly(hb_, 0.0, 0.0, ca, sa) + 0.002 + 0.0025 * tb + blouse
+                if len(ht_) > 2 and z > hem - 0.005: r_ = max(r_, ray_poly(ht_, 0.0, 0.0, ca, sa) - 0.0015)      # tucked just inside the fitted trousers where they overlap
+                ring.append(Vector((cx + ca * r_, cy + sa * r_, z)))
+            rings.append(ring)
+        loft(bm, rings, closed=True)
+        print('trouser leg %s: fitted trousers end at z %.3f, continued down to %.3f (boot top %.3f)' % (sd, hem, zs_[-1], z_boot))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    obj_from(bm, 'SUR_Trousers_Lower', M_TROU)
 
 def stage1():
     with bpy.data.libraries.load(os.path.join(OUT, 'armor_low.blend')) as (f, t):   # the accepted fitted boots and trousers
@@ -202,7 +239,7 @@ def stage1():
         if o: bpy.context.scene.collection.objects.link(o)
     # the kaftan's upper part ends just above the trousers' band (its skirt, stage 4, hangs from there outside the trousers):
     # the two cloths never share a zone, so there is nothing to tear or flicker at the band
-    lower_boots()
+    lower_boots(); trouser_legs()
     global Z_WAIST
     if 'SUR_Trousers' in bpy.data.objects: Z_WAIST = max(v.co.z for v in bpy.data.objects['SUR_Trousers'].data.vertices) + 0.004
     def keep(i, p):
@@ -564,7 +601,7 @@ def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None, drop_at_rim=False, 
     S = Surf(sh); ROW_, PW_, PP_, PH_ = ROW * ps, PW * ps, PPITCH * ps, PH * ps      # plate size scale
     for n_ in names:
         if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
-    bm = bmesh.new(); lb = bmesh.new(); rng = random.Random(7); nrow = 0; npl = 0; skipped = 0; rows_dev = []
+    bm = bmesh.new(); lb = bmesh.new(); rng = random.Random(7); nrow = 0; npl = 0; skipped = 0; rows_dev = []; nbad = [0]
     VS = (0.0, 0.34, 0.68, 1.0)
     lev = PH_ + 0.004 if lev0 is None else lev0
     while lev < max(f) :
@@ -592,7 +629,10 @@ def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None, drop_at_rim=False, 
                         dome = 0.0006 * (1 - (2 * u) ** 2)                      # plates are slightly domed across
                         lift = PA + (PB - PA - 0.0007) * v + 0.0007 * (u + 0.5)      # every plate's one side lies over its neighbour (they overlap sideways too)
                         inner.append(q + n * lift); outer.append(q + n * (lift + PT_ + dome))
-                if nedge > (2 if drop_at_rim else 14) or nclip > 11: ok = False      # drop_at_rim: curved rims (pauldrons, aventail) keep a clean leather margin instead of clipped slivers      # nothing of this plate is left inside the field
+                if nedge > (2 if drop_at_rim else 14) or nclip > 11: ok = False
+                if ok and nedge == 0 and nclip == 0:      # a plate bent or squeezed out of shape (hollows, converging rows): none there
+                    ln_ = (outer[12] - outer[0]).length; wd_ = (outer[3] - outer[0]).length; wb_ = (outer[15] - outer[12]).length; dg_ = abs((outer[15] - outer[0]).length - (outer[12] - outer[3]).length)
+                    if ln_ < 0.72 * PH_ or ln_ > 1.25 * PH_ or min(wd_, wb_) < 0.70 * PW_ or max(wd_, wb_) > 1.3 * PW_ or dg_ > 0.35 * PW_: ok = False; nbad[0] += 1      # drop_at_rim: curved rims (pauldrons, aventail) keep a clean leather margin instead of clipped slivers      # nothing of this plate is left inside the field
                 if ok and any(min(A_.sd(o) for o in outer) < lim for A_, lim in avoid): ok = False      # no room: the sleeve / the arm is there
                 if not ok: skipped += 1; run = lace_run(lb, run); continue
                 vi = [bm.verts.new(c) for c in inner]; vo = [bm.verts.new(c) for c in outer]
@@ -882,7 +922,7 @@ def stage5():
         per = grid[0][:] + [r_[-1] for r_ in grid[1:]] + grid[-1][-2::-1] + [r_[0] for r_ in grid[-2:0:-1]]
         tube_along(trims, smooth_closed(resample(per, 0.012), 6), lambda p, PS=PS: PS.near(p)[1], r=0.0075, lift=0.0)
         f = [(NU - 1 - (i // NV)) * Lw / (NU - 1) for i in range(len(po.data.vertices))]
-        lam, lace = lam_on(po, f, 99.0, ('SUR_PL_' + s_, 'SUR_PC_' + s_), [], 'STAGE 5 pauldron ' + s_, [('pauldron backing', PS), ('kaftan', K)], lev0=PH * 1.9 + 0.012, pt=0.0034, ps=1.9)
+        lam, lace = lam_on(po, f, 99.0, ('SUR_PL_' + s_, 'SUR_PC_' + s_), [], 'STAGE 5 pauldron ' + s_, [('pauldron backing', PS), ('kaftan', K)], lev0=PH * 1.3 + 0.012, pt=0.0034, ps=1.3)
         pads.append(po); lam_all.append(lam); lace_all.append(lace)
         P = [v.co for v in po.data.vertices]
         print('pauldron %s: span to x = %.3f m (both: %.3f m = %.2f x hip width %.3f), length along the slope %.0f mm, lower edge %.0f mm below its top, largest stand-off over what it rests on %.1f mm' % (s_, sx * span / 2, span, span / hipw, hipw, Lw * 1000, dz * 1000, lifted * 1000))

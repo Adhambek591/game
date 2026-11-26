@@ -10,7 +10,7 @@ MATS = {'M_Lamellar': M('M_Lamellar', (0.36, 0.37, 0.40)), 'M_Trim': M('M_Trim',
 def mat_of(n):
     if n.endswith('_Lamellar'): return 'M_Lamellar'
     if n.endswith(('_Trim', '_Lace')) or n in ('SUR_Coat_Border', 'SUR_Boot_Straps_L', 'SUR_Boot_Straps_R'): return 'M_Trim'
-    if n in ('SUR_Robe_Torso', 'SUR_Coat', 'SUR_Trousers', 'SUR_Helmet_Plume'): return 'M_Cloth'
+    if n in ('SUR_Robe_Torso', 'SUR_Coat', 'SUR_Trousers', 'SUR_Trousers_Lower', 'SUR_Helmet_Plume'): return 'M_Cloth'
     return 'M_Armor'
 def group_of(n):
     if n.startswith(('SUR_Helmet', 'SUR_Aventail')): return 'Head', 'head'
