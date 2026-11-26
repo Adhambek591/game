@@ -536,6 +536,17 @@ def step_multishots(items, light):
                 if now - st['t'] < need: return
                 st['first'] = False
                 path, stem, views = items[st['k']][:3]
+                exg = items[st['k']][3] if len(items[st['k']]) > 3 else {}
+                if exg.get('groom_scale'):
+                    try:
+                        gs = float(exg['groom_scale']); bodyc = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l'))
+                        H = bodyc.get_socket_location('head')
+                        for g in st['actor'].get_components_by_class(unreal.GroomComponent):
+                            L0 = g.get_world_location(); s0 = g.get_world_scale()
+                            g.set_world_scale3d(unreal.Vector(s0.x * gs, s0.y * gs, s0.z * gs))
+                            g.set_world_location(unreal.Vector(H.x + gs * (L0.x - H.x), H.y + gs * (L0.y - H.y), H.z + gs * (L0.z - H.z)), False, False)
+                            log('groom scaled', g.get_name(), gs)
+                    except Exception as e: log('groom scale fail', e)
                 comps = st['actor'].get_components_by_class(unreal.SkeletalMeshComponent)
                 body = next((x for x in comps if x.does_socket_exist('head') and 'body' in x.get_name().lower()), None) or next(x for x in comps if x.does_socket_exist('head'))
                 head = body.get_socket_location('head'); fwd = body.get_right_vector()
@@ -665,6 +676,17 @@ try:
             tk.automated = True; tk.replace_existing = True; tk.save = True; tk.options = ui
             unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([tk]); m = unreal.load_asset(f'/Game/QQ/BodyDirect/{name}')
             log('imported', name, m, m.skeleton.get_path_name() if m and m.skeleton else None, m.get_bounds() if m else None)
+    if 'sregroom' in STEPS:
+        # rebuild Surtaysha's groom bindings on the current head: clear each slot, then add the same grooms again
+        c = unreal.load_asset('/Game/QQ/MHC_surtaysha_k'); G = f'{OPT}/Grooms/Bindings'; inst = c.internal_collection.default_instance
+        for slot in ('Hair', 'Eyebrows', 'Beard', 'Mustache', 'Eyelashes'):
+            try: inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey())
+            except Exception as e: log('clear', slot, e)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+        for slot, sub, wi in (('Hair', 'Hair', 'WI_Hair_S_SlickBack'), ('Eyebrows', 'Eyebrows', 'WI_Eyebrows_M_Thick'), ('Beard', 'Beards', 'WI_Goatee_M_Pointed'), ('Mustache', 'Mustaches', 'WI_Mustache_L_Full'), ('Eyelashes', 'Eyelashes', 'WI_Eyelashes_L_SlightCurl')):
+            k = add_groom(c, slot, f'{G}/{sub}/{wi}.{wi}')
+            if k is None and sub != slot: add_groom(c, slot, f'{G}/{slot}/{wi}.{wi}')
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('surtaysha grooms re-added')
     if 'ghair' in STEPS:
         c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('guloyim hair re-added')
     if 'import_costume' in STEPS:
@@ -696,9 +718,32 @@ try:
                 k = 'Amulet' if 'mulet' in name else 'Weapon'; mi = unreal.load_asset(pref + k)
                 for i in range(len(sm_.static_materials)): sm_.set_material(i, mi)
                 EAL.save_asset(sm_.get_path_name(), only_if_is_dirty=False); log('static imported', name, k)
+    if 'giris' in STEPS:
+        # Guloyim: dark warm brown iris, visible, normal size (logs the eye settings fields to find the right ones)
+        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final')
+        if mhs.try_add_object_to_edit(c):
+            try:
+                es = c.eyes_settings
+                def fields(o): return [m for m in dir(o) if not m.startswith('_') and not callable(getattr(o, m, None))]
+                log('eyes fields', fields(es))
+                for side in [m for m in fields(es) if 'eye' in m.lower()] or ['']:
+                    e = getattr(es, side) if side else es; log('eye side', side, {m: str(getattr(e, m))[:80] for m in fields(e)})
+                    for sub in [m for m in fields(e) if 'iris' in m.lower()]:
+                        ir = getattr(e, sub); log('iris', side, sub, {m: str(getattr(ir, m))[:80] for m in fields(ir)})
+                        for m in fields(ir):
+                            v = getattr(ir, m)
+                            if isinstance(v, unreal.LinearColor) and ('primary' in m.lower() or 'color' in m.lower()): setattr(ir, m, unreal.LinearColor(0.16, 0.085, 0.04, 1.0))
+                            if 'size' in m.lower() and isinstance(v, float): setattr(ir, m, float(os.environ.get('QQ_IRIS_SIZE', str(v))))
+                            if m == 'global_tint': setattr(ir, m, unreal.LinearColor(0.9, 0.85, 0.8, 1.0))
+                        setattr(e, sub, ir)
+                    if side: setattr(es, side, e)
+                mhs.commit_eyes_settings(c, es); log('iris set')
+            except Exception as ex: log('iris fail', ex, traceback.format_exc())
+            finally: mhs.remove_object_to_edit(c)
+            EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
     if 'gfix' in STEPS:
         # Guloyim: no MH top underwear, card/mesh eyelashes instead of the lash groom (the groom drifted onto the cheeks after the body swap)
-        c = unreal.load_asset('/Game/QQ/MHC_gulayim_final')
+        c = unreal.load_asset('/Game/QQ/' + os.environ.get('QQ_FIXCHAR', 'MHC_gulayim_final'))
         if mhs.try_add_object_to_edit(c):
             try:
                 ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = False; ss.skin = sk; mhs.commit_skin_settings(c, ss)
