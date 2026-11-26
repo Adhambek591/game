@@ -229,7 +229,11 @@ export function spawn(type, x, z, team, raw) {
   // enemy variety: unless a level opts out (G.noVar) every 4th foot soldier is a spearman and the 5th wolf of a level is the pack's chieftain
   if (!raw && !G.noVar && (!team || team === 'enemy') && T[type] && !T[type].team) { const V = G.vc || (G.vc = { a: 0, w: 0 }); if (type === 'askar') { ++V.a; if (V.a % 4 === 0) type = 'nayza'; else if (V.a % 6 === 3) type = 'qilich'; else if (V.a % 10 === 7) type = 'qalqan'; } else if (type === 'wolf') { V.w++; if (V.w === 5 || (V.w > 5 && (V.w - 5) % 9 === 0)) type = 'boribasi'; } }
   const e = new Ent(type, x, z, team); if (type === 'qiz') { const b = maidBuff(); e.maxHp = e.hp = Math.round(e.maxHp * b.hp); e.dmgMul = b.dmg; } G.ents.push(e); if (e.team === 'enemy' && !raw) e.spChk = 1; decorate(e); return e; }  /* no pop-in: a reinforcement spawned in view is moved off-screen and walks in (arrive) */
-export function separate() { const L = G.ents; for (let i = 0; i < L.length; i++) { const a = L[i]; if (a.dead || a.team === 'npc') continue; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (b.dead || b.team === 'npc') continue; const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || .01, m = sepR(a) + sepR(b); if (d < m) { const k = (m - d) / d * .5, ha = a.d.heavy || a === G.player ? 0 : 1, hb = b.d.heavy || b === G.player ? 0 : 1, t = ha + hb || 1; a.x -= dx * k * 2 * ha / t; a.z -= dz * k * 2 * ha / t; b.x += dx * k * 2 * hb / t; b.z += dz * k * 2 * hb / t; } } } }
+export /* author Nov 26 ('no collision, NPCs get in the way of the fight'): bystanders (team npc) used to be skipped, so fighters walked through them and they stood
+   inside the melee. Now an npc is pushed out of any fighter's / the hero's circle (never the other way round); npc-npc pairs and frozen scenes
+   (archery stealth, cutscenes) are left alone so scripted crowds keep their marks. */
+const sepSkip = e => e.dead || e.gone || (e.team === 'npc' && (G.freeze || e.bg || e.mounted || e.y > .3));
+function separate() { const L = G.ents; for (let i = 0; i < L.length; i++) { const a = L[i]; if (sepSkip(a)) continue; const an = a.team === 'npc'; for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (sepSkip(b)) continue; const bn = b.team === 'npc'; if (an && bn) continue; const dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz) || .01, m = sepR(a) + sepR(b); if (d < m) { const k = (m - d) / d * .5, ha = an ? 1 : bn ? 0 : a.d.heavy || a === G.player ? 0 : 1, hb = bn ? 1 : an ? 0 : b.d.heavy || b === G.player ? 0 : 1, t = ha + hb || 1; a.x -= dx * k * 2 * ha / t; a.z -= dz * k * 2 * ha / t; b.x += dx * k * 2 * hb / t; b.z += dz * k * 2 * hb / t; } } } }
 export function hintRaw(s) { const h = $('hint'); if (h.textContent !== s || !h.classList.contains('show')) h.textContent = s; h.classList.add('show');  /* same text already up: only extend it (re-setting re-ran the emoji->icon swap = flicker) */ clearTimeout(hintRaw.to); hintRaw.to = setTimeout(() => h.classList.remove('show'), 5000); }
 export const enemies = () => G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg);
 function nearest(x, z, team, maxd = 1e9) { let b = null, bd = maxd; for (const e of G.ents) { if (e.dead || !hostile(team, e.team)) continue; const d = Math.hypot(e.x - x, e.z - z) - e.r; if (d < bd) { bd = d; b = e; } } return b; }
@@ -551,6 +555,14 @@ function civAvoid(e, dt) { const P = G.player; let fx = 0, fz = 0, n = 0; const 
     const dx = e.x - o.x, dz = e.z - o.z, d = Math.hypot(dx, dz) || .01; if (d < R) { const w = (R - d) / R; fx += dx / d * w; fz += dz / d * w; n++; } }
   if (!n) { e.civF = 0; return false; } const side = Math.sign(e.x) || (e.seed > 4.5 ? 1 : -1), wall = G.W - .7 - Math.abs(e.x); fx += side * (wall > .5 ? .9 : 0); const l = Math.hypot(fx, fz) || 1, sp = e.type === 'child' ? 3.6 : 4.2;
   e.x = clamp(e.x + fx / l * sp * dt, -G.W + .6, G.W - .6); e.z += fz / l * sp * dt; e.face(fx, fz, dt * 8); e.play('Running_A'); e.civF = 1; return true; }
+// ---- other bystanders (watching soldiers, waiting maidens, named NPCs): keep ~2.4 m from anyone who is fighting, step aside at a walk (author: civilians keep
+// away from fights). Units held by a script (ropes, cages, a ride, an elevated spot) are left where the script put them.
+function npcSpace(e, dt) { if (e.st === 'held' || e.mounted || e.bg || e.y > .3 || e.custom) return false; const P = G.player; let fx = 0, fz = 0, n = 0;
+  const pF = P && !P.dead && G.ents.some(o => o.team === 'enemy' && !o.dead && !o.bg && !o.asleep && (o.farT || 0) > -1e8 && Math.hypot(o.x - P.x, o.z - P.z) < 9);   /* the hero counts only while she is in a fight (talk / hand-over scenes need her close) */
+  for (const o of G.ents) { if (o === e || o.dead || o.gone || o.bg || o.team === 'npc') continue; const fighting = o === P ? pF : (o.team === 'enemy' ? (o.farT || 0) > -1e8 && !o.asleep : !!(o.tg || o.act)); if (!fighting) continue;
+    const R = 2.4 + (o.d.heavy ? (o.r || 1) * 1.5 : 0), dx = e.x - o.x, dz = e.z - o.z, d = Math.hypot(dx, dz) || .01; if (d < R) { const w = (R - d) / R; fx += dx / d * w; fz += dz / d * w; n++; } }
+  if (!n) { if (e.spaceF) { e.spaceF = 0; e.play('Idle'); } return false; }
+  const l = Math.hypot(fx, fz) || 1, sp = 2.6 * Math.min(1, l + .35); e.x = clamp(e.x + fx / l * sp * dt, -G.W + .6, G.W - .6); e.z += fz / l * sp * dt; e.face(fx, fz, dt * 6); e.play('Walking_A'); e.spaceF = 1; return true; }
 // ---- walk surfaces above the ground: plank decks (flat box meshes) and bridges over a river channel
 function scanDecks() { const L = []; for (const m of world.children) { if (!m.isMesh || !m.geometry || m.geometry.type !== 'BoxGeometry') continue; const pr = m.geometry.parameters; if (!pr || Math.abs(m.rotation.y) > .02 || Math.abs(m.rotation.x) > .02) continue;
     const w = pr.width * m.scale.x, h = pr.height * m.scale.y, dd = pr.depth * m.scale.z, top = m.position.y + h / 2; if (w > 2.5 && dd > 6 && h < .7 && top > .08 && top < 1.6) L.push({ x1: m.position.x - w / 2, x2: m.position.x + w / 2, z1: m.position.z - dd / 2, z2: m.position.z + dd / 2, y: top }); }
@@ -575,7 +587,7 @@ const _bv = new THREE.Vector3(), _bv2 = new THREE.Vector3(), _bcr = new THREE.Ve
 const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
 function ai(e, dt) {
   const d = e.d; if (e.spawnT > 0) { e.spawnT -= dt; e.o.scale.setScalar((e.vs || d.scale || 1) * clamp(1 - e.spawnT / .45, .01, 1)); return; }
-  if (e.team === 'npc' || e.air) { if (e.team === 'npc' && CIVT.has(e.type) && !e.duel) civAvoid(e, dt); return; }
+  if (e.team === 'npc' || e.air) { if (e.team === 'npc' && !e.duel) { if (CIVT.has(e.type)) civAvoid(e, dt); else npcSpace(e, dt); } return; }
   if (e.alp) { allyLeap(e, dt); return; }
   // QA: a closed gate blocks enemies both ways — an awake enemy on the far side neither fights nor shoots (the missions watchdog walks him back in)
   if (e.team === 'enemy' && G.limitZ > -1e8 && e.z < G.limitZ - .2 && e !== G.boss && !e.custom && (e.farT || 0) > -1e8) { if (e.state !== 'chase') { e.state = 'chase'; e.clearTele(); } const P_ = G.player, tx_ = P_ ? Math.max(-G.W + 1.5, Math.min(G.W - 1.5, P_.x + (e.x - P_.x) * .5)) : e.x, sp_ = (e.speed || 3.5) * 1.15; e.x += Math.sign(tx_ - e.x) * Math.min(Math.abs(tx_ - e.x), sp_ * .5 * dt); e.z += sp_ * dt; e.rot = 0; e.play('Running_A'); return; }   /* walks in (reinforcements spawned beyond the gate used to stand there until the watchdog moved them) */
@@ -1371,7 +1383,9 @@ function arrive(e, p) { if (!p || p.dead || G.paused || G.flying || e.team !== '
   if (G.time - (G.hornAt ?? -99) > 4) Sfx.horn(); }
 { const h0 = Sfx.horn; Sfx.horn = function (...a) { G.hornAt = G.time; return h0.apply(this, a); }; }  // reinforcements are announced by a horn (once per wave)
 function sepW(a, b, p) { if (a === p) { if (b.d.heavy) return 1; if (!hostile(a.team, b.team)) return 0; return p.act && (p.act.kind === 'dash' || p.act.kind === 'leap' || p.act.kind === 'dodge') ? 0 : .3; }
-  if (a.d.heavy) return b === p || b.d.heavy ? (b.d.heavy && b !== p ? .5 : 0) : .03; return 1; }
+  if (a.d.heavy) return b === p || b.d.heavy ? (b.d.heavy && b !== p ? .5 : 0) : .03; if (b === p || b.d.heavy) return 1;
+  const ma = sepM(a), mb = sepM(b); return clamp(2 * mb / (ma + mb), .2, 1.8); }   /* mass by type: elites / riders shove the rank-and-file aside, two equals share the push */
+const sepM = e => e.mounted ? 3 : e.d.elite || e.hunt || e.lead ? 2.4 : e.d.vsK > 1.1 ? 1.4 : 1;
 function update(dt) {
   for (let i = G.waits.length - 1; i >= 0; i--) { const w = G.waits[i]; w.t -= dt; if (w.t <= 0) { G.waits.splice(i, 1); w.r(); } }
   for (let i = G.untils.length - 1; i >= 0; i--) { const w = G.untils[i]; let ok = false; try { ok = w.fn(); } catch (e) { } if (ok) { G.untils.splice(i, 1); w.r(); } }
@@ -1390,7 +1404,7 @@ function update(dt) {
   }
   G.ents = G.ents.filter(e => !e.gone);
   // separation
-  for (let i = 0; i < G.ents.length; i++) { const a = G.ents[i]; if (a.dead || a.team === 'npc') continue; for (let j = i + 1; j < G.ents.length; j++) { const b = G.ents[j]; if (b.dead || b.team === 'npc') continue; const dx = b.x - a.x, dz = b.z - a.z, rr = sepR(a) + sepR(b), d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-5) { const d = Math.sqrt(d2), push = (rr - d) * .5, ux = dx / d, uz = dz / d; const wa = sepW(a, b, p), wb = sepW(b, a, p); a.x -= ux * push * wa; a.z -= uz * push * wa; b.x += ux * push * wb; b.z += uz * push * wb; } } }
+  for (let i = 0; i < G.ents.length; i++) { const a = G.ents[i]; if (sepSkip(a)) continue; const an = a.team === 'npc'; for (let j = i + 1; j < G.ents.length; j++) { const b = G.ents[j]; if (sepSkip(b)) continue; const bn = b.team === 'npc'; if (an && bn) continue; const dx = b.x - a.x, dz = b.z - a.z, rr = sepR(a) + sepR(b), d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-5) { const d = Math.sqrt(d2), push = (rr - d) * .5, ux = dx / d, uz = dz / d; const wa = an ? 2 : bn ? 0 : sepW(a, b, p), wb = bn ? 2 : an ? 0 : sepW(b, a, p); a.x -= ux * push * wa; a.z -= uz * push * wa; b.x += ux * push * wb; b.z += uz * push * wb; } } }
   for (const e of G.ents) { if (e.dead || e.gone) continue; if (e.cryT > 0) { e.cryT -= dt; if (Math.random() < .12) burst(e.x, 1.2, e.z, 0xff8030, .6); } const v = Math.min(20, Math.hypot(e.x - (e.mx ?? e.x), e.z - (e.mz ?? e.z)) / Math.max(dt, 1e-4)); e.spd = (e.spd || 0) * .72 + v * .28; e.mx = e.x; e.mz = e.z; if (e.inLoco) e.locoPick(false); }
   tickChunks(dt); tickSouls(dt); tickCorpses(dt);
   // projectiles
