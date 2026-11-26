@@ -266,6 +266,7 @@ const LOOK = {
   late: [['lam', 3, { plume: 0x1a1414, lace: 0x2a2a2a }], ['cone', 0, { dark: true, plume: 0x8a1810 }], ['lam', 1, { plume: 0xa01810 }], ['fur', 3, { cloth: 0x101010, fur: 0x1e1810, flaps: true }]],
 };
 const band = c => c <= 2 ? 'early' : c <= 4 ? 'mid' : 'late';
+const SOLDIER_HEADWEAR = new Set(['askar', 'archer']);   /* bodies whose GLB already has the helmet / hat modelled in (R_askar, R_kamonchi) */
 const CNT = {}; const HC = {};
 function helm(kind, o) { const k = kind + JSON.stringify(o); return (HC[k] || (HC[k] = HELM[kind](o))).clone(); }
 // head measurement in world space (current pose): brow centre, axes, radius at brow height
@@ -301,7 +302,11 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   rig.body.scale.multiplyScalar(cap ? 1.06 : [1, .95, 1.04, .98][n % 4]);
   const f = headFit(rig, e.o || rig.root); if (!f) return;
   const qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f.side, f.up, f.fwd));
-  if (lk[0] !== 'none') { const hm = helm(lk[0], lk[2]); attachWorld(f.H, hm, f.ctr.clone().addScaledVector(f.fwd, -f.r * .04), qb, f.r * (lk[0] === 'fur' ? 1.04 : 1.1)); e._helm = hm; }
+  /* author Nov 26 playtest ('enemy soldiers still have a big helmet on their heads'): R_askar already wears a modelled helmet (dome + crest + aventail, top 1.75 m)
+     and R_kamonchi a modelled fur hat; the add-on shell was fitted to THAT headwear (r 0.13 m incl. the aventail, centre 42% below the crest tip, x1.1,
+     cone 2.05 r tall), so a second, ~2x helmet sat on top of the first. The modelled headwear fits the head, so no add-on shell on these bodies;
+     the band look still picks the atlas, pauldrons, shield paint and scale. HELM shells remain available (BUILD.helmet) for bare-headed bodies only. */
+  if (lk[0] !== 'none' && !SOLDIER_HEADWEAR.has(mt)) { const hm = helm(lk[0], lk[2]); attachWorld(f.H, hm, f.ctr.clone().addScaledVector(f.fwd, -f.r * .04), qb, f.r * (lk[0] === 'fur' ? 1.04 : 1.1)); e._helm = hm; }
   if (cap || ty === 'nayza' || ty === 'qalqan' || (b === 'late' && n % 2)) for (const s of ['Left', 'Right']) { const A = rig.B[s + 'Arm']; if (!A) continue; const ap = A.getWorldPosition(new THREE.Vector3()); const sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : f.ctr; const out = ap.clone().sub(sp); out.y = 0; out.normalize();
     const pq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(f.up, out), f.up, out)); attachWorld(A, pauldron(1, cap), ap.clone().addScaledVector(out, f.r * .25).addScaledVector(f.up, f.r * .35), pq, f.r * 1.05); }
   const lf = rig.B.LeftForeArm; if (lf) { const sg = lf.children.find(k => k.isGroup && !k.isBone); if (sg) { if (ty === 'qalqan') sg.scale.multiplyScalar(1.45); const tint = new THREE.Color([0xffffff, 0xd09080, 0x9098b8, 0xc0b080][(n + (cap ? 1 : 0)) % 4]); sg.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.color.multiply(tint); } }); } }
