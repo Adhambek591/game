@@ -9,7 +9,7 @@ def build_trousers():
     th = bone('thigh_l'); ca = bone('calf_l')
     crotch = min(p.z for p in V if abs(p.x) < 0.012 and 0.60 < p.z < 1.15)
     z_waist = bone('spine_02').z + 0.045            # trouser top: just under the navel
-    z_cuff = BOOT_TOP - 0.075                       # hidden inside the boot shaft
+    z_cuff = BOOT_TOP - 0.035                       # hidden inside the boot shaft
     NA = 40
     print('TROUSERS crotch %.3f waist %.3f cuff %.3f' % (crotch, z_waist, z_cuff))
 
@@ -39,9 +39,9 @@ def build_trousers():
         ease = 0.014 + 0.003 * smoothstep(BOOT_TOP + 0.10, BOOT_TOP + 0.30, z)          # close fit (author): 1.5 cm of ease, follows thigh, knee and calf
         rx, ry = (hx + ease) * shr, (hy + ease) * shr
         if z < BOOT_TOP - 0.004:                          # tucked into the boot
-            rx, ry = min(rx, hx + 0.004), min(ry, hy + 0.004)
+            rx, ry = min(rx, hx + 0.001), min(ry, hy + 0.001)                # inside the fitted boot: on the skin
         elif z < BOOT_TOP + 0.075:                        # the leg is pushed up a little by the boot top: a soft roll of cloth, no balloon
-            b_ = 0.011 * math.sin(math.pi * (z - BOOT_TOP + 0.004) / 0.079)
+            b_ = 0.004 * math.sin(math.pi * (z - BOOT_TOP + 0.004) / 0.079)          # only a slight roll over the boot top (author: no bulk)
             rx, ry = rx + b_, ry + b_
         ring = []
         for i in range(NA):

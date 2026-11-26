@@ -32,14 +32,14 @@ def kind_of(name):
         'SUR_Robe_Torso': ('cloth', dict(tint=(0.050, 0.035, 0.026), dust=0.5), bc.d_cloth, 1),
         'SUR_Coat': ('cloth', dict(tint=(0.034, 0.027, 0.023), dust=0.45), bc.d_cloth, 1),
         'SUR_Trousers_L': ('cloth', dict(tint=(0.030, 0.027, 0.025), dust=0.9), bc.d_cloth, 1),
-        'SUR_Trousers': ('cloth', dict(tint=(0.055, 0.048, 0.043), dust=0.9), bc.d_cloth, 1),      # dark brown-grey wool (reference), not black
+        'SUR_Trousers': ('cloth', dict(tint=(0.055, 0.048, 0.043), dust=0.9), 'trouser', 1),      # dark brown-grey wool (reference), not black
         'SUR_Sleeve_L': ('cloth', dict(tint=(0.055, 0.038, 0.028), dust=0.4), bc.d_cloth, 1),
         'SUR_Cape': ('cloth', dict(tint=(0.028, 0.020, 0.017), dust=0.3, weave=1000.0), bc.d_cloth, 1),
         'SUR_Sabre_Blade': ('iron', dict(tint=(0.50, 0.51, 0.53), rust=0.15, rough=0.24, patina=0.15), bc.d_gold, 2),
         'SUR_Sabre_Guard': ('gold', dict(wear=1.1), bc.d_gold, 2),
         'SUR_Sabre_Grip': ('leather', dict(tint=(0.07, 0.035, 0.02)), 'wrap', 2),
     }
-    return K.get(name)
+    return K.get(name) or (K.get(name[:-2] + '_L') if name.endswith('_R') else None)
 
 def d_relief(p, s, centres=[]):
     # embossed rosettes on plaques / beast-mask scrolls on the buckle, done in object space
@@ -189,8 +189,23 @@ for tset in WANT:
             afun = lambda p: relief.guard_orn(p)[1]
         elif disp == 'wrap':
             dfun = d_wrap
+        elif disp == 'trouser':
+            # fitted riding trousers: the wrinkles live in the normal map only (creases behind the knee, a slight gather
+            # at the boot top); design-space heights: knee 0.50, boot top 0.45
+            def dfun(p, s_):
+                h = bc.d_cloth(p, s_)
+                back = max(0.0, min(1.0, p.y / 0.05))
+                h += 0.0011 * math.sin((p.z - 0.50) / 0.021 * 6.2832 + 3.0 * p.x) * math.exp(-((p.z - 0.50) / 0.05) ** 2) * (0.2 + 0.8 * back)
+                h += 0.0009 * math.sin(p.z / 0.011 * 6.2832 + 9.0 * p.x) * max(0.0, 1.0 - abs(p.z - 0.47) / 0.035)
+                return h
         else:
             dfun = disp
+        # the pieces were built at the kit's design size and scaled back to the real body: the relief / crease functions
+        # are written in design coordinates, so evaluate them there
+        _K = float(os.environ.get('SUR_DESIGN_K', '1.0'))
+        if _K != 1.0:
+            if callable(dfun): dfun = (lambda f: (lambda p, s_: f(p * _K, s_)))(dfun)
+            if callable(afun): afun = (lambda f: (lambda p: f(p * _K)))(afun)
         h = bc.make_high(o, level=lvl, bevel=0.0006 if shader != 'cloth' else 0.0, disp=dfun, seed=i * 1.7, attr=afun)
         mt = getattr(mats, shader)(o.name + '_HM', seed=i * 0.37, **kw)
         h.data.materials.clear(); h.data.materials.append(mt)

@@ -473,6 +473,8 @@ def build_bracers():
 BOOT_TOP = 0.450
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'boots.py'), encoding='utf-8').read())
 exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trousers.py'), encoding='utf-8').read())   # whole pair built on the final body (replaces build_trousers above)
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'kaftan.py'), encoding='utf-8').read())     # kaftan upper on the body surface (replaces build_robe_torso / build_sleeves)
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trousers_fit.py'), encoding='utf-8').read())     # trousers on the body surface (replaces the lofted pair)
 
 # =========================================================== cape
 def cape_back_y(z):

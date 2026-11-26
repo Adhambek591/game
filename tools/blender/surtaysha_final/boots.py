@@ -18,11 +18,11 @@ FOOT_THETA = math.atan2(sum(p.x for p in _te) / len(_te) - sum(p.x for p in _hl)
 print('FOOT toe-out %.1f deg, foot y %.3f..%.3f' % (math.degrees(FOOT_THETA), _fy0, _fy1))
 HULL = boot_hull.Hull(theta=FOOT_THETA)
 _lg = [FIT.leg_at(0.26 + 0.02 * k) for k in range(8)]
-BOOT_O = (sum(c[0] for c in _lg) / len(_lg) + float(os.environ.get('SUR_BOOT_DX', '-0.005')), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg))   # shaft axis = leg centre at mid shaft
+BOOT_O = (sum(c[0] for c in _lg) / len(_lg) + float(os.environ.get('SUR_BOOT_DX', '0.0')), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg))   # shaft axis = leg centre at mid shaft
 print('BOOT origin', BOOT_O, 'toe-out %.1f deg' % math.degrees(HULL.theta))
 
-BOOT_S = float(os.environ.get('SUR_BOOT_S', '1.07'))
-BOOT_SF = float(os.environ.get('SUR_BOOT_SF', '1.03')); TOE_LOW = float(os.environ.get('SUR_TOE_LOW', '0.20')); TOE_LONG = float(os.environ.get('SUR_TOE_LONG', '0.10'))
+BOOT_S = float(os.environ.get('SUR_BOOT_S', '1.0'))
+BOOT_SF = float(os.environ.get('SUR_BOOT_SF', '1.0')); TOE_LOW = float(os.environ.get('SUR_TOE_LOW', '0.0')); TOE_LONG = float(os.environ.get('SUR_TOE_LONG', '0.0'))
 TOE_Y0 = HULL.y_toe * 0.40; TOE_ZS = 0.014
 print('BOOT hull y_toe %.3f y_heel %.3f' % (HULL.y_toe, HULL.y_heel))
 def BW(p):
@@ -112,6 +112,107 @@ def shaft_pt(z, a, lift=0.0):
     p = HULL.ray(o, d, 0.0, 0.3, 0.002)
     n = BWn(HULL.normal(p).tolist()).normalized()
     return snap(BW(p), n) + n * lift, n, p
+
+_BOOT_OBJS = {}
+def _leg_envelope(side):
+    """smooth skin-tight envelope of one lower leg + foot (toes merged): the body faces 2 mm out, voxel-remeshed, relaxed"""
+    import bmesh
+    bm = bmesh.new(); bm.from_mesh(proxy.data)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.x * side < 0.01 or v.co.z > BOOT_TOP + 0.07], context='VERTS')
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=2e-5)
+    bmesh.ops.holes_fill(bm, edges=[e for e in bm.edges if e.is_boundary], sides=0)
+    # a boot has one smooth toe box, not five toes: wrap the forefoot in its convex hull before the remesh
+    ft_ = [v for v in bm.verts if v.co.z < 0.10]; y0_ = min(v.co.y for v in ft_); y1_ = max(v.co.y for v in ft_)
+    fore = [v for v in ft_ if v.co.y < y0_ + 0.45 * (y1_ - y0_) and v.co.z < 0.085]
+    hv_ = [bm.verts.new(v.co.copy()) for v in fore]
+    bmesh.ops.convex_hull(bm, input=hv_)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.normal_update()
+    for v in bm.verts: v.co += v.normal * 0.002
+    me_ = bpy.data.meshes.new('env'); bm.to_mesh(me_); bm.free()
+    ob_ = bpy.data.objects.new('env', me_); bpy.context.scene.collection.objects.link(ob_)
+    m_ = ob_.modifiers.new('rm', 'REMESH'); m_.mode = 'VOXEL'; m_.voxel_size = 0.005
+    m_ = ob_.modifiers.new('sm', 'SMOOTH'); m_.factor = 0.5; m_.iterations = 6
+    bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
+    ev = bpy.data.meshes.new_from_object(ob_.evaluated_get(dg)); ev.calc_loop_triangles()
+    vs = [v.co.copy() for v in ev.vertices]; ns = [v.normal.copy() for v in ev.vertices]; fs = [tuple(t.vertices) for t in ev.loop_triangles]
+    bpy.data.objects.remove(ob_); bpy.data.meshes.remove(me_); bpy.data.meshes.remove(ev)
+    return _BVH.FromPolygons(vs, fs), vs, ns, fs
+
+def _fit_boots():
+    """The author: the boot must hug the foot, ankle and calf (no air inside, no oversized toe). The reference-shaped
+    boot is laid onto the leg: every point of the upper goes to the leg envelope + leather thickness, and every other
+    part (panel, straps, seams, sole) moves with the point of the upper it sits on, so the two-tone design is kept."""
+    GAP = float(os.environ.get('SUR_BOOT_GAP', '0.0045'))
+    for si, side in ((0, 1), (1, -1)):
+        up = _BOOT_OBJS['SUR_Boot'][si]; env, EV, EN, EF = _leg_envelope(side)
+        up.data.calc_loop_triangles()
+        ubvh = _BVH.FromPolygons([v.co.copy() for v in up.data.vertices], [tuple(t.vertices) for t in up.data.loop_triangles])
+        zf = 0.030                                               # below this the upper meets the sole: keep heights there
+        def disp(q):
+            h = env.find_nearest(q)
+            if h[0] is None: return Vector((0, 0, 0))
+            n = h[1]; t = h[0] + n * GAP
+            d = t - q
+            if q.z < zf: d.z *= max(0.0, q.z / zf)
+            return d
+        cache = {}
+        for name, pair in _BOOT_OBJS.items():
+            o = pair[si]; flat = name == 'SUR_Boot_Sole'
+            if name == 'SUR_Boot': continue                      # the upper itself is rebuilt from the envelope below
+            for v in o.data.vertices:
+                q = ubvh.find_nearest(v.co)[0]
+                if q is None: continue
+                if flat:
+                    k = (round(q.x, 4), round(q.y, 4), round(q.z, 4))
+                    d = cache.get(k)
+                    if d is None: d = disp(q); cache[k] = d
+                    v.co = v.co + Vector((d.x, d.y, 0)); continue
+                hgt = (v.co - q).length                      # how far this point stands off the old upper
+                e = env.find_nearest(v.co)
+                if e[0] is None: continue
+                t = e[0] + e[1] * (GAP + hgt); d = t - v.co
+                if v.co.z < zf: d.z *= max(0.0, v.co.z / zf)
+                v.co = v.co + d
+            o.data.update()
+        # the panel was laid on point by point: relax it so its lower edge over the instep is a clean line again
+        import bmesh as _bmx
+        pm = _BOOT_OBJS['SUR_Boot_Shaft'][si].data; bx = _bmx.new(); bx.from_mesh(pm)
+        for _ in range(5): _bmx.ops.smooth_vert(bx, verts=bx.verts[:], factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+        bx.normal_update()
+        for v in bx.verts: v.co += v.normal * 0.0012
+        bx.to_mesh(pm); bx.free(); pm.update()
+        # the brown upper = the leg envelope itself + leather thickness (dense, so no chord cuts through ankle or heel),
+        # open at the cuff and under the foot (the sole closes it)
+        import bmesh
+        bm = bmesh.new(); vv = [bm.verts.new(EV[i] + EN[i] * GAP) for i in range(len(EV))]
+        for f in EF:
+            try: bm.faces.new((vv[f[0]], vv[f[1]], vv[f[2]]))
+            except ValueError: pass
+        ztop = max(v.co.z for v in up.data.vertices)
+        for co, outer in ((Vector((0, 0, ztop)), True), (Vector((0, 0, 0.009)), False)):
+            bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=Vector((0, 0, 1)), clear_outer=outer, clear_inner=not outer)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        cx_ = sum(v.co.x for v in bm.verts) / len(bm.verts); cy_ = sum(v.co.y for v in bm.verts if v.co.z > 0.2) / max(1, sum(1 for v in bm.verts if v.co.z > 0.2))
+        uvl = bm.loops.layers.uv.new('UVMap')
+        def wrap_(a): return (a + math.pi) % (2 * math.pi) - math.pi
+        for f in bm.faces:
+            c = f.calc_center_median()
+            if c.z > 0.13: ang = lambda p: math.atan2(p.x - cx_, p.y - cy_); u0 = 0.0; vf = lambda p: p.z          # shaft: seam down the front under the panel? no: at the back (angle 0 = back)
+            else: ang = lambda p: math.atan2(p.z - 0.05, (p.x - cx_) * side); u0 = 1.0; vf = lambda p: -p.y            # foot: seam under the sole side
+            ac = ang(c)
+            for l in f.loops:
+                p = l.vert.co; l[uvl].uv = (u0 + (ac + wrap_(ang(p) - ac)) * 0.10, vf(p))
+        nm_ = bpy.data.meshes.new(up.data.name + '_fit'); bm.to_mesh(nm_); bm.free()
+        mats_ = list(up.data.materials); old_ = up.data; up.data = nm_
+        for m_ in mats_: nm_.materials.append(m_)
+        dm = up.modifiers.new('dc', 'DECIMATE'); dm.ratio = min(1.0, 4200.0 / max(1, len(nm_.polygons)))
+        bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get()
+        fin = bpy.data.meshes.new_from_object(up.evaluated_get(dg)); up.modifiers.clear(); up.data = fin; bpy.data.meshes.remove(nm_); bpy.data.meshes.remove(old_)
+        for p_ in fin.polygons: p_.use_smooth = True
+        if not fin.materials:
+            for m_ in mats_: fin.materials.append(m_)
+        if 'bake_skip' in up: del up['bake_skip']             # left and right uppers are separate meshes now: both are baked
+    print('BOOT fitted to the leg, leather offset %.1f mm over the envelope' % (GAP * 1000))
 
 def build_boots():
     up = MB(); sm = MB(); gm = MB(); tr = MB()
@@ -234,3 +335,5 @@ def build_boots():
         if name in ('SUR_Boot', 'SUR_Boot_Sole'):
             _weld(obL); _weld(obR)
         obL['boot_origin'] = list(BOOT_O)
+        _BOOT_OBJS[name] = (obL, obR)
+    _fit_boots()
