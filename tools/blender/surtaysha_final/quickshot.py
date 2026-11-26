@@ -5,7 +5,7 @@ pre=sys.argv[sys.argv.index('--')+1]
 sc=bpy.context.scene
 sc.render.engine='BLENDER_WORKBENCH'
 sc.display.shading.light='STUDIO'; sc.display.shading.color_type='MATERIAL'
-sc.display.shading.show_cavity=True
+sc.display.shading.show_cavity=True; sc.display.shading.cavity_type='BOTH'; sc.display.shading.show_specular_highlight=False
 sc.display.shading.show_backface_culling=True
 sc.render.resolution_x=900; sc.render.resolution_y=1200
 cam=bpy.data.cameras.new('qc'); co=bpy.data.objects.new('qc',cam); sc.collection.objects.link(co); sc.camera=co

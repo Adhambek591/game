@@ -34,7 +34,7 @@ def mat(name, col, metal=0.0, rough=0.6):
     if b: b.inputs['Base Color'].default_value = (*col, 1); b.inputs['Metallic'].default_value = metal; b.inputs['Roughness'].default_value = rough
     return m
 M_BODY = mat('C_Skin', (0.55, 0.36, 0.26)); M_KAFT = mat('C_Kaftan', (0.20, 0.12, 0.07), rough=0.9); M_LEATH = mat('C_Leather', (0.16, 0.08, 0.04), rough=0.5)
-M_IRON = mat('C_Lamellar', (0.30, 0.31, 0.34), 1.0, 0.38); M_GOLD = mat('C_Gold', (0.85, 0.62, 0.22), 1.0, 0.3); M_TROU = mat('C_Trousers', (0.10, 0.09, 0.08), rough=0.9)
+M_IRON = mat('C_Lamellar', (0.36, 0.37, 0.40), 0.35, 0.75); M_GOLD = mat('C_Gold', (0.85, 0.62, 0.22), 1.0, 0.3); M_TROU = mat('C_Trousers', (0.10, 0.09, 0.08), rough=0.9)
 if not me.materials: me.materials.append(M_BODY)
 
 def bvh_of(ob):
@@ -131,6 +131,10 @@ def stage1():
         t.objects = [n for n in f.objects if ('Trouser' in n or 'Boot' in n) and n not in bpy.data.objects]
     for o in t.objects:
         if o: bpy.context.scene.collection.objects.link(o)
+    # the kaftan's upper part ends just above the trousers' band (its skirt, stage 4, hangs from there outside the trousers):
+    # the two cloths never share a zone, so there is nothing to tear or flicker at the band
+    global Z_WAIST
+    if 'SUR_Trousers' in bpy.data.objects: Z_WAIST = max(v.co.z for v in bpy.data.objects['SUR_Trousers'].data.vertices) + 0.004
     def keep(i, p):
         if HEADW[i] > 0.5 or HANDW[i] > 0.5 or (LEGW[i] > 0.5 and p.z < Z_WAIST - 0.02): return False
         if p.z < Z_WAIST - 0.04 and abs(p.x) < 0.33: return False
@@ -317,6 +321,34 @@ def stage2():
         if not bad and rnd > 0: break
     for _ in range(4): fixed += snap()
     cut(bm, Vector((0, 0, z_lo)), Vector((0, 0, -1)))
+    # a stiff cuirass does not follow every muscle: in the HOLLOWS only (under the chest muscles, breast bone, spine groove)
+    # the shell bridges, at most HOLLOW off the kaftan; within 5 cm of any rim it stays tight, so no gap shows from outside
+    HOLLOW = float(os.environ.get('SUR_HOLLOW', '0.0095')); bm.verts.ensure_lookup_table()
+    import heapq
+    dist = {v: 1e9 for v in bm.verts}; hq = []
+    for v in bm.verts:
+        if v.is_boundary: dist[v] = 0.0; heapq.heappush(hq, (0.0, v.index))
+    while hq:
+        d, i = heapq.heappop(hq); v = bm.verts[i]
+        if d > dist[v]: continue
+        for e in v.link_edges:
+            w = e.other_vert(v); nd = d + e.calc_length()
+            if nd < dist[w]: dist[w] = nd; heapq.heappush(hq, (nd, w.index))
+    def sst(t): t = max(0.0, min(1.0, t)); return t * t * (3 - 2 * t)
+    cap = {v: SHELL + (HOLLOW - SHELL) * sst((dist[v] - 0.02) / 0.03) for v in bm.verts}
+    inner = [v for v in bm.verts if not v.is_boundary]; nfair = 0
+    for it in range(40):
+        new = {}
+        for v in inner:
+            a_ = Vector((0, 0, 0)); ws = 0
+            for e in v.link_edges: a_ += e.other_vert(v).co; ws += 1
+            new[v] = v.co * 0.4 + (a_ / ws) * 0.6
+        for v, c in new.items():
+            q, n, sdist = K.near(c)
+            if q is None: continue
+            v.co = q + n * min(cap[v], max(SHELL, sdist))
+    nfair = sum(1 for v in inner if K.sd(v.co) > SHELL + 0.0008)
+    print('faired in hollows: %d verts lifted, most %.1f mm off the kaftan' % (nfair, max(K.sd(v.co) for v in bm.verts) * 1000))
     left = [v for v in bm.verts if K.sd(v.co) < 0.0 or BD.sd(v.co) < 0.004]
     if left: bmesh.ops.delete(bm, geom=left, context='VERTS')
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.normal_update()
@@ -427,17 +459,39 @@ def resample_open(pts, step, closed):
         t = (d - L[j]) / max(1e-9, L[j + 1] - L[j]); out.append(P[j].lerp(P[j + 1], min(1.0, max(0.0, t))))
     return out
 
-ROW, PW, PPITCH, PT, PA, PB = 0.030, 0.0225, 0.0205, 0.0012, 0.0005, 0.0020      # row pitch, plate width, pitch along the row, thickness, lift at the top / bottom edge
+ROW, PW, PPITCH, PT, PA, PB = 0.030, 0.0262, 0.0205, 0.0012, 0.0005, 0.0020      # row pitch, plate width, pitch along the row, thickness, lift at the top / bottom edge
 PH = ROW / 0.70                                                                # plate length: every row covers 30 % of the row below
 def stage3():
-    sh = bpy.data.objects['SUR_Cuirass_Backing']; S = Surf(sh); K = Surf(bpy.data.objects['SUR_Robe_Torso']); BD = Surf(body)
-    for n_ in ('SUR_Cuirass_Lamellar', 'SUR_Cuirass_Lace'):
-        if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
+    sh = bpy.data.objects['SUR_Cuirass_Backing']; K = Surf(bpy.data.objects['SUR_Robe_Torso']); BD = Surf(body)
     z_hem = min(v.co.z for v in sh.data.vertices); zc = bone('clavicle_l').z; f = geodesic_from_hem(sh, z_hem)
     zt = float(os.environ.get('SUR_LAM_TOP', str(zc - 0.005)))      # lamellae up to the collar bones; above: the leather yoke with the straps
+    lam, lace = lam_on(sh, f, zt, ('SUR_Cuirass_Lamellar', 'SUR_Cuirass_Lace'), [(K, 0.0003), (BD, 0.0005)], 'STAGE 3 cuirass', [('cuirass base', Surf(sh)), ('kaftan', K), ('body', BD)])
+    # the upper end of the lamellar field: a leather band along the yoke line, over the clipped plate tops
+    S = Surf(sh); yb = bmesh.new()
+    for pts, closed in iso_lines(sh, [v.co.z for v in sh.data.vertices], zt):
+        if len(pts) < 6: continue
+        pts = resample_open(pts, 0.008, closed); rows = []
+        for i, p_ in enumerate(pts):
+            q, n, _d = S.near(p_); t = (pts[min(i + 1, len(pts) - 1)] - pts[max(i - 1, 0)]); t = (t - n * t.dot(n)).normalized(); b = n.cross(t)
+            if b.z < 0: b = -b
+            row = []
+            for off, lift in ((-0.009, PB + PT + 0.0004), (-0.009, PB + PT + 0.0034), (0.011, 0.0034), (0.011, 0.0004)):
+                q2, n2, _d = S.near(q + b * off); row.append(yb.verts.new(q2 + n2 * lift))
+            rows.append(row)
+        for i in range(len(rows) - 1):
+            for k_ in range(4): yb.faces.new((rows[i][k_], rows[i][(k_ + 1) % 4], rows[i + 1][(k_ + 1) % 4], rows[i + 1][k_]))
+    bmesh.ops.recalc_face_normals(yb, faces=yb.faces)
+    if 'SUR_Cuirass_Yoke' in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects['SUR_Cuirass_Yoke'])
+    yo = obj_from(yb, 'SUR_Cuirass_Yoke', M_LEATH)
+    report2('yoke band -> cuirass base', [v.co for v in yo.data.vertices], S); report2('yoke band -> kaftan', [v.co for v in yo.data.vertices], K)
+def lam_on(sh, f, zt, names, avoid, tag, reports, lev0=None):
+    """rows of plates on the surface sh along the level lines of f (distance up from the hem); avoid = [(Surf, least distance)]"""
+    S = Surf(sh)
+    for n_ in names:
+        if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
     bm = bmesh.new(); lb = bmesh.new(); rng = random.Random(7); nrow = 0; npl = 0; skipped = 0; rows_dev = []
     VS = (0.0, 0.34, 0.68, 1.0)
-    lev = PH + 0.004
+    lev = PH + 0.004 if lev0 is None else lev0
     while lev < max(f) :
         row_in = []
         for pts, closed in iso_lines(sh, f, lev):
@@ -450,16 +504,18 @@ def stage3():
                 a = cs[i - 1] if (i > 0 or closed) else cs[i]; b = cs[(i + 1) % len(cs)] if (i < len(cs) - 1 or closed) else cs[i]
                 t = (b - a); t = (t - n0 * t.dot(n0)).normalized(); down = n0.cross(t)
                 if down.z > 0: down = -down; t = -t
-                if p.z > zt: run = lace_run(lb, run); continue
-                ok = True; inner = []; outer = []
+                if p.z > zt + PH * 0.8: run = lace_run(lb, run); continue
+                ok = True; inner = []; outer = []; nedge = 0; nclip = 0
                 for v in VS:
                     for u in (-0.5, -0.17, 0.17, 0.5):
                         P = p + t * (u * PW) + down * (v * PH - PH * 0.0); q, n, _d = S.near(P)
-                        if S.at_edge(q, 0.0015) and v < 0.99: ok = False
+                        if S.at_edge(q, 0.0015): nedge += 1
+                        if q.z > zt: q2, n2, _d2 = S.near(Vector((q.x, q.y, zt)) + n * 0.002); q, n = (q2, n2) if q2 is not None else (q, n); nclip += 1
                         dome = 0.0006 * (1 - (2 * u) ** 2)                      # plates are slightly domed across
-                        lift = PA + (PB - PA) * v
+                        lift = PA + (PB - PA - 0.0007) * v + 0.0007 * (u + 0.5)      # every plate's one side lies over its neighbour (they overlap sideways too)
                         inner.append(q + n * lift); outer.append(q + n * (lift + PT + dome))
-                if ok and (min(K.sd(o) for o in outer) < PT + 0.004 or min(BD.sd(o) for o in outer) < 0.006): ok = False      # no room: the sleeve / the arm is there
+                if nedge > 14 or nclip > 11: ok = False      # nothing of this plate is left inside the field
+                if ok and any(min(A_.sd(o) for o in outer) < lim for A_, lim in avoid): ok = False      # no room: the sleeve / the arm is there
                 if not ok: skipped += 1; run = lace_run(lb, run); continue
                 vi = [bm.verts.new(c) for c in inner]; vo = [bm.verts.new(c) for c in outer]
                 for r in range(3):
@@ -468,22 +524,21 @@ def stage3():
                 for r in range(3): bm.faces.new((vi[r * 4], vo[r * 4], vo[r * 4 + 4], vi[r * 4 + 4])); bm.faces.new((vo[r * 4 + 3], vi[r * 4 + 3], vi[r * 4 + 7], vo[r * 4 + 7]))
                 for c in range(3): bm.faces.new((vi[c + 1], vo[c + 1], vo[c], vi[c])); bm.faces.new((vi[12 + c], vo[12 + c], vo[13 + c], vi[13 + c]))
                 npl += 1; row_in += inner
+                if nedge > 5 or nclip > 5: run = lace_run(lb, run); continue
                 qa, na, _d = S.near(p + down * (0.2 * PH)); run.append(qa + na * (PA + (PB - PA) * 0.2 + PT + 0.0006 + 0.0011))
             lace_run(lb, run, closed and len(run) == len(cs))
         if row_in:
             d = [S.sd(c) for c in row_in]; rows_dev.append((lev, min(d), max(d), sum(c.z for c in row_in) / len(row_in), len(row_in) // 16)); nrow += 1
         lev += ROW
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bmesh.ops.recalc_face_normals(lb, faces=lb.faces)
-    lam = obj_from(bm, 'SUR_Cuirass_Lamellar', M_IRON); lace = obj_from(lb, 'SUR_Cuirass_Lace', M_LEATH)
+    lam = obj_from(bm, names[0], M_IRON); lace = obj_from(lb, names[1], M_LEATH)
     for p_ in lam.data.polygons: p_.use_smooth = False
-    print('STAGE 3 lamellae: rows %d, plates %d, left out at rims / creases %d, row pitch %.0f mm, plate %.1f x %.1f mm, overlap %.0f %%' % (nrow, npl, skipped, ROW * 1000, PW * 1000, PH * 1000, (1 - ROW / PH) * 100))
+    print(tag + ' lamellae: rows %d, plates %d, left out at rims / creases %d, row pitch %.0f mm, plate %.1f x %.1f mm, overlap %.0f %%' % (nrow, npl, skipped, ROW * 1000, PW * 1000, PH * 1000, (1 - ROW / PH) * 100))
     for lev, lo, hi, zz, n_ in rows_dev: print('ROW at %3.0f mm along the surface (mean height %.3f m): %3d plates, inner face to shell %+.1f .. %+.1f mm' % (lev * 1000, zz, n_, lo * 1000, hi * 1000))
     P = [v.co for v in lam.data.vertices]
-    report2('plates -> cuirass base', P, S, ZONES())
-    report2('plates -> kaftan', P, K, ZONES())
-    report2('plates -> body', P, BD)
-    report2('laces -> cuirass base', [v.co for v in lace.data.vertices], S)
-    report2('laces -> kaftan', [v.co for v in lace.data.vertices], K)
+    for rn, RS in reports: report2('plates -> ' + rn, P, RS, ZONES() if 'cuirass' in tag else None)
+    for rn, RS in reports[:2]: report2('laces -> ' + rn, [v.co for v in lace.data.vertices], RS)
+    return lam, lace
 def lace_run(lb, run, closed=False):
     """a leather thong over a run of neighbouring plates"""
     if len(run) >= 2:
@@ -498,6 +553,165 @@ def lace_run(lb, run, closed=False):
             for k in range(seg): lb.faces.new((a[k], a[(k + 1) % seg], b[(k + 1) % seg], b[k]))
     return []
 
-{1: stage1, 2: stage2, 3: stage3}.get(STAGE, lambda: print('stage not in this file yet'))()
+def hull2(pts):
+    pts = sorted(set((round(a, 4), round(b, 4)) for a, b in pts))
+    def cr(o, a, b): return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lo = []
+    for p in pts:
+        while len(lo) >= 2 and cr(lo[-2], lo[-1], p) <= 0: lo.pop()
+        lo.append(p)
+    up = []
+    for p in reversed(pts):
+        while len(up) >= 2 and cr(up[-2], up[-1], p) <= 0: up.pop()
+        up.append(p)
+    return lo[:-1] + up[:-1]
+def ray_poly(h, ox, oy, dx, dy):
+    """distance from (ox, oy) along (dx, dy) to the convex polygon h's boundary"""
+    best = 0.0
+    for i in range(len(h)):
+        ax, ay = h[i - 1]; bx, by = h[i]; ex, ey = bx - ax, by - ay; den = dx * ey - dy * ex
+        if abs(den) < 1e-12: continue
+        t = ((ax - ox) * ey - (ay - oy) * ex) / den; u = ((ax - ox) * dy - (ay - oy) * dx) / den
+        if t > 0 and -1e-9 <= u <= 1 + 1e-9: best = max(best, t)
+    return best
+NT = 144
+def ang_dir(k): a = 2 * math.pi * k / NT; return Vector((math.sin(a), -math.cos(a), 0))      # k = 0: straight ahead (front, -y), then round by the left side
+def smooth_ring(r, it=2, keep_max=True):
+    for _ in range(it):
+        s_ = [(r[i - 1] + 2 * r[i] + r[(i + 1) % len(r)]) / 4 for i in range(len(r))]
+        r = [max(a, b) for a, b in zip(r, s_)] if keep_max else s_
+    return r
+def loft(bm, rings, closed=True):
+    vr = [[bm.verts.new(p) for p in ring] for ring in rings]; n = len(vr[0])
+    for j in range(len(vr) - 1):
+        for i in range(n if closed else n - 1):
+            bm.faces.new((vr[j][i], vr[j][(i + 1) % n], vr[j + 1][(i + 1) % n], vr[j + 1][i]))
+    return vr
+def envelope(objs, z, yax, rmax=0.30):
+    """radius of the outermost of the given layers seen from the body's axis, per direction"""
+    o = Vector((0, yax, z)); out = []
+    for k in range(NT):
+        d = ang_dir(k); far = 0.0
+        for t in objs:
+            p0 = o.copy()
+            for _ in range(10):
+                h = t.ray_cast(p0, d, rmax)
+                if h[0] is None: break
+                r = (h[0] - o).length
+                if r > rmax: break
+                far = max(far, r); p0 = h[0] + d * 1e-4
+        out.append(far)
+    return out
+
+def stage4():
+    names = ('SUR_WaistGuard', 'SUR_WaistGuard_Trim', 'SUR_Belt', 'SUR_Belt_Gold', 'SUR_Coat', 'SUR_Coat_Border', 'SUR_Tassets_Backing', 'SUR_Tassets_Trim', 'SUR_Tassets_Lamellar', 'SUR_Tassets_Lace')
+    for n_ in names:
+        if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
+    kaft = bpy.data.objects['SUR_Robe_Torso']; trou = bpy.data.objects['SUR_Trousers']; shell = bpy.data.objects['SUR_Cuirass_Backing']
+    K = Surf(kaft); BD = Surf(body); TR = Surf(trou); yax = bone('pelvis').y
+    z_hem = min(v.co.z for v in shell.data.vertices)                       # the cuirass's lower edge
+    layers = [bvh_of(bpy.data.objects[n_]) for n_ in ('SUR_Robe_Torso', 'SUR_Trousers', 'SUR_Cuirass_Backing', 'SUR_Cuirass_Lamellar', 'SUR_Cuirass_Lace')]
+    # ---- kaftan skirt: hangs from the waist over the hips and both thighs to the knee (cloth: convex round the legs, never
+    #      narrower than higher up), slightly flared
+    z_top = z_hem - 0.005; z_kn = bone('calf_l').z - 0.02; tv = [v.co for v in trou.data.vertices]; kv = [v.co for v in kaft.data.vertices]
+    zs = []; z = z_top
+    while z > z_kn: zs.append(z); z -= 0.0125
+    zs.append(z_kn); R = []; run = [0.0] * NT
+    for z in zs:
+        P2 = [(p.x, p.y) for p in tv if abs(p.z - z) < 0.014] + [(p.x, p.y) for p in kv if abs(p.z - z) < 0.014 and abs(p.x) < 0.27]      # (not the sleeves)
+        h = hull2(P2); r = [ray_poly(h, 0.0, yax, ang_dir(k).x, ang_dir(k).y) + 0.0035 for k in range(NT)]
+        run = [max(a, b) for a, b in zip(run, r)]; fl = 1.0 + 0.05 * (z_top - z) / (z_top - z_kn)
+        R.append([a * fl for a in smooth_ring(run, 2)])
+    sb = bmesh.new(); rings = [[Vector((0, yax, z)) + ang_dir(k) * R[j][k] for k in range(NT)] for j, z in enumerate(zs)]
+    loft(sb, rings); bmesh.ops.recalc_face_normals(sb, faces=sb.faces)
+    coat = obj_from(sb, 'SUR_Coat', M_KAFT); CO = Surf(coat)
+    hb = bmesh.new(); tube_along(hb, rings[-1], lambda p: Vector((p.x, p.y - yax, 0)).normalized(), r=0.004); bmesh.ops.recalc_face_normals(hb, faces=hb.faces)
+    obj_from(hb, 'SUR_Coat_Border', M_LEATH)
+    def Rs(z, k):      # skirt radius at any height
+        j = min(range(len(zs)), key=lambda j_: abs(zs[j_] - z)); return R[j][k]
+    # ---- waist guard: a wide stiff leather band, tight over the cuirass's lower rows above and the kaftan / skirt below
+    g_top = z_hem + 0.045; g_bot = z_hem - 0.085; gz = [g_top - (g_top - g_bot) * i / 10 for i in range(11)]; G = []
+    for z in gz:
+        r = envelope(layers, z, yax); r = [max(a, Rs(z, k) if z < z_top else 0.0) + 0.0025 for k, a in enumerate(r)]
+        G.append(smooth_ring(r, 3))
+    # stiff leather: no ripples from row to row
+    for _ in range(2): G = [[max(G[j][k], (G[max(j - 1, 0)][k] + 2 * G[j][k] + G[min(j + 1, len(G) - 1)][k]) / 4) for k in range(NT)] for j in range(len(G))]
+    wb = bmesh.new(); grings = [[Vector((0, yax, z)) + ang_dir(k) * G[j][k] for k in range(NT)] for j, z in enumerate(gz)]
+    loft(wb, grings); bmesh.ops.recalc_face_normals(wb, faces=wb.faces); wg = obj_from(wb, 'SUR_WaistGuard', M_LEATH)
+    tb = bmesh.new()
+    for ring in (grings[0], grings[-1]): tube_along(tb, ring, lambda p: Vector((p.x, p.y - yax, 0)).normalized(), r=0.0035)
+    bmesh.ops.recalc_face_normals(tb, faces=tb.faces); obj_from(tb, 'SUR_WaistGuard_Trim', M_LEATH)
+    # ---- belt with gold plaques over the middle of the guard
+    b_c = (g_top + g_bot) / 2 + 0.005; bh = 0.024
+    def Gr(z, k):
+        t = (g_top - z) / (g_top - g_bot) * 10; j = int(max(0, min(9, math.floor(t)))); f_ = t - j; return G[j][k] * (1 - f_) + G[j + 1][k] * f_
+    bb = bmesh.new(); prof = ((bh, 0.0012), (bh, 0.0042), (-bh, 0.0042), (-bh, 0.0012)); brs = []
+    for k in range(NT): brs.append([bb.verts.new(Vector((0, yax, b_c + dz)) + ang_dir(k) * (Gr(b_c + dz, k) + dr)) for dz, dr in prof])
+    for k in range(NT):
+        for i in range(4): bb.faces.new((brs[k][i], brs[k][(i + 1) % 4], brs[(k + 1) % NT][(i + 1) % 4], brs[(k + 1) % NT][i]))
+    bmesh.ops.recalc_face_normals(bb, faces=bb.faces); belt = obj_from(bb, 'SUR_Belt', M_LEATH)
+    gb = bmesh.new()
+    def plaque(k, w, h, th=0.004):
+        d = ang_dir(k); t = Vector((-d.y, d.x, 0)); c = Vector((0, yax, b_c)); vs = []
+        for lift in (0.0043, 0.0043 + th):
+            for su, sv in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                inset = 0.0025 if lift > 0.005 else 0.0
+                P = c + Vector((0, 0, sv * (h / 2 - inset)))
+                kk = (k + su * (w / 2 - inset) / (2 * math.pi * Gr(b_c, k) / NT)) % NT; k0 = int(math.floor(kk)) % NT; f_ = kk - math.floor(kk)
+                dd = (ang_dir(k0) * (1 - f_) + ang_dir((k0 + 1) % NT) * f_).normalized(); rr = Gr(P.z, k0) * (1 - f_) + Gr(P.z, (k0 + 1) % NT) * f_
+                vs.append(gb.verts.new(Vector((0, yax, P.z)) + dd * (rr + lift)))
+        for i in range(4): gb.faces.new((vs[i], vs[(i + 1) % 4], vs[4 + (i + 1) % 4], vs[4 + i]))
+        gb.faces.new(vs[4:8])
+    plaque(0, 0.075, 0.058, 0.006)
+    for a in (26, 48, 70, 92, 114, 136, 158, 180, -26, -48, -70, -92, -114, -136, -158): plaque(int(round(a / 360 * NT)) % NT, 0.036, 0.036)
+    bmesh.ops.recalc_face_normals(gb, faces=gb.faces); gold = obj_from(gb, 'SUR_Belt_Gold', M_GOLD)
+    # ---- lamellar skirt panels hanging from under the guard, lying on the kaftan skirt (leather backing + bound edges + plates)
+    t_top = g_bot + 0.025; panels = [(0, 17, 0.27, True), (58, 30, 0.33, False), (-58, 30, 0.33, False), (124, 27, 0.33, False), (-124, 27, 0.33, False), (180, 23, 0.29, True)]
+    pb = bmesh.new(); pt_ = bmesh.new(); pan_objs = []
+    for ci, (cdeg, hw, ln, pointed) in enumerate(panels):
+        one = bmesh.new(); k0 = int(round((cdeg - hw) / 360 * NT)); k1 = int(round((cdeg + hw) / 360 * NT)); cols = list(range(k0, k1 + 1)); nz = int(ln / 0.0125) + 1; rings_ = []
+        for j in range(nz + 1):
+            ring = []
+            for ii, k in enumerate(cols):
+                u = (ii / (len(cols) - 1)) * 2 - 1; L = ln * (1 - 0.22 * abs(u)) if pointed else ln; z = t_top - L * j / nz
+                ring.append(Vector((0, yax, z)) + ang_dir(k % NT) * (Rs(z, k % NT) + 0.0045))
+            rings_.append(ring)
+        loft(one, rings_, closed=False); bmesh.ops.recalc_face_normals(one, faces=one.faces); one.normal_update()
+        if sum(f.normal.dot(Vector((f.calc_center_median().x, f.calc_center_median().y - yax, 0))) for f in one.faces) < 0: bmesh.ops.reverse_faces(one, faces=one.faces)
+        border = rings_[0] + [r_[-1] for r_ in rings_[1:]] + rings_[-1][-2::-1] + [r_[0] for r_ in rings_[-2:0:-1]]
+        tube_along(pt_, resample(border, 0.008), lambda p: Vector((p.x, p.y - yax, 0)).normalized(), r=0.0045, lift=0.0)
+        md = bpy.data.meshes.new('pan%d' % ci); one.to_mesh(md); one.free(); po = bpy.data.objects.new('SUR_TassetPanel_%d' % ci, md); bpy.context.scene.collection.objects.link(po); md.materials.append(M_LEATH); pan_objs.append(po)
+    bmesh.ops.recalc_face_normals(pt_, faces=pt_.faces); obj_from(pt_, 'SUR_Tassets_Trim', M_LEATH)
+    # plates on every panel (rows level: the panels hang straight), then everything joined
+    lams = []; laces = []
+    for ci, po in enumerate(pan_objs):
+        zmin = min(v.co.z for v in po.data.vertices); f = [v.co.z - zmin for v in po.data.vertices]
+        lam, lace = lam_on(po, f, 99.0, ('SUR_TL_%d' % ci, 'SUR_TC_%d' % ci), [], 'STAGE 4 skirt panel %d' % ci, [('panel', Surf(po)), ('kaftan skirt', CO)], lev0=PH + 0.012)
+        lams.append(lam); laces.append(lace)
+    def join(obs, name):
+        bj = bmesh.new()
+        for o in obs: bj.from_mesh(o.data)
+        mats = obs[0].data.materials[0]
+        for o in obs: bpy.data.objects.remove(o)
+        return obj_from(bj, name, mats)
+    tl = join(lams, 'SUR_Tassets_Lamellar'); join(laces, 'SUR_Tassets_Lace'); tbk = join(pan_objs, 'SUR_Tassets_Backing')
+    for p_ in tl.data.polygons: p_.use_smooth = False
+    # ---- reports
+    print('STAGE 4: skirt rings %d (z %.3f .. %.3f), waist guard z %.3f .. %.3f, belt at %.3f, panels %d' % (len(zs), z_top, z_kn, g_bot, g_top, b_c, len(panels)))
+    LAM = Surf(bpy.data.objects['SUR_Cuirass_Lamellar']); CS = Surf(shell); WG = Surf(wg)
+    report2('kaftan skirt -> trousers', [v.co for v in coat.data.vertices], TR)
+    report2('kaftan skirt -> body', [v.co for v in coat.data.vertices], BD)
+    P = [v.co for v in wg.data.vertices]
+    report2('waist guard -> kaftan (below the cuirass)', [p for p in P if p.z < z_hem - 0.004], K)
+    report2('waist guard -> kaftan skirt', [p for p in P if p.z < z_top - 0.004], CO)
+    report2('waist guard -> cuirass plates', [p for p in P if p.z > z_hem + 0.008], LAM)
+    report2('waist guard -> cuirass base', [p for p in P if p.z > z_hem + 0.008], CS)
+    report2('belt -> waist guard', [v.co for v in belt.data.vertices], WG)
+    report2('gold plaques -> waist guard', [v.co for v in gold.data.vertices], WG)
+    report2('panel backing -> kaftan skirt', [v.co for v in tbk.data.vertices], CO)
+    report2('panel plates -> kaftan skirt', [v.co for v in tl.data.vertices], CO)
+    report2('panel backing -> trousers', [v.co for v in tbk.data.vertices], TR)
+
+{1: stage1, 2: stage2, 3: stage3, 4: stage4}.get(STAGE, lambda: print('stage not in this file yet'))()
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'armor_C.blend'))
 print('SAVED armor_C.blend after stage', STAGE)
