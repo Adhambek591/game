@@ -1689,7 +1689,7 @@ async function rideRun(o) { const R = { rings: [], riders: [] }; f3D = Math.max(
       if (hyp(P.x - r.x, P.z - r.z) < 2.3) { r.done = true; Sfx.pick(); burst(r.x, 2.6, r.z, 0xffd060, 2.2); ringFx(r.x, r.z, 2.4, 0xffd060); r.tor.material.color.set(0x7fe08a); r.glow.material.opacity = 0; addGold(5, r.x, r.z); } }
     if (T0 > 0) { T0 -= dt * FAST(); tm.textContent = '⏳ ' + Math.max(0, Math.ceil(T0)); if (T0 <= 0) { late = true; hintRaw(t('f3_late')); tm.style.display = 'none'; } } };
   await until(() => (G.player.z < -189 - f3D && R.riders.every(f => f.caught || f.escaped)) || G.mis.force); mk.remove();
-  G.tick = null; G.mis.aim = null; if (R.camFn && G.camFn === R.camFn) G.camFn = null; tm.style.display = 'none'; G.mis.flag =!!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
+  G.tick = null; G.mis.aim = null; if (R.camFn && G.camFn === R.camFn) G.camFn = null; tm.style.display = 'none'; try { H.objective(''); } catch (e) { }   /* stale objective: the ride line stayed up through the end screen */ G.mis.flag =!!(o.T ? !late : R.riders.every(f => f.caught)); G.mis.flag2 = R.rings.every(r => r.done);
   setMusic('off'); await wait(.6); for (const m of G.ents) if (m.mounted) toggleMount(m, false); p.speed = sp0;
   const ok = R.riders.every(f => f.caught); await H.bannerShow('', R.riders.length ? t(ok ? 'rideWin' : 'rideMiss') : t('f3_ride_end'), '', 2.2); if (ok || !R.riders.length) addGold(80, p.x, p.z); return ok; }
 const RL = [[-5, -34], [5, -58], [-4, -84], [4.5, -110], [-5, -136], [3, -162]];

@@ -13,6 +13,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = 
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))
 const TX = {
   w4_army: ['Safımız: {q} qız + {b} batır', 'Safimiz: {q} qiz + {b} botir', 'Наше войско: {q} девушек + {b} батыров', 'Our host: {q} maidens + {b} warriors'],
+  w4_army0: ['Safımız: {q} qız', 'Safimiz: {q} qiz', 'Наше войско: {q} девушек', 'Our host: {q} maidens'],   /* no rescued men yet: no '+ 0 batır' */
   w4_foe: ['Dushpan: ~{n}', 'Dushman: ~{n}', 'Враг: ~{n}', 'Enemy: ~{n}'],
   w4_join: ['+{n} batır safımızǵa qosıldı!', '+{n} botir safimizga qo\'shildi!', '+{n} батыров вступили в войско!', '+{n} warriors joined our host!'],
   w4_lost: ['Urısta qurban bolǵan batırlar: {n}', 'Jangda halok bo\'lgan botirlar: {n}', 'Павшие в бою батыры: {n}', 'Warriors fallen in battle: {n}'],
@@ -319,7 +320,7 @@ const CSS = `
 #bP .k{position:absolute;bottom:-2px;right:-2px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:rgba(10,12,30,.9);box-shadow:0 0 0 1px rgba(232,189,98,.7);color:#ffd970;font:700 9px/15px sans-serif;text-align:center;z-index:2}
 @media (pointer:coarse){#bP .k{display:none}}
 #bD .k{display:block}
-#w4army{position:absolute;left:12px;top:92px;z-index:6;pointer-events:none;font:800 12px/1.2 system-ui,sans-serif;color:#ffe9b0;text-shadow:0 1px 3px #000;background:rgba(0,0,0,.38);padding:3px 8px;border-radius:8px;display:none;white-space:nowrap}
+#w4army{position:absolute;left:calc(env(safe-area-inset-left,0px) + 12px);top:calc(env(safe-area-inset-top,0px) + 92px);z-index:6;pointer-events:none;font:800 12px/1.2 system-ui,sans-serif;color:#ffe9b0;text-shadow:0 1px 3px #000;background:rgba(0,0,0,.38);padding:3px 8px;border-radius:8px;display:none;white-space:nowrap}
 #w4ctl{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);z-index:5;pointer-events:none;font:700 11px system-ui,sans-serif;color:rgba(255,236,190,.85);text-shadow:0 1px 2px #000;display:none;white-space:nowrap}
 `;
 function hudInit() { if ($('w4css')) return; const st = document.createElement('style'); st.id = 'w4css'; st.textContent = CSS; document.head.appendChild(st);
@@ -376,7 +377,7 @@ function armyRetry() { const M = G.mis, p = P(); if (!M || RUN.m !== M || !p || 
   for (let i = 0; i < na; i++) spawnArc(clamp(x0 + (i - (na - 1) / 2) * 1.5, -G.W + 1, G.W - 1), Math.min(z0 + 1.8, lim - .7)); chip(); }
 function foeCount(M) { const c = M.c || 1; const bodies = G.ents.filter(e => e.team === 'enemy' && !e.dead && !e.bg).length; const ours = 40 + (W.men | 0); return Math.max(Math.round(ours * (1.15 + .05 * c)), bodies * 3); }
 function chip() { const el = $('w4army'); if (!el) return; { const M0 = G.mis; if (M0 && /^(0-1|0-2)$/.test(M0.id || '') && M0.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on')) { el.style.display = 'block'; const s0 = '⚔ ' + tt('w4_sarkop'); if (el.textContent !== s0) el.textContent = s0; return; } } const M = G.mis, on = !!(M && M.started && P() && !G.paused && !G.flying && $('hud') && $('hud').classList.contains('on') && !archOn() && !NOARMY.test(M.id || ''));
-  el.style.display = on ? 'block' : 'none'; if (!on) return; const alive = Math.max(0, Math.round((W.men | 0) - RUN.lost)); const s = '⚔ ' + tt('w4_army', { q: 40, b: alive }); if (el.textContent !== s) el.textContent = s; }
+  el.style.display = on ? 'block' : 'none'; if (!on) return; const alive = Math.max(0, Math.round((W.men | 0) - RUN.lost)); const s = '⚔ ' + (alive > 0 ? tt('w4_army', { q: 40, b: alive }) : tt('w4_army0', { q: 40 })); if (el.textContent !== s) el.textContent = s; }
 // per-entity adjustments, once: enemy power curve per chapter, maidens' armour, captains' poise
 function entTick() { const M = G.mis; if (!M) return; const c = M.c || 0, tut = M.id === '0-0';
   for (const e of G.ents) { if (e.w4s || e.dead) continue; e.w4s = 1;
