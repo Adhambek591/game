@@ -1,10 +1,10 @@
-import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795667486';
-import { t, setLang, lang, L, has } from './i18n.js?v=1795667486';
-import { place } from './env.js?v=1795667486';
-import * as SC from './scenery.js?v=1795667486';
-import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795667486';
-import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795667486';
-import { initMissions, runMission } from './missions.js?v=1795667486';
+import { G, $, T, THREE, loadAssets, start, setMood, clearLevel, ground, yurt, house, wall, debris, crate, banner, fire, ravine, gate, marker, makePlayer, refreshSkills, spawn, enemies, hitCircle, telegraph, A, woodMat, decor, water, ghostRider, ensureReal, hintRaw, toggleMount, SAVE, saveGame, UPG, addGold, hudGold, ADS, SET, saveSet, shoot, ringFx, burst, num, flash, setBoss, wait, until, qte, world, breakable, potionAI, soulToAmulet } from './engine.js?v=1795709470';
+import { t, setLang, lang, L, has } from './i18n.js?v=1795709470';
+import { place } from './env.js?v=1795709470';
+import * as SC from './scenery.js?v=1795709470';
+import { Sfx, initAudio, setMusic, duck, setVol, playTitle, VOL, setVolume, playVoice, waitVoice, preloadVoice, bindMedia, unbindMedia } from './audio.js?v=1795709470';
+import { initMap, flyFor, endStars, credits, saveStars } from './map.js?v=1795709470';
+import { initMissions, runMission } from './missions.js?v=1795709470';
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const qs = new URLSearchParams(location.search);
 T.son.follow = true;
@@ -413,6 +413,14 @@ function volUI() { document.querySelectorAll('#set input[data-vk]').forEach(r =>
 { let pv = 0; document.querySelectorAll('#set input[data-vk]').forEach(r => { const k = r.dataset.vk;
   r.oninput = () => { initAudio(); setVolume(k, r.value); SET.mus = VOL.music > 0 ? 1 : 0; SET.snd = VOL.sfx > 0 ? 1 : 0; volUI(); const n = performance.now(); if ((k === 'sfx' || k === 'master') && n - pv > 180) { pv = n; Sfx.swing && Sfx.swing(); } };
   r.onchange = () => { saveSet(); if (k === 'sfx' || k === 'master') Sfx.hit && Sfx.hit(); }; }); volUI(); }
+// tester request (author, Nov 27): "Start over" — wipes progress, coins, upgrades and tutorial flags; keeps language, volume and settings. Two taps (the first one arms it for 4 s).
+{ const RT = { setReset: ["Basınan baslaw", "Boshidan boshlash", "Начать заново", "Start over"], setReset2: ["Isenimińiz kámil me? Jáne basıń", "Ishonchingiz komilmi? Yana bosing", "Точно? Нажмите ещё раз", "Sure? Tap again"] };
+  ['qq', 'uz', 'ru', 'en'].forEach((lg, i) => { if (L[lg]) for (const k in RT) if (L[lg][k] == null) L[lg][k] = RT[k][i]; });
+  const b = $('setreset'); let armT = 0; const lab = () => { b.textContent = t(armT ? 'setReset2' : 'setReset'); b.classList.toggle('arm', !!armT); };
+  const st = setTexts; setTexts = function () { st(); lab(); };
+  b.onclick = () => { if (!armT) { armT = setTimeout(() => { armT = 0; lab(); }, 4000); lab(); return; }
+    clearTimeout(armT); try { const keep = new Set(['qq_lang', 'qq_vol', 'qq_set']); Object.keys(localStorage).filter(k => /^qq_/.test(k) && !keep.has(k)).forEach(k => localStorage.removeItem(k)); } catch (e) { }
+    location.href = location.pathname; }; }
 $('bset').onclick = openSet; $('setok').onclick = closeSet; $('setmenu').onclick = () => { saveSet(); location.href = location.pathname; };
 document.addEventListener('visibilitychange', () => { if (document.hidden && $('title').style.display === 'none' && !$('set').classList.contains('on') && !G.paused) openSet(); });
 addEventListener('keydown', e => { if (e.code === 'Escape') { $('set').classList.contains('on') ? closeSet() : openSet(); } });

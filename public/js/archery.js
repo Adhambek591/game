@@ -9,11 +9,11 @@
 // so nothing of the melee game (AI, collisions, player) touches them. Missions: LEVELS at the bottom; started from
 // missions.js (m2/src/75_archery.js) through runArchery(id, H) → resolves { ok, noAlarm, all, why }.
 // =====================================================================================================================
-import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795667486';
-import { torch, banner } from './fx.js?v=1795667486';
-import { heightAt } from './scenery.js?v=1795667486';
-import { t, lang, has } from './i18n.js?v=1795667486';
-import { Sfx, setMusic, volOf } from './audio.js?v=1795667486';
+import { G, $, THREE, scene, camera, world, wall, yurt, fire, decor, burst, sparks, addGold, SET, saveSet, spawn } from './engine.js?v=1795709470';
+import { torch, banner } from './fx.js?v=1795709470';
+import { heightAt } from './scenery.js?v=1795709470';
+import { t, lang, has } from './i18n.js?v=1795709470';
+import { Sfx, setMusic, volOf } from './audio.js?v=1795709470';
 
 const rnd = (a, b) => a + Math.random() * (b - a), clamp = (v, a, b) => v < a ? a : v > b ? b : v, hyp = Math.hypot, lerp = (a, b, k) => a + (b - a) * k;
 const GRAV = 0, V0 = 150, KW = 0, ZFOV = 11, WFOV = 52, SIM = 120, WATER = -.32;

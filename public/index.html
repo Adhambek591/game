@@ -9,7 +9,7 @@
 <meta property="og:image" content="/assets/img/keyart.jpg" />
 <meta name="theme-color" content="#10142b" />
 <script>window.qqErr=function(m){try{var e=document.getElementById('loadtxt');if(e){e.textContent='Xato: '+m;e.style.color='#f88';}}catch(_){}};addEventListener('error',function(e){qqErr((e.message||'')+' '+((e.filename||'').split('/').pop())+':'+(e.lineno||''))},true);addEventListener('unhandledrejection',function(e){qqErr(String(e.reason&&e.reason.message||e.reason))});</script>
-<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js?v=1795667486"}}</script>
+<script type="importmap">{"imports":{"three":"./assets/vendor/three.module.min.js?v=1795709470"}}</script>
 <style>
 /* ===== Qirq qiz UI — design tokens ===== */
 @font-face{font-family:Forum;src:url(assets/fonts/forum.woff2) format("woff2");font-display:swap}
@@ -211,6 +211,7 @@ canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #set .acts{display:flex;gap:10px;justify-content:center;margin-top:10px}
 #set .acts button{flex:1;height:44px;padding:0 2px;border-style:solid;border-color:transparent;border-width:0 26px;border-image:url(assets/img/ui/btn_blue.webp) 0 70 fill/0 26px stretch;background:none;color:#fff4d8;font:400 17px/1 var(--fd);letter-spacing:.05em;cursor:pointer;white-space:nowrap}
 #set .acts #setok{border-image-source:url(assets/img/ui/btn_red.webp)}
+#setreset{grid-column:1/-1;justify-self:center;margin-top:10px;padding:6px 14px;background:none;border:1px solid rgba(255,220,160,.35);border-radius:10px;color:#e8c9a0;font:400 14px/1.2 var(--fd);cursor:pointer;opacity:.85}#setreset.arm{border-color:#e3443a;color:#ffb0a0;opacity:1}
 /* ===== Lore / narration card (parchment) ===== */
 #lore{display:none;position:fixed;inset:0;z-index:70;background:radial-gradient(ellipse at 50% 40%,rgba(16,20,48,.8),rgba(5,4,10,.95));align-items:center;justify-content:center;padding:6px calc(var(--sr) + 10px) 6px calc(var(--sl) + 10px)}
 #lore.on{display:flex}
@@ -513,7 +514,7 @@ html.vh380 #set .x{top:10px}html.vh380 #set .x button{height:28px}
 </style>
 <link rel="stylesheet" href="./css/ui2.css?v=1795207282">
 <link rel="preload" href="assets/fonts/forum.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="assets/img/ui/key.webp" as="image"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/img/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
-<script>if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=1795667486').catch(()=>{}));</script>
+<script>if('serviceWorker' in navigator&&location.protocol==='https:')addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=1795709470').catch(()=>{}));</script>
 </head>
 <body>
 <canvas id="c"></canvas>
@@ -547,7 +548,7 @@ html.vh380 #set .x{top:10px}html.vh380 #set .x button{height:28px}
 <div id="rot"><b>📱</b><span id="rottxt">Telefonni yotqizib ushlang<br>Telefondı kóldeneń uslań<br>Поверните телефон горизонтально<br>Rotate your phone</span></div>
 <div id="adov"><div>📺 Reklama<br><b>5</b></div></div>
 <div id="shop" class="layer ov"><div class="in"><h2 class="gold" id="shh"></h2><div id="shg" class="gold"></div><div id="shl"></div><button class="btn alt" id="shad"></button><button class="btn" id="shclose"></button></div></div>
-<div id="set"><div><h3 id="sett"></h3><div class="row"><span id="sl_q"></span><div class="seg" data-k="q"><button data-v="0"></button><button data-v="1"></button><button data-v="2"></button></div></div><div class="row"><span id="sl_d"></span><div class="seg" data-k="diff"><button data-v="0"></button><button data-v="1"></button><button data-v="2"></button></div></div><div class="row vrow"><span id="sl_vm"></span><input type="range" min="0" max="100" step="5" data-vk="master"><b class="vv"></b></div><div class="row vrow"><span id="sl_m"></span><input type="range" min="0" max="100" step="5" data-vk="music"><b class="vv"></b></div><div class="row vrow"><span id="sl_s"></span><input type="range" min="0" max="100" step="5" data-vk="sfx"><b class="vv"></b></div><div class="row vrow"><span id="sl_vo"></span><input type="range" min="0" max="100" step="5" data-vk="voice"><b class="vv"></b></div><div class="row"><span id="sl_v"></span><div class="seg" data-k="vib"><button data-v="0"></button><button data-v="1"></button></div></div><div class="acts"><button id="setmenu"></button><button id="setok"></button></div></div></div><div id="lore"><div><h3></h3><p></p><button></button></div></div>
+<div id="set"><div><h3 id="sett"></h3><div class="row"><span id="sl_q"></span><div class="seg" data-k="q"><button data-v="0"></button><button data-v="1"></button><button data-v="2"></button></div></div><div class="row"><span id="sl_d"></span><div class="seg" data-k="diff"><button data-v="0"></button><button data-v="1"></button><button data-v="2"></button></div></div><div class="row vrow"><span id="sl_vm"></span><input type="range" min="0" max="100" step="5" data-vk="master"><b class="vv"></b></div><div class="row vrow"><span id="sl_m"></span><input type="range" min="0" max="100" step="5" data-vk="music"><b class="vv"></b></div><div class="row vrow"><span id="sl_s"></span><input type="range" min="0" max="100" step="5" data-vk="sfx"><b class="vv"></b></div><div class="row vrow"><span id="sl_vo"></span><input type="range" min="0" max="100" step="5" data-vk="voice"><b class="vv"></b></div><div class="row"><span id="sl_v"></span><div class="seg" data-k="vib"><button data-v="0"></button><button data-v="1"></button></div></div><div class="acts"><button id="setmenu"></button><button id="setok"></button></div><button id="setreset"></button></div></div><div id="lore"><div><h3></h3><p></p><button></button></div></div>
 <div id="cut" class="layer"><div class="still"></div><div id="cnar"></div><button id="cskip"></button></div>
 <div id="dead" class="layer ov"><div class="in"><h2 id="dh" style="color:#e3443a"></h2><p id="dtip"></p><button class="btn alt" id="drevive"></button><button class="btn" id="dretry"></button></div></div>
 <div id="end" class="layer ov"><div class="in"><h2 id="eh" class="gold"></h2><div id="stars" class="gold"></div><div id="stl"></div><div id="etb" style="font-style:italic;margin-bottom:16px"></div><button class="btn alt" id="eadx2"></button><button class="btn alt" id="eshop"></button><button class="btn" id="ereplay"></button></div></div>
@@ -640,10 +641,10 @@ addEventListener('qq:bark',function(){setTimeout(refresh,0);});addEventListener(
 try{var mo=new MutationObserver(function(){setTimeout(refresh,0);});['ban','hint','hc'].forEach(function(i){var e=$(i);if(e)mo.observe(e,{attributes:true,attributeFilter:['class']});});}catch(e){}
 })();
 </script>
-<script defer src="./js/ui_skin.js?v=1795667486"></script>
-<script type="module" src="./js/story.js?v=1795667486"></script>
-<script type="module" src="./js/meta.js?v=1795667486"></script>
-<script type="module" src="./js/wave4.js?v=1795667486"></script>
-<script type="module" src="./js/models_ext.js?v=1795667486"></script>
+<script defer src="./js/ui_skin.js?v=1795709470"></script>
+<script type="module" src="./js/story.js?v=1795709470"></script>
+<script type="module" src="./js/meta.js?v=1795709470"></script>
+<script type="module" src="./js/wave4.js?v=1795709470"></script>
+<script type="module" src="./js/models_ext.js?v=1795709470"></script>
 </body>
 </html>
