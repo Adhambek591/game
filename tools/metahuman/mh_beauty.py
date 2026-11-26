@@ -367,6 +367,64 @@ def attach_armour(actor, pj, lift, bind_mesh=None):
     if lift: actor.set_actor_location(unreal.Vector(0, 0, lift), False, False)
     log('armour attached', n, pj)
 
+def build_upright_for(body_c, name, UP=None):
+    """Upright posture as a one-frame AnimSequence built from THIS character's own bind pose (read from its body
+    component): the keys keep the character's own bone lengths. (A sequence made from the shared skeleton's reference
+    pose carries the generic bone translations: on the face mesh that pulled the head ~6 cm down into the shoulders.)
+    Trunk brought forward over the hips, neck back, head level, collar bones a little back, arms left in the A-pose."""
+    UP = dict(UP or {}); B = {'spine_01': -1.5, 'spine_02': -1.5, 'spine_03': -1.5, 'spine_04': 0.0, 'spine_05': 0.0, 'neck_01': 6.0, 'neck_02': 6.0}; B.update(UP.get('bones', {}))
+    cb, cd = float(UP.get('clav_back', 2.0)), float(UP.get('clav_down', 0.0))
+    CS, PS = unreal.RelativeTransformSpace.RTS_COMPONENT, unreal.RelativeTransformSpace.RTS_PARENT_BONE_SPACE
+    gw = lambda b: body_c.get_socket_transform(b, CS); gl = lambda b: body_c.get_socket_transform(b, PS)
+    def vsub(a, b): return unreal.Vector(a.x - b.x, a.y - b.y, a.z - b.z)
+    def dot(a, b): return a.x * b.x + a.y * b.y + a.z * b.z
+    def qaxis(ax, a): s_ = math.sin(a / 2); return unreal.Quat(ax.x * s_, ax.y * s_, ax.z * s_, math.cos(a / 2))
+    def qinv(q): return q.inversed() if hasattr(q, 'inversed') else unreal.MathLibrary.quat_inversed(q)
+    # the way she faces: perpendicular to the line through the two hip joints (symmetric; a single foot toes out)
+    hl, hr = gw('thigh_l').translation, gw('thigh_r').translation; lx, ly = hl.x - hr.x, hl.y - hr.y; n_ = math.hypot(lx, ly); lat = unreal.Vector(lx / n_, ly / n_, 0)
+    f0 = vsub(gw('ball_l').translation, gw('foot_l').translation); fwd = unreal.Vector(-lat.y, lat.x, 0)
+    if fwd.x * f0.x + fwd.y * f0.y < 0: fwd = unreal.Vector(lat.y, -lat.x, 0)
+    up = unreal.Vector(0, 0, 1)
+    def turn_q(bone, child, ax, deg, toward):
+        # rotation about ax by |deg|, signed so that the child joint moves along `toward` (deg < 0: the other way)
+        off = vsub(gw(child).translation, gw(bone).translation); best = None
+        for s_ in (1, -1):
+            q = qaxis(ax, math.radians(abs(deg)) * s_); d = dot(q.rotate_vector(off), toward)
+            if best is None or d > best[0]: best = (d, q, s_)
+        return best[1] if deg >= 0 else qaxis(ax, -math.radians(abs(deg)) * best[2])
+    back = unreal.Vector(-fwd.x, -fwd.y, 0); down = unreal.Vector(0, 0, -1)
+    ident = unreal.Quat(0, 0, 0, 1); D = {'pelvis': ident}; CH = ['spine_01', 'spine_02', 'spine_03', 'spine_04', 'spine_05', 'neck_01', 'neck_02', 'head']
+    for i_, b_ in enumerate(CH[:-1]): D[b_] = turn_q(b_, CH[i_ + 1], lat, float(B.get(b_, 0.0)), back) * D[CH[i_ - 1] if i_ else 'pelvis']
+    D['head'] = ident
+    for sd in ('l', 'r'):
+        D['clavicle_' + sd] = turn_q('clavicle_' + sd, 'upperarm_' + sd, fwd, cd, down) * turn_q('clavicle_' + sd, 'upperarm_' + sd, up, cb, back) * D['spine_05']
+        D['upperarm_' + sd] = ident
+    PAR = {'spine_01': 'pelvis', 'spine_02': 'spine_01', 'spine_03': 'spine_02', 'spine_04': 'spine_03', 'spine_05': 'spine_04', 'neck_01': 'spine_05', 'neck_02': 'neck_01', 'head': 'neck_02',
+           'clavicle_l': 'spine_05', 'clavicle_r': 'spine_05', 'upperarm_l': 'clavicle_l', 'upperarm_r': 'clavicle_r'}
+    # Two sequences with the same rotations. The BODY mesh rescales animation translations by (its bone length / the
+    # skeleton's reference length), so it must be given the skeleton's reference translations; the FACE mesh (head + neck)
+    # takes them as they are, so it must be given this character's own. (Measured: the wrong set moves the head 6 cm.)
+    skel = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH').get_editor_property('skeleton'); refp = unreal.AnimPoseExtensions.get_reference_pose(skel); out = {}
+    for kind in ('Body', 'Face'):
+        nm_ = name + '_' + kind; dst = '/Game/QQ/Anims/' + nm_
+        if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
+        fac = unreal.AnimSequenceFactory(); fac.set_editor_property('target_skeleton', skel)
+        seq = unreal.AssetToolsHelpers.get_asset_tools().create_asset(nm_, '/Game/QQ/Anims', unreal.AnimSequence, fac)
+        ctrl = seq.controller; ctrl.open_bracket(unreal.Text('upright posture'))
+        try: ctrl.set_frame_rate(unreal.FrameRate(30, 1))
+        except Exception as e: log('framerate', e)
+        ctrl.set_number_of_frames(unreal.FrameNumber(1))
+        for b, par in PAR.items():
+            nw = D[b] * gw(b).rotation; pw = D[par] * gw(par).rotation; loc = qinv(pw) * nw; l0 = gl(b)
+            tr = unreal.AnimPoseExtensions.get_bone_pose(refp, b, unreal.AnimPoseSpaces.LOCAL).translation if kind == 'Body' else l0.translation
+            try: ctrl.add_bone_curve(b)
+            except Exception: ctrl.add_bone_track(b)
+            ctrl.set_bone_track_keys(b, [tr] * 2, [loc] * 2, [l0.scale3d] * 2)
+            if kind == 'Body': log('upright bone', b, 'skeleton ref translation', [round(x, 2) for x in (tr.x, tr.y, tr.z)], 'own', [round(x, 2) for x in (l0.translation.x, l0.translation.y, l0.translation.z)])
+        ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); out[kind] = seq
+    log('upright pose built for this character', name, json.dumps(B), 'clav back/down', cb, cd)
+    return out
+
 def set_body(name, targets):
     c = unreal.load_asset(f'/Game/QQ/{name}')
     if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit ' + name)
@@ -536,9 +594,14 @@ def step_multishots(items, light):
                     except Exception as e: log('no_hair fail', e)
                 if extra.get('pose'):
                     try:
-                        pa = unreal.load_asset(extra['pose'])
+                        pa = unreal.load_asset(extra['pose']) if extra['pose'] != 'upright' else None
+                        if pa is None:      # "pose": "upright" = build the upright posture from this character's own bind pose
+                            bc_ = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l'))
+                            pa = build_upright_for(bc_, 'MM_Upright_' + items[st['k']][0].split('/')[-1], extra.get('upright'))
+                        pa2 = pa if isinstance(pa, dict) else {'Body': pa, 'Face': pa}
                         for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
                             if sk.does_socket_exist('thigh_l') or (extra.get('pose_all') and sk.does_socket_exist('head')):
+                                pa = pa2['Body' if sk.does_socket_exist('thigh_l') else 'Face']
                                 sk.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE); sk.set_animation(pa)
                                 sk.set_update_animation_in_editor(True); sk.set_play_rate(0.0); sk.set_position(0.0, False); log('pose on', sk.get_name(), extra['pose'])
                                 # the capture is off screen: without this the pose is never ticked ("only tick pose when rendered")
@@ -632,7 +695,9 @@ def step_multishots(items, light):
                 head = body.get_socket_location('head'); fwd = body.get_right_vector()
                 eye = unreal.Vector(head.x + fwd.x * 8, head.y + fwd.y * 8, head.z + 5); ex = items[st['k']][3] if len(items[st['k']]) > 3 else {}; r = float(ex.get('dist', os.environ.get('QQ_DIST', '95')))
                 st['jobs'] = []
-                Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5); vf = 2 * math.degrees(math.atan(math.tan(math.radians(cc.fov_angle / 2)) * HH / W)); rb = (Hb * 0.56) / math.tan(math.radians(vf / 2))
+                Hb = head.z + 25; ctr = unreal.Vector(head.x, head.y, Hb * 0.5)
+                if os.environ.get('QQ_CAM_H'): Hb = float(os.environ['QQ_CAM_H']); o_ = st['actor'].get_actor_location(); ctr = unreal.Vector(o_.x, o_.y, o_.z + Hb * 0.5)      # identical camera for every character / pose
+                dummy_ = 0; vf = 2 * math.degrees(math.atan(math.tan(math.radians(cc.fov_angle / 2)) * HH / W)); rb = (Hb * 0.56) / math.tan(math.radians(vf / 2))
                 if os.environ.get('QQ_SAVE_MAP') and not st.get('map_saved'):
                     # viewing level: same lights/backdrop + the assembled character + a camera framing her
                     try:
@@ -685,7 +750,8 @@ def step_multishots(items, light):
                 if st['w'] == 0 and st.get('actor') is not None and os.environ.get('QQ_POSE_LOG'):
                     try:
                         for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
-                            if sk.does_socket_exist('thigh_l'): hh = sk.get_socket_location('head'); cl = sk.get_socket_location('clavicle_l'); log('pose at shot', fn, 'head', [round(hh.x, 2), round(hh.y, 2), round(hh.z, 2)], 'clavicle_l', [round(cl.x, 2), round(cl.y, 2), round(cl.z, 2)])
+                            if sk.does_socket_exist('thigh_l'): log('pose at shot', fn, sk.get_name(), json.dumps({b_: [round(v_, 2) for v_ in (sk.get_socket_location(b_).x, sk.get_socket_location(b_).y, sk.get_socket_location(b_).z)] for b_ in ('foot_l', 'pelvis', 'spine_05', 'clavicle_l', 'upperarm_l', 'upperarm_r', 'neck_01', 'head')}))
+                            elif sk.does_socket_exist('head'): hh = sk.get_socket_location('head'); log('pose at shot', fn, sk.get_name(), 'head', [round(hh.x, 2), round(hh.y, 2), round(hh.z, 2)], 'FACIAL_C_FacialRoot' , [round(v_, 2) for v_ in (sk.get_socket_location('FACIAL_C_FacialRoot').x, sk.get_socket_location('FACIAL_C_FacialRoot').y, sk.get_socket_location('FACIAL_C_FacialRoot').z)] if sk.does_socket_exist('FACIAL_C_FacialRoot') else None)
                     except Exception as e: log('pose at shot failed', e)
                 if st['w'] == 0: cap.set_actor_location(loc, False, False); cap.set_actor_rotation(unreal.MathLibrary.find_look_at_rotation(loc, eye), False)
                 tt = fn.startswith('tt_')
