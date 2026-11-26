@@ -527,6 +527,13 @@ def step_multishots(items, light):
                         else:
                             log('costume skipped (static in costume list)', cp)
                     except Exception as e: log('costume fail', cp, e)
+                if extra.get('no_hair'):
+                    try:
+                        nh = 0
+                        for gc in st['actor'].get_components_by_class(unreal.GroomComponent):
+                            if 'hair' in gc.get_name().lower(): gc.set_visibility(False, True); gc.set_hidden_in_game(True, True); nh += 1
+                        log('hair hidden', nh, [gc.get_name() for gc in st['actor'].get_components_by_class(unreal.GroomComponent)])
+                    except Exception as e: log('no_hair fail', e)
                 if extra.get('pose'):
                     try:
                         pa = unreal.load_asset(extra['pose'])
@@ -534,6 +541,18 @@ def step_multishots(items, light):
                             if sk.does_socket_exist('thigh_l') or (extra.get('pose_all') and sk.does_socket_exist('head')):
                                 sk.set_animation_mode(unreal.AnimationMode.ANIMATION_SINGLE_NODE); sk.set_animation(pa)
                                 sk.set_update_animation_in_editor(True); sk.set_play_rate(0.0); sk.set_position(0.0, False); log('pose on', sk.get_name(), extra['pose'])
+                                # the capture is off screen: without this the pose is never ticked ("only tick pose when rendered")
+                                for fn_, args_ in (('set_visibility_based_anim_tick_option', (unreal.VisibilityBasedAnimTickOption.ALWAYS_TICK_POSE_AND_REFRESH_BONES,)), ('set_component_tick_enabled', (True,)),
+                                                   ('override_animation_data', (pa, False, False, 0.0, 0.0)), ('set_force_ref_pose', (False,))):
+                                    try: getattr(sk, fn_)(*args_); log('pose', sk.get_name(), fn_, 'ok')
+                                    except Exception as e: log('pose', sk.get_name(), fn_, 'n/a', str(e)[:80])
+                                try:
+                                    pi = sk.get_editor_property('preview_instance'); log('pose preview_instance', pi)
+                                    if pi is not None:
+                                        for fn_, args_ in (('set_animation_asset', (pa, False, 0.0)), ('set_position', (0.0, False)), ('set_playing', (False,))):
+                                            try: getattr(pi, fn_)(*args_); log('pose preview_instance', fn_, 'ok')
+                                            except Exception as e: log('pose preview_instance', fn_, 'n/a', str(e)[:80])
+                                except Exception as e: log('pose preview_instance n/a', str(e)[:100])
                     except Exception as e: log('pose fail', e)
                 st['phase'] = 'warm'; st['t'] = now; log('preview', path); return
             if st['phase'] == 'warm':
@@ -651,6 +670,9 @@ def step_multishots(items, light):
                     if nm.startswith('n_'):   # neck close-up (head-to-body join): n_old / n_yon / n_orqa / n_q34
                         key = nm[2:]; ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key])); d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
                         tg = unreal.Vector(eye.x, eye.y, eye.z - 16); st['jobs'].append((f'{stem}_boyin_{key}.png', unreal.Vector(tg.x + d.x * r * 1.15, tg.y + d.y * r * 1.15, tg.z + 2), tg)); continue
+                    if nm.startswith('z_'):   # close-up at a fraction of the body height: z_<percent>_<view>, e.g. z_82_q34 (shoulder), z_58_old (belt)
+                        _z, pc, key = nm.split('_', 2); ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key])); d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
+                        tg = unreal.Vector(head.x, head.y, Hb * int(pc) / 100.0); st['jobs'].append((f'{stem}_yaqin{pc}_{key}.png', unreal.Vector(tg.x + d.x * rb * 0.36, tg.y + d.y * rb * 0.36, tg.z + 4), tg)); continue
                     full = nm.startswith('b_'); key = nm[2:] if full else nm
                     ca, sa = math.cos(math.radians(ANG[key])), math.sin(math.radians(ANG[key]))
                     d = unreal.Vector(fwd.x * ca - fwd.y * sa, fwd.x * sa + fwd.y * ca, 0)
@@ -660,6 +682,11 @@ def step_multishots(items, light):
             if st['phase'] == 'shoot':
                 if not st['jobs']: st['phase'] = 'next'; return
                 fn, loc, eye = st['jobs'][0]
+                if st['w'] == 0 and st.get('actor') is not None and os.environ.get('QQ_POSE_LOG'):
+                    try:
+                        for sk in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent):
+                            if sk.does_socket_exist('thigh_l'): hh = sk.get_socket_location('head'); cl = sk.get_socket_location('clavicle_l'); log('pose at shot', fn, 'head', [round(hh.x, 2), round(hh.y, 2), round(hh.z, 2)], 'clavicle_l', [round(cl.x, 2), round(cl.y, 2), round(cl.z, 2)])
+                    except Exception as e: log('pose at shot failed', e)
                 if st['w'] == 0: cap.set_actor_location(loc, False, False); cap.set_actor_rotation(unreal.MathLibrary.find_look_at_rotation(loc, eye), False)
                 tt = fn.startswith('tt_')
                 if st['w'] < (int(os.environ.get('QQ_TT_CAPS', '3')) if tt and not fn.endswith('f_0000.png') else 8): cc.capture_scene(); st['w'] += 1; return
@@ -1468,7 +1495,9 @@ try:
         # rolled forward and the head forward): a one-frame AnimSequence used for the renders and as the base of the idle.
         # Upper spine extended, collar bones drawn back and a little down, neck back so the ear sits over the shoulder, head
         # kept level. QQ_UP = json {spine: deg per spine_03/04/05, neck: deg per neck_01/02, clav_back, clav_down, name}.
-        UP = {'spine': 2.5, 'neck': 3.5, 'clav_back': 8.0, 'clav_down': 3.0, 'name': 'MM_Upright'}; UP.update(json.loads(os.environ.get('QQ_UP', 'null')) or {})
+        # measured on the bind stance (stance.py): hips over the ankles, but the trunk leans BACK 3.5 deg (shoulders 4.5 cm behind
+        # the ankles) and the neck comes forward 6.4 deg. So: lower spine a little FORWARD (negative), neck back, head level.
+        UP = {'bones': {'spine_01': -1.5, 'spine_02': -1.5, 'spine_03': -1.5, 'spine_04': 0.0, 'spine_05': 0.0, 'neck_01': 6.0, 'neck_02': 6.0}, 'clav_back': 3.0, 'clav_down': 1.5, 'name': 'MM_Upright'}; UP.update(json.loads(os.environ.get('QQ_UP', 'null')) or {})
         dst = '/Game/QQ/Anims/' + UP['name']; idle = unreal.load_asset('/Game/QQ/Anims/MM_Idle_MH'); skel = idle.get_editor_property('skeleton')
         if EAL.does_asset_exist(dst): EAL.delete_asset(dst)
         fac = unreal.AnimSequenceFactory(); fac.set_editor_property('target_skeleton', skel)
@@ -1484,38 +1513,44 @@ try:
             # rotation about ax by deg, signed so that the child joint moves BACK (against fwd)
             off = vsub(g(child, W).translation, g(bone, W).translation); best = None
             for s_ in (1, -1):
-                q = qaxis(ax, math.radians(deg) * s_); d = dot(q.rotate_vector(off), fwd)
-                if best is None or d < best[0]: best = (d, q)
-            return best[1]
+                q = qaxis(ax, math.radians(abs(deg)) * s_); d = dot(q.rotate_vector(off), fwd)
+                if best is None or d < best[0]: best = (d, q, s_)
+            return best[1] if deg >= 0 else qaxis(ax, -math.radians(abs(deg)) * best[2])      # negative degrees = the other way (forward)
         def down_q(bone, child, ax, deg):
             off = vsub(g(child, W).translation, g(bone, W).translation); best = None
             for s_ in (1, -1):
                 q = qaxis(ax, math.radians(deg) * s_); d = q.rotate_vector(off).z
                 if best is None or d < best[0]: best = (d, q)
             return best[1]
-        ident = unreal.Quat(0, 0, 0, 1); D = {'spine_02': ident}
-        D['spine_03'] = back_q('spine_03', 'spine_04', lat, UP['spine'])
-        D['spine_04'] = back_q('spine_04', 'spine_05', lat, UP['spine']) * D['spine_03']
-        D['spine_05'] = back_q('spine_05', 'neck_01', lat, UP['spine']) * D['spine_04']
-        D['neck_01'] = back_q('neck_01', 'neck_02', lat, UP['neck']) * D['spine_05']
-        D['neck_02'] = back_q('neck_02', 'head', lat, UP['neck']) * D['neck_01']
+        ident = unreal.Quat(0, 0, 0, 1); D = {'pelvis': ident}; CH = ['spine_01', 'spine_02', 'spine_03', 'spine_04', 'spine_05', 'neck_01', 'neck_02', 'head']
+        for i_, b_ in enumerate(CH[:-1]):
+            D[b_] = back_q(b_, CH[i_ + 1], lat, float(UP['bones'].get(b_, 0.0))) * D[CH[i_ - 1] if i_ else 'pelvis']
         D['head'] = ident                                                                    # the head stays level
         for sd in ('l', 'r'):
             D['clavicle_' + sd] = down_q('clavicle_' + sd, 'upperarm_' + sd, fwd, UP['clav_down']) * back_q('clavicle_' + sd, 'upperarm_' + sd, up, UP['clav_back']) * D['spine_05']
-            D['upperarm_' + sd] = D['spine_05']                                              # the arm itself keeps the trunk's lean only (no extra swing from the collar bone)
-        PAR = {'spine_03': 'spine_02', 'spine_04': 'spine_03', 'spine_05': 'spine_04', 'neck_01': 'spine_05', 'neck_02': 'neck_01', 'head': 'neck_02',
+            D['upperarm_' + sd] = ident                                                      # the arms hang exactly as in the bind stance (A-pose kept, no swing back with the trunk or the collar bone)
+        PAR = {'spine_01': 'pelvis', 'spine_02': 'spine_01', 'spine_03': 'spine_02', 'spine_04': 'spine_03', 'spine_05': 'spine_04', 'neck_01': 'spine_05', 'neck_02': 'neck_01', 'head': 'neck_02',
                'clavicle_l': 'spine_05', 'clavicle_r': 'spine_05', 'upperarm_l': 'clavicle_l', 'upperarm_r': 'clavicle_r'}
         ctrl = seq.controller; ctrl.open_bracket(unreal.Text('upright posture'))
         try: ctrl.set_frame_rate(unreal.FrameRate(30, 1))
         except Exception as e: log('framerate', e)
         ctrl.set_number_of_frames(unreal.FrameNumber(1))
         for b, par in PAR.items():
-            nw = D[b] * g(b, W).rotation; pw = D[par] * g(par, W).rotation; loc = pw.inverse() * nw; l0 = g(b, Lc)
+            nw = D[b] * g(b, W).rotation; pw = D[par] * g(par, W).rotation; loc = (pw.inversed() if hasattr(pw, 'inversed') else unreal.MathLibrary.quat_inversed(pw)) * nw; l0 = g(b, Lc)
             try: ctrl.add_bone_curve(b)
             except Exception: ctrl.add_bone_track(b)
             ctrl.set_bone_track_keys(b, [l0.translation] * 2, [loc] * 2, [l0.scale3d] * 2)
             log('upright bone', b, 'local rot', [round(x, 4) for x in (loc.x, loc.y, loc.z, loc.w)], 'ref', [round(x, 4) for x in (l0.rotation.x, l0.rotation.y, l0.rotation.z, l0.rotation.w)])
-        ctrl.close_bracket(); EAL.save_asset(dst, only_if_is_dirty=False); log('upright pose saved', dst, json.dumps(UP))
+        ctrl.close_bracket()
+        for fn_ in ('notify_populated',):
+            try: getattr(ctrl, fn_)()
+            except Exception as e: log('upright', fn_, e)
+        EAL.save_asset(dst, only_if_is_dirty=False); log('upright pose saved', dst, json.dumps(UP))
+        try:
+            AL = unreal.AnimationLibrary; log('upright check: frames', AL.get_num_frames(seq), 'length', seq.get_play_length(), 'tracks', [str(x) for x in AL.get_animation_track_names(seq)])
+            pose1 = unreal.AnimPoseExtensions.get_anim_pose_at_frame(seq, 0, unreal.AnimPoseEvaluationOptions()); r1 = unreal.AnimPoseExtensions.get_bone_pose(pose1, 'spine_04', Lc).rotation
+            log('upright check: spine_04 local in the sequence', [round(x, 4) for x in (r1.x, r1.y, r1.z, r1.w)])
+        except Exception as e: log('upright check failed', e)
     if 'gada2' in STEPS:
         # Guloyim = the Ada preset's body EXACTLY (author, 26 Nov night: re-solving Ada's measures did not give Ada's shape).
         # The new character IS a copy of the preset asset (its own body state, untouched); Guloyim's face coefficients, skin,
@@ -1586,6 +1621,15 @@ try:
             except Exception as e: log('gada2 assemble fail', e, traceback.format_exc())
             finally: mhs.remove_object_to_edit(N)
         EAL.save_asset(dst, only_if_is_dirty=False); log('gada2 saved', dst)
+    if 'clothapi' in STEPS:
+        # what the editor's Python exposes for cloth (Chaos Cloth / clothing data on skeletal meshes)
+        names = [n for n in dir(unreal) if 'cloth' in n.lower()]; log('clothapi classes', len(names), names)
+        for cn in names:
+            try:
+                ms = [m for m in dir(getattr(unreal, cn)) if not m.startswith('_') and m not in dir(unreal.Object)]
+                if ms: log('clothapi', cn, ms[:60])
+            except Exception as e: log('clothapi', cn, e)
+        log('clothapi SkeletalMesh', [m for m in dir(unreal.SkeletalMesh) if 'cloth' in m.lower()], 'subsystems', [n for n in dir(unreal) if 'SkeletalMeshEditorSubsystem' in n or 'PhysicsAsset' in n][:40])
     if 'export_after' in STEPS: _export_final()      # same export, but after the conform / native steps of this session
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)

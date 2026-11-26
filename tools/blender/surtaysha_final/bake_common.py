@@ -1,3 +1,4 @@
+import os
 # shared bake utilities
 import bpy, bmesh, math, os
 import numpy as np
@@ -22,7 +23,7 @@ def setup_cycles(samples=8):
             if ok: break
         except Exception as e:
             print('device', dev, e)
-    sc.cycles.device = 'GPU'
+    sc.cycles.device = 'CPU' if os.environ.get('SUR_BAKE_CPU') == '1' else 'GPU'      # CPU: slower, but does not fight UE for the graphics card
     sc.cycles.samples = samples
     sc.cycles.use_denoising = False
     sc.render.bake.margin = 16
