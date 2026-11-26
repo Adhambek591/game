@@ -47,12 +47,12 @@ const add = (geo, mat, x, y, z, parent, sh = true) => { const m = new THREE.Mesh
 // 1. UNIT READABILITY: contact-shadow blobs + team rings (2 instanced draws for all units) and a rim/saturation patch
 // =====================================================================================================================
 const UN = 96; let blobs = null, rings = null; const _o = new THREE.Object3D(), _c = new THREE.Color();
-const TEAM = {
-  ally: { rim: 0xffe6b0, k: .32, sat: 1.04, tint: [1.04, 1.02, 1.0], ring: 0 },   // gfx3: no glowing halo (was k 1.35, sat 1.3, tint 1.22)
-  enemy: { rim: 0xff5236, k: .3, sat: .95, tint: [.95, .95, .97], ring: 0 },   // gfx2 r2: thin red-orange rim on the geometric normal (no speckle)   // fix3: was blue rim k 1.25 + blue tint
-  elite: { rim: 0xff3a20, k: .55, sat: .97, tint: [.96, .93, .93], ring: 0x8a1810 },
-  hero: { rim: 0xfff0c8, k: .38, sat: 1.04, tint: [1.0, 1.0, 1.02], ring: 0xffc64a },
-  npc: { rim: 0xfff0d0, k: .28, sat: 1.03, tint: [1.03, 1.02, 1.0], ring: 0 },
+const TEAM = {   // author Nov 26: enemies clearly DARKER, our side clearly LIGHTER; the lane is flattened to mid luminance (env.js roadify), so both read against it
+  ally: { rim: 0xfff0d0, k: .5, sat: 1.06, tint: [1.2, 1.17, 1.1], ring: 0 },    // light clothes + soft warm edge (no glowing halo: gfx3 removed k 1.35 / sat 1.3)
+  enemy: { rim: 0xff4a2a, k: .42, sat: .82, tint: [.64, .62, .66], ring: 0 },   // dark, desaturated cloth; thin red-orange edge keeps the silhouette off dark ground
+  elite: { rim: 0xff3a20, k: .62, sat: .86, tint: [.72, .66, .66], ring: 0x8a1810 },
+  hero: { rim: 0xfff0c8, k: .45, sat: 1.06, tint: [1.1, 1.1, 1.14], ring: 0xffc64a },
+  npc: { rim: 0xfff0d0, k: .38, sat: 1.04, tint: [1.14, 1.12, 1.07], ring: 0 },
 };
 function unitMeshes() {
   if (!blobs) {
