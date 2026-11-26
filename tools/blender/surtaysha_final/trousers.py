@@ -82,7 +82,7 @@ def build_trousers():
     gin = leg_at(crotch - 0.03); grx = max(0.05, gin[0] - gin[1] + 0.045)
     r_ = bmesh.ops.create_uvsphere(bm, u_segments=24, v_segments=12, radius=1.0)
     for v_ in r_['verts']:
-        v_.co = Vector((v_.co.x * grx, gcy + v_.co.y * gry, crotch - 0.025 + v_.co.z * 0.085))
+        v_.co = Vector((v_.co.x * (grx + 0.012), gcy + v_.co.y * gry, crotch - 0.010 + v_.co.z * 0.11))      # tall enough to fill the fork up into the seat (no crease)
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     me = bpy.data.meshes.new('SUR_Trousers'); bm.to_mesh(me); bm.free()
     ob = bpy.data.objects.new('SUR_Trousers', me); bpy.context.scene.collection.objects.link(ob)
@@ -105,6 +105,9 @@ def build_trousers():
         v.co = p + d.normalized() * f
     # cut open: waist and cuffs
     bm = bmesh.new(); bm.from_mesh(ob.data)
+    # the fork: relax the surface where the seat meets the legs so no crease is left under the front of the seat
+    fk = [v for v in bm.verts if crotch - 0.07 < v.co.z < crotch + 0.07 and abs(v.co.x) < 0.14]
+    for _ in range(40): bmesh.ops.smooth_vert(bm, verts=fk, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
     for co, no, outer in ((Vector((0, 0, z_waist)), Vector((0, 0, 1)), True), (Vector((0, 0, z_cuff)), Vector((0, 0, 1)), False)):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=outer, clear_inner=not outer)
     bm.to_mesh(ob.data); bm.free()

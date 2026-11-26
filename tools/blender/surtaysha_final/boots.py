@@ -18,12 +18,13 @@ FOOT_THETA = math.atan2(sum(p.x for p in _te) / len(_te) - sum(p.x for p in _hl)
 print('FOOT toe-out %.1f deg, foot y %.3f..%.3f' % (math.degrees(FOOT_THETA), _fy0, _fy1))
 HULL = boot_hull.Hull(theta=FOOT_THETA)
 _lg = [FIT.leg_at(0.26 + 0.02 * k) for k in range(8)]
-BOOT_O = (sum(c[0] for c in _lg) / len(_lg), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg) - 0.008)   # 8 mm forward: toe room for this body's long foot;   # shaft axis = leg centre at mid shaft
+BOOT_O = (sum(c[0] for c in _lg) / len(_lg) + float(os.environ.get('SUR_BOOT_DX', '-0.005')), sum((c[2] + c[3]) / 2 for c in _lg) / len(_lg))   # shaft axis = leg centre at mid shaft
 print('BOOT origin', BOOT_O, 'toe-out %.1f deg' % math.degrees(HULL.theta))
 
+BOOT_S = float(os.environ.get('SUR_BOOT_S', '1.07'))
 def BW(p):
     """hull local -> world"""
-    return Vector(HULL.to_world(p, BOOT_O).tolist())
+    return Vector(HULL.to_world((p[0] * BOOT_S, p[1] * BOOT_S, p[2]), BOOT_O).tolist())      # BOOT_S: widened around the shaft axis for this body's calf and foot
 def BWn(n):
     st, ct = math.sin(HULL.theta), math.cos(HULL.theta)
     return Vector((n[0] * ct - n[1] * st, n[0] * st + n[1] * ct, n[2]))

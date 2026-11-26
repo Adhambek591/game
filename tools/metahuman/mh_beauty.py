@@ -547,14 +547,28 @@ def step_multishots(items, light):
                     # groom stayed on the default melanin 0.16 = blond): set them here, save, and warm once more before shooting
                     st['gc'] = st['k']
                     try:
-                        inst = st['c'].internal_collection.default_instance; n_set = 0
-                        for ip in inst.get_instance_parameter_item_paths():
-                            prm = inst.get_instance_parameters(item_path=ip)
-                            if not st.get('gc_logged'): log('instance params', [str(p.name) for p in prm])
-                            for p in prm:
-                                v = exg['groom_color'].get(str(p.name))
-                                if v is None: continue
-                                r = p.set_bool(value=bool(v)) if isinstance(v, bool) else p.set_float(value=float(v)); n_set += 1 if r is not False else 0
+                        n_set = 0; insts = []
+                        try: insts.append(('preview', mhs.get_preview_collection(st['c']).default_instance))
+                        except Exception as e: log('preview collection n/a', e)
+                        insts.append(('internal', st['c'].internal_collection.default_instance))
+                        def gval(p_):
+                            for fn_ in ('get_float', 'get_bool', 'get_color'):
+                                try:
+                                    r_ = getattr(p_, fn_)()
+                                    if isinstance(r_, tuple):
+                                        if r_[0]: return r_[-1]
+                                    elif r_ is not None: return r_
+                                except Exception: pass
+                            return None
+                        for tag_, inst in insts:
+                            paths = list(inst.get_instance_parameter_item_paths()); log('groom colour:', tag_, 'instance, item paths with parameters', len(paths))
+                            for ip in paths:
+                                prm = inst.get_instance_parameters(item_path=ip)
+                                if not st.get('gc_logged'): log('  params', tag_, {str(p_.name): str(gval(p_)) for p_ in prm})
+                                for p_ in prm:
+                                    v = exg['groom_color'].get(str(p_.name))
+                                    if v is None: continue
+                                    r = p_.set_bool(value=bool(v)) if isinstance(v, bool) else p_.set_float(value=float(v)); n_set += 1 if r is not False else 0
                         st['gc_logged'] = True
                         EAL.save_asset(st['c'].get_path_name(), only_if_is_dirty=False); log('groom colour set', path, n_set, exg['groom_color'])
                     except Exception as e: log('groom colour fail', e, traceback.format_exc())
