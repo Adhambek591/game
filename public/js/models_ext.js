@@ -279,12 +279,18 @@ function headFit(rig, root) { const H = rig.B.Head || rig.B.head; if (!H) return
   const ctr = side.clone().multiplyScalar(cx).add(fwd.clone().multiplyScalar(cz)); ctr.y = yb; return { H, ctr, up, fwd, side, r, top, hh, yb, q }; }
 function attachWorld(bone, obj, pos, quat, scl) { obj.position.copy(pos); obj.quaternion.copy(quat); obj.scale.setScalar(scl); obj.updateMatrixWorld(true); bone.attach(obj); obj.traverse(k => { if (k.isMesh) { k.castShadow = true; k.frustumCulled = false; } }); }
 export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return; e._mx = 1; const ty = e.type, d = e.d || {};
-  if (ty === 'qiz' && e.team !== 'enemy') { if (MX.G && e === MX.G.player) return; const n = CNT.qizA = (CNT.qizA || 0) + 1; let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; }); const L = [null, 'qiz_r', 'qiz_o', 'qiz_v']; if (src && L[n % 4]) varMap(L[n % 4], src.material.map, src.material); rig.body.scale.multiplyScalar([1, .97, 1.03, .985][n % 4]); return; }
+  /* author (Nov 26): helmets / soldier atlases belong ONLY on the Kalmyk soldier bodies (R_askar, R_kamonchi). Tutorial sparring partners and the
+     Sárbinaz duel are spawned on team 'enemy' (Sárbinaz, maidens): they used to get a soldier helmet + a soldier atlas painted over their own texture. */
+  const mt = d.mdl || ty;
+  if (ty === 'qiz' || mt === 'qiz') { if (MX.G && e === MX.G.player) return; const n = CNT.qizA = (CNT.qizA || 0) + 1; let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; }); const L = [null, 'qiz_r', 'qiz_o', 'qiz_v']; if (src && L[n % 4]) varMap(L[n % 4], src.material.map, src.material); rig.body.scale.multiplyScalar([1, .97, 1.03, .985][n % 4]); return; }
   if (d.heavy || e.maxHp > 1e8 || ['mage', 'shaman'].includes(ty) || e.team !== 'enemy' || e.w4cat) return;
+  if (!['askar', 'archer', 'wolf', 'wolfman'].includes(mt)) return;   /* only soldier bodies (and the potion brutes below) get the variety kit */
   const ch = (MX.G && MX.G.mis && MX.G.mis.c) || 1, b = band(ch); const cap = !!(e.hunt || /cap/.test(d.name || '') || d.cap);
   const base = ty === 'archer' ? 'archer' : (ty === 'wolf' || ty === 'boribasi') ? 'wolf' : 'askar'; const n = CNT[ty] = (CNT[ty] || 0) + 1;
   let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; });
-  if (base === 'wolf') { if (ty === 'wolf' && src) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); } if (ty === 'wolf') rig.body.scale.multiplyScalar([1, .92, 1.07][n % 3]); return; }
+  /* potion brutes ('wolf' types, author Nov 22: NO wolf heads — men who drank the potion, bigger and stronger): soldier body, bare head (NO helmet,
+     so they never look like the helmeted soldiers), darkest cloth atlas, broader and taller */
+  if (base === 'wolf' || mt === 'wolfman') { if (src && rig.proc !== 'wolf') varMap(['askar_k', 'askar_r', 'askar_k'][n % 3], src.material.map, src.material); rig.body.scale.multiplyScalar([1.1, 1.05, 1.14][n % 3]); return; }
   const looks = LOOK[b]; let lk = looks[(n + (ty === 'archer' ? 1 : 0)) % looks.length];
   if (ty === 'nayza') lk = ['cone', b === 'late' ? 3 : 0, { dark: b === 'late', plume: b === 'early' ? 0 : 0x8a1810 }]; else if (ty === 'qilich') lk = ['lam', [-1, 0, 3][n % 3], { plume: [0xa01810, 0x1a1414, 0xd8c8a8][n % 3] }]; else if (ty === 'qalqan') lk = ['cone', [1, 2, 0][n % 3], {}];
   else if (d.name === 'w4_cav') lk = ['fur', [0, 2, 1][n % 3], { cloth: [0x7a1a14, 0x1e2a44, 0x3a3a1a][n % 3], fur: 0x2e2218, flaps: true }];
