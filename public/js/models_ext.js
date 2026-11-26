@@ -288,9 +288,10 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   const ch = (MX.G && MX.G.mis && MX.G.mis.c) || 1, b = band(ch); const cap = !!(e.hunt || /cap/.test(d.name || '') || d.cap);
   const base = ty === 'archer' ? 'archer' : (ty === 'wolf' || ty === 'boribasi') ? 'wolf' : 'askar'; const n = CNT[ty] = (CNT[ty] || 0) + 1;
   let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; });
-  /* potion brutes ('wolf' types, author Nov 22: NO wolf heads — men who drank the potion, bigger and stronger): soldier body, bare head (NO helmet,
-     so they never look like the helmeted soldiers), darkest cloth atlas, broader and taller */
-  if (base === 'wolf' || mt === 'wolfman') { if (src && rig.proc !== 'wolf') varMap(['askar_k', 'askar_r', 'askar_k'][n % 3], src.material.map, src.material); rig.body.scale.multiplyScalar([1.1, 1.05, 1.14][n % 3]); return; }
+  /* wolves (author Nov 26: wolves back as before f3b1203): quadruped R_bori4 ('wolf', 'boribasi') and the wolf-man R_bori ('wolfman', potion brute) never get a
+     helmet or a soldier atlas. The bori_* atlases are painted for the wolf-man UVs only, so the quadruped keeps its own texture and only varies in size. */
+  if (base === 'wolf' || mt === 'wolfman' || ty === 'wolfman') { const wm = rig.proc !== 'wolf'; if (src && wm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); }
+    if (ty === 'wolf' || ty === 'wolfman') rig.body.scale.multiplyScalar([1, .92, 1.07][n % 3]); return; }
   const looks = LOOK[b]; let lk = looks[(n + (ty === 'archer' ? 1 : 0)) % looks.length];
   if (ty === 'nayza') lk = ['cone', b === 'late' ? 3 : 0, { dark: b === 'late', plume: b === 'early' ? 0 : 0x8a1810 }]; else if (ty === 'qilich') lk = ['lam', [-1, 0, 3][n % 3], { plume: [0xa01810, 0x1a1414, 0xd8c8a8][n % 3] }]; else if (ty === 'qalqan') lk = ['cone', [1, 2, 0][n % 3], {}];
   else if (d.name === 'w4_cav') lk = ['fur', [0, 2, 1][n % 3], { cloth: [0x7a1a14, 0x1e2a44, 0x3a3a1a][n % 3], fur: 0x2e2218, flaps: true }];
