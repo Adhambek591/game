@@ -542,6 +542,41 @@ def step_multishots(items, light):
                 st['first'] = False
                 path, stem, views = items[st['k']][:3]
                 exg = items[st['k']][3] if len(items[st['k']]) > 3 else {}
+                if exg.get('groom_color') and st.get('gc') != st['k']:
+                    # groom instance parameters exist only once the preview is assembled (make_look saw an empty list, so every
+                    # groom stayed on the default melanin 0.16 = blond): set them here, save, and warm once more before shooting
+                    st['gc'] = st['k']
+                    try:
+                        inst = st['c'].internal_collection.default_instance; n_set = 0
+                        for ip in inst.get_instance_parameter_item_paths():
+                            prm = inst.get_instance_parameters(item_path=ip)
+                            if not st.get('gc_logged'): log('instance params', [str(p.name) for p in prm])
+                            for p in prm:
+                                v = exg['groom_color'].get(str(p.name))
+                                if v is None: continue
+                                r = p.set_bool(value=bool(v)) if isinstance(v, bool) else p.set_float(value=float(v)); n_set += 1 if r is not False else 0
+                        st['gc_logged'] = True
+                        EAL.save_asset(st['c'].get_path_name(), only_if_is_dirty=False); log('groom colour set', path, n_set, exg['groom_color'])
+                    except Exception as e: log('groom colour fail', e, traceback.format_exc())
+                    st['t'] = now; return
+                if exg.get('rebind'):
+                    try:
+                        log('groom api', [x for x in dir(unreal) if 'groom' in x.lower() or 'hairstrand' in x.lower()])
+                        face = next((x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if 'face' in x.get_name().lower()), None)
+                        fm = face.skeletal_mesh_asset if face else None; log('face comp', face.get_name() if face else None, fm.get_path_name() if fm else None)
+                        lib = getattr(unreal, 'GroomLibrary', None); log('GroomLibrary fns', [m for m in dir(lib) if not m.startswith('_')] if lib else None)
+                        for g in st['actor'].get_components_by_class(unreal.GroomComponent):
+                            ga = g.groom_asset; ob = g.binding_asset
+                            log('groom comp', g.get_name(), ga.get_path_name() if ga else None, 'binding', ob.get_path_name() if ob else None, 'bind target', ob.target_skeletal_mesh.get_path_name() if ob and ob.target_skeletal_mesh else None)
+                            if not (ga and fm and lib): continue
+                            nb = None
+                            for fn in ('create_new_groom_binding_asset_from_skeletal_mesh', 'create_new_groom_binding_asset'):
+                                if hasattr(lib, fn):
+                                    try:
+                                        nb = getattr(lib, fn)(f'/Game/QQ/GroomBind/GB_{g.get_name()}', ga, fm, 2 if 'from' in fn else fm, None) if False else None
+                                    except Exception as e: log('bind fn fail', fn, e)
+                            log('binding probe only', g.get_name())
+                    except Exception as e: log('rebind fail', e, traceback.format_exc())
                 if exg.get('groom_follow') and st.get('h0') is not None:
                     try:
                         bodyc = next(x for x in st['actor'].get_components_by_class(unreal.SkeletalMeshComponent) if x.does_socket_exist('thigh_l'))
@@ -704,6 +739,15 @@ try:
         make_look('MHC_surtaysha_f', {'src': '/Game/QQ/MHC_surtaysha', 'presets': [['Aoi', 0.65], ['Bo', 0.15]], 'tex': int(os.environ.get('QQ_S_TEX', '20')), 'u': 0.48, 'v': 0.62, 'lip_red': 0.5, 'lip_op': 0.0,
                                       'hair': 'WI_Hair_S_SlickBack', 'brows': 'WI_Eyebrows_M_Thick', 'grooms': [['Beard', 'Beards', 'WI_Goatee_M_Pointed'], ['Mustache', 'Mustaches', 'WI_Mustache_L_Full']]})
         log('MHC_surtaysha_f made')
+    if 'sbrow' in STEPS:
+        # alternative brow / moustache grooms on MHC_surtaysha_f (QQ_BROW / QQ_MUST; 'none' clears the slot)
+        c = unreal.load_asset('/Game/QQ/MHC_surtaysha_f'); G = f'{OPT}/Grooms/Bindings'; inst = c.internal_collection.default_instance
+        for slot, sub, wi in (('Eyebrows', 'Eyebrows', os.environ.get('QQ_BROW', 'WI_Eyebrows_M_FlatThick')), ('Mustache', 'Mustaches', os.environ.get('QQ_MUST', 'WI_Mustache_M_Gunslinger'))):
+            if wi == 'none':
+                try: inst.set_single_slot_selection(slot, unreal.MetaHumanPaletteItemKey()); log('slot cleared', slot)
+                except Exception as e: log('clear fail', slot, e)
+            else: add_groom(c, slot, f'{G}/{sub}/{wi}.{wi}')
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('sbrow done')
     if 'ghair' in STEPS:
         c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('guloyim hair re-added')
     if 'import_costume' in STEPS:
@@ -998,6 +1042,34 @@ try:
                     ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = os.environ.get('QQ_TOP', '0') == '1'; ss.skin = sk; mhs.commit_skin_settings(c, ss); log('top underwear', sk.show_top_underwear, nm)
                 finally: mhs.remove_object_to_edit(c)
                 EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+    if 'pure' in STEPS:
+        # PURE MetaHuman (author, 26 Nov): no body swap, no head scale. Each character keeps its own parametric body, so neck,
+        # grooms, underwear and rig are native. Guloyim = approved parametric body; Surtaysha (MHC_surtaysha_f, run 'snew' first
+        # for a clean copy) = as burly as the parametric limits allow. QQ_PURE=g,s selects characters.
+        def native(nm, top, lash=True):
+            c = unreal.load_asset(f'/Game/QQ/{nm}')
+            if mhs.try_add_object_to_edit(c):
+                try:
+                    ss = c.skin_settings; sk = ss.skin; sk.show_top_underwear = top; ss.skin = sk; mhs.commit_skin_settings(c, ss)
+                    hm = c.head_model_settings; el = hm.eyelashes; el.enable_grooms = lash; hm.eyelashes = el; mhs.commit_head_model_settings(c, hm)
+                    log('pure native', nm, 'top underwear', top, 'lash grooms', lash)
+                    log('pure constraints', nm, json.dumps({str(k.name): round(k.target_measurement, 1) for k in mhs.get_body_constraints(c)}))
+                    try: log('pure selections', nm, [(str(s.slot_name), str(c.internal_collection.get_item_display_name(s.selected_item))) for s in c.internal_collection.default_instance.get_editor_property('slot_selections')])
+                    except Exception as e: log('selections n/a', e)
+                finally: mhs.remove_object_to_edit(c)
+            EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+        who = os.environ.get('QQ_PURE', 'g,s').split(',')
+        if 'g' in who:
+            set_body('MHC_gulayim_final', json.loads(os.environ.get('QQ_G_BODY', 'null')) or {'height': 171, 'across_shoulder': 37, 'chest': 86, 'underbust': 73, 'waist': 67, 'high_hip': 83, 'hip': 92, 'inseam': 79,
+                     'thigh': 53, 'knee': 35, 'calf': 35, 'bicep': 27, 'forearm': 23, 'neck': 31.5, 'neck_base': 34.5, 'muscularity': 0.9, 'fat': -0.8})
+            c = unreal.load_asset('/Game/QQ/MHC_gulayim_final'); add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/WI_Hair_L_Straight.WI_Hair_L_Straight'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+            native('MHC_gulayim_final', True)
+        if 's' in who:
+            set_body('MHC_surtaysha_f', json.loads(os.environ.get('QQ_S_BODY', 'null')) or {'height': 185, 'across_shoulder': 54, 'chest': 150, 'underbust': 130, 'waist': 108, 'high_hip': 108, 'hip': 112,
+                     'thigh': 70, 'knee': 46, 'calf': 50, 'bicep': 58, 'elbow': 36, 'forearm': 44, 'wrist': 22, 'neck': 54, 'neck_base': 60, 'hand_circumference': 27, 'muscularity': 2.5, 'fat': -0.4, 'masculine/feminine': -2.0})
+            if os.environ.get('QQ_S_HAIR'):   # e.g. WI_Hair_S_BuzzCut (the body ref has cropped hair)
+                c = unreal.load_asset('/Game/QQ/MHC_surtaysha_f'); h = os.environ['QQ_S_HAIR']; add_groom(c, 'Hair', f'{OPT}/Grooms/Bindings/Hair/{h}.{h}'); EAL.save_asset(c.get_path_name(), only_if_is_dirty=False)
+            native('MHC_surtaysha_f', False)
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)
         step_multishots(json.load(open(os.environ['QQ_TURN_FILE'])), os.environ.get('QQ_LIGHT', 'daylight'))
