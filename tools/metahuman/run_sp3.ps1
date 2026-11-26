@@ -6,6 +6,6 @@ $env:QQ_DCHAR='MHC_surtaysha_k'; $env:QQ_FINAL_FBX='F:/qirq-qiz/tools/blender/su
 $env:QQ_ARM_SRC_S='F:/qirq-qiz/tools/blender/surtaysha_final/out'; $env:QQ_ARM_TWOSIDED_S='1'
 $env:QQ_COSTUME_DIR='F:/qirq-qiz/tools/blender/surtaysha_final/out/skinned'; $env:QQ_COSTUME_MAT='/Game/QQ/Surt/Mat/M_Surt_'; $env:QQ_COSTUME_KEYS='Lamellar,Cloth,Trim,Weapon,Helmet,Plume,Armor'
 $env:QQ_TURN_FILE='F:/qirq-qiz/tools/metahuman/out/turn_sp3.json'
-$env:QQ_BG_WHITE='6.0'; $env:QQ_ALLROUND='2.5'; $env:QQ_ALLROUND_SHADOW='1'; $env:QQ_KEY='3.2'; $env:QQ_FILL='1.8'; $env:QQ_SHOT_EXPO='0.8'; $env:QQ_WARM_S='300'
+$env:QQ_BG_WHITE='6.0'; $env:QQ_ALLROUND='2.5'; $env:QQ_ALLROUND_SHADOW='1'; $env:QQ_KEY='3.2'; $env:QQ_FILL='1.8'; $env:QQ_SHOT_EXPO='0.8'; $env:QQ_WARM_S='420'
 $env:QQ_RES='1536'; $env:QQ_RES_H='2304'; $env:QQ_SHOT_DIR='F:/qirq-qiz-unity/Builds/surt_full'
 & F:\qirq-qiz\tools\metahuman\ue_run.ps1 py F:/qirq-qiz/tools/metahuman/mh_beauty.py 'armour_s,import_costume,clothapi,turn'

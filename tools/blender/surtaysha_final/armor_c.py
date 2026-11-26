@@ -104,14 +104,31 @@ def fuv(bm, verts, uvs):
     f = bm.faces.new(verts); l = bm.loops.layers.uv.verify()
     for lp, uv in zip(f.loops, uvs): lp[l].uv = uv
     return f
-def tube_along(bm, pts, nrm_fn, r=0.004, seg=6, lift=0.0, fix=None, band='edge'):
+def tube_along(bm, pts, nrm_fn, r=0.004, seg=8, lift=0.0, fix=None, band='edge'):
     """closed binding: a small round section swept along a closed polyline, sitting on the surface"""
-    n = len(pts); rings = []
+    # an even bound edge: the rim curve is smoothed and re-spaced, the surface normals are averaged along it, the section
+    # is one constant circle; the centre line is smoothed once more after any clearance correction (no kinks, no knots)
+    def sm(L, it):
+        for _ in range(it): L = [(L[i - 1] + L[i] * 2 + L[(i + 1) % len(L)]) / 4 for i in range(len(L))]
+        return L
+    pts = sm(list(pts), 3); n = len(pts)
+    tot = sum((pts[(i + 1) % n] - pts[i]).length for i in range(n)); step = tot / n; acc = 0.0; even = [pts[0].copy()]; j = 0; d_next = step      # re-space evenly
+    while len(even) < n:
+        seg_l = (pts[(j + 1) % n] - pts[j]).length
+        if acc + seg_l >= d_next - 1e-12 and seg_l > 1e-12: even.append(pts[j].lerp(pts[(j + 1) % n], (d_next - acc) / seg_l)); d_next += step
+        else: acc += seg_l; j += 1
+        if j > 4 * n: break
+    pts = even; n = len(pts)
+    N = sm([nrm_fn(p_) for p_ in pts], 5); cen = []
     for i in range(n):
-        p = pts[i]; t = (pts[(i + 1) % n] - pts[i - 1]).normalized(); nn = nrm_fn(p); b = t.cross(nn).normalized(); nn = b.cross(t).normalized()
-        c = p + nn * (lift + r * 0.6)
+        nn = N[i].normalized(); c = pts[i] + nn * (lift + r * 0.6)
         if fix: c = fix(c, r)
-        rings.append([bm.verts.new(c + (nn * math.cos(2 * math.pi * k / seg) + b * math.sin(2 * math.pi * k / seg)) * r) for k in range(seg)])
+        cen.append(c)
+    cen = sm(cen, 3 if fix else 1); rings = []
+    for i in range(n):
+        t = (cen[(i + 1) % n] - cen[i - 1]).normalized(); nn = N[i] - t * N[i].dot(t); nn = nn.normalized(); b = t.cross(nn).normalized()
+        rings.append([bm.verts.new(cen[i] + (nn * math.cos(2 * math.pi * k / seg) + b * math.sin(2 * math.pi * k / seg)) * r) for k in range(seg)])
+    pts = cen
     v0, v1 = TRIM[band]; arc = [0.0]
     for i in range(n): arc.append(arc[-1] + (pts[(i + 1) % n] - pts[i]).length)
     sc = max(1, round(arc[-1] / 0.60)) / arc[-1]                                   # a whole number of sheet repeats round the loop
