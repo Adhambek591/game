@@ -36,25 +36,25 @@ def build_trousers():
         shr = 1.0
         if z > crotch:                                   # inside the seat: slide toward the hip joint and shrink away
             t = min(1.0, (z - crotch) / 0.10); cx = cx + (th.x - cx) * t; cy = cy + (th.y - cy) * t; shr = 1.0 - 0.45 * t
-        ease = 0.016 + 0.014 * smoothstep(BOOT_TOP + 0.10, BOOT_TOP + 0.30, z)          # baggier on the thigh
+        ease = 0.014 + 0.003 * smoothstep(BOOT_TOP + 0.10, BOOT_TOP + 0.30, z)          # close fit (author): 1.5 cm of ease, follows thigh, knee and calf
         rx, ry = (hx + ease) * shr, (hy + ease) * shr
         if z < BOOT_TOP - 0.004:                          # tucked into the boot
             rx, ry = min(rx, hx + 0.004), min(ry, hy + 0.004)
-        elif z < z_wide:
-            t = (z - BOOT_TOP) / (z_wide - BOOT_TOP)
-            rx, ry = max(rx, R_TOP + (R_WX - R_TOP) * t), max(ry, R_TOP * 1.04 + (R_WY - R_TOP * 1.04) * t)
+        elif z < BOOT_TOP + 0.075:                        # the leg is pushed up a little by the boot top: a soft roll of cloth, no balloon
+            b_ = 0.011 * math.sin(math.pi * (z - BOOT_TOP + 0.004) / 0.079)
+            rx, ry = rx + b_, ry + b_
         ring = []
         for i in range(NA):
             a = 2 * math.pi * i / NA
-            w = 1 + 0.035 * math.sin(a * 5 + z * 19.0) * smoothstep(BOOT_TOP + 0.10, BOOT_TOP + 0.22, z) * (1 - smoothstep(crotch - 0.10, crotch, z))
+            w = 1.0
             ring.append(Vector((side * (cx + rx * w * math.cos(a)), cy + ry * w * math.sin(a), z)))
         return ring
 
     def seat_ring(z):
         t = [p for p in V if abs(p.z - z) < 0.008 and abs(p.x) < 0.29 and abs(p.y) < 0.40]      # 0.29: the forearms hang beside the waist in the A-pose
         hx = max(abs(p.x) for p in t); yf = -min(p.y for p in t); yb = max(p.y for p in t)
-        e = 0.030 - 0.012 * smoothstep(crotch + 0.02, crotch + 0.16, z) - 0.010 * smoothstep(z_waist - 0.06, z_waist, z)   # as loose as the thigh at the fork, drawn in at the waist
-        n = 2.5; ring = []
+        e = 0.017 - 0.004 * smoothstep(crotch + 0.02, crotch + 0.16, z) - 0.005 * smoothstep(z_waist - 0.06, z_waist, z)   # same ease as the thigh at the fork, snug at the waist
+        n = 3.8 - 1.3 * smoothstep(crotch + 0.06, crotch + 0.22, z); e += 0.005 * (1 - smoothstep(crotch + 0.04, crotch + 0.16, z)); ring = []      # squarer low on the hips: the thigh fronts stand forward of an oval there
         for i in range(NA * 2):
             u = 2 * math.pi * i / (NA * 2); s, c = math.sin(u), math.cos(u)
             x = (hx + e) * math.copysign(abs(s) ** (2 / n), s)
@@ -93,21 +93,39 @@ def build_trousers():
     m = ob.modifiers.new('rm', 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = 0.0075; m.use_smooth_shade = True
     m = ob.modifiers.new('sm', 'SMOOTH'); m.factor = 0.6; m.iterations = 30
     bake_mods()
-    # folds: long hanging folds down the leg, bunched rings over the boot top
+    # folds of close-fitting cloth: a few soft creases behind the knee, bunching just over the boot top, faint drag lines
+    # down the thigh; and a flat waistband (a 3.5 cm band standing 2.5 mm proud)
+    z_knee = bone('calf_l').z
     for v in ob.data.vertices:
         p = v.co
+        if p.z > z_waist - 0.036:
+            d = Vector((p.x, p.y, 0))
+            if d.length > 1e-4: v.co = p + d.normalized() * 0.0025
+            continue
         if p.z >= crotch - 0.02 or p.z < BOOT_TOP - 0.01: continue
         cx, hx, cy, hy = leg_at(p.z); sd = 1 if p.x > 0 else -1
         d = Vector((p.x - sd * cx, p.y - cy, 0)); a = math.atan2(d.y, d.x * sd)
         if d.length < 1e-4: continue
-        f = 0.0045 * math.sin(9 * a + 1.3 * math.sin(p.z * 14.0)) * smoothstep(BOOT_TOP + 0.03, BOOT_TOP + 0.12, p.z) * (1 - smoothstep(crotch - 0.14, crotch - 0.03, p.z))
-        f += 0.0055 * math.sin((p.z - BOOT_TOP) / 0.052 * 2 * math.pi + 2.0 * math.sin(3 * a)) * (1 - smoothstep(BOOT_TOP + 0.04, BOOT_TOP + 0.17, p.z)) * smoothstep(BOOT_TOP - 0.005, BOOT_TOP + 0.02, p.z)
+        back = max(0.0, math.sin(a))                                                  # 1 at the back of the leg
+        f = 0.0016 * math.sin(7 * a + 1.3 * math.sin(p.z * 14.0)) * smoothstep(BOOT_TOP + 0.10, z_knee + 0.10, p.z) * (1 - smoothstep(crotch - 0.14, crotch - 0.03, p.z))
+        f += 0.0042 * math.sin((p.z - z_knee) / 0.024 * 2 * math.pi + 1.5 * math.cos(a)) * math.exp(-((p.z - z_knee) / 0.045) ** 2) * (0.25 + 0.75 * back)
+        f += 0.0040 * math.sin((p.z - BOOT_TOP) / 0.030 * 2 * math.pi + 2.0 * math.sin(3 * a)) * (1 - smoothstep(BOOT_TOP + 0.03, BOOT_TOP + 0.10, p.z)) * smoothstep(BOOT_TOP - 0.005, BOOT_TOP + 0.015, p.z)
         v.co = p + d.normalized() * f
     # cut open: waist and cuffs
     bm = bmesh.new(); bm.from_mesh(ob.data)
     # the fork: relax the surface where the seat meets the legs so no crease is left under the front of the seat
     fk = [v for v in bm.verts if crotch - 0.07 < v.co.z < crotch + 0.07 and abs(v.co.x) < 0.14]
     for _ in range(40): bmesh.ops.smooth_vert(bm, verts=fk, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    # and the line where the seat tube ends on the thighs: melt the ledge all round, then give back the few mm the
+    # smoothing takes (the cloth must stay outside the body)
+    bd = [v for v in bm.verts if crotch - 0.085 < v.co.z < crotch + 0.05]
+    for _ in range(30): bmesh.ops.smooth_vert(bm, verts=bd, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    bm.normal_update()
+    for v in bd:
+        w_ = smoothstep(crotch - 0.085, crotch - 0.05, v.co.z) * (1 - smoothstep(crotch + 0.02, crotch + 0.05, v.co.z))
+        n_ = Vector((v.normal.x, v.normal.y, 0)); c_ = Vector((v.co.x, v.co.y, 0))
+        if n_.dot(c_) < 0: n_ = -n_                      # outward, whatever the face winding is at this stage
+        if abs(v.co.x) > 0.06 or abs(v.co.y) > 0.10: v.co += n_ * 0.0035 * w_
     for co, no, outer in ((Vector((0, 0, z_waist)), Vector((0, 0, 1)), True), (Vector((0, 0, z_cuff)), Vector((0, 0, 1)), False)):
         bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=co, plane_no=no, clear_outer=outer, clear_inner=not outer)
     bm.to_mesh(ob.data); bm.free()

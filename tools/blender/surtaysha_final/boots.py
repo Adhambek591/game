@@ -22,9 +22,19 @@ BOOT_O = (sum(c[0] for c in _lg) / len(_lg) + float(os.environ.get('SUR_BOOT_DX'
 print('BOOT origin', BOOT_O, 'toe-out %.1f deg' % math.degrees(HULL.theta))
 
 BOOT_S = float(os.environ.get('SUR_BOOT_S', '1.07'))
+BOOT_SF = float(os.environ.get('SUR_BOOT_SF', '1.03')); TOE_LOW = float(os.environ.get('SUR_TOE_LOW', '0.20')); TOE_LONG = float(os.environ.get('SUR_TOE_LONG', '0.10'))
+TOE_Y0 = HULL.y_toe * 0.40; TOE_ZS = 0.014
+print('BOOT hull y_toe %.3f y_heel %.3f' % (HULL.y_toe, HULL.y_heel))
 def BW(p):
     """hull local -> world"""
-    return Vector(HULL.to_world((p[0] * BOOT_S, p[1] * BOOT_S, p[2]), BOOT_O).tolist())      # BOOT_S: widened around the shaft axis for this body's calf and foot
+    # shaft widened around its axis for this body's calf (BOOT_S); the foot part less (BOOT_SF), and the toe is drawn
+    # lower and longer, less bulbous (reference turnaround): height over the welt reduced toward the tip, tip moved forward
+    x, y, z = float(p[0]), float(p[1]), float(p[2])
+    sc = BOOT_SF + (BOOT_S - BOOT_SF) * smoothstep(0.10, 0.20, z)
+    t = max(0.0, min(1.0, (y - TOE_Y0) / (HULL.y_toe - TOE_Y0)))
+    if t > 0.0 and z < 0.16:
+        z = TOE_ZS + (z - TOE_ZS) * (1.0 - TOE_LOW * t * t); y = y + (HULL.y_toe - TOE_Y0) * TOE_LONG * t * t
+    return Vector(HULL.to_world((x * sc, y * sc, z), BOOT_O).tolist())
 def BWn(n):
     st, ct = math.sin(HULL.theta), math.cos(HULL.theta)
     return Vector((n[0] * ct - n[1] * st, n[0] * st + n[1] * ct, n[2]))
