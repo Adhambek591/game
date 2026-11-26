@@ -1,7 +1,7 @@
 // Realistic skinned character (Meshy rig) driven by mocap clips retargeted from a shared library
 import * as THREE from 'three';
-import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795715799';
-import { PROPS } from './glbrig.js?v=1795715799';
+import { clone as skClone } from '../assets/vendor/jsm/utils/SkeletonUtils.js?v=1795716693';
+import { PROPS } from './glbrig.js?v=1795716693';
 export const ANIM = { data: null };
 const PI = Math.PI;
 // game action name -> [clip, loop, default duration (s) or null = natural]
@@ -105,6 +105,10 @@ export class SkinRig {
     this.abL = Object.values(this.ab); this.T = Math.random() * 9; this.ph = Math.random() * 6.28; this.lookY = 0; this.lookP = 0; this.ly = 0; this.lp = 0; this.rc = { x: 0, z: 0, vx: 0, vz: 0 }; this.tw = 0; this.mv = 0; this.lvx = 0; this.lvz = 0; this.yawV = 0; this.accF = 0; this.lnF = 0; this.lnS = 0; this.wsc = 1; this.acts2 = {}; this.os = null; this.lm = false; this.lrun = 0; this.ovw = 0;
     { const ra = this.B.RightArm, hd = this.B.Head; this.sideR = ra && hd ? (Math.sign(ra.getWorldPosition(new THREE.Vector3()).x - hd.getWorldPosition(new THREE.Vector3()).x) || 1) : 1; }
     this.hasBow = o.wpn === 'bow'; this.heroBow = !!o.amulet;
+    /* sword run (author Nov 26 'the run-with-sword animation is wrong'): the run mocap is an unarmed sprint whose right arm pumps from the hip to above the head,
+       so a saber / axe in that hand swept a full circle every stride. While running, the sword arm is held low with the blade trailing back and out.
+       bladeL = the weapon's long axis (+Y of the mount group) in the hand bone's frame. */
+    this.swordRun = !!(this.wpn && (o.wpn === 'saber' || o.wpn === 'axe')); this.bladeL = this.wpn ? new THREE.Vector3(0, 1, 0).applyQuaternion(this.wpn.quaternion).normalize() : null; this.rsw = 0; this.idleCn = 'idle'; this.lstill = false; this.mvFed = false;
     this.play('Idle');
   }
   // centroid of the vertices skinned to a hand bone, in bind pose (= centre of the clenched fist)
@@ -135,23 +139,29 @@ export class SkinRig {
     const prevShot = !!this.os; this.kind = name; this.lts = op.ts || 1;
     if (!loop && SEG[name]) { const bw = RNG.test(name) && (this.hasBow || this.heroBow); this.setBow(bw); this._shot(bw ? '_Bow' : name, bw && !op.dur ? { dur: 1.3 } : op, /^Hit_/.test(name) ? .02 : prevShot ? .09 : .07); if (name === 'Hit_Front') this.recoil(0, -1, .7); else if (name === 'Hit_Back') this.recoil(0, 1, .7); else if (name === 'Block_Impact') { this.blockT = .25; this.recoil(0, -1, .3); } return; }
     this.os = null; this.setBow(false);
-    if (LOCOQ.test(name)) { this.lm = true; const run = /Running/.test(name) && this.mv / (this.hgt / 1.75 * this.wsc) > 1.6 ? 1 : 0; this.lrun = run; const a = this.acts[run ? 'run' : 'walk']; if (a && a !== this.cur) { this._fade(a, prevShot ? .16 : .2, true); a.time = Math.random() < .5 ? 0 : a.getClip().duration * .5 * (run ? 1 : WALK_CYC / a.getClip().duration); } return; }
-    this.lm = false; const a = this.acts[m[0]] || this.acts.idle; if (!a) return;
+    if (LOCOQ.test(name)) { this.lm = true; if (this.lstill && this.mvFed && this.mv / (this.hgt / 1.75 * this.wsc) < .45) return;   /* standing: _loco keeps the idle pose (no one-frame run flicker) */ const run = /Running/.test(name) && this.mv / (this.hgt / 1.75 * this.wsc) > 1.6 ? 1 : 0; this.lrun = run; const a = this.acts[run ? 'run' : 'walk']; if (a && a !== this.cur) { this._fade(a, prevShot ? .16 : .2, true); a.time = Math.random() < .5 ? 0 : a.getClip().duration * .5 * (run ? 1 : WALK_CYC / a.getClip().duration); } return; }
+    this.lm = false; if (m[1] && (m[0] === 'idle' || m[0] === 'combat')) this.idleCn = m[0]; const a = this.acts[m[0]] || this.acts.idle; if (!a) return;
     if (a === this.cur) { a.timeScale = this.var; return; }
     this._fade(a, prevShot ? .24 : .28, true); a.timeScale = (m[1] ? (op.ts || 1) : 1) * this.var; a.time = Math.random() * a.getClip().duration;
     if (!m[1]) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; const dur = op.dur || m[2]; a.time = 0; a.timeScale = dur ? a.getClip().duration / dur : 1; }
   }
   setBow(on) { if (!this.heroBow || !this.wpn || !this.wm) return; if (on && !this.bowM && PROPS.W_bow) { const m = this.bowM = PROPS.W_bow.clone(true); m.rotation.y = Math.PI / 2; m.visible = false; this.wpn.add(m); } if (!this.bowM) return; this.bowM.visible = on; this.wm.visible = !on; }
   // world velocity, yaw rate, facing, world scale (engine calls this every rendered frame)
-  motion(vx, vz, yawV = 0, rot = 0, vs = 1) { this.wv = [vx, vz]; const c = Math.cos(rot), s = Math.sin(rot), lx = vx * c - vz * s, lz = vx * s + vz * c, sp = Math.hypot(vx, vz), k = .22; this.accF = this.accF * .85 + (lz - this.lvz) * .15 * 30; this.lvx += (lx - this.lvx) * k; this.lvz += (lz - this.lvz) * k; this.mv += (Math.min(sp, 16) - this.mv) * k; this.yawV = this.yawV * .8 + cl(yawV, -9, 9) * .2; this.wsc = vs || 1; }
+  motion(vx, vz, yawV = 0, rot = 0, vs = 1) { this.wv = [vx, vz]; const c = Math.cos(rot), s = Math.sin(rot), lx = vx * c - vz * s, lz = vx * s + vz * c, sp = Math.hypot(vx, vz), k = .22; this.accF = this.accF * .85 + (lz - this.lvz) * .15 * 30; this.lvx += (lx - this.lvx) * k; this.lvz += (lz - this.lvz) * k; this.mv += (Math.min(sp, 16) - this.mv) * k; this.yawV = this.yawV * .8 + cl(yawV, -9, 9) * .2; this.wsc = vs || 1; this.mvFed = true; }
   // hit reaction: torso whips away from the blow (lx, lz = push direction in the body's own frame)
   recoil(lx, lz, mag = .5) { const r = this.rc; r.vx += lx * mag * 9; r.vz += lz * mag * 9; }
   _add(n, yaw, pitch, roll) { const s = this.ab[n]; if (!s || (Math.abs(yaw) + Math.abs(pitch) + Math.abs(roll) < 1e-4)) return; _e.set(pitch, yaw, roll); _d.setFromEuler(_e); _q2.copy(s.pi).multiply(_d).multiply(s.pw); s.b.quaternion.premultiply(_q2); }
+  _aimAxis(bn, axL, dir, w) { const b = this.B[bn]; if (!b || !axL || w <= 0) return; b.updateMatrixWorld(true); const qw = b.getWorldQuaternion(new THREE.Quaternion()), cur = axL.clone().applyQuaternion(qw); const nw = new THREE.Quaternion().setFromUnitVectors(cur, dir).multiply(qw); const nl = b.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(nw); b.quaternion.slerp(nl, Math.min(1, w)); b.updateMatrixWorld(true); }
   _aim(bn, cn, dir, w) { const b = this.B[bn], c = this.B[cn]; if (!b || !c || w <= 0) return; _q2.copy(b.quaternion); this.aimBone(b, c, dir); if (w < 1) { const t = b.quaternion.clone(); b.quaternion.copy(_q2).slerp(t, w); b.updateMatrixWorld(true); } }
-  _loco(dt) { const sc = this.hgt / 1.75 * this.wsc || 1, v = this.mv / sc, lx = this.lvx / sc, lz = this.lvz / sc; const back = this.kind === 'Walking_Backwards' ? lz < .2 : (lz < -.5 && -lz > Math.abs(lx) * 1.2 && v < 3.2);
+  _loco(dt) { const sc = this.hgt / 1.75 * this.wsc || 1, v = this.mv / sc, lx = this.lvx / sc, lz = this.lvz / sc;
+    /* author Nov 26 ('NPCs that just stand are running in place'): a walk / run was asked for but the body is not moving (crowd push-back, pinned at a wall,
+       a script that keeps calling Running_A, a blocked path) -> stand in the idle / combat-idle pose until it really moves (hysteresis 0.2 / 0.45 m/s,
+       measured from the rendered displacement fed through motion()) */
+    if (this.mvFed) { const still = this.lstill ? v < .45 : v < .2; this.lstill = still; if (still) { const ia = this.acts[this.idleCn] || this.acts.idle; if (ia && ia !== this.cur) { this._fade(ia, .25, true); ia.time = Math.random() * ia.getClip().duration; } if (ia) ia.timeScale = this.var; this.lrun = 0; this.sg = 1; this.twT = 0; return; } }
+    const back = this.kind === 'Walking_Backwards' ? lz < .2 : (lz < -.5 && -lz > Math.abs(lx) * 1.2 && v < 3.2);
     let run = this.lrun; if (v > 2.3) run = 1; else if (v < 1.9) run = 0; if (back) run = 0; this.lrun = run; const cn = run ? 'run' : 'walk', a = this.acts[cn]; if (!a) return;
     if (a !== this.cur) { const pv = this.cur, pd = pv ? pv.getClip().duration : 1, ph = pv ? (cn === 'run' ? (pv.time % WALK_CYC) / WALK_CYC : pv.time / pd) : 0; this._fade(a, .22, true); a.time = (ph % 1) * (cn === 'run' ? a.getClip().duration : WALK_CYC); }
-    let g, ts; if (run) { g = cl(v / (V_RUN * 1.18), .8, 1.3); ts = cl(v / (V_RUN * g), .6, 1.5); } else { g = cl(v / (V_WALK * 1.25), .85, 1.3); ts = cl(v / (V_WALK * g), .45, 1.75); }
+    let g, ts; if (run) { g = cl(v / (V_RUN * 1.18), .8, 1.3); ts = cl(v / (V_RUN * g), .6, 1.65); } else { g = cl(v / (V_WALK * 1.25), .85, 1.3); ts = cl(v / (V_WALK * g), .45, 1.75); }
     this.sg = g; a.timeScale = back ? -ts : ts; const want = v > .5 ? cl(Math.atan2(back ? -lx : lx, back ? -lz : Math.max(lz, 0.001 + Math.abs(lx) * .25)), -1.1, 1.1) : 0; this.twT = want; }
   _layer(dt) { const B = this.B, o = this.os, dead = this.isDead || this.kind === 'Death_A' || this.kd, k7 = Math.min(1, dt * 7);
     // springs
@@ -177,6 +187,11 @@ export class SkinRig {
         this._aim('RightArm', 'RightForeArm', V(.95, .22, .06), ww); this._aim('RightForeArm', 'RightHand', V(1, .05, .04), ww);
         this._aim('LeftArm', 'LeftForeArm', V(.75 - 1.25 * d, -.35 - .45 * d, -.05 + .1 * d), ww); this._aim('LeftForeArm', 'LeftHand', V(1, .1 + .3 * d, .1 + (rel > 0 ? .25 : 0)), ww); }
       else if (o && o.key === 'Cheer') { const e = cl(o.t / .25, 0, 1) * cl((o.hT + o.rec - o.t) / .3, 0, 1), pm = Math.sin(o.t * 12.5) * .5 + .5; this._aim('RightArm', 'RightForeArm', V(.15, .3, 1), w * e); this._aim('RightForeArm', 'RightHand', V(.1 + pm * .35, .05, 1 - pm * .2), w * e); } }
+    // sword run: right arm low beside the hip, blade trailing back and out (small swing with the stride); off while attacking, blocking, aiming, mounted, dead
+    { const on = this.swordRun && this.lm && this.lrun && !this.lstill && !this.mounted && !dead && !o && !blk && !(this.bowM && this.bowM.visible); this.rsw += ((on ? 1 : 0) - this.rsw) * Math.min(1, dt * (on ? 8 : 12));
+      if (this.rsw > .02) { this.root.updateMatrixWorld(true); const q = this.root.getWorldQuaternion(new THREE.Quaternion()), F = new THREE.Vector3(0, 0, 1).applyQuaternion(q), Sd = new THREE.Vector3(1, 0, 0).applyQuaternion(q).multiplyScalar(this.sideR), U = new THREE.Vector3(0, 1, 0), V = (f, s, u) => new THREE.Vector3().addScaledVector(F, f).addScaledVector(Sd, s).addScaledVector(U, u).normalize();
+        const c = this.cur, ph = c ? c.time / (c.getClip().duration || 1) : 0, sw = Math.sin(ph * 6.2832) * .1, w = this.rsw * .85;
+        this._aim('RightArm', 'RightForeArm', V(-.2 + sw, .32, -1), w); this._aim('RightForeArm', 'RightHand', V(.45 + sw, .18, -.85), w); this._aimAxis('RightHand', this.bladeL, V(-.85, .25, -.45), w); this._aim('LeftArm', 'LeftForeArm', V(.1, -.25, -1), this.rsw * .4);   /* free arm: the sprint pump (hand above the head) toned down */ } }
     // body weight: lean into acceleration, bank into turns (visual only, the engine's movement is untouched)
     if (!this.mounted) { const sc = this.hgt / 1.75 * this.wsc || 1, v = this.mv / sc, tf = dead || !this.lm ? 0 : cl(this.accF / sc * .011, -.09, .11), ts = dead || !this.lm ? 0 : cl(-this.yawV * v * .011, -.2, .2); this.lnF += (tf - this.lnF) * Math.min(1, dt * 6); this.lnS += (ts - this.lnS) * Math.min(1, dt * 6); this.body.rotation.x = this.lnF; this.body.rotation.z = this.lnS; } }
   _pb(n, dt, x, y = 0, z = 0, r = 16) { const b = this.B[n]; if (!b) return; const q = Math.min(1, dt * r), e = b.rotation; e.x += (x - e.x) * q; e.y += (y - e.y) * q; e.z += (z - e.z) * q; }
@@ -239,4 +254,4 @@ export class SkinRig {
 }
 
 // feel systems (hit-stop, recoil, look-at, blade trails, FOV punch) live in feel.js; loaded lazily so engine.js / index.html stay untouched
-setTimeout(() => import('./feel.js?v=1795715799').catch(e => console.warn('feel', e)), 0);
+setTimeout(() => import('./feel.js?v=1795716693').catch(e => console.warn('feel', e)), 0);

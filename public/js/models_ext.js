@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795715799';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795716693';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);
@@ -266,6 +266,7 @@ const LOOK = {
   late: [['lam', 3, { plume: 0x1a1414, lace: 0x2a2a2a }], ['cone', 0, { dark: true, plume: 0x8a1810 }], ['lam', 1, { plume: 0xa01810 }], ['fur', 3, { cloth: 0x101010, fur: 0x1e1810, flaps: true }]],
 };
 const band = c => c <= 2 ? 'early' : c <= 4 ? 'mid' : 'late';
+const SOLDIER_HEADWEAR = new Set(['askar', 'archer']);   /* bodies whose GLB already has the helmet / hat modelled in (R_askar, R_kamonchi) */
 const CNT = {}; const HC = {};
 function helm(kind, o) { const k = kind + JSON.stringify(o); return (HC[k] || (HC[k] = HELM[kind](o))).clone(); }
 // head measurement in world space (current pose): brow centre, axes, radius at brow height
@@ -288,9 +289,10 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   const ch = (MX.G && MX.G.mis && MX.G.mis.c) || 1, b = band(ch); const cap = !!(e.hunt || /cap/.test(d.name || '') || d.cap);
   const base = ty === 'archer' ? 'archer' : (ty === 'wolf' || ty === 'boribasi') ? 'wolf' : 'askar'; const n = CNT[ty] = (CNT[ty] || 0) + 1;
   let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; });
-  /* potion brutes ('wolf' types, author Nov 22: NO wolf heads — men who drank the potion, bigger and stronger): soldier body, bare head (NO helmet,
-     so they never look like the helmeted soldiers), darkest cloth atlas, broader and taller */
-  if (base === 'wolf' || mt === 'wolfman') { if (src && rig.proc !== 'wolf') varMap(['askar_k', 'askar_r', 'askar_k'][n % 3], src.material.map, src.material); rig.body.scale.multiplyScalar([1.1, 1.05, 1.14][n % 3]); return; }
+  /* wolves (author Nov 26: wolves back as before f3b1203): quadruped R_bori4 ('wolf', 'boribasi') and the wolf-man R_bori ('wolfman', potion brute) never get a
+     helmet or a soldier atlas. The bori_* atlases are painted for the wolf-man UVs only, so the quadruped keeps its own texture and only varies in size. */
+  if (base === 'wolf' || mt === 'wolfman' || ty === 'wolfman') { const wm = rig.proc !== 'wolf'; if (src && wm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); }
+    if (ty === 'wolf' || ty === 'wolfman') rig.body.scale.multiplyScalar([1, .92, 1.07][n % 3]); return; }
   const looks = LOOK[b]; let lk = looks[(n + (ty === 'archer' ? 1 : 0)) % looks.length];
   if (ty === 'nayza') lk = ['cone', b === 'late' ? 3 : 0, { dark: b === 'late', plume: b === 'early' ? 0 : 0x8a1810 }]; else if (ty === 'qilich') lk = ['lam', [-1, 0, 3][n % 3], { plume: [0xa01810, 0x1a1414, 0xd8c8a8][n % 3] }]; else if (ty === 'qalqan') lk = ['cone', [1, 2, 0][n % 3], {}];
   else if (d.name === 'w4_cav') lk = ['fur', [0, 2, 1][n % 3], { cloth: [0x7a1a14, 0x1e2a44, 0x3a3a1a][n % 3], fur: 0x2e2218, flaps: true }];
@@ -300,7 +302,11 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   rig.body.scale.multiplyScalar(cap ? 1.06 : [1, .95, 1.04, .98][n % 4]);
   const f = headFit(rig, e.o || rig.root); if (!f) return;
   const qb = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(f.side, f.up, f.fwd));
-  if (lk[0] !== 'none') { const hm = helm(lk[0], lk[2]); attachWorld(f.H, hm, f.ctr.clone().addScaledVector(f.fwd, -f.r * .04), qb, f.r * (lk[0] === 'fur' ? 1.04 : 1.1)); e._helm = hm; }
+  /* author Nov 26 playtest ('enemy soldiers still have a big helmet on their heads'): R_askar already wears a modelled helmet (dome + crest + aventail, top 1.75 m)
+     and R_kamonchi a modelled fur hat; the add-on shell was fitted to THAT headwear (r 0.13 m incl. the aventail, centre 42% below the crest tip, x1.1,
+     cone 2.05 r tall), so a second, ~2x helmet sat on top of the first. The modelled headwear fits the head, so no add-on shell on these bodies;
+     the band look still picks the atlas, pauldrons, shield paint and scale. HELM shells remain available (BUILD.helmet) for bare-headed bodies only. */
+  if (lk[0] !== 'none' && !SOLDIER_HEADWEAR.has(mt)) { const hm = helm(lk[0], lk[2]); attachWorld(f.H, hm, f.ctr.clone().addScaledVector(f.fwd, -f.r * .04), qb, f.r * (lk[0] === 'fur' ? 1.04 : 1.1)); e._helm = hm; }
   if (cap || ty === 'nayza' || ty === 'qalqan' || (b === 'late' && n % 2)) for (const s of ['Left', 'Right']) { const A = rig.B[s + 'Arm']; if (!A) continue; const ap = A.getWorldPosition(new THREE.Vector3()); const sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : f.ctr; const out = ap.clone().sub(sp); out.y = 0; out.normalize();
     const pq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(f.up, out), f.up, out)); attachWorld(A, pauldron(1, cap), ap.clone().addScaledVector(out, f.r * .25).addScaledVector(f.up, f.r * .35), pq, f.r * 1.05); }
   const lf = rig.B.LeftForeArm; if (lf) { const sg = lf.children.find(k => k.isGroup && !k.isBone); if (sg) { if (ty === 'qalqan') sg.scale.multiplyScalar(1.45); const tint = new THREE.Color([0xffffff, 0xd09080, 0x9098b8, 0xc0b080][(n + (cap ? 1 : 0)) % 4]); sg.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.color.multiply(tint); } }); } }
