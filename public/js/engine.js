@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795249975';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795249975';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795249975';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795249975';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795249975';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795249975';
-import { t } from './i18n.js?v=1795249975';
-import { Sfx, initAudio } from './audio.js?v=1795249975';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795249975';
-import * as FX from './fx.js?v=1795249975';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795249975';
-import { GlbRig, PROPS } from './glbrig.js?v=1795249975';
-import { makeHorse, horseBase } from './horse.js?v=1795249975';
+import { Rig, TX } from './rig.js?v=1795667486';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795667486';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795667486';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795667486';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795667486';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795667486';
+import { t } from './i18n.js?v=1795667486';
+import { Sfx, initAudio } from './audio.js?v=1795667486';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795667486';
+import * as FX from './fx.js?v=1795667486';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795667486';
+import { GlbRig, PROPS } from './glbrig.js?v=1795667486';
+import { makeHorse, horseBase } from './horse.js?v=1795667486';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -67,7 +67,7 @@ function noiseTex(base, v) { return canvasTex(256, (g, s) => { g.fillStyle = bas
 
 // ---------- Assets ----------
 export const A = { tex: {}, props: {} };
-export const REAL = { gulayim: ['R_gulayim', 'saber'], allayar: ['R_allayar', 'saber'], surtaysha: ['R_surtaysha', 'axe', 0, 1.1], qiz: ['R_qiz', 'saber'], son: ['R_yigit', 'saber', 1], askar: ['R_askar', 'saber', 1], wolf: ['R_bori4', null, 0, 1.0] /* feel hook (anim agent): quadruped wolf, procedural gait in skinrig.js _wolf(); old wolf-man = R_bori */, mother: ['R_ona', null], archer: ['R_kamonchi', 'bow'], mage: ['R_shaman', 'staff'], qashqir: ['R_qashqir', 'axe'], qumdev: ['R_qumdev', null], qunqar: ['R_qunqar', null], qargashiq: ['R_qargashiq', 'axe'], sarbinaz: ['R_sarbinaz', 'spear'], jallod: ['R_jallod', null], otbasqan: ['R_otbasqan', 'saber'], aydarho: ['R_aydarho', null, 0, 7], shaman: ['R_shaman', 'staff'], bayimbet: ['R_yigit', null], asir: ['R_yigit', null], elder: ['R_ona', null] };
+export const REAL = { gulayim: ['R_gulayim', 'saber'], allayar: ['R_allayar', 'saber'], surtaysha: ['R_surtaysha', 'axe', 0, 1.1], qiz: ['R_qiz', 'saber'], son: ['R_yigit', 'saber', 1], askar: ['R_askar', 'saber', 1], wolf: ['R_askar', null, 0, 1.0] /* author Nov 22: NO wolf heads, no wolf monsters — 'wolf' types are potion-strengthened men (soldier body, bare-handed brawler, bare head; models_ext.vary makes them bigger/darker). The quadruped R_bori4 is only the amulet's spectral wolf (spwolf) */, spwolf: ['R_bori4', null, 0, 1.0], mother: ['R_ona', null], archer: ['R_kamonchi', 'bow'], mage: ['R_shaman', 'staff'], qashqir: ['R_qashqir', 'axe'], qumdev: ['R_qumdev', null], qunqar: ['R_qunqar', null], qargashiq: ['R_qargashiq', 'axe'], sarbinaz: ['R_sarbinaz', 'spear'], jallod: ['R_jallod', null], otbasqan: ['R_otbasqan', 'saber'], aydarho: ['R_aydarho', null, 0, 7], shaman: ['R_shaman', 'staff'], bayimbet: ['R_yigit', null], asir: ['R_yigit', null], elder: ['R_ona', null] };
 const RIBS = {};
 function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh && !sm) sm = o; }); if (!sm || sm.geometry.userData.fist) return; sm.geometry.userData.fist = 1; src.updateMatrixWorld(true);
   const bones = sm.skeleton.bones, hi = bones.findIndex(b => b.name === 'RightHand'), fi = bones.findIndex(b => b.name === 'RightForeArm'); if (hi < 0 || fi < 0) return;
@@ -80,8 +80,9 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
     v.applyMatrix4(Mi); pos.setXYZ(i, v.x, v.y, v.z); }
   pos.needsUpdate = true; sm.geometry.computeVertexNormals(); }
 const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
-const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'mother', 'archer', 'mage']);
-export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; await Promise.all(types.filter(t => REAL[t] && !A.real[t]).map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795248077').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'spwolf', 'mother', 'archer', 'mage']);
+export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; types = types.filter(t => { if (!REAL[t] || A.real[t]) return false; const k = Object.keys(A.real).find(q => A.real[q] && REAL[q] && REAL[q][0] === REAL[t][0]); if (k) { A.real[t] = A.real[k]; return false; } return true; });   /* same GLB already loaded for another type (potion brutes = R_askar): share it */
+  await Promise.all(types.map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795667486').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -89,9 +90,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const realL = Object.entries(REAL).filter(([t]) => !LAZY.has(t)), NT = 2 + PROPN.length + realL.length, BOOT_MB = 7.7; const step = () => { n++; const f = Math.min(1, n / NT); try { window.__LOAD = { mb: +(f * BOOT_MB).toFixed(1), total: BOOT_MB, done: n, files: NT }; } catch (e) { } onp(f); };   // window.__LOAD: the loading line can show "X / Y MB"
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795248077').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795248077').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795248077').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795667486').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795667486').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795667486').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
@@ -239,7 +240,7 @@ function collide(e) {
   for (const c of G.colC) { const dx = e.x - c.x, dz = e.z - c.z, rr = c.r + e.r, d2 = dx * dx + dz * dz; if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2); e.x = c.x + dx / d * rr; e.z = c.z + dz / d * rr; e.bump = { nx: dx / d, nz: dz / d }; } }
   for (const b of G.colB) { if (b.off || ((b.ravine || b.low) && e.leaping)) continue; const x1 = b.x1 - e.r, x2 = b.x2 + e.r, z1 = b.z1 - e.r, z2 = b.z2 + e.r; if (e.x > x1 && e.x < x2 && e.z > z1 && e.z < z2) { e.bumpB = b; const p = [e.x - x1, x2 - e.x, e.z - z1, z2 - e.z]; const m = Math.min(...p); if (m === p[0]) { e.x = x1; e.bump = { nx: -1, nz: 0 }; } else if (m === p[1]) { e.x = x2; e.bump = { nx: 1, nz: 0 }; } else if (m === p[2]) { e.z = z1; e.bump = { nx: 0, nz: -1 }; } else { e.z = z2; e.bump = { nx: 0, nz: 1 }; } } }
   for (const f of G.fires) { if (f.y - f.size > 1.2) continue; const rr = f.size * .62 + e.r, dx = e.x - f.x, dz = e.z - f.z, d2 = dx * dx + dz * dz; if (d2 < rr * rr) { const d = Math.sqrt(d2) || .01; e.x = f.x + dx / d * rr; e.z = f.z + dz / d * rr; if (!e.bump) e.bump = { nx: dx / d, nz: dz / d }; } }
-  e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && (e._lz ?? e.z) >= G.limitZ + .8 && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
+  e.x = clamp(e.x, -G.W, G.W); if (e.team === 'ally' && e.d.follow && e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.team === 'enemy' && G.limitZ > -1e8 && (e.farT || 0) > -1e8 && ((e._lz ?? e.z) >= G.limitZ + .8 || (e.unrT || 0) > 3) && e.z < G.limitZ + .8) e.z = G.limitZ + .8; /* an awake enemy on the player's side of a closed gate stays on her side */ if (e === G.player && !e.leaping) { if (e.z < G.limitZ + .8) e.z = G.limitZ + .8; if (e.z > 6) e.z = 6; }
   if (e.bump) { const n = e.bump, vn = (e.kx || 0) * n.nx + (e.kz || 0) * n.nz; if (vn < 0) { const fast = vn < -3; e.kx -= 1.6 * vn * n.nx; e.kz -= 1.6 * vn * n.nz; e.kx *= .6; e.kz *= .6; if (fast && !e.wallT) { e.wallT = .3; burst(e.x - n.nx * e.r, e.h * .5, e.z - n.nz * e.r, 0xbfa58a, 1.2, true); G.shake = Math.max(G.shake, .18); Sfx.hit(); if (e !== G.player && e.team === 'enemy' && !e.d.heavy) e.damage(6, null, { silent: true }); } } }
   if (e.wallT > 0) e.wallT -= 1 / 60;
 }
@@ -265,10 +266,12 @@ function pickTarget(e) {
   const P = G.player, ally = e.team === 'ally', sight = ally ? (e.d.follow ? 30 : 48) : 60; let b = null, bs = 1e9;
   for (const o of G.ents) {
     if (o.dead || o.gone || o.bg || !hostile(e.team, o.team)) continue; const dd = Math.hypot(o.x - e.x, o.z - e.z) - o.r; if (dd > sight) continue;
-    if (ally && P && !e.vict && Math.hypot(o.x - P.x, o.z - P.z) > (o === e.tg ? 12.5 : 10)) continue;  /* allies only fight what is near the hero */
+    const onMe = ally && (o.tg === e || dd < 3.5);   /* testers: an ally hit (or brushed) by an enemy fights back instead of walking off 'searching' while it hacks at her */
+    if (ally && P && !e.vict && !onMe && Math.hypot(o.x - P.x, o.z - P.z) > (o === e.tg ? 15 : 13)) continue;  /* allies fight what is near the hero (was 10 / 12.5 m: half the wave stood idle) */
     if (ally && (o.farT || 0) < -1e8 && o.hp >= o.maxHp) continue;  // allies leave sleeping camps alone (no maiden starts a fight beyond the gate on her own)
     const n = (o.tn || 0) - (e.tg === o ? 1 : 0); let s = dd + n * 2.5;
-    if (n >= tCap(o)) { if (ally) continue; s += 30; }
+    if (n >= tCap(o)) { if (ally && !onMe) continue; s += 30; }
+    if (onMe) s -= 4;
     if (o === e.tg) s -= 3; if (!ally && o === P && dd < 7) s -= 3;
     if (ally && o.hunt) s += 20;  // leave the captain to the hero unless nothing else is left
     if (!ally && o === P) { if (e.hunt || e.d.heavy) s -= 15; else if (!(e.provT > G.time) && guarded(e)) continue; }  // roles: rank-and-file fight the maidens; the player is the named captains' business
@@ -505,8 +508,8 @@ function slideDir(e, dx, dz) { const n = e.bump; if (!n || dx * n.nx + dz * n.nz
     e.slS = sg; }
   return { x: tx * e.slS * .92 + n.nx * .08, z: tz * e.slS * .92 + n.nz * .08 }; }
 function blockedAt(x, z, r) { for (const b of G.colB) if (!b.off && x > b.x1 - r && x < b.x2 + r && z > b.z1 - r && z < b.z2 + r) return true; for (const c of G.colC) if (Math.hypot(x - c.x, z - c.z) < c.r + r) return true; return false; }
-// last resort: a follower left > 30 m behind for 5 s (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
-function rejoin(e, P, pdist, dt) { if (pdist < 30 || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < 5) return false;
+// last resort: a follower left > 22 m behind for 3 s (mounted: 20 m, 1.5 s) (blocked with no way round) rejoins from behind the hero, only while both spots are off-screen
+function rejoin(e, P, pdist, dt) { const mt = e.mounted; if (pdist < (mt ? 20 : 22) || G.duel || e.vict || e.cart) { e.alT = 0; return false; } e.alT = (e.alT || 0) + dt; if (e.alT < (mt ? 1.5 : 3)) return false;   /* testers (4-1 ride, 4-2 deck): nobody stays > 22 m behind — was 30 m for 5 s */
   if (onScreen(e.x, e.z, 1.2)) return false; for (let i = 0; i < 6; i++) { const x = clamp(P.x + rnd(-5, 5), -G.W + 1, G.W - 1), z = P.z + rnd(14, 20); if (z > 5.5 || onScreen(x, z, 1.2) || barrierBetween(P.z, z) || blockedAt(x, z, (e.r || .5) + .3)) continue; let ok = true; for (const b of G.colB) if (b.ravine && !b.off && ((z > b.z2 && P.z < b.z1) || (z < b.z1 && P.z > b.z2))) ok = false; if (!ok) continue;
     e.x = e._lx = x; e.z = e._lz = z; e.o.position.set(x, 0, z); e.alT = 0; e.hm = null; G.rejoined = (G.rejoined || 0) + 1; return true; }
   return false; }
@@ -522,7 +525,7 @@ function drift(e, dt) {
   if (rejoin(e, P, pdist, dt)) return;
   const gx = h.x - e.x, gz = h.z - e.z, gl = Math.hypot(gx, gz);
   if (gl > (e.mv ? (mt ? 1.6 : .5) : (mt ? 3.2 : 1.6))) { e.mv = 1; const sp = e.sprint ? Math.max(e.speed * 1.25 * pe.pace, (P.speed || 7.4) * (pdist > 16 ? 1.35 : 1.12), pv * 1.15) * (mt ? 2 : 1) : (hMov ? Math.max(e.speed * pe.pace, pv) * (pdist > 7 ? 1.1 : .95) : (mt ? 4.6 : 2.3) * pe.pace);
-    if (mt) { steer(e, h.x, h.z, Math.min(sp, gl * 1.5 + 1), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
+    if (mt) { steer(e, h.x, h.z, Math.max(Math.min(sp, gl * 1.5 + 1), pdist > 12 ? pv * 1.25 : 0), dt); e.play('Idle'); } else { const s = Math.min(sp, gl * 4 + .6), q = slideDir(e, gx / gl, gz / gl); e.face(q.x, q.z, dt * 6); e.x += q.x * s * dt; e.z += q.z * s * dt; e.play(e.sprint || (hMov && s > 3.4) ? 'Running_A' : 'Walking_A'); } }
   else { e.mv = 0; if (mt && e.cav && e.cav.v > .1) steer(e, e.x + Math.sin(e.rot), e.z + Math.cos(e.rot), 0, dt); idleAct(e, dt); }
 }
 // generic boss phases (66% / 33%): roar + shockwave moment, then faster and with new ground attacks
@@ -567,7 +570,7 @@ function bossPhase(e, dt) {
       burst(e.x, e.h * .7, e.z, 0xff7a10, 2.5); } }
   return false;
 }
-REAL.wolfman = ['R_bori', null, 0, .95]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman' }; NOFIST.add('wolfman'); LAZY.add('wolfman');   // animation agent: the potion brute stays a wolf-man
+REAL.wolfman = ['R_askar', null, 0, 1.08]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman' }; NOFIST.add('wolfman'); LAZY.add('wolfman');   // the potion brute: a man on the soldier body, bigger (author: no wolf heads; was R_bori wolf-man)
 const _bv = new THREE.Vector3(), _bv2 = new THREE.Vector3(), _bcr = new THREE.Vector3();
 const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
 function ai(e, dt) {
@@ -751,7 +754,7 @@ function drinkTick(e, dt) { const D = e.drink; D.t += dt; const P = G.player; if
   if (D.t > .45 && Math.random() < .35) burst(e.x + rnd(-.3, .3), e.h * rnd(.7, 1), e.z + rnd(-.3, .3), Math.random() < .6 ? 0x2a7a2a : 0x6a0a14, rnd(.6, 1.1), true);
   if (D.t >= 1.5) { fxg.remove(D.b); e.rig.post = null; e.drink = null; transformEnt(e, (A.real && A.real.wolfman) ? 'wolfman' : 'wolf', 3.2, 1.3); } return true; }
 export function transformEnt(e, type, hpMul = 1, sMul = 1) { const x = e.x, z = e.z; burst(x, 1.4, z, 0x33ff55, 3.5); burst(x, 1.2, z, 0x550010, 3.2, true); burst(x, .8, z, 0x103010, 4, true); ringFx(x, z, 3, 0x66ff66); sparks(x, 1.4, z, 0x66ff66, 18, 7); G.shake = Math.max(G.shake, .35); Sfx.howl ? Sfx.howl() : Sfx.big();
-  const n = new Ent(type, x, z, e.team); actors.remove(e.o); if (e.rig.dispose) e.rig.dispose(); for (const k of ['d', 'type', 'rig', 'o', 'mats', 'mixer']) e[k] = n[k]; e.vs = n.vs * sMul; e.r = n.r * sMul; e.h = n.h * sMul; e.speed = n.speed; e.maxHp = e.hp = Math.round(n.maxHp * hpMul); e.curName = ''; e.inLoco = false; e.state = 'chase'; e.cd = .9; e.custom = null; e.brute = (type === 'wolf' || type === 'wolfman') && e.team === 'enemy'; e.stagger = 0; e.spawnT = .45; e.o.scale.setScalar(.01); e.o.position.set(x, 0, z); e.o.rotation.y = e.rot; if (e.bar) { fxg.remove(e.bar); e.bar = null; } relSlot(e); e.poiseMax = 0; e.barPz = null; e.barW = 0; e.tg = null; e.cav = null; if (e.aura) { fxg.remove(e.aura); e.aura = null; } e.play('Idle_Combat'); if (type === 'wolf' && e.team === 'enemy') { plate(e, 'potwolf'); aura(e, 0x44ff66); } else e.showBar(); return e; }
+  const n = new Ent(type, x, z, e.team); actors.remove(e.o); if (e.rig.dispose) e.rig.dispose(); for (const k of ['d', 'type', 'rig', 'o', 'mats', 'mixer']) e[k] = n[k]; e._mx = 0; e._helm = null;   /* models_ext.vary() dresses the new body again (potion brute: dark, bigger, bare head) */ e.vs = n.vs * sMul; e.r = n.r * sMul; e.h = n.h * sMul; e.speed = n.speed; e.maxHp = e.hp = Math.round(n.maxHp * hpMul); e.curName = ''; e.inLoco = false; e.state = 'chase'; e.cd = .9; e.custom = null; e.brute = (type === 'wolf' || type === 'wolfman') && e.team === 'enemy'; e.stagger = 0; e.spawnT = .45; e.o.scale.setScalar(.01); e.o.position.set(x, 0, z); e.o.rotation.y = e.rot; if (e.bar) { fxg.remove(e.bar); e.bar = null; } relSlot(e); e.poiseMax = 0; e.barPz = null; e.barW = 0; e.tg = null; e.cav = null; if (e.aura) { fxg.remove(e.aura); e.aura = null; } e.play('Idle_Combat'); if (type === 'wolf' && e.team === 'enemy') { plate(e, 'potwolf'); aura(e, 0x44ff66); } else e.showBar(); return e; }
 
 // ---------- Boss soul flies into Gulayim's triangular amulet ----------
 const soulMat = new THREE.SpriteMaterial({ map: glowTex, color: 0xffd060, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
@@ -948,7 +951,7 @@ HACT.hvy = (p, a, dt, fx, fz) => { if (a.t < a.hitAt && a.v !== 'sweep') { p.x +
   else { slashFx(p.x + fx * .5, 1.4, p.z + fz * .5, p.rot, 1.3, 0xbfe0ff); n = hitArc(p, 3.3, .15, () => pd() * 1.9, { crit: true, kb: 2, launch: 1, gb: 1, pz: 2 }); }
   hitBreak(p.x + fx * 1.6, p.z + fz * 1.6, 2.2, 'atk'); if (n) { Sfx.hit(); G.shake = Math.max(G.shake, .4); G.zk = Math.max(G.zk || 0, .09); G.ulti = Math.min(100, G.ulti + 5 * n); } };
 // wolf spirit: a spectral wolf runs ahead of the dash, everything on the line is hit and thrown down
-function spiritWolf(p) { const src = A.real && A.real.wolf; if (!src || !ANIM.data) return; try { const rig = new SkinRig(src, {}), o = rig.root, gm = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }); o.traverse(m => { if (m.isMesh) { m.material = gm; m.castShadow = false; m.frustumCulled = false; } }); o.scale.setScalar(1.18 * .95 * 1.45); rig.play('Running_A', { ts: 2 }); fxg.add(o); (G.spirits || (G.spirits = [])).push({ rig, o, gm, p, t: 0 }); } catch (err) { console.warn('spirit', err); } }
+function spiritWolf(p) { const src = A.real && A.real.spwolf; if (!src || !ANIM.data) return; try { const rig = new SkinRig(src, {}), o = rig.root, gm = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }); o.traverse(m => { if (m.isMesh) { m.material = gm; m.castShadow = false; m.frustumCulled = false; } }); o.scale.setScalar(1.18 * .95 * 1.45); rig.play('Running_A', { ts: 2 }); fxg.add(o); (G.spirits || (G.spirits = [])).push({ rig, o, gm, p, t: 0 }); } catch (err) { console.warn('spirit', err); } }
 function tickSpirits(dt) { const L = G.spirits || []; for (let i = L.length - 1; i >= 0; i--) { const s = L[i], p = s.p; s.t += dt; s.rig.update(dt); const lead = 1.7 + Math.min(s.t, .5) * 2; s.o.position.set(p.x + Math.sin(p.rot) * lead, (p.y || 0) * .5, p.z + Math.cos(p.rot) * lead); s.o.rotation.y = p.rot; s.gm.opacity = .6 * clamp((.85 - s.t) / .3, 0, 1); if (Math.random() < .7) sparks(s.o.position.x, 1, s.o.position.z, 0x7fd0ff, 1, 2); if (s.t > .85 || !p || p.dead) { fxg.remove(s.o); if (s.rig.dispose) s.rig.dispose(); s.gm.dispose(); L.splice(i, 1); } } }
 function wolfLine(p, a) { if (!a.hit) return; for (const e of G.ents) { if (e.dead || e.team !== 'enemy' || a.hit.has(e)) continue; if (Math.hypot(e.x - p.x, e.z - p.z) < 2.1 + e.r) { a.hit.add(e); e.damage(pd() * 2, p, { crit: true, kb: 9, kd: 1, gb: 1, pz: 2 }); sparks(e.x, 1.2, e.z, 0x9fd8ff, 10, 6); Sfx.hit(); G.ulti = Math.min(100, G.ulti + 4); } } if (Math.random() < .8) burst(p.x, .8 + (p.y || 0) * .5, p.z, 0x66c8ff, .9); }
 // HUD extras created from code: low-HP vignette, boss poise bar, off-screen attacker arrows, skill glows
@@ -1342,6 +1345,7 @@ function pullSpot(p) {  // ahead of the player (the way she is going), just past
 function straggle(e, p, dt) {  // an awake enemy far away / out of contact walks to the fight (no teleport); only a unit stuck for long is moved, and only where nobody can see it
   if ((e.farT || 0) < -1e8 || G.duel) return;  // asleep / scripted (posted guards, handlers, sentries) — the mission kit wakes them
   const dP = Math.hypot(e.x - p.x, e.z - p.z), tg = e.tg, reach = 10 + (e.d.keep || 0), unreach = G.limitZ > -1e8 && e.z < G.limitZ - .5;
+  e.unrT = unreach ? (e.unrT || 0) + dt : 0;   /* QA 1-2 soft-lock: the shaman backed off behind the closed gate (-114) in sight of the hero and was never pulled (only off-screen units are). An awake enemy beyond the closed gate for 3 s steps through to her side (movement clamp, line 'stays on her side') */
   if (e.cT === undefined || unreach ? e.cT === undefined : dP < reach || e.hp < (e.hpC ?? e.hp) || (tg && !tg.dead && Math.hypot(tg.x - e.x, tg.z - e.z) < reach)) e.cT = G.time; e.hpC = e.hp;
   if (Math.abs(e.x) > G.W + .5 || !isFinite(e.x + e.z)) { e.x = clamp(e.x || 0, -G.W + 1, G.W - 1); if (!isFinite(e.z)) e.z = p.z - 15; }
   const few = (G.awakeN || 0) <= 3, far = dP > 25 || e.z > p.z + 16 || (unreach && G.time - e.cT > 4), lone = dP > 9 && G.time - e.cT > (few ? 6 : 20);

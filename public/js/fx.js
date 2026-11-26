@@ -3,11 +3,11 @@
 // wrecks, bevelled crates, jars, sacks, bones, cairns, torches) and caravan-trail dressing. Everything is lazy: nothing touches
 // engine.js exports at module-evaluation time (engine.js <-> fx.js import cycle).
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795249975';
-import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795249975';
-import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795249975';
-import { makeHorse } from './horse.js?v=1795249975';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795249975';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795667486';
+import { G, SET, world, fxg, scene, camera, renderer, A, gradePass } from './engine.js?v=1795667486';
+import { ENV, pbrMat, place, roadX, applyLight } from './env.js?v=1795667486';
+import { makeHorse } from './horse.js?v=1795667486';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795667486';
 
 const rnd = (a, b) => a + Math.random() * (b - a), pick = a => a[Math.floor(Math.random() * a.length)];
 export const U = { t: { value: 0 }, px: { value: 400 }, glow: { value: .3 } };
@@ -47,12 +47,12 @@ const add = (geo, mat, x, y, z, parent, sh = true) => { const m = new THREE.Mesh
 // 1. UNIT READABILITY: contact-shadow blobs + team rings (2 instanced draws for all units) and a rim/saturation patch
 // =====================================================================================================================
 const UN = 96; let blobs = null, rings = null; const _o = new THREE.Object3D(), _c = new THREE.Color();
-const TEAM = {
-  ally: { rim: 0xffe6b0, k: .32, sat: 1.04, tint: [1.04, 1.02, 1.0], ring: 0 },   // gfx3: no glowing halo (was k 1.35, sat 1.3, tint 1.22)
-  enemy: { rim: 0xff5236, k: .3, sat: .95, tint: [.95, .95, .97], ring: 0 },   // gfx2 r2: thin red-orange rim on the geometric normal (no speckle)   // fix3: was blue rim k 1.25 + blue tint
-  elite: { rim: 0xff3a20, k: .55, sat: .97, tint: [.96, .93, .93], ring: 0x8a1810 },
-  hero: { rim: 0xfff0c8, k: .38, sat: 1.04, tint: [1.0, 1.0, 1.02], ring: 0xffc64a },
-  npc: { rim: 0xfff0d0, k: .28, sat: 1.03, tint: [1.03, 1.02, 1.0], ring: 0 },
+const TEAM = {   // author Nov 26: enemies clearly DARKER, our side clearly LIGHTER; the lane is flattened to mid luminance (env.js roadify), so both read against it
+  ally: { rim: 0xfff0d0, k: .5, sat: 1.06, tint: [1.2, 1.17, 1.1], ring: 0 },    // light clothes + soft warm edge (no glowing halo: gfx3 removed k 1.35 / sat 1.3)
+  enemy: { rim: 0xff4a2a, k: .42, sat: .82, tint: [.64, .62, .66], ring: 0 },   // dark, desaturated cloth; thin red-orange edge keeps the silhouette off dark ground
+  elite: { rim: 0xff3a20, k: .62, sat: .86, tint: [.72, .66, .66], ring: 0x8a1810 },
+  hero: { rim: 0xfff0c8, k: .45, sat: 1.06, tint: [1.1, 1.1, 1.14], ring: 0xffc64a },
+  npc: { rim: 0xfff0d0, k: .38, sat: 1.04, tint: [1.14, 1.12, 1.07], ring: 0 },
 };
 function unitMeshes() {
   if (!blobs) {
@@ -540,7 +540,7 @@ function pfDo() { const L = PF.lvl, pr = Math.max(.5, PF.base * [1, .85, .72, .6
   PF.shadowN = [14, 14, 8, 0, 0][L]; G.pf = PF; try { sessionStorage.qq_pf = String(L); } catch (e) { } }
 function tickPerf() { const now = performance.now() / 1000, raw = now - PF.last; PF.last = now;
   if (!PF.init) { PF.init = true; PF.base = renderer.getPixelRatio(); const sl = scene.children.find(o => o.isDirectionalLight); if (sl) PF.ms0 = sl.shadow.mapSize.x; const q = /[?&]pf=(\d)/.exec(location.search);
-    if (q) { PF.lvl = Math.min(4, +q[1]); PF.lock = 1; } else try { const v = +sessionStorage.qq_pf; if (v > 0 && v <= 4) PF.lvl = v; } catch (e) { } pfApply(); return; }
+    if (q) { PF.lvl = Math.min(4, +q[1]); PF.lock = 1; } else try { const v = +sessionStorage.qq_pf; if (v > 0 && v <= 4) PF.lvl = v; else { const nc = navigator.hardwareConcurrency || 8, dm = navigator.deviceMemory || 8, mob = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent); if (mob && (nc <= 4 || dm <= 3)) PF.lvl = 2; else if (mob && (nc <= 6 || dm <= 4)) PF.lvl = 1; } } catch (e) { } pfApply(); return; }   /* weak phones start low (they climb back up after 5 good 2.5 s windows) instead of stuttering through the first seconds */
   if (PF.lock || G.paused || document.hidden || raw > .22 || raw <= 0) return; PF.acc += raw; PF.n++;
   if (PF.acc < 2.5) return; const fps = PF.fps = PF.n / PF.acc; PF.acc = PF.n = 0;
   if (fps < 27 && PF.lvl < 4) { PF.lvl += fps < 18 && PF.lvl < 3 ? 2 : 1; PF.good = 0; pfApply(); }
