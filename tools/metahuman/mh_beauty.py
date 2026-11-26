@@ -787,7 +787,7 @@ try:
                     'QQ_ARM_OUT': f'{OUT}/gul_pieces.json', 'QQ_ARM_TINT': json.dumps({'Cloth': [0.42, 0.45, 0.62, 1.0]}), 'QQ_ARM_IRON': json.dumps({'Armor': [0.85, 1.08], 'Lamellar': [0.8, 1.1]}), 'QQ_ARM_CALM': 'Lamellar', 'QQ_ARM_TWOSIDED': '1'})
     if 'armour_s' in STEPS:
         run_armour({'QQ_ARM_SRC': os.environ.get('QQ_ARM_SRC_S', 'F:/qirq-qiz/tools/blender/surtaysha/out'), 'QQ_ARM_DST': '/Game/QQ/Surt', 'QQ_ARM_MANIFEST': 'surtaysha_manifest.json', 'QQ_ARM_PREFIX': 'Surt',
-                    'QQ_ARM_OUT': f'{OUT}/surt_pieces.json', 'QQ_ARM_TINT': json.dumps({'Trim': [0.78, 0.66, 0.5, 1.12]}), 'QQ_ARM_IRON': 'null', 'QQ_ARM_CALM': 'Lamellar', 'QQ_ARM_TWOSIDED': os.environ.get('QQ_ARM_TWOSIDED_S', '0')})
+                    'QQ_ARM_OUT': f'{OUT}/surt_pieces.json', 'QQ_ARM_TINT': json.dumps({**{'Trim': [0.78, 0.66, 0.5, 1.12]}, **(json.loads(os.environ.get('QQ_ARM_TINT_S', 'null')) or {})}), 'QQ_ARM_IRON': 'null', 'QQ_ARM_CALM': 'Lamellar', 'QQ_ARM_TWOSIDED': os.environ.get('QQ_ARM_TWOSIDED_S', '0')})
     if 'measure' in STEPS:
         for nm in ('MHC_surtaysha', 'MHC_surtaysha_k', 'MHC_gulayim_final'):
             c = unreal.load_asset(f'/Game/QQ/{nm}')
