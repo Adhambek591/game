@@ -4,10 +4,10 @@
 // B) army: rescued warriors (batırs) join for good, fallen ones are lost; enemy power grows per chapter (hp/dmg curve, captains' poise).
 // C) upgrades (sword, bow, maidens' armour, warriors' shields, archer maidens) with a level cap per chapter (ch1 3, ch2 5, ch3 7 …).
 // D) enemy camps on the world map (missions "c-C1".. are added in missions 66_w4camps.js; this file draws them on the map).
-import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795249975';
-import { t, lang, L } from './i18n.js?v=1795249975';
-import { Sfx } from './audio.js?v=1795249975';
-import { MLIST } from './missions.js?v=1795249975';
+import { G, $, T, A, THREE, SAVE, SET, renderer, saveGame, hudGold, spawn, num, ringFx, burst, sparks, flash, shoot, addGold, hitCircle, telegraph, toggleMount, hintRaw, world, doAct, AMU_SVG, refreshSkills } from './engine.js?v=1795667486';
+import { t, lang, L } from './i18n.js?v=1795667486';
+import { Sfx } from './audio.js?v=1795667486';
+import { MLIST } from './missions.js?v=1795667486';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), hyp = Math.hypot, rnd = (a, b) => a + Math.random() * (b - a);
 // ---------------------------------------------------------------- texts [qq, uz, ru, en] (injected into i18n so missions can use t('w4_…'))

@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795249975';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795249975';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795249975';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795249975';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795249975';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795249975';
-import { t } from './i18n.js?v=1795249975';
-import { Sfx, initAudio } from './audio.js?v=1795249975';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795249975';
-import * as FX from './fx.js?v=1795249975';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795249975';
-import { GlbRig, PROPS } from './glbrig.js?v=1795249975';
-import { makeHorse, horseBase } from './horse.js?v=1795249975';
+import { Rig, TX } from './rig.js?v=1795667486';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795667486';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795667486';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795667486';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795667486';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795667486';
+import { t } from './i18n.js?v=1795667486';
+import { Sfx, initAudio } from './audio.js?v=1795667486';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795667486';
+import * as FX from './fx.js?v=1795667486';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795667486';
+import { GlbRig, PROPS } from './glbrig.js?v=1795667486';
+import { makeHorse, horseBase } from './horse.js?v=1795667486';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -82,7 +82,7 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
 const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
 const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'spwolf', 'mother', 'archer', 'mage']);
 export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; types = types.filter(t => { if (!REAL[t] || A.real[t]) return false; const k = Object.keys(A.real).find(q => A.real[q] && REAL[q] && REAL[q][0] === REAL[t][0]); if (k) { A.real[t] = A.real[k]; return false; } return true; });   /* same GLB already loaded for another type (potion brutes = R_askar): share it */
-  await Promise.all(types.map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795248077').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+  await Promise.all(types.map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795667486').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -90,9 +90,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const realL = Object.entries(REAL).filter(([t]) => !LAZY.has(t)), NT = 2 + PROPN.length + realL.length, BOOT_MB = 7.7; const step = () => { n++; const f = Math.min(1, n / NT); try { window.__LOAD = { mb: +(f * BOOT_MB).toFixed(1), total: BOOT_MB, done: n, files: NT }; } catch (e) { } onp(f); };   // window.__LOAD: the loading line can show "X / Y MB"
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795248077').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795248077').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795248077').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795667486').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795667486').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795667486').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
