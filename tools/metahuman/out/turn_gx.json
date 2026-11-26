@@ -1,0 +1,4 @@
+[["/Game/QQ/MHC_gulayim_final", "guloyim_gx", ["b_old", "b_yon", "yuz"], {"dist": 90}],
+ ["/Game/QQ/MHC_gulayim_final", "guloyim_gxp", ["b_old", "b_yon", "b_orqa", "b_q34"], {"dist": 90, "pose": "/Game/QQ/Anims/MM_Idle_MH", "pose_all": true}],
+ ["/Game/QQ/MHC_gulayim_final_bak", "guloyim_gx_before", ["yuz"], {"dist": 90}],
+ ["/Game/QQ/MHC_surtaysha_k", "surtaysha_gx", ["b_old", "yuz"], {"dist": 100}]]
