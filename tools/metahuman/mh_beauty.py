@@ -1296,6 +1296,170 @@ try:
                 f0_ = list(mhs.get_face_model_coefficients(c)); mhs.set_face_model_coefficients(c, f0_); mhs.commit_face_state(c)      # re-evaluate the face with the new setting
             finally: mhs.remove_object_to_edit(c)
         EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('shead saved', nm_, unreal.load_asset(f'/Game/QQ/{nm_}').face_evaluation_settings)
+    if 'gparam' in STEPS:
+        # Guloyim on Epic's clean PARAMETRIC body (author, 26 Nov evening: drop the conformed body). Globals + tape targets
+        # measured on the reference wrap mesh; after every solve the exported body is measured the SAME way as the reference
+        # (horizontal tape = convex hull of a slice) and the slider targets are corrected until the result is within 1 cm.
+        # QQ_GP_CHAR, QQ_GP_TARGETS (json: constraint_name -> cm), QQ_GP_GLOBALS, QQ_GP_ITERS.
+        nm = os.environ.get('QQ_GP_CHAR', 'MHC_gulayim_final'); k = f'/Game/QQ/{nm}'
+        if not EAL.does_asset_exist(k + '_bak2'): EAL.duplicate_asset(k, k + '_bak2'); EAL.save_asset(k + '_bak2', only_if_is_dirty=False); log('gparam backup', k + '_bak2')
+        c = unreal.load_asset(k)
+        GLOB = json.loads(os.environ.get('QQ_GP_GLOBALS', 'null')) or {'masculine/feminine': 1.0, 'fat': -0.6, 'muscularity': 0.25}
+        TGT = json.loads(os.environ.get('QQ_GP_TARGETS', 'null')) or {'height': 171.2, 'shoulder_height': 140.7, 'across_shoulder': 35.0, 'chest': 86.0, 'underbust': 70.0, 'neck_to_waist': 32.4, 'waist': 63.4,
+               'high_hip': 79.4, 'hip': 93.8, 'neck': 31.0, 'neck_base': 38.0, 'bicep': 28.2, 'forearm': 25.7, 'wrist': 16.2, 'inseam': 80.8, 'thigh': 56.1, 'knee': 33.2, 'calf': 35.9}
+        ITER_KEYS = ('height', 'shoulder_height', 'chest', 'underbust', 'waist', 'high_hip', 'hip', 'neck', 'bicep', 'forearm', 'wrist', 'inseam', 'thigh', 'knee', 'calf')
+        def gp_hull(pts):
+            pts = sorted(set((round(a, 3), round(b, 3)) for a, b in pts))
+            if len(pts) < 3: return 0.0
+            def cr(o, a, b): return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+            lo = []
+            for q in pts:
+                while len(lo) >= 2 and cr(lo[-2], lo[-1], q) <= 0: lo.pop()
+                lo.append(q)
+            up = []
+            for q in reversed(pts):
+                while len(up) >= 2 and cr(up[-2], up[-1], q) <= 0: up.pop()
+                up.append(q)
+            h = lo[:-1] + up[:-1]
+            return sum(math.hypot(h[i][0] - h[i - 1][0], h[i][1] - h[i - 1][1]) for i in range(len(h)))
+        def gp_measure(vs):
+            P = [(v.x, v.y, v.z) for v in vs]; mn = [min(q[i] for q in P) for i in range(3)]; mx = [max(q[i] for q in P) for i in range(3)]; ex = [mx[i] - mn[i] for i in range(3)]
+            up = ex.index(max(ex)); rest = [i for i in range(3) if i != up]; lat = max(rest, key=lambda i: ex[i]); dep = [i for i in rest if i != lat][0]; lc = (mn[lat] + mx[lat]) / 2
+            C = [(q[lat] - lc, q[dep], q[up] - mn[up]) for q in P]
+            toes = [q[1] for q in C if q[2] < 3]; pelv = [q[1] for q in C if 85 < q[2] < 95 and abs(q[0]) < 12]
+            fs = 1.0 if sum(toes) / len(toes) > sum(pelv) / len(pelv) else -1.0
+            C = [(x, y * fs, z) for x, y, z in C]; H = max(q[2] for q in C)
+            B = {}
+            for q in C: B.setdefault(int(q[2] * 4), []).append(q)
+            def band(z, h=0.6): return [q for kk in range(int((z - h) * 4), int((z + h) * 4) + 1) for q in B.get(kk, ()) if abs(q[2] - z) < h]
+            def torso(z):
+                b = band(z); lim = []
+                for sg in (1, -1):
+                    x = 0.0
+                    for v in sorted(q[0] * sg for q in b if q[0] * sg >= 0):
+                        if v - x > 1.2: break
+                        x = v
+                    lim.append(x)
+                return [q for q in b if -lim[1] - 1e-6 <= q[0] <= lim[0] + 1e-6]
+            def tper(z): return gp_hull([(q[0], q[1]) for q in torso(z)])
+            def fr(a, b_, st=0.5):
+                o = []; z = a
+                while z < b_: o.append(z); z += st
+                return o
+            crotch = next(z for z in fr(60, 100, 0.25) if any(abs(q[0]) < 0.8 for q in band(z, 0.3)))
+            sh = max(q[2] for q in C if 15 < abs(q[0]) < 19)
+            zs = fr(crotch + 1, sh - 2); per = {z: tper(z) for z in zs}
+            hipz = max((z for z in zs if z < crotch + 14), key=lambda z: per[z]); waistz = min((z for z in zs if crotch + 14 < z < sh - 18), key=lambda z: per[z])
+            bustz = max((z for z in zs if sh - 28 < z < sh - 10), key=lambda z: max(q[1] for q in torso(z)))
+            chest = max(per[z] for z in zs if bustz - 1 <= z <= bustz + 3.6); ub = tper(bustz - 7.0)
+            def lper(z): return gp_hull([(q[0], q[1]) for q in band(z) if q[0] > 0.3])
+            kz = min(fr(0.24 * H, 0.33 * H), key=lper); cz = max(fr(0.14 * H, kz - 3), key=lper)
+            def nper(z): return gp_hull([(q[0], q[1]) for q in band(z, 0.5) if abs(q[0]) < 9])
+            nz = min(fr(sh + 2, sh + 11), key=nper)
+            prof = {}
+            for x, y, z in C:
+                if abs(x) < 2.5: kk = int(round(z)); prof[kk] = max(prof.get(kk, -99.0), y)
+            chin = next((z for z in range(int(H) - 14, int(H) - 40, -1) if z in prof and z - 2 in prof and prof[z] - prof[z - 2] > 2.0), 0)
+            back = {}
+            for x, y, z in C:
+                if abs(x) < 6 and crotch < z < sh + 3: kk = int(round(z)); back[kk] = min(back.get(kk, 99.0), y)
+            # arm (+x side): principal axis of the points beyond the trunk
+            A = [q for q in C if q[0] > 22.5 and q[2] > 70]; n = float(len(A)); cen = [sum(q[i] for q in A) / n for i in range(3)]
+            cov = [[sum((q[i] - cen[i]) * (q[j] - cen[j]) for q in A) / n for j in range(3)] for i in range(3)]; ax = [1.0, 0.0, -1.0]
+            for _ in range(60):
+                ax = [sum(cov[i][j] * ax[j] for j in range(3)) for i in range(3)]; l = math.sqrt(sum(a * a for a in ax)); ax = [a / l for a in ax]
+            if ax[0] < 0: ax = [-a for a in ax]
+            e1 = [ax[2], 0.0, -ax[0]]; l = math.sqrt(sum(a * a for a in e1)); e1 = [a / l for a in e1]; e2 = [ax[1] * e1[2] - ax[2] * e1[1], ax[2] * e1[0] - ax[0] * e1[2], ax[0] * e1[1] - ax[1] * e1[0]]
+            T = [(sum((q[i] - cen[i]) * ax[i] for i in range(3)), sum((q[i] - cen[i]) * e1[i] for i in range(3)), sum((q[i] - cen[i]) * e2[i] for i in range(3))) for q in A]
+            def aper(tt): return gp_hull([(b_, c_) for a_, b_, c_ in T if abs(a_ - tt) < 0.6])
+            acx = [q[0] for q in C if abs(q[0] - 17) < 2 and q[2] > sh - 1.5]; acro = (sum(acx) / len(acx), 0.0, sh); t0 = sum((acro[i] - cen[i]) * ax[i] for i in range(3)); tmax = max(a_ for a_, _b, _c in T); L = tmax - t0
+            ts = fr(min(a_ for a_, _b, _c in T) + 1, tmax - 1); ap = {x: aper(x) for x in ts}
+            wt = min((x for x in ts if t0 + 0.55 * L < x < t0 + 0.85 * L), key=lambda x: ap[x])
+            bic = max(ap[x] for x in ts if t0 + 0.25 * (wt - t0) < x < t0 + 0.5 * (wt - t0)); fo = max(ap[x] for x in ts if t0 + 0.55 * (wt - t0) < x < t0 + 0.8 * (wt - t0))
+            M = {'height': H, 'shoulder_height': sh, 'chest': chest, 'underbust': ub, 'waist': per[waistz], 'high_hip': tper((hipz + waistz) / 2), 'hip': per[hipz], 'neck': nper(nz), 'bicep': bic, 'forearm': fo, 'wrist': ap[wt],
+                 'inseam': crotch, 'thigh': lper(crotch - 2.5), 'knee': lper(kz), 'calf': lper(cz)}
+            X = {'chin_z': chin, 'chin_above_shoulder': chin - sh, 'neck_min_z': nz, 'bust_z': bustz, 'waist_z': waistz, 'hip_z': hipz, 'shoulder_full_width': 2 * max(abs(q[0]) for q in C if sh - 8 < q[2] < sh + 1),
+                 'acromion_to_wrist': wt - t0, 'neck_base_tape_sh+3.5': nper(sh + 3.5), 'back_depth_profile': {z: round(back[z], 1) for z in sorted(back) if z % 4 == 0}}
+            return M, X, C
+        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit ' + nm)
+        try:
+            f0 = list(mhs.get_face_model_coefficients(c))
+            before = {str(x.name): (round(x.target_measurement, 1), bool(x.is_active)) for x in mhs.get_body_constraints(c)}; log('gparam before', json.dumps(before))
+            log('gparam api', [m for m in dir(mhs) if any(w in m.lower() for w in ('reset', 'rig', 'type', 'fixed', 'parametric'))])
+            want = dict(TGT); ask = dict(TGT); ask.update(json.loads(os.environ.get('QQ_GP_ASK', 'null')) or {}); res = None      # QQ_GP_ASK: slider values that give the wanted tape measures (found run by run)
+            geo = f'/Game/QQ/Geo_{nm}'; g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
+            NIT = int(os.environ.get('QQ_GP_ITERS', '1'))      # in-session correction diverged on the sparse mesh (point slices): one solve per run, checked outside
+            for it in range(NIT):
+                cons = list(mhs.get_body_constraints(c))
+                for x in cons:
+                    n_ = str(x.name).lower().replace(' ', '_')
+                    if n_ in GLOB: x.is_active = True; x.target_measurement = max(x.min_measurement, min(x.max_measurement, float(GLOB[n_])))
+                    elif n_ in ask: x.is_active = True; x.target_measurement = max(x.min_measurement, min(x.max_measurement, float(ask[n_])))
+                    else: x.is_active = False
+                mhs.set_body_constraints(c, cons); mhs.commit_body_state(c)
+                unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(c, g)
+                fb = unreal.load_asset(f'{geo}/{nm}_FullBody'); rr, _i, *_ = mhs.get_mesh_data_for_conforming(fb)
+                M, X, C = gp_measure(rr); res = (M, X)
+                err = {q: round(M[q] - want[q], 1) for q in ITER_KEYS if q in want}
+                rb = {str(x.name): round(x.target_measurement, 1) for x in mhs.get_body_constraints(c)}
+                log('gparam iter', it, 'asked', json.dumps({q: round(v, 1) for q, v in ask.items()}), 'measured', json.dumps({q: round(v, 1) for q, v in M.items()}), 'err', json.dumps(err), 'extra', json.dumps(X), 'readback', json.dumps(rb))
+                json.dump({'v': [[round(v.x, 3), round(v.y, 3), round(v.z, 3)] for v in rr], 'i': [int(q) for q in _i]}, open(f'{OUT}/gp_mesh.json', 'w'))
+                if all(abs(e) <= 1.0 for e in err.values()) or it == NIT - 1: break
+                for q, e in err.items():
+                    if abs(e) > 0.4: ask[q] = ask[q] - e * 0.8
+            f1 = list(mhs.get_face_model_coefficients(c)); fd = max(abs(a - b_) for a, b_ in zip(f0, f1)) if f0 else 0.0
+            if fd > 1e-6: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c)
+            log('gparam face diff', fd, 'restored' if fd > 1e-6 else 'unchanged')
+            json.dump({'want': want, 'asked': ask, 'measured': res[0], 'extra': res[1], 'globals': GLOB}, open(f'{OUT}/gp_final.json', 'w'), indent=1)
+        finally: mhs.remove_object_to_edit(c)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('gparam saved', nm)
+    if 'gada' in STEPS:
+        # Guloyim on the BODY of the preset "Ada" (author, 26 Nov: the tape-measure body read fat). Ada's own body is read as
+        # the full set of MetaHuman body measures + the three globals; every measure is scaled to Guloyim's height and given to
+        # Guloyim's parametric body as targets, so the solver rebuilds Ada's build at 171 cm. The face is not touched
+        # (coefficients compared and restored). QQ_GA_OVERRIDE (json: constraint -> cm) = the few corrections toward the ref;
+        # QQ_GA_DROP (comma list) = measures left free; QQ_GA_HEIGHT.
+        nm = os.environ.get('QQ_GP_CHAR', 'MHC_gulayim_final'); k = f'/Game/QQ/{nm}'; src = os.environ.get('QQ_GA_SRC', 'Ada'); rk = f'/Game/QQ/MHC_{src.lower()}_ref'
+        if not EAL.does_asset_exist(rk): EAL.duplicate_asset(f'{OPT}/Presets/{src}', rk); EAL.save_asset(rk, only_if_is_dirty=False); log('gada: copied preset', src, '->', rk)
+        def ga_dump(ch, tag):
+            geo = f'/Game/QQ/Geo_{tag}'; g = unreal.MetaHumanGeometryExportParams(); g.project_path = geo; g.full_body_skeletal_mesh = True; g.head_skeletal_mesh = False; g.body_skeletal_mesh = False; g.overwrite_existing_assets = True
+            unreal.MetaHumanCharacterExportBlueprintLibrary.export_geometry(ch, g)
+            fb = None
+            for a in EAL.list_assets(geo, recursive=True):
+                o = unreal.load_asset(a.split('.')[0])
+                if isinstance(o, unreal.SkeletalMesh) and 'FullBody' in a: fb = o
+            rr, ii, *_ = mhs.get_mesh_data_for_conforming(fb)
+            json.dump({'v': [[round(v.x, 3), round(v.y, 3), round(v.z, 3)] for v in rr], 'i': [int(q) for q in ii]}, open(f'{OUT}/gp_mesh_{tag}.json', 'w')); log('gada mesh dump', tag, len(rr))
+        ra = unreal.load_asset(rk); ADA = {}
+        if not mhs.try_add_object_to_edit(ra): raise RuntimeError('cannot edit ' + rk)
+        try:
+            for x in mhs.get_body_constraints(ra): ADA[str(x.name).lower().replace(' ', '_')] = (float(x.target_measurement), bool(x.is_active), float(x.min_measurement), float(x.max_measurement))
+            log('gada source', src, json.dumps({q: (round(v[0], 2), v[1]) for q, v in ADA.items()}))
+            try: ga_dump(ra, src.lower())
+            except Exception as e: log('gada source dump failed', e)
+        finally: mhs.remove_object_to_edit(ra)
+        GLOBN = ('fat', 'masculine/feminine', 'muscularity'); HT = float(os.environ.get('QQ_GA_HEIGHT', '171.0')); sc = HT / ADA['height'][0]
+        OVR = json.loads(os.environ.get('QQ_GA_OVERRIDE', 'null')) or {}; DROP = [q for q in os.environ.get('QQ_GA_DROP', '').split(',') if q]
+        c = unreal.load_asset(k)
+        if not mhs.try_add_object_to_edit(c): raise RuntimeError('cannot edit ' + nm)
+        try:
+            f0 = list(mhs.get_face_model_coefficients(c)); cons = list(mhs.get_body_constraints(c)); asked = {}
+            for x in cons:
+                n_ = str(x.name).lower().replace(' ', '_')
+                if n_ in DROP or n_ not in ADA: x.is_active = False; continue
+                v = OVR[n_] if n_ in OVR else (ADA[n_][0] if n_ in GLOBN else ADA[n_][0] * sc)
+                x.is_active = True; x.target_measurement = max(x.min_measurement, min(x.max_measurement, float(v))); asked[n_] = round(float(x.target_measurement), 2)
+            mhs.set_body_constraints(c, cons); mhs.commit_body_state(c)
+            rb = {str(x.name).lower().replace(' ', '_'): round(x.target_measurement, 2) for x in mhs.get_body_constraints(c)}
+            log('gada scale', round(sc, 4), 'asked', json.dumps(asked)); log('gada readback', json.dumps(rb))
+            f1 = list(mhs.get_face_model_coefficients(c)); fd = max(abs(a - b_) for a, b_ in zip(f0, f1)) if f0 else 0.0
+            if fd > 1e-6: mhs.set_face_model_coefficients(c, f0); mhs.commit_face_state(c)
+            log('gada face diff', fd, 'restored' if fd > 1e-6 else 'unchanged')
+            try: ga_dump(c, 'guloyim')
+            except Exception as e: log('gada result dump failed', e)
+            json.dump({'source': {q: v[0] for q, v in ADA.items()}, 'scale': sc, 'asked': asked, 'readback': rb}, open(f'{OUT}/ga_final.json', 'w'), indent=1)
+        finally: mhs.remove_object_to_edit(c)
+        EAL.save_asset(c.get_path_name(), only_if_is_dirty=False); log('gada saved', nm)
     if 'export_after' in STEPS: _export_final()      # same export, but after the conform / native steps of this session
     if 'turn' in STEPS:
         os.makedirs(f'{OUT}/shots', exist_ok=True)

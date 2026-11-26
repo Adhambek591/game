@@ -98,12 +98,13 @@ def loops_of(bm):
             lp.append(w)
         if len(lp) > 12: out.append([v.co.copy() for v in lp])
     return out
-def tube_along(bm, pts, nrm_fn, r=0.004, seg=6, lift=0.0):
+def tube_along(bm, pts, nrm_fn, r=0.004, seg=6, lift=0.0, fix=None):
     """closed binding: a small round section swept along a closed polyline, sitting on the surface"""
     n = len(pts); rings = []
     for i in range(n):
         p = pts[i]; t = (pts[(i + 1) % n] - pts[i - 1]).normalized(); nn = nrm_fn(p); b = t.cross(nn).normalized(); nn = b.cross(t).normalized()
         c = p + nn * (lift + r * 0.6)
+        if fix: c = fix(c, r)
         rings.append([bm.verts.new(c + (nn * math.cos(2 * math.pi * k / seg) + b * math.sin(2 * math.pi * k / seg)) * r) for k in range(seg)])
     for i in range(n):
         a, b_ = rings[i], rings[(i + 1) % n]
@@ -144,7 +145,11 @@ def stage1():
     for _ in range(2): bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
     bm.normal_update()
     for v in inner: v.co += v.normal * 0.001
-    cut(bm, Vector((0, 0, Z_COL)), Vector((0, 0, 1)), lambda c: abs(c.x) < 0.16)
+    n0 = bone('neck_01'); nax = (bone('head') - n0).normalized(); zc0 = bone('clavicle_l').z      # collar: a round opening about the neck's axis
+    def in_neck(c): d_ = c - n0; return d_.dot(nax) > -0.035 and (d_ - nax * d_.dot(nax)).length < 0.098
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if in_neck(f.calc_center_median())], context='FACES')
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+    smooth_boundary(bm, 12, lambda c: c.z > zc0 - 0.06 and abs(c.x) < 0.2)
     cut(bm, Vector((0, 0, Z_WAIST)), Vector((0, 0, -1)), lambda c: abs(c.x) < 0.34 and c.z < Z_WAIST + 0.06)
     for s in 'lr':
         a, b = WR[s]; d = (b - a).normalized()
@@ -172,14 +177,29 @@ def stage1():
             break
         tight += 1
     print('push-out passes', it + 1, 'left', nf, 'crease verts', tight)
-    # the kaftan lies OVER the trousers' waistband
+    # the kaftan lies OVER the trousers' waistband: seen from the body's axis every kaftan point is outside the trousers
+    # (a radial test: the band's rolled rim has no usable inside / outside), and the zone is relaxed into one smooth surface
     tr = bpy.data.objects.get('SUR_Trousers'); over = 0
     if tr:
-        tt = bvh_of(tr)
-        for v in bm.verts:
-            if v.co.z > Z_WAIST + 0.12: continue
-            q, n, i, d = tt.find_nearest(v.co)
-            if q is not None and d < 0.02 and (v.co - q).dot(n) < 0.0015: v.co = q + n * 0.002; over += 1
+        tt = bvh_of(tr); zt = max(v.co.z for v in tr.data.vertices); yax = bone('spine_01').y
+        def clear_trousers(vs):
+            n_ = 0
+            for v in vs:
+                o = Vector((0, yax, v.co.z)); d = v.co - o; r = d.length; d = d / r; far = None; p0 = o.copy()
+                for _ in range(8):
+                    h = tt.ray_cast(p0, d, 0.6)
+                    if h[0] is None: break
+                    far = (h[0] - o).length; p0 = h[0] + d * 1e-4
+                if far is not None and r < far + 0.002: v.co = o + d * (far + 0.0028); n_ += 1
+            return n_
+        zone = [v for v in bm.verts if v.co.z < zt + 0.10]; inner = [v for v in zone if not v.is_boundary]
+        over = clear_trousers(zone)
+        for _ in range(14):
+            bmesh.ops.smooth_vert(bm, verts=inner, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=False)
+            clear_trousers(zone)
+            for v in zone:
+                q, n, i, d = bt.find_nearest(v.co)
+                if q is not None and (v.co - q).dot(n) < 0.003: v.co = q + n * 0.004
     print('laid over the trousers', over)
     lps = loops_of(bm)
     ko = obj_from(bm, 'SUR_Robe_Torso', M_KAFT)
@@ -197,8 +217,10 @@ def stage1():
 def torso_shell_bm():
     """the cuirass base surface: kaftan-level body surface of the trunk only (+ kaftan + shell offset), open armholes"""
     z_lo = bone('spine_02').z - 0.01; z_hi = bone('neck_01').z + 0.02
+    tr_ = bpy.data.objects.get('SUR_Trousers')
+    if tr_: z_lo = max(z_lo, max(v.co.z for v in tr_.data.vertices) + 0.012)      # the cuirass ends above the trousers' band; the waist guard takes over below
     def keep(i, p):
-        return ARMW[i] < 0.25 and LEGW[i] < 0.5 and HEADW[i] < 0.5 and z_lo - 0.05 < p.z < z_hi + 0.05
+        return ARMW[i] < 0.25 and LEGW[i] < 0.5 and HEADW[i] < 0.5 and z_lo - 0.05 < p.z < z_hi + 0.14
     bm = body_sheet(keep)
     for v in bm.verts: v.co += v.normal * (KAFT + SHELL)
     inner = [v for v in bm.verts if not v.is_boundary]
@@ -207,54 +229,143 @@ def torso_shell_bm():
     for v in inner: v.co += v.normal * 0.0012
     return bm, z_lo, z_hi
 
+class Surf:
+    """a surface to rest things on: nearest point with the SMOOTH (vertex-interpolated) normal, so that the sign of a
+    distance is right in creases and at edges too"""
+    def __init__(self, ob):
+        m = ob.data; m.calc_loop_triangles(); self.co = [v.co.copy() for v in m.vertices]; self.no = [v.normal.copy() for v in m.vertices]
+        self.tri = [tuple(t.vertices) for t in m.loop_triangles]; self.t = BVHTree.FromPolygons(self.co, self.tri)
+        cnt = {}
+        for pl in m.polygons:
+            for ek in pl.edge_keys: cnt[ek] = cnt.get(ek, 0) + 1
+        bp = []
+        for (a, b), c in cnt.items():
+            if c == 1:
+                n_ = max(1, int((self.co[a] - self.co[b]).length / 0.002))
+                bp += [self.co[a].lerp(self.co[b], j / n_) for j in range(n_ + 1)]
+        self.bk = KDTree(max(1, len(bp)))
+        for j, q in enumerate(bp): self.bk.insert(q, j)
+        self.bk.balance(); self.nb = len(bp)
+    def at_edge(self, q, r=0.003):
+        return self.nb > 0 and self.bk.find(q)[2] < r
+    def near(self, p):
+        q, n, i, d = self.t.find_nearest(p)
+        if q is None: return None, None, 1e9
+        a, b, c = self.tri[i]; A, B, C_ = self.co[a], self.co[b], self.co[c]
+        v0, v1, v2 = B - A, C_ - A, q - A; d00, d01, d11, d20, d21 = v0.dot(v0), v0.dot(v1), v1.dot(v1), v2.dot(v0), v2.dot(v1); den = d00 * d11 - d01 * d01
+        if abs(den) > 1e-18:
+            v = (d11 * d20 - d01 * d21) / den; w = (d00 * d21 - d01 * d20) / den; ns = self.no[a] * (1 - v - w) + self.no[b] * v + self.no[c] * w
+            if ns.length > 1e-9: n = ns.normalized()
+        return q, n, (p - q).dot(n)
+    def sd(self, p): return self.near(p)[2]
+def report2(tag, pts, S, zones=None):
+    # samples whose nearest point is the free EDGE of the surface are left out (beyond an edge there is no inside / outside)
+    keep = []; s = []
+    for p in pts:
+        q, n, d = S.near(p)
+        if q is None or S.at_edge(q): continue
+        keep.append(p); s.append(d)
+    skipped = len(pts) - len(keep); pts = keep
+    if not s: print('DIST %-34s no samples' % tag); return s
+    print('DIST %-34s min %+6.1f mm  max %+6.1f mm  mean %+5.1f mm  (n %d, at the edge and left out %d)' % (tag, min(s) * 1000, max(s) * 1000, sum(s) / len(s) * 1000, len(s), skipped))
+    w = sorted(zip(s, [tuple(round(c, 3) for c in p) for p in pts]))
+    print('     lowest at', [(round(a * 1000, 1), b) for a, b in w[:3]], 'highest at', [(round(a * 1000, 1), b) for a, b in w[-2:]])
+    for zn, fn in zones or []:
+        zs = [d for p, d in zip(pts, s) if fn(p)]
+        if zs: print('     %-36s min %+6.1f mm  max %+6.1f mm  (n %d)' % (zn, min(zs) * 1000, max(zs) * 1000, len(zs)))
+    return s
+def smooth_boundary(bm, it=12, where=None):
+    """straighten the stepped free edges (they follow the body's polygons) into smooth curves"""
+    bv = [v for v in bm.verts if v.is_boundary and (where is None or where(v.co))]
+    nb = {v: [e.other_vert(v) for e in v.link_edges if e.is_boundary] for v in bv}
+    for _ in range(it):
+        new = {v: (v.co * 2 + nb[v][0].co + nb[v][1].co) / 4 for v in bv if len(nb[v]) == 2}
+        for v, c in new.items(): v.co = c
+def ZONES():
+    zc = bone('clavicle_l').z
+    return [('shoulder top (z > clavicle)', lambda p: p.z > zc), ('armhole ring (|x| > 0.17, z > 1.20)', lambda p: abs(p.x) > 0.17 and p.z > 1.20),
+            ('upper back (y > 0.05, z > 1.25)', lambda p: p.y > 0.05 and p.z > 1.25), ('sides (|x| > 0.18, z < 1.20)', lambda p: abs(p.x) > 0.18 and p.z < 1.20)]
+
 def stage2():
-    kaft = bpy.data.objects['SUR_Robe_Torso']; kt = bvh_of(kaft)
+    kaft = bpy.data.objects['SUR_Robe_Torso']; K = Surf(kaft); BD = Surf(body)
+    for n_ in ('SUR_Cuirass_Backing', 'SUR_Cuirass_Trim'):
+        if n_ in bpy.data.objects: bpy.data.objects.remove(bpy.data.objects[n_])
     bm, z_lo, z_hi = torso_shell_bm()
     neck = Vector((0, bone('neck_01').y, 0)); z_nl = bone('clavicle_l').z + 0.02
-    cut(bm, Vector((0, 0, z_lo)), Vector((0, 0, -1)))
-    # neck-line: a round opening at the base of the neck
-    bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.calc_center_median().z > z_nl and (Vector((f.calc_center_median().x, f.calc_center_median().y, 0)) - neck).length < 0.10], context='FACES')
+    cut(bm, Vector((0, 0, z_lo - 0.03)), Vector((0, 0, -1)))      # 3 cm long for now: the hem is cut level at the very end
+    # neck-line: one clean slanted cut (low at the throat, higher at the nape)
+    # neck-line: a round opening about the neck's own axis (the stepped rim is straightened by smooth_boundary below)
+    n0 = bone('neck_01'); nax = (bone('head') - n0).normalized(); RN = float(os.environ.get('SUR_NECK_R', '0.125'))
+    def in_neck(c): d_ = c - n0; return d_.dot(nax) > -0.035 and (d_ - nax * d_.dot(nax)).length < RN
+    zc0 = bone('clavicle_l').z
+    bmesh.ops.delete(bm, geom=[f for f in bm.faces if in_neck(f.calc_center_median())], context='FACES')
     bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
-    # contact: every shell vertex 5..7 mm off the kaftan (never inside it)
+    def snap(lo=0.005, hi=0.007):
+        n_ = 0
+        for v in bm.verts:
+            q, n, s = K.near(v.co)
+            if q is not None and (s < lo or s > hi): v.co = q + n * SHELL; n_ += 1
+        return n_
     fixed = 0
-    for v in bm.verts:
-        q, n, i, d = kt.find_nearest(v.co)
-        if q is None: continue
-        s = (v.co - q).dot(n)
-        if s < 0.005 or s > 0.007: v.co = q + n * 0.006; fixed += 1
+    for rnd in range(6):
+        for _ in range(4): fixed += snap()
+        # where the arm's sleeve leaves no room (armpit crease) the shell cannot exist: the armhole is cut deeper there
+        bad = [v for v in bm.verts if (K.sd(v.co) < 0.004 and abs(v.co.x) > 0.15 and v.co.z > 1.12) or BD.sd(v.co) < 0.006]      # ... or inside the arm lying on the trunk
+        if rnd < 5 and bad:
+            bmesh.ops.delete(bm, geom=bad, context='VERTS'); bmesh.ops.delete(bm, geom=[v for v in bm.verts if not v.link_faces], context='VERTS')
+        smooth_boundary(bm, 14 if rnd == 0 else 6, lambda c: c.z > z_lo + 0.02)
+        if not bad and rnd > 0: break
+    for _ in range(4): fixed += snap()
+    cut(bm, Vector((0, 0, z_lo)), Vector((0, 0, -1)))
+    left = [v for v in bm.verts if K.sd(v.co) < 0.0 or BD.sd(v.co) < 0.004]
+    if left: bmesh.ops.delete(bm, geom=left, context='VERTS')
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.normal_update()
+    if sum((f.calc_center_median() - K.near(f.calc_center_median())[0]).dot(f.normal) for f in bm.faces) < 0: bmesh.ops.reverse_faces(bm, faces=bm.faces); bm.normal_update()      # outward = away from the kaftan
     lps = loops_of(bm)
-    sh = obj_from(bm, 'SUR_Cuirass_Backing', M_LEATH); st = bvh_of(sh)
+    sh = obj_from(bm, 'SUR_Cuirass_Backing', M_LEATH); S = Surf(sh)
     tb = bmesh.new(); ne = 0
     for lp in lps:
         if sum(p.z for p in lp) / len(lp) < z_lo + 0.03: continue
-        pts = smooth_closed(resample(lp, 0.010), 3)
-        pts = [st.find_nearest(p)[0] for p in pts]
-        tube_along(tb, pts, lambda p: st.find_nearest(p)[1], r=0.006); ne += 1
-    # shoulder straps laid on the shell / kaftan over the middle of each shoulder
+        pts = smooth_closed(resample(lp, 0.008), 6)
+        pts = [S.near(p)[0] for p in pts]
+        def clear_k(c, r):      # the binding may touch the kaftan / the sleeve, never enter it
+            for _ in range(3):
+                q, n, d = K.near(c)
+                if q is None or d >= r + 0.0006: break
+                c = c + n * (r + 0.0008 - d)
+            return c
+        tube_along(tb, pts, lambda p: S.near(p)[1], r=0.0035, lift=0.0018, fix=clear_k); ne += 1
+    # shoulder straps: leather bands lying ON the shell, over the middle of each shoulder, front to back
+    zc = bone('clavicle_l').z
+    top = [v.co for v in sh.data.vertices if v.co.z > zc]; xo = max(abs(p.x) for p in top)
     for sx in (1, -1):
-        x = sx * (abs(bone('upperarm_l').x) - 0.05); path = []
-        y = -0.30
+        x = sx * (0.085 + xo) / 2; path = []; y = -0.30
         while y < 0.36:
-            h = st.ray_cast(Vector((x, y, 2.2)), Vector((0, 0, -1)), 1.5)
-            hk = kt.ray_cast(Vector((x, y, 2.2)), Vector((0, 0, -1)), 1.5)
-            best = max([q for q in (h, hk) if q[0] is not None], key=lambda q: q[0].z, default=None)
-            if best is not None and best[0].z > z_nl - 0.09: path.append((best[0], best[1]))
-            y += 0.008
-        if len(path) > 6:
-            W, T = 0.022, 0.004; rows = []
-            for i, (p, n) in enumerate(path):
-                t = (path[min(i + 1, len(path) - 1)][0] - path[max(i - 1, 0)][0]).normalized(); b = t.cross(n).normalized()
-                rows.append([tb.verts.new(p + b * W + n * 0.001), tb.verts.new(p + b * W + n * (0.001 + T)), tb.verts.new(p - b * W + n * (0.001 + T)), tb.verts.new(p - b * W + n * 0.001)])
-            for i in range(len(rows) - 1):
-                for k in range(4): tb.faces.new((rows[i][k], rows[i][(k + 1) % 4], rows[i + 1][(k + 1) % 4], rows[i + 1][k]))
+            h = S.t.ray_cast(Vector((x, y, 2.2)), Vector((0, 0, -1)), 1.5)
+            if h[0] is not None and h[0].z > zc - 0.06: path.append(h[0].copy())
+            y += 0.006
+        if len(path) < 8: print('strap path too short', sx, len(path)); continue
+        W, T0, T1 = 0.020, 0.0008, 0.0042; rows = []
+        for i, p in enumerate(path):
+            t = (path[min(i + 1, len(path) - 1)] - path[max(i - 1, 0)]).normalized(); q0, n0, _s = S.near(p); b = t.cross(n0).normalized(); row = []
+            for side, lift in ((1, T0), (1, T1), (-1, T1), (-1, T0)):
+                q, n, _s = S.near(p + b * W * side); row.append(tb.verts.new(q + n * lift))
+            rows.append(row)
+        for i in range(len(rows) - 1):
+            for k in range(4): tb.faces.new((rows[i][k], rows[i][(k + 1) % 4], rows[i + 1][(k + 1) % 4], rows[i + 1][k]))
+        for r_ in (rows[0], rows[-1]): tb.faces.new(r_)
     bmesh.ops.recalc_face_normals(tb, faces=tb.faces)
     tr = obj_from(tb, 'SUR_Cuirass_Trim', M_LEATH)
-    print('STAGE 2 cuirass base: verts %d, set to 6 mm %d, edged loops %d' % (len(sh.data.vertices), fixed, ne))
-    zones = [('shoulder top (z > clavicle)', lambda p: p.z > bone('clavicle_l').z), ('armhole ring (|x| > 0.17, z > 1.20)', lambda p: abs(p.x) > 0.17 and p.z > 1.20),
-             ('upper back (y > 0.05, z > 1.25)', lambda p: p.y > 0.05 and p.z > 1.25), ('sides (|x| > 0.18, z < 1.20)', lambda p: abs(p.x) > 0.18 and p.z < 1.20)]
-    report('cuirass base -> kaftan', [v.co for v in sh.data.vertices], kaft, zones)
-    report('cuirass base -> body', [v.co for v in sh.data.vertices], body)
-    report('edging + straps -> kaftan', [v.co for v in tr.data.vertices], kaft, zones)
+    print('STAGE 2 cuirass base: verts %d, snapped to 6 mm %d, removed in creases %d, edged loops %d' % (len(sh.data.vertices), fixed, len(left), ne))
+    P = [v.co for v in sh.data.vertices]
+    report2('cuirass base -> kaftan', P, K, ZONES())
+    report2('cuirass base -> body', P, BD)
+    report2('edging + straps -> kaftan', [v.co for v in tr.data.vertices], K, ZONES())
+    report2('edging + straps -> body', [v.co for v in tr.data.vertices], BD)
+    report2('edging + straps -> cuirass base', [v.co for v in tr.data.vertices], S, ZONES())
+    # the other direction: no kaftan vertex may stick out through the shell
+    kin = [v.co for v in kaft.data.vertices if abs(S.near(v.co)[2]) < 0.02 and (S.near(v.co)[0] - v.co).length < 0.012]
+    report2('kaftan (under the shell) -> shell', kin, S)
 
 {1: stage1, 2: stage2}.get(STAGE, lambda: print('stage not in this file yet'))()
 bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, 'armor_C.blend'))
