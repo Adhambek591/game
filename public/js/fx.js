@@ -540,7 +540,7 @@ function pfDo() { const L = PF.lvl, pr = Math.max(.5, PF.base * [1, .85, .72, .6
   PF.shadowN = [14, 14, 8, 0, 0][L]; G.pf = PF; try { sessionStorage.qq_pf = String(L); } catch (e) { } }
 function tickPerf() { const now = performance.now() / 1000, raw = now - PF.last; PF.last = now;
   if (!PF.init) { PF.init = true; PF.base = renderer.getPixelRatio(); const sl = scene.children.find(o => o.isDirectionalLight); if (sl) PF.ms0 = sl.shadow.mapSize.x; const q = /[?&]pf=(\d)/.exec(location.search);
-    if (q) { PF.lvl = Math.min(4, +q[1]); PF.lock = 1; } else try { const v = +sessionStorage.qq_pf; if (v > 0 && v <= 4) PF.lvl = v; } catch (e) { } pfApply(); return; }
+    if (q) { PF.lvl = Math.min(4, +q[1]); PF.lock = 1; } else try { const v = +sessionStorage.qq_pf; if (v > 0 && v <= 4) PF.lvl = v; else { const nc = navigator.hardwareConcurrency || 8, dm = navigator.deviceMemory || 8, mob = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent); if (mob && (nc <= 4 || dm <= 3)) PF.lvl = 2; else if (mob && (nc <= 6 || dm <= 4)) PF.lvl = 1; } } catch (e) { } pfApply(); return; }   /* weak phones start low (they climb back up after 5 good 2.5 s windows) instead of stuttering through the first seconds */
   if (PF.lock || G.paused || document.hidden || raw > .22 || raw <= 0) return; PF.acc += raw; PF.n++;
   if (PF.acc < 2.5) return; const fps = PF.fps = PF.n / PF.acc; PF.acc = PF.n = 0;
   if (fps < 27 && PF.lvl < 4) { PF.lvl += fps < 18 && PF.lvl < 3 ? 2 : 1; PF.good = 0; pfApply(); }

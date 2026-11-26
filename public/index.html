@@ -504,6 +504,12 @@ html.vh380 .mt-upv s{font-size:16px}html.vh380 .mt-upv b{font-size:19px}html.vh3
 html.vh380 #set>div{padding:10px 26px 10px}html.vh380 #set h3{font-size:22px}html.vh380 #set h3:after{height:12px;margin:0 auto}
 html.vh380 #set .row{min-height:36px}html.vh380 #set .seg button{height:32px}html.vh380 #set .acts{margin-top:6px}html.vh380 #set .acts button{height:40px}
 html.vh380 #set .x{top:10px}html.vh380 #set .x button{height:28px}
+/* phones (Nov 26): the 3 buttons + joystick are sized in px for a ~390 px tall screen. Small landscape phones (iPhone SE 568x320, 640x360) shrink
+   them so the top HUD keeps its room; big phones / tablets grow them so the thumb finds them. Anchored at the corners, inside the notch safe areas. */
+@media (max-height:360px){#btns{transform:scale(.84);transform-origin:right bottom}#jb{transform:scale(.86);transform-origin:left bottom;bottom:calc(var(--sb) + 12px)}}
+@media (max-height:330px){#btns{transform:scale(.76)}#jb{transform:scale(.78)}}
+@media (min-height:560px) and (pointer:coarse){#btns{transform:scale(1.18);transform-origin:right bottom}#jb{transform:scale(1.15);transform-origin:left bottom}}
+@media (min-height:760px) and (pointer:coarse){#btns{transform:scale(1.32)}#jb{transform:scale(1.28)}}
 </style>
 <link rel="stylesheet" href="./css/ui2.css?v=1795207282">
 <link rel="preload" href="assets/fonts/forum.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="assets/img/ui/key.webp" as="image"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="assets/img/icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
