@@ -202,21 +202,21 @@ def build_tunic_torso():
     for k in range(17):                                   # cylindrical part 0.955 .. 1.36
         z = 0.955 + (zc - 0.955) * k / 16
         rows.append([torso_S(2 * math.pi * i / nu, z, grow=0.0065, tab=TR_BODY) for i in range(nu)])
-    for k in range(1, 9):                                 # spherical yoke up to the neck base
-        e = math.radians(62) * k / 8
+    for k in range(1, 16):                                # spherical yoke up to the neck base (fine rings: no chord into the
+        e = math.radians(62) * k / 12                     # shoulder blades), the last 3 rings tuck under the collar
         R = []
         for i in range(nu):
             u = 2 * math.pi * i / nu
             d = Vector((math.cos(e) * math.sin(u), -math.cos(e) * math.cos(u), math.sin(e)))
             R.append(FIT.ray_dist(('torso', 'neck'), Vector((0, cyc, zc)), d, 0.4))
         R = circ_smooth(fill_circ(R), 2)
-        rows.append([Vector((0, cyc, zc)) + Vector((math.cos(e) * math.sin(2 * math.pi * i / nu), -math.cos(e) * math.cos(2 * math.pi * i / nu), math.sin(e))) * (R[i] + 0.0065) for i in range(nu)])
+        rows.append([Vector((0, cyc, zc)) + Vector((math.cos(e) * math.sin(2 * math.pi * i / nu), -math.cos(e) * math.cos(2 * math.pi * i / nu), math.sin(e))) * (R[i] + 0.0075) for i in range(nu)])
     gfit.smooth_grid(rows, 2, closed_u=True, fix_rows=(0,), fac=0.35)
     for j in range(len(rows)):
         rows[j] = [FIT.conform(p, ('torso', 'neck', 'armL', 'armR'), 0.0055, maxd=0.04) for p in rows[j]]
     shell(mb, rows, 0.003, out_fn=lambda p: p - Vector((0, cyc, min(p.z, zc) - 0.02)), closed_u=True, back=False)
     done(mb.build('GUL_Tunic_Torso', [M_CLOTH]), 'spine_03', 'Cloth')
-    return rows[-1]
+    return rows[-4]                                       # collar sits on the neck-base ring; the tunic continues under it
 
 def build_collar(neck_ring):
     """stand collar on the neck base with a V opening at the front, blue with edging (border attributes)"""
@@ -230,7 +230,7 @@ def build_collar(neck_ring):
         for i in range(ni + 1):
             u = gap + (2 * math.pi - 2 * gap) * i / ni
             h = 0.034 * j / (nj - 1) * (0.75 + 0.25 * abs(math.cos(u / 2)))       # lower toward the V
-            base = Vector((nb.x + math.sin(u) * 0.075, nb.y - math.cos(u) * 0.065, nb.z - 0.010 + 0.012 * (1 - math.cos(u)) / 2 + h))
+            base = Vector((nb.x + math.sin(u) * 0.075, nb.y - math.cos(u) * 0.065, nb.z - 0.012 + 0.004 * (1 - math.cos(u)) / 2 + h))
             d = Vector((math.sin(u), -math.cos(u), 0))
             r = FIT.ray_dist(('neck', 'torso', 'head'), Vector((0, nb.y + 0.005, base.z)), d, 0.3) or 0.06
             row.append(Vector((0, nb.y + 0.005, base.z)) + d * (r + 0.007 + 0.002 * (1 - j / (nj - 1))))
