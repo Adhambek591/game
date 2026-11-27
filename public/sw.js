@@ -1,6 +1,6 @@
 // Qırq qız service worker. Network-first for pages/js/json/css (never a stale module), cache-first for heavy assets, range requests untouched (no videos in the build any more).
 // Bump V ONLY when already-cached assets (glb/jpg/mp3 with the same file name) were replaced: it makes every player download them again.
-const V = 'qq-4';
+const V = 'qq-5';
 const SHELL = ['./', './manifest.webmanifest', './assets/img/icon-192.png'];
 const OFFLINE = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Qırq qız</title><style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#10142b;color:#f8eed8;font-family:system-ui,sans-serif;text-align:center}div{max-width:520px;padding:20px;line-height:1.5}h1{color:#e8bd62;font-weight:400}button{margin-top:14px;padding:12px 28px;font-size:17px;border:0;border-radius:10px;background:#9c1f1b;color:#fff}</style></head><body><div><h1>Qırq qız</h1><p>Internet joq. Oyındı birinshi ret júklew ushın internet kerek.<br>Internet yo‘q. O‘yinni birinchi marta yuklash uchun internet kerak.<br>Нет интернета. Для первой загрузки игры нужно подключение.<br>No connection. The first download of the game needs the internet.</p><button onclick="location.reload()">↻</button></div></body></html>';
 const offlinePage = () => new Response(OFFLINE, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
