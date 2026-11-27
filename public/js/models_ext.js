@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795769147';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795777742';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);
@@ -297,7 +297,7 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
     if (rig.proc !== 'wolf') { if (bm) { const L = VARTEX.askar, i = (n + (ty === 'wolfman' ? 2 : 0)) % (L.length + 1); if (i < L.length) varMap(L[i], bm.material.map, bm.material); }
       if (hm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], hm.material.map, hm.material); } else if (src && !bm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); } }
     if (ty === 'wolf' || ty === 'wolfman') rig.body.scale.multiplyScalar([1, .95, 1.04][n % 3]);
-    if (ty === 'boribasi' && rig.B.LeftArm && rig.B.RightArm) { (e.o || rig.root).updateMatrixWorld(true); const la = rig.B.LeftArm.getWorldPosition(new THREE.Vector3()), ra = rig.B.RightArm.getWorldPosition(new THREE.Vector3()), rr = la.distanceTo(ra) * .3, up = new THREE.Vector3(0, 1, 0), sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : la.clone().lerp(ra, .5);
+    if (false && ty === 'boribasi' && rig.B.LeftArm && rig.B.RightArm) { (e.o || rig.root).updateMatrixWorld(true); const la = rig.B.LeftArm.getWorldPosition(new THREE.Vector3()), ra = rig.B.RightArm.getWorldPosition(new THREE.Vector3()), rr = la.distanceTo(ra) * .3, up = new THREE.Vector3(0, 1, 0), sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : la.clone().lerp(ra, .5);
       for (const [s, ap] of [['Left', la], ['Right', ra]]) { const out = ap.clone().sub(sp); out.y = 0; out.normalize(); const pq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(up, out), up, out)); attachWorld(rig.B[s + 'Arm'], pauldron(1, true), ap.clone().addScaledVector(out, rr * .25).addScaledVector(up, rr * .35), pq, rr * 1.05); } }
     return; }
   const looks = LOOK[b]; let lk = looks[(n + (ty === 'archer' ? 1 : 0)) % looks.length];

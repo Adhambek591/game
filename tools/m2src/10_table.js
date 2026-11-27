@@ -51,7 +51,7 @@ export function runMission(id) { G.noAmulet = false;   /* set again by 1-1 until
   return (id === '0-0' ? Promise.resolve() : w4Ensure()).then(() => RUN[id]());
 }
 // bench #1 lazy load: characters that the title and the tutorial do not need are fetched before the first other mission, with a progress line (sizes in KB)
-const W4DEF = { allayar: 1069, surtaysha: 1075, wolf: 777, wolfman: 1, spwolf: 622, mother: 568, archer: 616, mage: 622 }; let w4EnsP = null;   /* wolf + wolfman share R_boriaskar (wolf-headed soldier, one download); spwolf = R_bori4 for the amulet spirit only */
+const W4DEF = { allayar: 1069, surtaysha: 1075, wolf: 594, wolfman: 1, spwolf: 622, mother: 568, archer: 616, mage: 622 }; let w4EnsP = null;   /* wolf + wolfman share R_boriaskar (wolf-headed soldier, one download); spwolf = R_bori4 for the amulet spirit only */
 function w4Ensure() { if (w4EnsP) return w4EnsP; const ks = Object.keys(W4DEF).filter(k => !(A.real && A.real[k])); if (!ks.length || !A.real) return (w4EnsP = Promise.resolve());
   const tot = ks.reduce((q, k) => q + W4DEF[k], 0) / 1024; let got = 0; const el = document.createElement('div'); el.id = 'w4load'; el.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:80;padding:10px 18px;border-radius:12px;background:rgba(12,14,34,.92);border:1px solid rgba(255,210,120,.6);color:#ffe7b8;font:700 14px/1.3 system-ui,sans-serif;text-align:center;pointer-events:none'; document.body.appendChild(el);
   const show = () => { el.textContent = t('w4_loading') + ' ' + got.toFixed(1) + ' / ' + tot.toFixed(1) + ' MB'; }; show();
