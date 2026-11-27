@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import { Rig, TX } from './rig.js?v=1795718425';
-import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795718425';
-import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795718425';
-import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795718425';
-import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795718425';
-import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795718425';
-import { t } from './i18n.js?v=1795718425';
-import { Sfx, initAudio } from './audio.js?v=1795718425';
-import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795718425';
-import * as FX from './fx.js?v=1795718425';
-import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795718425';
-import { GlbRig, PROPS } from './glbrig.js?v=1795718425';
-import { makeHorse, horseBase } from './horse.js?v=1795718425';
+import { Rig, TX } from './rig.js?v=1795769147';
+import { EffectComposer } from '../assets/vendor/jsm/postprocessing/EffectComposer.js?v=1795769147';
+import { RenderPass } from '../assets/vendor/jsm/postprocessing/RenderPass.js?v=1795769147';
+import { UnrealBloomPass } from '../assets/vendor/jsm/postprocessing/UnrealBloomPass.js?v=1795769147';
+import { ShaderPass } from '../assets/vendor/jsm/postprocessing/ShaderPass.js?v=1795769147';
+import { OutputPass } from '../assets/vendor/jsm/postprocessing/OutputPass.js?v=1795769147';
+import { t } from './i18n.js?v=1795769147';
+import { Sfx, initAudio } from './audio.js?v=1795769147';
+import { ENV, loadEnv, pbrMat, groundMat, dressGround, loadGLB, place } from './env.js?v=1795769147';
+import * as FX from './fx.js?v=1795769147';
+import { SkinRig, ANIM, RIBROOT } from './skinrig.js?v=1795769147';
+import { GlbRig, PROPS } from './glbrig.js?v=1795769147';
+import { makeHorse, horseBase } from './horse.js?v=1795769147';
 export { THREE };
 export const $ = id => document.getElementById(id);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -67,7 +67,7 @@ function noiseTex(base, v) { return canvasTex(256, (g, s) => { g.fillStyle = bas
 
 // ---------- Assets ----------
 export const A = { tex: {}, props: {} };
-export const REAL = { gulayim: ['R_gulayim', 'saber'], allayar: ['R_allayar', 'saber'], surtaysha: ['R_surtaysha', 'axe', 0, 1.1], qiz: ['R_qiz', 'saber'], son: ['R_yigit', 'saber', 1], askar: ['R_askar', 'saber', 1], wolf: ['R_bori4', null, 0, 1.0] /* author Nov 26 playtest ('still no wolves'): the wolves are back — quadruped wolf with the procedural gait in skinrig.js _wolf(); the potion brute (wolfman) is the wolf-man R_bori; the amulet's spectral wolf shares the same GLB */, spwolf: ['R_bori4', null, 0, 1.0], mother: ['R_ona', null], archer: ['R_kamonchi', 'bow'], mage: ['R_shaman', 'staff'], qashqir: ['R_qashqir', 'axe'], qumdev: ['R_qumdev', null], qunqar: ['R_qunqar', null], qargashiq: ['R_qargashiq', 'axe'], sarbinaz: ['R_sarbinaz', 'spear'], jallod: ['R_jallod', null], otbasqan: ['R_otbasqan', 'saber'], aydarho: ['R_aydarho', null, 0, 7], shaman: ['R_shaman', 'staff'], bayimbet: ['R_yigit', null], asir: ['R_yigit', null], elder: ['R_ona', null] };
+export const REAL = { gulayim: ['R_gulayim', 'saber'], allayar: ['R_allayar', 'saber'], surtaysha: ['R_surtaysha', 'axe', 0, 1.1], qiz: ['R_qiz', 'saber'], son: ['R_yigit', 'saber', 1], askar: ['R_askar', 'saber', 1], wolf: ['R_boriaskar', 'saber', 0, 1.0] /* author Nov 27: 'soldiers with a wolf head on the body, not four-legged wolves' — R_boriaskar = R_askar soldier body + R_bori wolf head on the askar skeleton (tools/blender/wolfsoldier/build.py): humanoid mocap, saber, no helmet. The quadruped R_bori4 is only the amulet's spectral wolf (spwolf) */, spwolf: ['R_bori4', null, 0, 1.0], mother: ['R_ona', null], archer: ['R_kamonchi', 'bow'], mage: ['R_shaman', 'staff'], qashqir: ['R_qashqir', 'axe'], qumdev: ['R_qumdev', null], qunqar: ['R_qunqar', null], qargashiq: ['R_qargashiq', 'axe'], sarbinaz: ['R_sarbinaz', 'spear'], jallod: ['R_jallod', null], otbasqan: ['R_otbasqan', 'saber'], aydarho: ['R_aydarho', null, 0, 7], shaman: ['R_shaman', 'staff'], bayimbet: ['R_yigit', null], asir: ['R_yigit', null], elder: ['R_ona', null] };
 const RIBS = {};
 function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh && !sm) sm = o; }); if (!sm || sm.geometry.userData.fist) return; sm.geometry.userData.fist = 1; src.updateMatrixWorld(true);
   const bones = sm.skeleton.bones, hi = bones.findIndex(b => b.name === 'RightHand'), fi = bones.findIndex(b => b.name === 'RightForeArm'); if (hi < 0 || fi < 0) return;
@@ -79,10 +79,11 @@ function fistify(src) { let sm = null; src.traverse(o => { if (o.isSkinnedMesh &
     if (t > L) { const k2 = k1.clone().add(d.clone().multiplyScalar(L).applyQuaternion(q)); const q2 = new THREE.Quaternion().setFromAxisAngle(ax, 1.4); v.sub(k2).applyQuaternion(q2).add(k2); }
     v.applyMatrix4(Mi); pos.setXYZ(i, v.x, v.y, v.z); }
   pos.needsUpdate = true; sm.geometry.computeVertexNormals(); }
-const NOFIST = new Set(['wolf', 'qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
+const NOFIST = new Set(['qumdev', 'qunqar', 'aydarho', 'jallod', 'mother', 'elder', 'asir', 'bayimbet']);
 const LAZY = new Set(['qashqir', 'qumdev', 'qunqar', 'qargashiq', 'jallod', 'aydarho', 'sarbinaz', 'otbasqan', /* bench #1: not needed for title + 0-0, loaded by missions.js w4Ensure() before any other mission */ 'allayar', 'surtaysha', 'wolf', 'spwolf', 'mother', 'archer', 'mage']);
+const REALP = {};
 export async function ensureReal(types) { if (!A.real || /[?&]oldrig=1/.test(location.search)) return; types = types.filter(t => { if (!REAL[t] || A.real[t]) return false; const k = Object.keys(A.real).find(q => A.real[q] && REAL[q] && REAL[q][0] === REAL[t][0]); if (k) { A.real[t] = A.real[k]; return false; } return true; });   /* same GLB already loaded for another type (potion brutes = R_askar): share it */
-  await Promise.all(types.map(t => loadGLB('./assets/models/' + REAL[t][0] + '.glb?v=1795718425').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', t, err)))); }
+  await Promise.all(types.map(t => { const f = REAL[t][0], P = REALP[f] || (REALP[f] = loadGLB('./assets/models/' + f + '.glb?v=1795769147')); return P.then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => { delete REALP[f]; console.warn('real', t, err); }); })); }
 const PROPN = ['R_horse', 'R_horse_lo', 'R_horse_far', 'R_arava', 'W_saber', 'W_axe', 'W_spear', 'W_bow', 'W_shield', 'B_yurt', 'B_house', 'B_wall', 'B_tower'];
 const GSC = { surtaysha: .92, camel: .86, qashqir: .9, allayar: 1.22, gulayim: 1.04, sarbinaz: 1.0, son: .95, qiz: .97, askar: .86, wolf: .86, archer: .86, mage: .88 };
 const GMAP = { qiz: ['qiz', 'saber'], gulayim: ['gulayim', 'saber'], allayar: ['allayar', 'saber'], sarbinaz: ['sarbinaz', 'spear'], mother: ['ona', null], son: ['yigit', 'saber', 1], askar: ['askar', 'saber', 1], wolf: ['bori', null], archer: ['kamonchi', 'bow'], mage: ['shaman', 'staff'], camel: ['tuyadev', 'axe'], qashqir: ['qashqir', 'axe'], surtaysha: ['surtaysha', 'axe'] };
@@ -90,9 +91,9 @@ export async function loadAssets(onp) {
   const tl = new THREE.TextureLoader(); let n = 0; const realL = Object.entries(REAL).filter(([t]) => !LAZY.has(t)), NT = 2 + PROPN.length + realL.length, BOOT_MB = 7.7; const step = () => { n++; const f = Math.min(1, n / NT); try { window.__LOAD = { mb: +(f * BOOT_MB).toFixed(1), total: BOOT_MB, done: n, files: NT }; } catch (e) { } onp(f); };   // window.__LOAD: the loading line can show "X / Y MB"
   const envP = loadEnv(renderer).catch(e => console.warn(e));
   await Promise.all(['ground1', 'ground2'].map(k => tl.loadAsync(`./assets/img/${k}.jpg`).then(tx => { tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace; tx.anisotropy = 8; A.tex[k] = tx; }).catch(() => { A.tex[k] = TX.plaster(k === 'ground1' ? '#5a4a3a' : '#8a7458'); }).then(step)));
-  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795718425').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
-  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795718425').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
-  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795718425').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
+  await Promise.all(PROPN.map(n => loadGLB('./assets/props/' + n + '.glb?v=1795769147').then(s => { s.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); if (n[0] === 'R') { s.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(s); const g = new THREE.Group(); s.position.y -= bb.min.y; s.position.x -= (bb.min.x + bb.max.x) / 2; s.position.z -= (bb.min.z + bb.max.z) / 2; g.add(s); s = g; } A.props[n] = PROPS[n] = s; }).catch(() => { }).then(step)));
+  A.real = {}; if (!/[?&]oldrig=1/.test(location.search)) { try { ANIM.data = await (await fetch('./assets/models/anims.json')).json(); } catch (err) { console.warn('anims', err); } await Promise.all(Object.entries(REAL).filter(([t]) => !LAZY.has(t)).map(([t, [f]]) => loadGLB('./assets/models/' + f + '.glb?v=1795769147').then(s => { if (!NOFIST.has(t) && REAL[t][1]) fistify(s); A.real[t] = s; }).catch(err => console.warn('real', f, err)).then(step))); }
+  await envP; A.glb = {}; if (!/[?&]oldrig=1/.test(location.search)) await Promise.all(Object.entries(GMAP).filter(([t]) => !REAL[t] || (!A.real[t] && !LAZY.has(t))).map(([t, [f]]) => A.glb[f] ? 0 : (A.glb[f] = 1, loadGLB('./assets/models/' + f + '.glb?v=1795769147').then(sc => { A.glb[f] = sc; }).catch(e => { A.glb[f] = null; console.warn('glb', f, e); }))));
 }
 
 // ---------- Unit types ----------
@@ -126,14 +127,14 @@ Object.assign(T, {
 });
 const SC = { gulayim: 1.3, allayar: 1.36, son: 1.22, sarbinaz: 1.27, mother: 1.18, child: .72, askar: 1.28, wolf: 1.28, archer: 1.2, mage: 1.32, camel: 2.3, qashqir: 1.95, surtaysha: 2.25 }; for (const k in SC) T[k].scale = SC[k]; for (const k of ['shaman', 'otbasqan', 'bayimbet', 'asir', 'elder']) T[k].scale = T[T[k].like].scale; T.qiz = { ...T.son, follow: true, hp: 600 };
 Object.assign(T.askar, { hp: 95, dmg: [9, 13], speed: 3.9, string: 2, block: .22, cd: 1.5 });
-Object.assign(T.wolf, { hp: 100, dmg: [11, 15], speed: 6.8, cd: 1.3 });
+Object.assign(T.wolf, { hp: 100, dmg: [11, 15], speed: 6.8, cd: 1.3, string: 2, block: .12, run: null });   /* wolf-headed soldier: fast, light, 2-hit sword strings (humanoid run, no 'Running_C' quadruped pick) */
 Object.assign(T.archer, { hp: 60, dmg: [9, 12], volley: 3, keep: 10, cd: 3.2, speed: 3.6 });
 for (const k of ['mage', 'shaman']) Object.assign(T[k], { hp: 230, elite: true, poise: 90, name: 'shaman', cd: 3.0 });
 for (const k of ['son', 'qiz', 'otbasqan']) Object.assign(T[k], { string: 2, block: .18 });
 // new enemy types (reuse existing models): spearman = armoured, slow, one big telegraphed thrust; wolf chieftain = mini-boss
 Object.assign(T, {
   nayza: { ...T.askar, like: 'askar', mdl: 'askar', wpn: 'spear', vsK: 1.17, scale: T.askar.scale * 1.17, hp: 300, dmg: [30, 38], speed: 2.5, range: 3.3, windup: 1.15, cd: 2.5, rec: 1.0, lane: true, armor: .4, poise: 130, elite: true, name: 'nayza', string: 1, block: 0 },
-  boribasi: { ...T.wolf, like: 'wolf', mdl: 'wolf', vsK: 1.55, scale: T.wolf.scale * 1.55, hp: 950, dmg: [24, 32], speed: 5.4, range: 2.6, windup: .5, cd: 1.6, poise: 200, elite: true, name: 'boribasi', glow: 0x661008 }
+  boribasi: { ...T.wolf, like: 'wolf', mdl: 'wolf', wpn: 'axe', vsK: 1.15, scale: T.wolf.scale * 1.15, hp: 950, dmg: [24, 32], speed: 5.4, range: 2.6, windup: .5, cd: 1.6, poise: 200, elite: true, name: 'boribasi', glow: 0x661008 }
 });
 const sv = (a, b) => { const P = G.player; if (!P || a === P || b === P) return 1; return clamp(1.2 / (1 + Math.hypot(a.x - P.x, a.z - P.z) * .3), 0, .55); };  // others' fights: quieter, fading with distance
 const hostile = (a, b) => (a === 'enemy' && b === 'ally') || (a === 'ally' && b === 'enemy');
@@ -298,7 +299,7 @@ const tokFree = e => { if (e.tokT > G.time) e.tokT = G.time + rnd(.25, .6); };
 // where a moving target will be after t seconds (k < 1 = partial lead), kept inside the arena
 const lead = (o, t, k = 1) => ({ x: clamp(o.x + (o.vx || 0) * t * k, -G.W + .6, G.W - .6), z: o.z + (o.vz || 0) * t * k });
 // ---- battle lines: when two groups meet, each side advances to its own shared line, holds briefly, then charges in staggered waves
-const FRONT_X = new Set(['wolf', 'boribasi']);
+const FRONT_X = new Set(['boribasi']);   /* wolf-headed soldiers hold the battle line with the other soldiers; the chieftain leads his own fight */
 const frontable = e => !e.dead && !e.gone && !e.bg && e !== G.player && !e.d.ranged && !e.d.heavy && !FRONT_X.has(e.type) && !e.custom && e.speed > 0 && e.hp < 1e8 && e.team === 'enemy';
 function frontTick(dt) {
   const F = G.front || (G.front = { ph: 'none', t: 0, quiet: 0 }); F.t += dt; const P = G.player; if (G.noFront || !P) return;
@@ -582,9 +583,9 @@ function bossPhase(e, dt) {
       burst(e.x, e.h * .7, e.z, 0xff7a10, 2.5); } }
   return false;
 }
-REAL.wolfman = ['R_bori', null, 0, .95]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman' }; NOFIST.add('wolfman'); LAZY.add('wolfman');   // the potion brute is the wolf-man again (author Nov 26: wolves back as before)
+REAL.wolfman = ['R_boriaskar', 'axe', 0, .95]; T.wolfman = { ...T.wolf, like: 'wolf', mdl: 'wolfman', wpn: 'axe' }; LAZY.add('wolfman');   // potion brute = the wolf-headed soldier, bigger (transformEnt x1.3), with an axe (author Nov 27)
 const _bv = new THREE.Vector3(), _bv2 = new THREE.Vector3(), _bcr = new THREE.Vector3();
-const BRAIN = { wolf: wolfAI, wolfman: wolfAI, boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
+const BRAIN = { boribasi: chiefAI, mage: shamanAI, shaman: shamanAI };
 function ai(e, dt) {
   const d = e.d; if (e.spawnT > 0) { e.spawnT -= dt; e.o.scale.setScalar((e.vs || d.scale || 1) * clamp(1 - e.spawnT / .45, .01, 1)); return; }
   if (e.team === 'npc' || e.air) { if (e.team === 'npc' && !e.duel) { if (CIVT.has(e.type)) civAvoid(e, dt); else npcSpace(e, dt); } return; }
@@ -963,7 +964,7 @@ HACT.hvy = (p, a, dt, fx, fz) => { if (a.t < a.hitAt && a.v !== 'sweep') { p.x +
   else { slashFx(p.x + fx * .5, 1.4, p.z + fz * .5, p.rot, 1.3, 0xbfe0ff); n = hitArc(p, 3.3, .15, () => pd() * 1.9, { crit: true, kb: 2, launch: 1, gb: 1, pz: 2 }); }
   hitBreak(p.x + fx * 1.6, p.z + fz * 1.6, 2.2, 'atk'); if (n) { Sfx.hit(); G.shake = Math.max(G.shake, .4); G.zk = Math.max(G.zk || 0, .09); G.ulti = Math.min(100, G.ulti + 5 * n); } };
 // wolf spirit: a spectral wolf runs ahead of the dash, everything on the line is hit and thrown down
-function spiritWolf(p) { const src = A.real && (A.real.spwolf || A.real.wolf);   /* same R_bori4 GLB as the enemy wolves */ if (!src || !ANIM.data) return; try { const rig = new SkinRig(src, {}), o = rig.root, gm = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }); o.traverse(m => { if (m.isMesh) { m.material = gm; m.castShadow = false; m.frustumCulled = false; } }); o.scale.setScalar(1.18 * .95 * 1.45); rig.play('Running_A', { ts: 2 }); fxg.add(o); (G.spirits || (G.spirits = [])).push({ rig, o, gm, p, t: 0 }); } catch (err) { console.warn('spirit', err); } }
+function spiritWolf(p) { const src = A.real && A.real.spwolf;   /* quadruped R_bori4 (the enemy 'wolves' are wolf-headed soldiers now) */ if (!src) { if (A.real) ensureReal(['spwolf']); return; } if (!ANIM.data) return; try { const rig = new SkinRig(src, {}), o = rig.root, gm = new THREE.MeshBasicMaterial({ color: 0x66c8ff, transparent: true, opacity: .6, blending: THREE.AdditiveBlending, depthWrite: false }); o.traverse(m => { if (m.isMesh) { m.material = gm; m.castShadow = false; m.frustumCulled = false; } }); o.scale.setScalar(1.18 * .95 * 1.45); rig.play('Running_A', { ts: 2 }); fxg.add(o); (G.spirits || (G.spirits = [])).push({ rig, o, gm, p, t: 0 }); } catch (err) { console.warn('spirit', err); } }
 function tickSpirits(dt) { const L = G.spirits || []; for (let i = L.length - 1; i >= 0; i--) { const s = L[i], p = s.p; s.t += dt; s.rig.update(dt); const lead = 1.7 + Math.min(s.t, .5) * 2; s.o.position.set(p.x + Math.sin(p.rot) * lead, (p.y || 0) * .5, p.z + Math.cos(p.rot) * lead); s.o.rotation.y = p.rot; s.gm.opacity = .6 * clamp((.85 - s.t) / .3, 0, 1); if (Math.random() < .7) sparks(s.o.position.x, 1, s.o.position.z, 0x7fd0ff, 1, 2); if (s.t > .85 || !p || p.dead) { fxg.remove(s.o); if (s.rig.dispose) s.rig.dispose(); s.gm.dispose(); L.splice(i, 1); } } }
 function wolfLine(p, a) { if (!a.hit) return; for (const e of G.ents) { if (e.dead || e.team !== 'enemy' || a.hit.has(e)) continue; if (Math.hypot(e.x - p.x, e.z - p.z) < 2.1 + e.r) { a.hit.add(e); e.damage(pd() * 2, p, { crit: true, kb: 9, kd: 1, gb: 1, pz: 2 }); sparks(e.x, 1.2, e.z, 0x9fd8ff, 10, 6); Sfx.hit(); G.ulti = Math.min(100, G.ulti + 4); } } if (Math.random() < .8) burst(p.x, .8 + (p.y || 0) * .5, p.z, 0x66c8ff, .9); }
 // HUD extras created from code: low-HP vignette, boss poise bar, off-screen attacker arrows, skill glows

@@ -5,7 +5,7 @@
 //   install(engineModule)  -> starts the enemy-variant scanner (helmets / atlases / shields / captains' gold)
 //   amulet(S)              -> the canonical golden down-pointing triangle tumar (same geometry as skinrig's)
 import * as THREE from 'three';
-import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795718425';
+import { mergeGeometries } from '../assets/vendor/jsm/utils/BufferGeometryUtils.js?v=1795769147';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 let SEED = 1; const srand = s => { SEED = s >>> 0 || 1; }; const sr = () => { SEED = (SEED * 1664525 + 1013904223) >>> 0; return SEED / 4294967296; }; const srr = (a, b) => a + sr() * (b - a);
@@ -289,10 +289,17 @@ export function vary(e) { const rig = e.rig; if (!rig || !rig.B || e._mx) return
   const ch = (MX.G && MX.G.mis && MX.G.mis.c) || 1, b = band(ch); const cap = !!(e.hunt || /cap/.test(d.name || '') || d.cap);
   const base = ty === 'archer' ? 'archer' : (ty === 'wolf' || ty === 'boribasi') ? 'wolf' : 'askar'; const n = CNT[ty] = (CNT[ty] || 0) + 1;
   let src = null; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map && !src) src = k; });
-  /* wolves (author Nov 26: wolves back as before f3b1203): quadruped R_bori4 ('wolf', 'boribasi') and the wolf-man R_bori ('wolfman', potion brute) never get a
-     helmet or a soldier atlas. The bori_* atlases are painted for the wolf-man UVs only, so the quadruped keeps its own texture and only varies in size. */
-  if (base === 'wolf' || mt === 'wolfman' || ty === 'wolfman') { const wm = rig.proc !== 'wolf'; if (src && wm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); }
-    if (ty === 'wolf' || ty === 'wolfman') rig.body.scale.multiplyScalar([1, .92, 1.07][n % 3]); return; }
+  /* author Nov 27 ('soldiers with a wolf head on the body, not four-legged wolves'): 'wolf', 'boribasi' and the potion brute 'wolfman' are wolf-headed
+     SOLDIERS: R_boriaskar = R_askar body + R_bori wolf head on the askar skeleton, two materials ('soldier' = askar atlas/UVs, 'wolfhead' = bori atlas/UVs).
+     The wolf head is the head: no helmet shell. Body takes the soldier colour atlases, head the wolf fur atlases; the chieftain wears gold pauldrons. */
+  if (base === 'wolf' || mt === 'wolfman' || ty === 'wolfman') { const ms = []; rig.scene.traverse(k => { if (k.isSkinnedMesh && k.material && k.material.map) ms.push(k); });
+    const bm = ms.find(k => /soldier/.test(k.material.name)), hm = ms.find(k => /wolfhead/.test(k.material.name));
+    if (rig.proc !== 'wolf') { if (bm) { const L = VARTEX.askar, i = (n + (ty === 'wolfman' ? 2 : 0)) % (L.length + 1); if (i < L.length) varMap(L[i], bm.material.map, bm.material); }
+      if (hm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], hm.material.map, hm.material); } else if (src && !bm) { const L = VARTEX.wolf, i = n % 3; if (i < L.length) varMap(L[i], src.material.map, src.material); } }
+    if (ty === 'wolf' || ty === 'wolfman') rig.body.scale.multiplyScalar([1, .95, 1.04][n % 3]);
+    if (ty === 'boribasi' && rig.B.LeftArm && rig.B.RightArm) { (e.o || rig.root).updateMatrixWorld(true); const la = rig.B.LeftArm.getWorldPosition(new THREE.Vector3()), ra = rig.B.RightArm.getWorldPosition(new THREE.Vector3()), rr = la.distanceTo(ra) * .3, up = new THREE.Vector3(0, 1, 0), sp = rig.B.Spine02 ? rig.B.Spine02.getWorldPosition(new THREE.Vector3()) : la.clone().lerp(ra, .5);
+      for (const [s, ap] of [['Left', la], ['Right', ra]]) { const out = ap.clone().sub(sp); out.y = 0; out.normalize(); const pq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3().crossVectors(up, out), up, out)); attachWorld(rig.B[s + 'Arm'], pauldron(1, true), ap.clone().addScaledVector(out, rr * .25).addScaledVector(up, rr * .35), pq, rr * 1.05); } }
+    return; }
   const looks = LOOK[b]; let lk = looks[(n + (ty === 'archer' ? 1 : 0)) % looks.length];
   if (ty === 'nayza') lk = ['cone', b === 'late' ? 3 : 0, { dark: b === 'late', plume: b === 'early' ? 0 : 0x8a1810 }]; else if (ty === 'qilich') lk = ['lam', [-1, 0, 3][n % 3], { plume: [0xa01810, 0x1a1414, 0xd8c8a8][n % 3] }]; else if (ty === 'qalqan') lk = ['cone', [1, 2, 0][n % 3], {}];
   else if (d.name === 'w4_cav') lk = ['fur', [0, 2, 1][n % 3], { cloth: [0x7a1a14, 0x1e2a44, 0x3a3a1a][n % 3], fur: 0x2e2218, flaps: true }];
